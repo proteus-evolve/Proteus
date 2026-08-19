@@ -12,7 +12,7 @@ from proteus.core.episode import RunConfig, run
 def test_seeded_tasks_start_failing(tmp_path):
     # a task whose seed already passes is a dead reward signal
     for key in TASKS:
-        task = local_task(key)
+        task = local_task(key, trusted_local=True)
         ws = tmp_path / key.replace(":", "_")
         ws.mkdir()
         task.setup(ws)
@@ -22,7 +22,7 @@ def test_seeded_tasks_start_failing(tmp_path):
 
 
 def test_grader_rewards_a_fix(tmp_path):
-    task = local_task("local:interval-merge")
+    task = local_task("local:interval-merge", trusted_local=True)
     ws = tmp_path / "task"
     ws.mkdir()
     task.setup(ws)
@@ -57,7 +57,7 @@ def test_diff_shows_only_the_agents_edit(tmp_path):
 
 def test_local_grader_ignores_edited_tests(tmp_path):
     # editing tests.py must not raise the score: the grader restores held-out tests
-    task = local_task("local:interval-merge")
+    task = local_task("local:interval-merge", trusted_local=True)
     ws = tmp_path / "task"
     ws.mkdir()
     task.setup(ws)
@@ -68,7 +68,7 @@ def test_local_grader_ignores_edited_tests(tmp_path):
 
 
 def test_goal_conditioned_run_seeds_and_scores(tmp_path):
-    task = local_task("local:interval-merge")
+    task = local_task("local:interval-merge", trusted_local=True)
     cfg = RunConfig(name="goal", adapter=MinimalHarness(), disposition=NEUTRAL,
                     goal=as_goal(task, visibility=Visibility.OBSERVE),
                     root=tmp_path / "run", model="mock", episodes=2, seed=0, task=task)
@@ -78,3 +78,35 @@ def test_goal_conditioned_run_seeds_and_scores(tmp_path):
     assert (ws / "solution.py").is_file()        # seeded before episode 1
     assert all(h["results"] for h in res.eval_history)   # scored every episode
     assert res.eval_history[0]["results"][0]["name"] == task.id
+
+
+def test_local_task_refuses_implicit_host_execution():
+    try:
+        local_task("local:interval-merge")
+    except ValueError as exc:
+        assert "isolated sandbox" in str(exc)
+    else:
+        raise AssertionError("local_task allowed agent-authored code to run on the host")
+
+
+def test_local_task_routes_grading_through_the_sandbox(tmp_path):
+    import subprocess
+
+    seen = {}
+
+    class RecordingSandbox:
+        def run(self, run_root, command, env, timeout_s, mounts=()):
+            seen.update(run_root=run_root, command=command, env=env,
+                        timeout_s=timeout_s, mounts=mounts)
+            return subprocess.CompletedProcess(
+                command, 0, '{"passed":["test_ok"],"failed":[]}\n', "")
+
+    task = local_task("local:interval-merge", sandbox=RecordingSandbox())
+    ws = tmp_path / "task"
+    ws.mkdir()
+    task.setup(ws)
+    result = task.grade(ws)
+
+    assert result.passed
+    assert seen["command"] == ["python3", "/workspace/_grade.py"]
+    assert seen["mounts"] == ((str(ws.resolve()), "/workspace"),)

@@ -4,12 +4,11 @@ Docker-graded suites (see `swe.py`) are the high-fidelity option and cost tens o
 container per instance. Most iteration does not need that: to ask whether a *goal* changes
 what a harness evolves into, what matters is a stable scalar reward, not a leaderboard
 number. This pack gives one — seeded bugs in a tiny repo, graded by running its tests, with
-no network, no images, and no dataset download.
+no network or dataset download.
 
 **Containment.** Grading runs code the agent wrote. That is exactly the capability that
 escaped an application-level sandbox in our own runs, so the grader must run under the same
-isolation as the episode: pass a `Sandbox`, or accept that `LocalSandbox` is no isolation
-at all and only use it for harnesses you trust.
+isolation as the episode: pass a `Sandbox`, or explicitly opt into trusted host execution.
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ from pathlib import Path
 
 from proteus.bench.task import BenchTask
 from proteus.core.goal import EvalResult
+from proteus.sandbox import LocalSandbox, Sandbox
 
 GRADE_TIMEOUT_S = 60
 
@@ -142,15 +142,21 @@ def _write_pack(ws: Path, key: str) -> None:
     # so the seed is preserved in the task spec, not in a sub-repo.
 
 
-def _grade(ws: Path, key: str) -> EvalResult:
+def _grade(ws: Path, key: str, sandbox: Sandbox | None) -> EvalResult:
     # grade against the held-out tests: restore tests.py from the spec first, so an agent
     # that "passes" by editing the tests (the reward-hack this setup invites) gains nothing
     (ws / "tests.py").write_text(textwrap.dedent(_TASKS[key]["tests"]), encoding="utf-8")
     (ws / "_grade.py").write_text(_DRIVER, encoding="utf-8")
     try:
-        proc = subprocess.run([sys.executable, "_grade.py"], cwd=str(ws),
-                              capture_output=True, text=True, timeout=GRADE_TIMEOUT_S,
-                              check=False)
+        if sandbox is None or isinstance(sandbox, LocalSandbox):
+            proc = subprocess.run([sys.executable, "_grade.py"], cwd=str(ws),
+                                  capture_output=True, text=True, timeout=GRADE_TIMEOUT_S,
+                                  check=False)
+        else:
+            proc = sandbox.run(
+                ws, ["python3", "/workspace/_grade.py"], {}, GRADE_TIMEOUT_S,
+                mounts=((str(ws.resolve()), "/workspace"),),
+            )
     except subprocess.TimeoutExpired:
         return EvalResult(name=key, score=0.0, passed=False,
                           detail=f"grading timed out after {GRADE_TIMEOUT_S}s")
@@ -169,15 +175,23 @@ def _grade(ws: Path, key: str) -> EvalResult:
                              + (f"; failing: {rep['failed'][:3]}" if n_bad else ""))
 
 
-def local_task(key: str) -> BenchTask:
-    """One task from the built-in pack. `proteus.bench.local.TASKS` lists the keys."""
+def local_task(key: str, *, sandbox: Sandbox | None = None,
+               trusted_local: bool = False) -> BenchTask:
+    """One built-in task, graded in `sandbox` unless trusted host execution is explicit."""
     if key not in _TASKS:
         raise KeyError(f"unknown local task {key!r}; have {sorted(_TASKS)}")
+    if sandbox is None and not trusted_local:
+        raise ValueError(
+            "local_task grades agent-authored Python; pass an isolated sandbox or set "
+            "trusted_local=True only for code you trust"
+        )
+    if isinstance(sandbox, LocalSandbox) and not trusted_local:
+        raise ValueError("LocalSandbox is not isolation; set trusted_local=True to use it")
     return BenchTask(
         id=key,
         goal_text=_TASKS[key]["goal"],
         setup=lambda ws, k=key: _write_pack(ws, k),
-        grade=lambda ws, k=key: _grade(ws, k),
+        grade=lambda ws, k=key, s=sandbox: _grade(ws, k, s),
     )
 
 
