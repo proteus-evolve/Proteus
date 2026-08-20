@@ -1,6 +1,6 @@
-# Proteus v0.1.0 launch + DSH evolution teaser
+# Proteus v0.1.0 launch film + DSH evolution post copy
 
-Launch video: `proteus-v0.1.0-dsh-teaser-30s.mp4`
+Launch video: `proteus-v0.1.0-release-30s.mp4`
 
 Soundtrack: original 12-bar light-jazz piano, synthesized by the versioned renderer.
 
@@ -46,13 +46,14 @@ itself to hear?
 Repository: https://github.com/proteus-evolve/Proteus
 Install: `pip install proteus-evolve`
 
-## 15-second edit notes
+## 30-second film structure
 
-- 0–3s: `Proteus v0.1.0 is live`
-- 3–7s: `Choose harness × model → describe what it should become`
-- 7–11s: keep the existing feature/evolution sequence; overlay `Every episode measured. Every snapshot kept.`
-- 11–15s: `Next: Can DeepSeek Harness evolve itself to hear?` followed by `Live trace soon · proteus-evolve.github.io`
+- 0–6s: expand `ANY HARNESS`; show DSH, Pi, and custom harness as examples.
+- 6–12s: shrink to the trace, connect, then expand `SELF-EVOLVE`.
+- 12–18s: connect and expand `VISUALIZE`; show a real episode trajectory.
+- 18–24s: connect and expand `ANALYZE`; show measurements and snapshots.
+- 24–30s: reveal the complete Proteus mark and `v0.1.0 is released`.
 
-Keep the rc.8/audio line as a teaser, not a completed capability claim. Until the run and
-held-out fixtures finish, use “we are asking it to evolve” rather than “Proteus added
-audio to DSH.”
+The DSH rc.8/audio teaser belongs in the post copy, not in the launch film. Keep it as a
+question rather than a completed capability claim: until the run and held-out fixtures
+finish, use “we are asking it to evolve” rather than “Proteus added audio to DSH.”
