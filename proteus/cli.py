@@ -118,7 +118,7 @@ def _evaluator(spec: str, adapter_factory):
     """Parse one --evaluator: `<what>[@hidden|@observe]`. Returns (spec, task | None).
 
     measurement: units:<surface-name> | tool-calls | step
-    benchmark:   local:<task> | polyglot:<exercise>   (seeds the task workspace too)
+    benchmark:   local:<task> | polyglot:<exercise> | dsh-audio
     custom:      contains:<relpath>:<needle>
     """
     from proteus.bench.task import as_evaluator
@@ -129,6 +129,14 @@ def _evaluator(spec: str, adapter_factory):
         raise SystemExit(f"bad --evaluator {spec!r}: visibility is @hidden or @observe")
     visibility = Visibility(vis) if vis else Visibility.HIDDEN
     kind, _, arg = body.partition(":")
+    if kind == "dsh-audio" and not arg:
+        adapter = adapter_factory()
+        if getattr(adapter, "name", "") != "dsh":
+            raise SystemExit("dsh-audio is a DeepSeek Harness capability benchmark; "
+                             "use --harness dsh")
+        from proteus.bench.dsh_audio import NAME, evaluate_audio_capability
+        return EvaluatorSpec(name=NAME, run=evaluate_audio_capability, kind="benchmark",
+                             visibility=visibility), None
     if kind in ("local", "polyglot") and arg:
         try:
             if kind == "local":
@@ -169,7 +177,7 @@ def _evaluator(spec: str, adapter_factory):
                                  visibility=visibility), None
     raise SystemExit(
         f"bad --evaluator {spec!r} "
-        "(use units:<surface-name> | tool-calls | step | local:<task> | "
+        "(use units:<surface-name> | tool-calls | step | local:<task> | dsh-audio | "
         "polyglot:<exercise> "
         "| contains:<relpath>:<needle>, with optional @hidden/@observe)")
 
@@ -404,7 +412,7 @@ def main(argv=None) -> int:
                         "evaluator and set it @observe, or the agent cannot pursue it.")
     r.add_argument("--evaluator", action="append", metavar="SPEC",
                    help="attach an evaluator, repeatable: units:<surface-name> | "
-                        "tool-calls | step | local:<task> | polyglot:<exercise> | "
+                        "tool-calls | step | local:<task> | polyglot:<exercise> | dsh-audio | "
                         "contains:<relpath>:<needle>, each with optional @hidden "
                         "(default) or @observe; at most one benchmark task per run")
     r.add_argument("--seeds", type=int, default=4)

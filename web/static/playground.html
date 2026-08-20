@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Watch three agent harnesses evolve episode by episode in the Proteus Evolving Lab.">
+<meta name="description" content="Watch a live DeepSeek Harness evolution and curated agent-harness trajectories episode by episode in the Proteus Evolving Lab.">
 <title>Proteus Evolving Lab</title>
 <link rel="stylesheet" href="assets/site.css">
 <style>
@@ -23,6 +23,26 @@
 .section-head h2 { margin:0 }
 .section-head p { color:var(--soft); font-size:13px; max-width:52ch; text-align:right }
 .specimen-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px }
+.live-grid { grid-template-columns:minmax(0,1fr) }
+.live-grid .specimen { min-height:480px }
+.live-grid .specimen:not(.live-placeholder) { display:grid;
+  grid-template-columns:minmax(260px,.8fr) minmax(360px,1.2fr); column-gap:32px }
+.live-grid .specimen:not(.live-placeholder) .specimen-head,
+.live-grid .specimen:not(.live-placeholder) .premise,
+.live-grid .specimen:not(.live-placeholder) .episode-meta,
+.live-grid .specimen:not(.live-placeholder) .episode-summary,
+.live-grid .specimen:not(.live-placeholder) .episode-detail,
+.live-grid .specimen:not(.live-placeholder) .transport,
+.live-grid .specimen:not(.live-placeholder) .disclosure { grid-column:1 }
+.live-grid .specimen:not(.live-placeholder) .trace-shell { grid-column:2; grid-row:1 / span 7;
+  margin:0; padding:42px 0 6px; align-self:stretch; display:flex; align-items:center }
+.live-placeholder { min-height:300px; justify-content:center }
+.live-placeholder .premise { max-width:64ch; min-height:0 }
+.live-baseline { margin:22px 0 0; padding-top:14px; border-top:1px solid var(--rule);
+  color:var(--soft); font:12px/1.7 "SF Mono",ui-monospace,Menlo,monospace }
+.live-baseline strong { color:var(--ink); font-weight:400 }
+.live-progress { width:100%; height:3px; background:var(--rule); margin-top:18px }
+.live-progress i { display:block; height:100%; background:var(--s-skills) }
 .specimen { background:var(--panel); border:1px solid var(--rule); min-width:0;
   padding:22px; display:flex; flex-direction:column; min-height:520px; position:relative }
 .specimen::before { content:""; position:absolute; inset:-1px auto -1px -1px; width:3px;
@@ -86,6 +106,7 @@
 .legend-row i { display:inline-block; width:8px; height:8px; margin-right:6px }
 .legend-row .memory { background:var(--s-notes) }
 .legend-row .skills { background:var(--s-skills) }
+.legend-row .code { background:var(--s-skills) }
 .legend-row .tools { background:var(--s-tools) }
 .legend-row .none { background:var(--s-none) }
 .episode-overlay { position:fixed; inset:0; z-index:60; background:var(--bg);
@@ -148,6 +169,8 @@ body.episode-open { overflow:hidden }
   .section-head { display:block }
   .section-head p { text-align:left; margin-top:9px }
   .specimen-grid { grid-template-columns:1fr }
+  .live-grid .specimen:not(.live-placeholder) { display:flex }
+  .live-grid .specimen:not(.live-placeholder) .trace-shell { margin:20px 0 16px; padding:10px 0 6px }
   .episode-orb { --R:min(56vh,80vw) }
   .overlay-panels { margin-left:calc(min(56vh,80vw) + 4vw);
     grid-template-columns:1fr; overflow-y:auto; max-height:88vh }
@@ -217,18 +240,26 @@ body.episode-open { overflow:hidden }
 <main class="lab-wrap">
   <section class="lab-hero">
     <div>
-      <div class="micro"><span class="live-dot"></span>three specimens · replaying now</div>
+      <div class="micro"><span class="live-dot"></span>one public evolution · episode by episode</div>
       <h1>The <em>evolving</em> lab.</h1>
     </div>
     <div class="lab-intro">
       <span class="micro">Watch structure become habit</span>
-      Three harnesses wake up with only files from the episode before. Follow every change,
-      pause on any episode, and see how a small initial condition changes what grows.
+      Follow DeepSeek Harness as it tries to evolve audio input from its rc.8 image-only
+      baseline, then explore three earlier trajectories. Every public point is a completed,
+      snapshotted episode—not a simulated typing indicator.
     </div>
   </section>
 
   <div class="section-head">
-    <h2>Live replays</h2>
+    <h2>Live experiment</h2>
+    <p>The page polls a privacy-reduced feed. Click any completed episode to expand its normalized trace, structural diff, measurements, and setup.</p>
+  </div>
+
+  <section class="specimen-grid live-grid" id="live-campaign" aria-label="Live DSH audio evolution"></section>
+
+  <div class="section-head">
+    <h2>Curated replays</h2>
     <p>Each point is one context-fresh episode. Click a point to expand its action stream, measurements, and a human-written reading.</p>
   </div>
 
@@ -238,6 +269,7 @@ body.episode-open { overflow:hidden }
     <span><i class="memory"></i>memory / notes</span>
     <span><i class="skills"></i>skills</span>
     <span><i class="tools"></i>tools</span>
+    <span><i class="code"></i>harness code</span>
     <span><i class="none"></i>no structural growth</span>
   </div>
 </main>
@@ -291,19 +323,27 @@ body.episode-open { overflow:hidden }
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SURFACE_COLOR = {
   memory:"var(--s-notes)", notes:"var(--s-notes)", skills:"var(--s-skills)",
-  tools:"var(--s-tools)", instructions:"var(--s-instr)", none:"var(--s-none)"
+  tools:"var(--s-tools)", instructions:"var(--s-instr)", loop:"var(--s-skills)",
+  code:"var(--s-skills)", none:"var(--s-none)"
 };
 
 function demoArm(name) { return window.DEMO.arms.find(a => a.arm === name); }
 
 function normalise(story) {
+  if (story.source === "live") return story.live.episodes.map(episode => ({
+    ep:episode.episode, units:episode.units || {}, calls:episode.tool_calls || 0,
+    summary:episode.summary, summaryKind:episode.summary_kind || "automatic",
+    added:episode.changes?.added || [], changed:episode.changes?.changed || [],
+    deleted:episode.changes?.deleted || [], delta:null, steps:episode.steps || [],
+    scores:episode.scores || {}, accepted:episode.accepted !== false
+  }));
   const raw = story.source === "case" ? window.CASE.episodes : demoArm(story.arm).episodes;
   return raw.map((episode, index) => {
     const steps = story.source === "case" ? episode.steps : episode.seq.flatMap(phase =>
       phase.tools.map(tool => [phase.phase, tool, ""]));
     const calls = steps.length;
     return { ep:episode.ep, units:episode.units, calls, summary:story.summaries[index],
-      added:episode.added || [], changed:episode.changed || [], delta:episode.d || null,
+      added:episode.added || [], changed:episode.changed || [], deleted:[], delta:episode.d || null,
       steps, agentsChars:episode.agents_chars || null };
   });
 }
@@ -320,7 +360,8 @@ function dominantSurface(episodes, index) {
 
 function detailText(episode) {
   const units = Object.entries(episode.units).map(([name, value]) => `${name} ${value}`).join(" · ");
-  const edits = [...episode.added.map(x => `+ ${x}`), ...episode.changed.map(x => `~ ${x}`)];
+  const edits = [...episode.added.map(x => `+ ${x}`), ...episode.changed.map(x => `~ ${x}`),
+    ...(episode.deleted || []).map(x => `− ${x}`)];
   if (edits.length) return `${units} · ${episode.calls} actions · ${edits.slice(0, 3).join(" · ")}`;
   if (episode.delta) return `${units} · ${episode.calls} actions · +${episode.delta.a} added · ~${episode.delta.r} revised`;
   return `${units} · ${episode.calls} actions · no structural change kept`;
@@ -390,6 +431,12 @@ function flyEpisodeDot(from, to, color, done) {
   setTimeout(() => ghost.remove(), 1050);
 }
 function storyMeta(story) {
+  if (story.source === "live") return {
+    harness:`DeepSeek Harness · ${story.live.baseline.release}`,
+    model:story.live.model || "deepseek-v4-flash", arm:"neutral · one public seed",
+    goal:story.live.goal,
+    sandbox:"Docker · exact rc.8 source · one fresh context per phase"
+  };
   if (story.source === "case") return window.CASE.meta;
   return {...window.DEMO.meta, arm:story.arm,
     goal:story.arm === "neutral" ? "none — unpressured evolution" : "none · removable preference: review notes"};
@@ -404,12 +451,14 @@ function renderOverlay() {
   episode.steps.forEach(([, tool]) => toolCounts[tool] = (toolCounts[tool] || 0) + 1);
   const topTools = Object.entries(toolCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const topCount = topTools.length ? topTools[0][1] : 1;
+  const scores = Object.entries(episode.scores || {});
   const touched = [...new Set(episode.steps.map(step => step[2]).filter(Boolean))];
   const growth = Object.entries(episode.units).map(([name, value]) =>
     `${name} ${value - (previous?.units[name] || 0) >= 0 ? "+" : ""}${value - (previous?.units[name] || 0)}`).join(" · ");
   const changes = [
     ...episode.added.map(file => `+ ${file}`),
-    ...episode.changed.map(file => `~ ${file}`)
+    ...episode.changed.map(file => `~ ${file}`),
+    ...(episode.deleted || []).map(file => `− ${file}`)
   ];
 
   document.getElementById("overlay-title").textContent =
@@ -430,6 +479,8 @@ function renderOverlay() {
     <span class="micro">dominant surface</span>${escapeHtml(surface === "none" ? "no structural growth" : surface)}
     <span class="micro">growth from prior episode</span>${escapeHtml(growth)}
     <span class="micro">actions</span>${episode.calls}
+    <span class="micro">evaluators</span>${scores.length ? scores.map(([name, score]) =>
+      `${escapeHtml(name)} ${Number(score).toFixed(3)}`).join(" · ") : "—"}
     <span class="micro">files touched</span>${touched.length ? touched.slice(0, 8).map(escapeHtml).join(", ") : "—"}
     <span class="micro">top tools</span>${topTools.map(([tool, count]) =>
       `<div>${escapeHtml(tool)} · ${count}<div class="tool-bar" style="width:${Math.round(100 * count / topCount)}%"></div></div>`).join("") || "—"}`;
@@ -440,7 +491,9 @@ function renderOverlay() {
   document.getElementById("overlay-disclosure").innerHTML = `
     <span class="micro">trajectory</span>${escapeHtml(story.status)}
     <span class="micro">source note</span>${escapeHtml(story.disclosure)}
-    <span class="micro">interpretation</span>Episode sentence written by the Proteus team.
+    <span class="micro">interpretation</span>${episode.summaryKind === "automatic"
+      ? "Automatic factual summary from the public diff and score."
+      : "Episode sentence written by the Proteus team."}
     ${story.source === "demo" ? `<span class="micro">simulation disclosure</span>${escapeHtml(window.DEMO.meta.note)}` : ""}`;
   document.getElementById("overlay-prev").disabled = index === 0;
   document.getElementById("overlay-next").disabled = index === episodes.length - 1;
@@ -484,17 +537,17 @@ function specimenCard(story, storyIndex) {
   const episodes = normalise(story), card = document.createElement("article");
   card.className = "specimen"; card.dataset.accent = story.accent;
   card.innerHTML = `
-    <div class="specimen-head"><div><div class="micro">specimen ${String(storyIndex + 1).padStart(2, "0")}</div>
-      <h3>${story.title}</h3></div><span class="tag status">${story.status}</span></div>
-    <p class="premise">${story.premise}</p><div class="trace-shell"></div>
+    <div class="specimen-head"><div><div class="micro">${story.source === "live" ? "public evolution" : `specimen ${String(storyIndex + 1).padStart(2, "0")}`}</div>
+      <h3>${escapeHtml(story.title)}</h3></div><span class="tag status">${escapeHtml(story.status)}</span></div>
+    <p class="premise">${escapeHtml(story.premise)}</p><div class="trace-shell"></div>
     <div class="episode-meta mono"><span class="episode-label"></span><span class="call-count"></span></div>
     <p class="episode-summary" aria-live="polite"></p><div class="episode-detail"></div>
     <div class="transport"><button class="prev" type="button" aria-label="previous episode">←</button>
       <button class="play" type="button">pause</button><button class="next" type="button" aria-label="next episode">→</button>
       <input class="scrubber" type="range" min="1" max="${episodes.length}" value="1" aria-label="select episode"></div>
-    <div class="disclosure">${story.disclosure}</div>`;
+    <div class="disclosure">${escapeHtml(story.disclosure)}</div>`;
   const plot = makeSvg(episodes); card.querySelector(".trace-shell").appendChild(plot.svg);
-  const state = {card, story, episodes, plot, index:0, playing:true};
+  const state = {card, story, episodes, plot, index:0, playing:story.source !== "live"};
 
   function setEpisode(index, pause=false) {
     state.index = (index + episodes.length) % episodes.length;
@@ -527,14 +580,16 @@ function specimenCard(story, storyIndex) {
     state.playing = !state.playing; card.querySelector(".play").textContent = state.playing ? "pause" : "play";
   });
   card.querySelector(".scrubber").addEventListener("input", event => setEpisode(Number(event.target.value) - 1, true));
-  const initial = matchMedia("(prefers-reduced-motion:reduce)").matches
+  const initial = story.source === "live" ? episodes.length - 1
+    : matchMedia("(prefers-reduced-motion:reduce)").matches
     ? 0 : (Math.floor(Date.now() / 3800) + storyIndex * 4) % episodes.length;
   setEpisode(initial); return state;
 }
 
 const gallery = document.getElementById("specimens");
-const states = window.LAB_STORIES.map((story, index) => {
-  const state = specimenCard(story, index); gallery.appendChild(state.card); return state;
+const states = [];
+window.LAB_STORIES.forEach((story, index) => {
+  const state = specimenCard(story, index); gallery.appendChild(state.card); states.push(state);
 });
 const add = document.createElement("article");
 add.className = "specimen add-specimen";
@@ -542,6 +597,72 @@ add.innerHTML = `<div class="plus" aria-hidden="true">+</div><div class="micro">
   <h3>Start an evolution</h3><p>The hosted self-evolution experience is not open yet. Proteus is already runnable locally—bring a harness, choose an initial condition, and keep the full trajectory.</p>
   <a class="btn primary" href="https://github.com/proteus-evolve/Proteus#-60-second-demo-no-api-key-no-docker">Run from the repo</a>`;
 gallery.appendChild(add);
+
+const liveHost = document.getElementById("live-campaign");
+let liveState = null, liveSignature = "";
+
+function removeLiveState() {
+  if (!liveState) return;
+  const index = states.indexOf(liveState);
+  if (index >= 0) states.splice(index, 1);
+  liveState = null;
+}
+
+function livePlaceholder(data, unavailable=false) {
+  removeLiveState();
+  const card = document.createElement("article");
+  card.className = "specimen live-placeholder"; card.dataset.accent = "skills";
+  const target = Number(data?.episodes_target || 12);
+  const baseline = data?.baseline?.release || "dsh-v0.1.0-rc.8";
+  const status = unavailable ? "feed unavailable" : (data?.status || "scheduled");
+  card.innerHTML = `<div class="specimen-head"><div><div class="micro">public evolution</div>
+      <h3>Can DSH learn to hear?</h3></div><span class="tag status">${escapeHtml(status)}</span></div>
+    <p class="premise">${escapeHtml(data?.goal || "Starting from the latest image-capable DeepSeek Harness release, ask the harness to evolve safe audio attachment, transcription, and agent grounding.")}</p>
+    <div class="live-baseline"><strong>${escapeHtml(baseline)}</strong> · exact upstream baseline · ${target} context-fresh episodes<br>
+      ${unavailable ? "The last published feed could not be loaded. This page will retry automatically." : "The experiment is prepared. Completed episodes will appear here without a page refresh."}</div>
+    <div class="live-progress" aria-label="0 of ${target} episodes"><i style="width:0%"></i></div>
+    <div class="disclosure">No result is shown before a real episode is snapshotted and measured.</div>`;
+  liveHost.replaceChildren(card);
+}
+
+async function loadLiveCampaign() {
+  let data;
+  try {
+    const response = await fetch(`assets/dsh-audio-live.json?t=${Date.now()}`, {cache:"no-store"});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    data = await response.json();
+  } catch (error) {
+    if (!liveHost.children.length) livePlaceholder(null, true);
+    return;
+  }
+  const signature = `${data.status}:${data.updated_at || ""}:${data.episodes?.length || 0}`;
+  if (signature === liveSignature) return;
+  // Do not replace the points underneath a reader while its episode overlay is open.
+  // The next 15-second poll will apply the update after they close it.
+  if (activeState && activeState === liveState) return;
+  liveSignature = signature;
+  if (!data.episodes?.length) {
+    livePlaceholder(data);
+    return;
+  }
+  removeLiveState();
+  const complete = data.episodes.length;
+  const target = Number(data.episodes_target || complete);
+  const story = {
+    id:"dsh-audio-live", title:data.title || "Can DSH learn to hear?",
+    status:data.status === "running" ? `live · ${complete}/${target}` : `${data.status} · ${complete}/${target}`,
+    source:"live", live:data, accent:"skills",
+    premise:`Starting from ${data.baseline?.release || "DSH rc.8"}, Proteus is asking the harness to evolve safe audio input without inventing an unsupported native model field.`,
+    disclosure:data.disclosure || "Real Proteus run · normalized DSH trace"
+  };
+  liveState = specimenCard(story, 0);
+  liveHost.replaceChildren(liveState.card);
+  states.unshift(liveState);
+}
+
+livePlaceholder({status:"loading"});
+loadLiveCampaign();
+setInterval(loadLiveCampaign, 15000);
 document.getElementById("overlay-close").addEventListener("click", closeOverlay);
 document.getElementById("overlay-prev").addEventListener("click", () => moveOverlay(-1));
 document.getElementById("overlay-next").addEventListener("click", () => moveOverlay(1));

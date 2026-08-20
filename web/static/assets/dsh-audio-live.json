@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "status": "scheduled",
+  "updated_at": null,
+  "title": "Can DSH learn to hear?",
+  "baseline": {
+    "release": "dsh-v0.1.0-rc.8",
+    "commit": "141eb6fef83422698aef7a981029e843e8161534",
+    "released": "2026-08-19"
+  },
+  "goal": "Evolve DeepSeek Harness rc.8 from image-only input into a safe, first-class audio input path.",
+  "episodes_target": 12,
+  "episodes": []
+}

@@ -33,7 +33,7 @@ from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surfac
 from proteus.core.disposition import Disposition
 from proteus.core.episode import PHASES
 
-IMAGE = os.environ.get("PROTEUS_DSH_IMAGE", "proteus-env-dsh-src:0.1.0-rc.7")
+IMAGE = os.environ.get("PROTEUS_DSH_IMAGE", "proteus-env-dsh-src:0.1.0-rc.8")
 PHASE_TIMEOUT_S = 600
 #: The editable self is dsh's real TypeScript source — the deepseek-harness monorepo
 #: checkout the image was built from (tracked files via `git archive`, so the seed's

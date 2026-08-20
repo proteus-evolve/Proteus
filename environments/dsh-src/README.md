@@ -14,13 +14,13 @@ Rebuild:
 DSH_BUILD_ROOT="$(mktemp -d)"
 DSH_CONTEXT="$DSH_BUILD_ROOT/deepseek-harness"
 git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness "$DSH_CONTEXT"
-git -C "$DSH_CONTEXT" fetch --depth 1 origin tag dsh-v0.1.0-rc.7
-git -C "$DSH_CONTEXT" checkout dsh-v0.1.0-rc.7
+git -C "$DSH_CONTEXT" fetch --depth 1 origin tag dsh-v0.1.0-rc.8
+git -C "$DSH_CONTEXT" checkout dsh-v0.1.0-rc.8
 cp environments/dsh-src/boot.sh "$DSH_CONTEXT/.proteus-boot.sh"
 # --network host: the default bridge goes through vpnkit NAT on macOS, whose connections
 # exhaust under pnpm's parallel registry fetches and kill the install
 docker build --network host -f environments/dsh-src/Dockerfile \
-    -t proteus-env-dsh-src:0.1.0-rc.7 "$DSH_CONTEXT"
+    -t proteus-env-dsh-src:0.1.0-rc.8 "$DSH_CONTEXT"
 ```
 
 An untouched source takes the pristine fast path without copying or rebuilding. A changed

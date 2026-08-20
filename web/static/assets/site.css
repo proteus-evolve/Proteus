@@ -9,14 +9,6 @@
   --s-notes:#4F6DF5; --s-tools:#E8833A; --s-skills:#3FA96E; --s-instr:#9A7BD6;
   --s-none:#D8D1C0;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg:#0B0A09; --panel:#141210; --ink:#F4EFE6; --soft:#9C948A; --dim:#5C564E;
-    --rule:#2A2621; --anchor:#7FB598; --anchor-hi:#9CCBB0; --anchor-ink:#10140F;
-    --bad:#E86A50;
-    --s-none:#3A362F;
-  }
-}
 * { box-sizing:border-box; margin:0 }
 body { background:var(--bg); color:var(--ink);
   font:16px/1.65 "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
@@ -127,7 +119,7 @@ footer.site .site-counter { display:block; width:max-content; margin:14px auto 0
 footer.site .site-counter:hover { opacity:1; text-decoration:none }
 footer.site .site-counter img { display:block; height:20px; width:auto }
 
-/* explicit theme choice overrides the OS preference, both ways */
+/* The campaign defaults to the light paper palette; dark remains an explicit choice. */
 :root[data-theme="dark"] {
   --bg:#0B0A09; --panel:#141210; --ink:#F4EFE6; --soft:#9C948A; --dim:#5C564E;
   --rule:#2A2621; --anchor:#7FB598; --anchor-hi:#9CCBB0; --anchor-ink:#10140F;

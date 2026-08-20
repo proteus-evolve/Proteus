@@ -26,6 +26,7 @@
   <a href="docs/RECIPES.md">Recipes</a> •
   <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
   <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
+  <a href="docs/DSH_AUDIO_EVOLUTION.md">DSH Audio Evolution</a> •
   <a href="environments/README.md">Environments</a> •
   <a href="#-measurement">Measurement</a>
 </p>

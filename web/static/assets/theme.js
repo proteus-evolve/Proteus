@@ -1,17 +1,15 @@
-// Explicit theme choice, remembered per browser; absent key = follow the OS.
+// Explicit theme choice, remembered per browser; absent key = the light campaign default.
 (() => {
   const KEY = "proteus_theme";
-  const sysDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
   const btn = document.getElementById("theme-btn");
   function paint() {
     const set = localStorage.getItem(KEY);
     if (set) document.documentElement.setAttribute("data-theme", set);
-    else document.documentElement.removeAttribute("data-theme");
-    if (btn) btn.textContent = (set ? set === "dark" : sysDark()) ? "light" : "dark";
+    else document.documentElement.setAttribute("data-theme", "light");
+    if (btn) btn.textContent = (set || "light") === "dark" ? "light" : "dark";
   }
   btn?.addEventListener("click", () => {
-    const dark = localStorage.getItem(KEY)
-      ? localStorage.getItem(KEY) === "dark" : sysDark();
+    const dark = (localStorage.getItem(KEY) || "light") === "dark";
     localStorage.setItem(KEY, dark ? "light" : "dark");
     paint();
   });

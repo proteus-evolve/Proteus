@@ -96,6 +96,7 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         "name": cfg.name, "episodes": cfg.episodes,
         "arms": [a.label for a in cfg.arms], "seeds": cfg.seeds, "runs": runs,
         "goal": cfg.goal.goal_text(),
+        "model": cfg.model,
         "evaluators": cfg.goal.describe(),
         "announce_budget": cfg.announce_budget,
     }, indent=1))

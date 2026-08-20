@@ -19,7 +19,7 @@ This note records what we adopted, what we deliberately do differently, and why.
 3. **Date/version-tagged prebuilt images, never `latest`.** Harbor ships every
    Terminal-Bench task as a Docker Hub image tagged by build date. We tag
    `proteus-env-<name>:<harness-version>` (e.g.
-   `proteus-env-dsh-src:0.1.0-rc.7`).
+   `proteus-env-dsh-src:0.1.0-rc.8`).
 4. **Prefixed image naming for safe cleanup.** Harbor prefixes locally built images
    (`hb__*`) so `cache clean` can match them. Our `proteus-env-` prefix serves the same
    purpose.

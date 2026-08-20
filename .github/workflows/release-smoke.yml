@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  DSH_TAG: dsh-v0.1.0-rc.7
+  DSH_TAG: dsh-v0.1.0-rc.8
   PI_TAG: v0.84.2
   # the general matrix cell. The goal lives in its own variable and is quoted at every
   # use site: quotes inside an env var are literal after expansion, so embedding
@@ -142,7 +142,7 @@ jobs:
             git -C /tmp/src checkout "$DSH_TAG"
             cp environments/dsh-src/boot.sh /tmp/src/.proteus-boot.sh
             docker build -f environments/dsh-src/Dockerfile \
-              -t proteus-env-dsh-src:0.1.0-rc.7 /tmp/src
+              -t proteus-env-dsh-src:0.1.0-rc.8 /tmp/src
           fi
       - name: A-line sweep
         env:

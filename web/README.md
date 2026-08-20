@@ -7,7 +7,9 @@ deployment repository is
 [`proteus-evolve/proteus-evolve.github.io`](https://github.com/proteus-evolve/proteus-evolve.github.io),
 whose published page files mirror `web/static/`; repository-only metadata such as
 `.nojekyll` and its README live only in the deployment repository. Treat `web/static/` as
-the source of truth.
+the source of truth. The active DSH campaign feed is the one generated exception: the
+sidecar publisher updates the deployment copy of `assets/dsh-audio-live.json` while the
+run is active, while this repository retains the scheduled-state seed.
 
 ## Files
 
@@ -21,7 +23,8 @@ the source of truth.
 | [`web/static/assets/theme.js`](static/assets/theme.js) | Theme toggle. Writes `data-theme` on `<html>` and remembers the choice. |
 | [`web/static/assets/case-data.js`](static/assets/case-data.js) | `window.CASE` — the replayed trajectory the landing page animates. Real data from one fleet seed (control arm, 30 episodes), scrubbed. |
 | [`web/static/assets/demo-data.js`](static/assets/demo-data.js) | The same shape, for `demo.html`. |
-| [`web/static/assets/lab-data.js`](static/assets/lab-data.js) | Editorial metadata and one-sentence summaries for every episode shown in the public Evolving Lab. |
+| [`web/static/assets/lab-data.js`](static/assets/lab-data.js) | Editorial metadata and one-sentence summaries for every curated episode shown in the public Evolving Lab. |
+| [`web/static/assets/dsh-audio-live.json`](static/assets/dsh-audio-live.json) | Episode-level public feed for the DSH audio campaign; starts as `scheduled` and is replaced by the privacy-reduced exporter while the run is active. |
 | [`web/static/assets/proteus-mark.svg`](static/assets/proteus-mark.svg) | Graph mark alone. |
 | [`web/static/assets/proteus-logo.svg`](static/assets/proteus-logo.svg) | Graph mark + traced PROTEUS wordmark, both centred on a shared axis in a 621x734 box. |
 | [`web/server.py`](server.py) | Reserved local/future Lab backend: a FIFO queue with a concurrency cap, a harness allowlist, per-run episode caps, and run/status JSON endpoints. The public Evolving Lab does not call it. Localhost / trusted network only — see its module docstring. |
@@ -41,12 +44,11 @@ runtime network dependency.
 channels shared with the fleet atlas, so they mean the same thing on every page and in
 the paper's figures. Do not hardcode a hex value; add a token.
 
-**Both themes are mandatory.** Light is zine-paper, dark is atlas night-print. The
-palette is defined three times in `site.css`: on bare `:root`, under
-`@media (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])`, and
-again under `:root[data-theme="dark"]` / `:root[data-theme="light"]` so the toggle wins
-in both directions. Only redefine tokens in those blocks — never style a component
-inside a media query.
+**Both themes are mandatory; light is the default.** Light is zine-paper, dark is atlas
+night-print. The palette is defined on bare `:root` and repeated under
+`:root[data-theme="dark"]` / `:root[data-theme="light"]`; `theme.js` installs light when
+there is no remembered choice. Only redefine tokens in those blocks — never style a
+component inside a theme-specific media query.
 
 **Type.** Serif (`Iowan Old Style`/Palatino/Georgia) for prose, `SF Mono`/ui-monospace
 for every label, caption, and number. `.micro` is the uppercase letterspaced mono label

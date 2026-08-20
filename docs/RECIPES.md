@@ -64,19 +64,20 @@ proteus run --harness pi \
 ## DeepSeek Harness — evolve the real TypeScript source
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is pinned at
-`dsh-v0.1.0-rc.7`. The image and adapter use the same exact-tree source/rebuild contract as
-Pi. Python below 3.14 additionally needs `zstandard` to read DSH's multi-frame session logs.
+`dsh-v0.1.0-rc.8` (commit `141eb6fef83422698aef7a981029e843e8161534`).
+The image and adapter use the same exact-tree source/rebuild contract as Pi. Python below
+3.14 additionally needs `zstandard` to read DSH's multi-frame session logs.
 
 ```bash
 python3 -m pip install 'zstandard>=0.21'
 DSH_BUILD_ROOT="$(mktemp -d)"
 DSH_CONTEXT="$DSH_BUILD_ROOT/deepseek-harness"
 git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness "$DSH_CONTEXT"
-git -C "$DSH_CONTEXT" fetch --depth 1 origin tag dsh-v0.1.0-rc.7
-git -C "$DSH_CONTEXT" checkout dsh-v0.1.0-rc.7
+git -C "$DSH_CONTEXT" fetch --depth 1 origin tag dsh-v0.1.0-rc.8
+git -C "$DSH_CONTEXT" checkout dsh-v0.1.0-rc.8
 cp environments/dsh-src/boot.sh "$DSH_CONTEXT/.proteus-boot.sh"
 docker build --network host -f environments/dsh-src/Dockerfile \
-    -t proteus-env-dsh-src:0.1.0-rc.7 "$DSH_CONTEXT"
+    -t proteus-env-dsh-src:0.1.0-rc.8 "$DSH_CONTEXT"
 
 proteus check --harness dsh
 export DEEPSEEK_API_KEY=...
@@ -89,6 +90,10 @@ proteus run --harness dsh \
     --max-turns 32 --min-turns-per-phase 8 --announce-budget \
     --out runs/dsh-demo
 ```
+
+The versioned setup for evolving audio input from this exact baseline, including its
+capability benchmark and public episode feed, is in
+[`DSH_AUDIO_EVOLUTION.md`](DSH_AUDIO_EVOLUTION.md).
 
 For both source adapters, an unchanged source takes a pristine fast path. A changed source
 is exact-synced, rebuilt once per source hash, cached under `/state`, and rejected by the
