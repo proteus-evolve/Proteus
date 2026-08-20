@@ -77,8 +77,10 @@ from proteus.bench import as_goal
 from proteus.bench.local import local_task
 from proteus.core import Visibility
 from proteus.core.episode import RunConfig, run
+from proteus.sandbox import DockerSandbox, SandboxConfig
 
-task = local_task("local:interval-merge")        # offline; no Docker, no dataset
+grader = DockerSandbox(SandboxConfig(image="python:3.12-slim", network="none"))
+task = local_task("local:interval-merge", sandbox=grader)  # no dataset; agent code stays isolated
 cfg = RunConfig(name="goal-observe", adapter=..., disposition=...,
                 goal=as_goal(task, visibility=Visibility.OBSERVE),
                 root=..., model=..., episodes=30, task=task)
