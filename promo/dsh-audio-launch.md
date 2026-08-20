@@ -1,6 +1,8 @@
 # Proteus v0.1.0 launch + DSH evolution teaser
 
-Launch video: `proteus-v0.1.0-dsh-teaser-15s.mp4`
+Launch video: `proteus-v0.1.0-dsh-teaser-30s.mp4`
+
+Soundtrack: original 12-bar light-jazz piano, synthesized by the versioned renderer.
 
 ## X — launch post
 
