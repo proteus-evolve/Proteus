@@ -346,6 +346,6 @@ transition_result:
 
 ## 15. Concrete Cases
 
-`PROTEUS_MODULE_SAFETY_CASES.md` records the concrete module-family definitions and reusable
+[concrete module safety cases](PROTEUS_MODULE_SAFETY_CASES.md) records the concrete module-family definitions and reusable
 boundary oracles implemented under this taxonomy, including their production symbols and claim
 boundaries.
