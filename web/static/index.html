@@ -81,6 +81,8 @@ section.page > .wrap { width:100% }
 </head>
 <body>
 <nav id="corner-nav">
+  <a class="live-link" data-live-status="scheduled" href="playground.html#live-campaign">
+    <span class="live-indicator" aria-hidden="true"></span><span data-live-label>DSH evolution</span></a>
   <a href="playground.html">Lab</a>
   <a href="https://github.com/proteus-evolve/Proteus">GitHub</a>
   <button id="theme-btn" type="button" aria-label="switch theme"></button>
@@ -187,6 +189,8 @@ l-65 0 0 105 0 105 75 0 c46 0 87 -6 104 -14z"/>
     agent harness.</h1>
   <div class="slog" style="color:var(--soft)">Plug in. Evolve. Measure.</div>
   <div class="cta hero-cta">
+    <a class="btn live-link" data-live-status="scheduled" href="playground.html#live-campaign">
+      <span class="live-indicator" aria-hidden="true"></span><span data-live-label>Watch DSH evolve</span></a>
     <a class="btn primary" href="playground.html">Enter the evolving lab</a>
     <a class="btn" href="https://github.com/proteus-evolve/Proteus">Star on GitHub</a>
   </div>
@@ -1064,6 +1068,38 @@ new IntersectionObserver(es => {
   es.forEach(e => document.body.classList.toggle("trace-front",
     e.isIntersecting && e.intersectionRatio > .45));
 }, {threshold:[.45]}).observe(traceSec);
+</script>
+<script>
+// The landing page carries only campaign status. The Lab loads the full privacy-reduced
+// episode feed and renders the trajectory, diffs, measurements, and expandable details.
+async function refreshDshLiveLinks() {
+  try {
+    const response = await fetch(`assets/dsh-audio-live.json?t=${Date.now()}`, {cache:"no-store"});
+    if (!response.ok) return;
+    const data = await response.json();
+    const status = data.status || "scheduled";
+    const complete = data.episodes?.length || 0;
+    const target = Number(data.episodes_target || 12);
+    const labels = {
+      scheduled:"DSH evolution · soon",
+      starting:"DSH evolution · starting",
+      paused:`DSH evolution · ${complete}/${target}`,
+      error:`DSH evolution · ${complete}/${target}`,
+      complete:"DSH evolution · replay",
+      running:`Live · DSH ${complete}/${target}`
+    };
+    document.querySelectorAll(".live-link").forEach(link => {
+      link.dataset.liveStatus = status;
+      const label = link.querySelector("[data-live-label]");
+      if (label) label.textContent = labels[status] || `DSH evolution · ${complete}/${target}`;
+      link.setAttribute("aria-label", `${labels[status] || "DSH evolution"}. Open the public evolution trace.`);
+    });
+  } catch (_) {
+    // Keep the scheduled label when the feed is temporarily unavailable.
+  }
+}
+refreshDshLiveLinks();
+setInterval(refreshDshLiveLinks, 15000);
 </script>
 <script src="assets/theme.js"></script>
 </body>

@@ -36,6 +36,11 @@ code-aligned architecture diagram is Mermaid in the root README. The landing-pag
 loads its public visit count from `hits.sh`; that counter is the site's one intentional
 runtime network dependency.
 
+The landing page also polls the privacy-reduced DSH campaign feed. A red button stays in
+the fixed navigation and another appears in the hero, with its label changing between
+`soon`, `live N/12`, and `replay`. Both open the live experiment at
+`playground.html#live-campaign`; the full episode data is loaded only by the Lab.
+
 ## Conventions
 
 **Colour and type come from tokens in `site.css`.** `--bg --panel --ink --soft --dim

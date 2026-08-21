@@ -8,6 +8,7 @@
     "commit": "141eb6fef83422698aef7a981029e843e8161534",
     "released": "2026-08-19"
   },
+  "proteus_version": "0.1.0",
   "goal": "Evolve DeepSeek Harness rc.8 from image-only input into a safe, first-class audio input path.",
   "episodes_target": 12,
   "episodes": []

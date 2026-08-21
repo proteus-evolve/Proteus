@@ -5,7 +5,7 @@
 :root {
   --bg:#F2EEE3; --panel:#FAF7EF; --ink:#211E17; --soft:#7A7263; --dim:#A8A091;
   --rule:#DCD5C4; --anchor:#2E5D43; --anchor-hi:#3E7A58; --anchor-ink:#F4F1E8;
-  --bad:#A8402E;
+  --bad:#A8402E; --live:#C64536; --live-hi:#A93428; --live-ink:#FFF8F1;
   --s-notes:#4F6DF5; --s-tools:#E8833A; --s-skills:#3FA96E; --s-instr:#9A7BD6;
   --s-none:#D8D1C0;
 }
@@ -123,12 +123,12 @@ footer.site .site-counter img { display:block; height:20px; width:auto }
 :root[data-theme="dark"] {
   --bg:#0B0A09; --panel:#141210; --ink:#F4EFE6; --soft:#9C948A; --dim:#5C564E;
   --rule:#2A2621; --anchor:#7FB598; --anchor-hi:#9CCBB0; --anchor-ink:#10140F;
-  --bad:#E86A50; --s-none:#3A362F;
+  --bad:#E86A50; --live:#E85D4C; --live-hi:#F07160; --live-ink:#160A07;
 }
 :root[data-theme="light"] {
   --bg:#F2EEE3; --panel:#FAF7EF; --ink:#211E17; --soft:#7A7263; --dim:#A8A091;
   --rule:#DCD5C4; --anchor:#2E5D43; --anchor-hi:#3E7A58; --anchor-ink:#F4F1E8;
-  --bad:#A8402E; --s-none:#D8D1C0;
+  --bad:#A8402E; --live:#C64536; --live-hi:#A93428; --live-ink:#FFF8F1;
 }
 :root { --logo-accent: var(--anchor-hi) }
 
@@ -157,3 +157,22 @@ header.site .mark { height: 26px; width: auto }
   text-decoration: none; display: inline-block }
 #theme-btn:hover, header.site nav a:hover, #corner-nav a:hover {
   color: var(--anchor); border-color: var(--anchor); text-decoration: none }
+
+/* Campaign links are the one deliberate interruption to the green navigation system:
+   they remain red in both themes so a live public run is visible at first glance. */
+#corner-nav a.live-link, header.site nav a.live-link, .btn.live-link {
+  display:inline-flex; align-items:center; gap:7px; background:var(--live);
+  border-color:var(--live); color:var(--live-ink) }
+#corner-nav a.live-link:hover, header.site nav a.live-link:hover, .btn.live-link:hover {
+  background:var(--live-hi); border-color:var(--live-hi); color:var(--live-ink) }
+.live-indicator { width:6px; height:6px; border-radius:50%; background:currentColor;
+  flex:none; opacity:.72 }
+.live-link[data-live-status="running"] .live-indicator,
+.live-link[data-live-status="starting"] .live-indicator {
+  animation:live-indicator-pulse 1.5s ease-in-out infinite }
+@keyframes live-indicator-pulse {
+  50% { opacity:.25; transform:scale(.68) }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-link .live-indicator { animation:none !important }
+}

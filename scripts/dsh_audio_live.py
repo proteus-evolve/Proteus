@@ -14,6 +14,7 @@ import base64
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -34,6 +35,8 @@ BASELINE = {
     "released": "2026-08-19",
 }
 DEFAULT_GOAL = "Evolve DeepSeek Harness rc.8 from image-only input into a safe, first-class audio input path."
+LIVE_STATE = "live-state.json"
+HEARTBEAT_STALE_S = 90
 
 
 def _json_lines(path: Path) -> list[dict[str, Any]]:
@@ -46,6 +49,23 @@ def _json_lines(path: Path) -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return rows
+
+
+def _runtime_state(sweep_root: Path) -> dict[str, Any]:
+    """Read the launcher's heartbeat without ever exporting an error message or command."""
+    path = sweep_root / LIVE_STATE
+    if not path.is_file():
+        return {}
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    status = str(state.get("status") or "")
+    heartbeat = float(state.get("heartbeat_at") or 0)
+    if status in {"starting", "running"} and heartbeat:
+        if time.time() - heartbeat > HEARTBEAT_STALE_S:
+            status = "paused"
+    return {"status": status, "proteus_version": state.get("proteus_version")}
 
 
 def _snapshot_changes(run_root: Path, episode: int) -> dict[str, list[str]]:
@@ -113,14 +133,17 @@ def build_payload(
 ) -> dict[str, Any]:
     """Build the public, privacy-reduced feed from one single-run sweep."""
     sweep_root = Path(sweep_root)
+    runtime = _runtime_state(sweep_root)
     manifest_path = sweep_root / "manifest.json"
     if not manifest_path.is_file():
+        status = runtime.get("status") or "scheduled"
         return {
             "schema": 1,
-            "status": "scheduled",
+            "status": status,
             "updated_at": None,
             "title": "Can DSH learn to hear?",
             "baseline": BASELINE,
+            "proteus_version": runtime.get("proteus_version") or "0.1.0",
             "goal": DEFAULT_GOAL,
             "episodes_target": 12,
             "episodes": [],
@@ -160,6 +183,8 @@ def build_payload(
         status = "error"
     elif episodes and episodes[-1]["episode"] >= target:
         status = "complete"
+    elif runtime.get("status") in {"starting", "running", "paused", "error", "complete"}:
+        status = runtime["status"]
     elif episodes or run_root.exists():
         status = "running"
     else:
@@ -173,10 +198,12 @@ def build_payload(
         "updated_at": updated_at,
         "title": "Can DSH learn to hear?",
         "baseline": BASELINE,
+        "proteus_version": runtime.get("proteus_version") or "0.1.0",
         "model": manifest.get("model") or "deepseek-v4-flash",
         "goal": manifest.get("goal") or DEFAULT_GOAL,
         "episodes_target": target,
         "run": {"id": run["id"], "arm": run.get("arm"), "seed": run.get("seed")},
+        "active_episode": min(len(episodes) + 1, target) if status in {"starting", "running"} else None,
         "episodes": episodes,
         "disclosure": "Real Proteus run · normalized DSH traces · summaries labelled automatic or editorial",
     }
@@ -233,6 +260,22 @@ def publish(repo: str, remote_path: str, branch: str, token: str, content: bytes
     _github_request(url, token, method="PUT", body=body)
 
 
+def _publish_token(env_name: str) -> str:
+    """Use an explicit token first, then the user's existing GitHub CLI login."""
+    token = os.environ.get(env_name, "")
+    if token:
+        return token
+    if shutil.which("gh"):
+        proc = subprocess.run(
+            ["gh", "auth", "token"], capture_output=True, text=True, check=False,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc.stdout.strip()
+    raise SystemExit(
+        f"set {env_name}, or run 'gh auth login', to publish the live feed"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sweep", default="runs/dsh-audio-live")
@@ -255,14 +298,12 @@ def main() -> None:
         content = destination.read_bytes()
         digest = hashlib.sha256(content).hexdigest()
         if args.repo and digest != previous_digest:
-            token = os.environ.get(args.token_env, "")
-            if not token:
-                raise SystemExit(f"set {args.token_env} to publish to {args.repo}")
+            token = _publish_token(args.token_env)
             publish(args.repo, args.remote_path, args.branch, token, content)
         if changed:
             print(f"{payload['status']}: {len(payload['episodes'])} episodes -> {destination}", flush=True)
         previous_digest = digest
-        if not args.watch or payload["status"] in {"complete", "error"}:
+        if not args.watch or payload["status"] in {"complete", "error", "paused"}:
             return
         time.sleep(max(args.watch, 5))
 

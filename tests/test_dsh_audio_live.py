@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import time
 from pathlib import Path
 
 from proteus.core import snapshot
@@ -26,6 +27,19 @@ def test_missing_sweep_is_scheduled(tmp_path):
     assert payload["status"] == "scheduled"
     assert payload["episodes"] == []
     assert payload["baseline"]["release"] == "dsh-v0.1.0-rc.8"
+
+
+def test_launcher_state_reports_running_and_stale_state_reports_paused(tmp_path):
+    state = tmp_path / "live-state.json"
+    state.write_text(json.dumps({
+        "status": "running", "heartbeat_at": time.time(), "proteus_version": "0.1.0",
+    }))
+    assert LIVE.build_payload(tmp_path)["status"] == "running"
+    state.write_text(json.dumps({
+        "status": "running", "heartbeat_at": time.time() - LIVE.HEARTBEAT_STALE_S - 1,
+        "proteus_version": "0.1.0",
+    }))
+    assert LIVE.build_payload(tmp_path)["status"] == "paused"
 
 
 def test_export_uses_snapshots_and_redacts_arguments(tmp_path):

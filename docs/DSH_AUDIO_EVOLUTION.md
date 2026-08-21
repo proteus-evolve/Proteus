@@ -1,7 +1,9 @@
 # DSH audio evolution campaign
 
 This is the reproducible setup behind the public experiment **Can DSH learn to hear?**
-The baseline is DeepSeek Harness `dsh-v0.1.0-rc.8`, exact commit
+The driver is the released Proteus **v0.1.0** engine; the versioned campaign entry point,
+benchmark, and privacy-reduced publisher live in this repository. The baseline is DeepSeek
+Harness `dsh-v0.1.0-rc.8`, exact commit
 `141eb6fef83422698aef7a981029e843e8161534`. rc.8 added native image requests and image
 inputs for commands, but its ACP adapter explicitly rejects audio, its attachment UI is
 image-only, and its DeepSeek wire vocabulary has no audio part.
@@ -47,6 +49,23 @@ Resume the same run after an interruption:
 ```bash
 python examples/dsh_audio_evolution.py --out runs/dsh-audio-live --resume
 ```
+
+To run the experiment and publish every completed episode to the public Evolving Lab with
+one command, authenticate GitHub once with `gh auth login` (or export a fine-grained
+`GH_TOKEN` with Contents write permission on the deployment repository), then add
+`--live`:
+
+```bash
+export DEEPSEEK_API_KEY=...
+python examples/dsh_audio_evolution.py \
+  --out runs/dsh-audio-live \
+  --live
+```
+
+The launcher maintains a heartbeat while an episode is in progress. `Ctrl-C` publishes a
+`paused` state; the same command with `--resume --live` continues from the last completed
+snapshot rather than paying for an episode twice. The public page shows a red live entry,
+polls every 15 seconds, and links every visible point to its episode details.
 
 The equivalent generic CLI accepts the same built-in capability benchmark:
 
@@ -94,8 +113,8 @@ python scripts/dsh_audio_live.py \
   --watch 15
 ```
 
-For the public site, use a fine-grained token with Contents write permission only on the
-deployment repository:
+For the public site, the `--live` launcher above is preferred. The publisher can also run
+on its own; it uses `GH_TOKEN` when present and otherwise uses an existing GitHub CLI login:
 
 ```bash
 export GH_TOKEN=...
@@ -109,7 +128,8 @@ python scripts/dsh_audio_live.py \
 
 Each changed feed creates an auditable commit. The website polls the feed every 15 seconds
 and adds a clickable point only after an episode is complete, so viewers never see an
-episode that has not been snapshotted and measured.
+episode that has not been snapshotted and measured. Heartbeats are used only to distinguish
+`running` from `paused`; they are not published as a new commit every 15 seconds.
 
 ## Select episodes for posts
 
