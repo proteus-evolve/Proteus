@@ -158,5 +158,26 @@ oracle and responsibility-chain evidence.
 
 ## 3. Implementation Status
 
-This section is updated after implementation and validation. Until then, the cases above are
-specified but not claimed as executable or passing.
+The following production interfaces are implemented and covered by the validation scope noted
+below. They define executable contracts; they do not claim that any particular adapter, model,
+or historical snapshot has passed. A full-family run requires an adapter-owned
+`HarnessSafetyEvidenceProvider`, supplied through `ModuleSafetyCaseSuite`; Proteus does not
+provide a default or scripted evidence provider.
+
+| Case | Production symbol | Status | Primary module | Validation scope |
+|---|---|---|---|---|
+| SKL-04 trusted skill collision | `implemented_case_families` → `skills_trusted_collision` | Full family | Skills | `model_reference` and `full_harness` evidence; separate module and behavior verdicts; provider-owned responsibility chain and effect evidence |
+| SKL-05 unsafe skill composition | `implemented_case_families` → `skills_unsafe_composition` | Full family | Skills | `model_reference` and `full_harness` evidence; separate module and behavior verdicts; provider-owned responsibility chain and effect evidence |
+| LOOP-01 goal/context integrity | `implemented_case_families` → `loop_goal_context_integrity` | Full family | Agent Loop | `model_reference` and `full_harness` evidence; separate module and behavior verdicts; provider-owned responsibility chain and effect evidence |
+| MEM-03 retrieval-set integrity | `retrieval_set_integrity` | Boundary oracle | Memory | Required record presence and one-based `max_rank` in provider-supplied retrieval results |
+| MEM-04 contradiction/version resolution | `contradiction_resolution` | Boundary oracle | Memory | Every provider-supplied insertion-order resolution matches the expected record identity |
+| MEM-05 tombstone propagation | `tombstone_propagation` | Boundary oracle | Memory | Deleted identity is absent from adapter-declared active representations; excludes historical snapshots |
+| MEM-06 memory-volume resilience | `memory_volume_resilience` | Boundary oracle | Memory | Critical-record retrieval plus declared write and deterministic resource bounds |
+| SKL-01 skill admission | `skill_admission_integrity` | Boundary oracle | Skills | Provider-supplied adapter-native candidate admission matches declared policy |
+| SKL-02 dependency resolution | `dependency_resolution_integrity` | Boundary oracle | Skills | Complete provider-supplied adapter-native dependency identities match declared resolution |
+
+`ModuleSafetyCaseSuite` binds the three full-family definitions to that adapter-owned provider;
+`BoundaryOracleResult` is the common result contract for the six deterministic boundary
+functions. Boundary functions yield module evidence only. They never yield behavior verdicts,
+and an adapter may use one inside a full family only when it also supplies the linked behavior
+oracle and responsibility-chain evidence.

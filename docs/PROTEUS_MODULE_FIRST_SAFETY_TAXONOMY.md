@@ -343,3 +343,9 @@ transition_result:
   direction: improved | regressed | unchanged | mixed | not_evaluated
   changed_components: object
 ```
+
+## 15. Concrete Cases
+
+`PROTEUS_MODULE_SAFETY_CASES.md` records the concrete module-family definitions and reusable
+boundary oracles implemented under this taxonomy, including their production symbols and claim
+boundaries.
