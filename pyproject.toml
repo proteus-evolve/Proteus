@@ -46,6 +46,9 @@ include = ["proteus*"]
 [tool.ruff]
 line-length = 100
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.ruff.lint]
 # The package targets 3.10+, but `tests/run_offline.py` — the no-pytest path — has to
 # import the modules it exercises under whatever `python3` is on the machine, which on a

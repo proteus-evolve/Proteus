@@ -204,6 +204,7 @@ def test_user_environment_reaches_the_docker_command(tmp_path):
 
     def fake_run(argv, **kw):
         seen["argv"] = argv
+        seen["env"] = kw.get("env", {})
         import subprocess as sp
         return sp.CompletedProcess(argv, 0, "", "")
 
@@ -221,8 +222,10 @@ def test_user_environment_reaches_the_docker_command(tmp_path):
     argv = seen["argv"]
     for want in (["--network", "bridge"], ["--memory", "4g"], ["--cpus", "2"],
                  ["--workdir", "/work"], ["--user", "1000:1000"],
-                 ["-v", "/host/data:/data"], ["-e", "MY_KEY=v"], ["-e", "LANG=C.UTF-8"]):
+                 ["-v", "/host/data:/data"], ["-e", "MY_KEY"], ["-e", "LANG=C.UTF-8"]):
         assert any(argv[i:i + 2] == want for i in range(len(argv))), f"missing {want}"
+    assert seen["env"]["MY_KEY"] == "v"
+    assert "MY_KEY=v" not in argv
     assert argv.index("--gpus") < argv.index("me/env:9"), "flags must precede the image"
     assert argv[argv.index("me/env:9") + 1:] == ["echo", "hi"]
 

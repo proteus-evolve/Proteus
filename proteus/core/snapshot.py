@@ -40,6 +40,11 @@ def init(work_tree: Path) -> bool:
     subprocess.run(["git", "init", "--bare", "-q", str(git_dir)], check=True)
     _git(work_tree, "config", "user.email", "proteus@localhost")
     _git(work_tree, "config", "user.name", "proteus")
+    # A first commit of a large source-evolving harness can trigger detached `git gc
+    # --auto`. The process then races temporary-run cleanup (and can recreate `gc.log`
+    # after rmtree has visited the bare repo). Snapshots are short, append-only research
+    # histories; maintenance should be explicit rather than an invisible background job.
+    _git(work_tree, "config", "gc.auto", "0")
     # No ignore rules apply to a harness snapshot. The harness is the measured object, so
     # nothing in it may be invisible: not files matched by the user's global gitignore
     # (`*.jsonl` is a common one, and traces are jsonl), and not files matched by a

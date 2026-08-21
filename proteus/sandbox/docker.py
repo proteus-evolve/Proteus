@@ -13,6 +13,7 @@ endpoint needs egress).
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -144,6 +145,7 @@ class DockerSandbox:
         """
         c = self.config
         argv = ["docker", "run", "--rm", "--init", "--network", c.network]
+        docker_env = os.environ.copy()
         name = ""
         if stop_check is not None:
             import uuid
@@ -163,17 +165,20 @@ class DockerSandbox:
             argv += ["-v", f"{host}:{cont}"]
         for key in c.env_passthrough:
             if key in env:
-                argv += ["-e", f"{key}={env[key]}"]
+                # Let Docker copy the value from its own environment.  Keeping the
+                # value out of argv prevents API keys from appearing in `ps` output.
+                argv += ["-e", key]
+                docker_env[key] = env[key]
         for key, value in c.env.items():
             argv += ["-e", f"{key}={value}"]
         argv += [*c.extra_args, c.image, *(c.entrypoint or ()), *command]
         if stop_check is None:
             return subprocess.run(argv, capture_output=True, text=True, errors="replace",
-                                  timeout=timeout_s, check=False)
+                                  env=docker_env, timeout=timeout_s, check=False)
 
         import time
         proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, errors="replace")
+                                text=True, errors="replace", env=docker_env)
         deadline = time.monotonic() + timeout_s
         stopped = False
         while True:
