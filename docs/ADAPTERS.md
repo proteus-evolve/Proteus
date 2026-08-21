@@ -41,6 +41,7 @@ build toolchain, and exact-tree boot wrapper.
 ```python
 class TheirsHarness:
     name = "theirs"
+    continuity_mode = "native"     # native | framework | none; optional
     disposition_in_files = False   # True if install_disposition writes a file the
                                    # harness loads itself (see step 3)
 
@@ -109,6 +110,16 @@ visible evaluator feedback already merged). `read_trace` returns normalized `Act
 logs are the source of truth: parse them rather than adding measurement instrumentation to
 the harness. Evolving its run-local source is the subject's action, not instrumentation.
 
+Declare how phase context continues: `native` (the backwards-compatible default) means
+the harness owns it; `framework` means phases are fresh sessions joined by Proteus's
+operational handoff; `none` deliberately leaves phases independent. Framework adapters
+use `proteus.core.HandoffStore` around each phase and, for workspace-restricted
+containers, bind `<run>/.proteus-state` over `/workspace/.proteus`. The host directory is
+outside `<run>/harness`, so it is not snapshotted or measured as self-evolution. Proteus
+archives `handoffs/epNNN/<phase>.{json,md}`, carries reflect into the next episode, and
+falls back to normalized tool names and paths after an interruption. Never persist raw
+model reasoning or tool results. DSH and Pi are the reference integrations.
+
 ### 5. Fingerprint
 `disposition_fingerprint` hashes the currently-installed disposition carrier, so drift of
 F over episodes is detectable (a self-editing agent may rewrite its own disposition).
@@ -133,6 +144,8 @@ but the adapter still owns how the harness sees files.
 - [ ] surfaces declared as data (or established by convention in `seed`)
 - [ ] disposition install is removable — `proteus check` passes
 - [ ] trace parsed from the harness's own logs into `ActionEvent`s
+- [ ] continuity mode declared when not native; framework state remains outside the
+      harness snapshot
 - [ ] real (code-running) harness under `DockerSandbox`; containers that write bind mounts
       run as the host uid/gid
 - [ ] source-evolving adapter: exact source extraction, exact-tree overlay, rebuild cache,

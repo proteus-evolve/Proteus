@@ -55,6 +55,7 @@ class MinimalHarness:
     """A `HarnessAdapter` for the minimal reference harness."""
 
     name = "minimal"
+    continuity_mode = "none"
     disposition_in_files = False   # the perturbation reaches this harness via prompts
 
     def __init__(self, policy: Policy = mock_policy) -> None:

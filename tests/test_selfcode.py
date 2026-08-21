@@ -22,7 +22,7 @@ class FakeSandbox:
 
     def run(self, run_root, command, env, timeout_s, mounts=(), stop_check=None):
         self.calls.append({"command": command, "mounts": mounts,
-                           "stop_check": stop_check})
+                           "stop_check": stop_check, "env": env})
         if command != ["--version"] and stop_check is not None and stop_check():
             return subprocess.CompletedProcess(command, 137, "", "killed")
         rc = self.boot_rc if command == ["--version"] else 0
@@ -83,6 +83,50 @@ def test_broken_self_code_fails_the_episode_legibly(tmp_path):
         assert not res.ok and "does not boot" in res.error, cls.__name__
         # the gate ran once and no phase was attempted after it
         assert [c["command"] for c in sandbox.calls] == [["--version"]], cls.__name__
+
+
+def test_dsh_permission_mode_reaches_every_phase(tmp_path):
+    from proteus.core.adapter import EpisodeSpec
+
+    sandbox = FakeSandbox()
+    adapter = DshHarness(
+        key="x", sandbox=sandbox, permission_mode="danger-full-access"
+    )
+    harness = tmp_path / "harness"
+    _seed_with_fake_src(adapter, harness, ("packages",))
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "harness").symlink_to(harness)
+    adapter.run_episode(EpisodeSpec(
+        root=root,
+        episode=1,
+        model="m",
+        phase_prompts={phase: phase for phase in ("observe", "propose", "act", "reflect")},
+    ))
+
+    phase_calls = [call for call in sandbox.calls if call["command"] != ["--version"]]
+    assert len(phase_calls) == 4
+    assert all(call["env"]["DSH_PERMISSION_MODE"] == "danger-full-access"
+               for call in phase_calls)
+
+
+def test_framework_handoff_mount_is_writable_but_snapshot_external(tmp_path):
+    from proteus.core.adapter import EpisodeSpec
+
+    for i, cls in enumerate((DshHarness, PiHarness)):
+        sandbox = FakeSandbox()
+        adapter = cls(key="x", sandbox=sandbox)
+        harness = tmp_path / f"handoff-harness-{i}"
+        _seed_with_fake_src(adapter, harness, ())
+        root = tmp_path / f"handoff-root-{i}"
+        root.mkdir()
+        (root / "harness").symlink_to(harness)
+        adapter.run_episode(EpisodeSpec(root=root, episode=1, model="m", phase_prompts={}))
+
+        phase = next(call for call in sandbox.calls if call["command"] != ["--version"])
+        mounts = dict(phase["mounts"])
+        assert mounts[str(root / ".proteus-state")] == "/workspace/.proteus"
+        assert not str(root / ".proteus-state").startswith(str(harness))
 
 
 def test_reseeding_never_overwrites_evolved_code(tmp_path):
@@ -213,6 +257,32 @@ def test_announced_budget_reaches_every_phase_prompt(tmp_path):
                     goal=GoalConfig(), root=tmp_path, model="mock", max_turns=12)
     q = _phase_prompts(off, "")
     assert all("tool calls in this episode" not in q[ph] for ph in PHASES)
+
+
+def test_context_fresh_phase_prompts_require_file_handoffs(tmp_path):
+    from proteus.core import NEUTRAL, GoalConfig
+    from proteus.core.episode import PHASES, RunConfig, _phase_prompts
+
+    class FreshAdapter:
+        continuity_mode = "framework"
+        disposition_in_files = False
+
+    cfg = RunConfig(name="t", adapter=FreshAdapter(), disposition=NEUTRAL,
+                    goal=GoalConfig(), root=tmp_path, model="mock")
+    prompts = _phase_prompts(cfg, "")
+    assert all("/workspace/.proteus/handoff.md" in prompts[phase] for phase in PHASES)
+    assert all("raw tool output" in prompts[phase] for phase in PHASES)
+
+
+def test_non_framework_harnesses_do_not_receive_file_protocol(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import NEUTRAL, GoalConfig
+    from proteus.core.episode import PHASES, RunConfig, _phase_prompts
+
+    cfg = RunConfig(name="t", adapter=MinimalHarness(), disposition=NEUTRAL,
+                    goal=GoalConfig(), root=tmp_path, model="mock")
+    prompts = _phase_prompts(cfg, "")
+    assert all("/workspace/.proteus" not in prompts[phase] for phase in PHASES)
 
 
 # ------------------------------------------------------------- per-phase reservation

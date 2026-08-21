@@ -25,6 +25,7 @@ from typing import Optional, Sequence
 
 from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 from proteus.core.episode import PHASES
 
@@ -52,7 +53,13 @@ across sessions. Your surfaces:
   Edit it and the next session is rebuilt from your edit and runs it. If your edit
   does not compile, the run ends.
 
-Each session is one phase of an episode; only these files carry over.
+Proteus supplies the cross-phase operational handoff at
+`/workspace/.proteus/handoff.md`. Read and replace it as requested by each phase prompt. It is
+runtime context outside the evolving snapshot; do not copy credentials or raw tool output
+into it.
+
+Each session is one phase of an episode. Harness files and the bounded Proteus handoff
+carry over; the raw conversation does not.
 """
 
 
@@ -60,6 +67,7 @@ class PiHarness:
     """`HarnessAdapter` for pi-coding-agent's non-interactive mode, containerized."""
 
     name = "pi"
+    continuity_mode = "framework"
     disposition_in_files = True   # carried by AGENTS.md; keep it out of the phase prompts
 
     SURFACES = (
@@ -164,6 +172,45 @@ class PiHarness:
     def _sessions(state: Path) -> set[Path]:
         return set(state.glob("*.jsonl"))
 
+    def _session_trace(self, path: Path, phase: str) -> list[ActionEvent]:
+        """Normalize one native Pi session for measurement and handoff fallback."""
+        events: list[ActionEvent] = []
+        turn = 0
+        if not path.exists():
+            return events
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") != "message":
+                continue
+            message = event.get("message", {})
+            if message.get("role") != "assistant":
+                continue
+            turn += 1
+            for block in message.get("content", []):
+                kind = block.get("type", "")
+                if kind in ("toolCall", "tool_call", "toolUse"):
+                    args = block.get("arguments") or block.get("input") or {}
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except json.JSONDecodeError:
+                            args = {}
+                    path_arg = str(args.get("file_path") or args.get("path") or "")
+                    events.append(ActionEvent(
+                        turn=turn, phase=phase, tool=block.get("name", ""),
+                        surface=self._surface_for_path(path_arg),
+                        params={k: str(v)[:200] for k, v in args.items()}, text="",
+                    ))
+                elif kind == "text" and block.get("text"):
+                    events.append(ActionEvent(
+                        turn=turn, phase=phase, tool=None, surface=None,
+                        params={}, text=block["text"][:500],
+                    ))
+        return events
+
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         if not self.key:
             return EpisodeResult(episode=spec.episode, ok=False, turns=0,
@@ -172,6 +219,7 @@ class PiHarness:
         harness = run_root / "harness"
         state = run_root / ".pi-state"
         state.mkdir(exist_ok=True)
+        handoffs = HandoffStore(run_root)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, str] = {}
         error = ""
@@ -192,6 +240,7 @@ class PiHarness:
                 capped = True
                 break
             stop_at = budget - min_pp * (len(PHASES) - idx - 1) if budget else 0
+            handoff_start = handoffs.begin(spec.episode, phase)
             before = self._sessions(state)
             fired = [False]
 
@@ -202,6 +251,7 @@ class PiHarness:
                     return True
                 return False
 
+            timed_out = False
             try:
                 proc = self.sandbox.run(
                     run_root,
@@ -210,17 +260,27 @@ class PiHarness:
                      "-p", spec.phase_prompts.get(phase, phase)],
                     env={"DEEPSEEK_API_KEY": self.key},
                     timeout_s=self.phase_timeout_s,
-                    mounts=((str(harness), "/workspace"), (str(state), "/state"))
+                    mounts=((str(harness), "/workspace"), (str(state), "/state"),
+                            (str(handoffs.root), CONTAINER_ROOT))
                            + self._task_mount(run_root),
                     stop_check=stop_check if budget else None,
                 )
             except subprocess.TimeoutExpired:
+                timed_out = True
+                proc = None
+            new = self._sessions(state) - before
+            phase_events: list[ActionEvent] = []
+            if new:
+                session_path = min(new)
+                mapping[phase] = session_path.name
+                episode_files |= new
+                phase_events = self._session_trace(session_path, phase)
+            handoffs.finish(handoff_start, phase_events,
+                            interrupted=timed_out or fired[0])
+            if timed_out:
                 error = f"phase {phase}: timeout after {self.phase_timeout_s}s"
                 break
-            new = self._sessions(state) - before
-            if new:
-                mapping[phase] = min(new).name
-                episode_files |= new
+            assert proc is not None
             if proc.returncode != 0:
                 if fired[0]:
                     # stopped at the phase's line: continue if it was only the reserve,
@@ -281,37 +341,11 @@ class PiHarness:
             name = mapping.get(phase)
             if not name or not (state / name).exists():
                 continue
-            for line in (state / name).read_text(encoding="utf-8",
-                                                 errors="replace").splitlines():
-                try:
-                    e = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if e.get("type") != "message":
-                    continue
-                msg = e.get("message", {})
-                if msg.get("role") != "assistant":
-                    continue
-                turn += 1
-                for block in msg.get("content", []):
-                    btype = block.get("type", "")
-                    if btype in ("toolCall", "tool_call", "toolUse"):
-                        args = block.get("arguments") or block.get("input") or {}
-                        if isinstance(args, str):
-                            try:
-                                args = json.loads(args)
-                            except json.JSONDecodeError:
-                                args = {}
-                        path = str(args.get("file_path") or args.get("path") or "")
-                        events.append(ActionEvent(
-                            turn=turn, phase=phase,
-                            tool=block.get("name", ""),
-                            surface=self._surface_for_path(path),
-                            params={k: str(v)[:200] for k, v in args.items()}, text="",
-                        ))
-                    elif btype == "text" and block.get("text"):
-                        events.append(ActionEvent(
-                            turn=turn, phase=phase, tool=None, surface=None,
-                            params={}, text=block["text"][:500],
-                        ))
+            phase_events = self._session_trace(state / name, phase)
+            for event in phase_events:
+                events.append(ActionEvent(
+                    turn=turn + event.turn, phase=event.phase, tool=event.tool,
+                    surface=event.surface, params=event.params, text=event.text,
+                ))
+            turn += max((event.turn for event in phase_events), default=0)
         return events

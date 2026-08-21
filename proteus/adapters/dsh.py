@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 from proteus.core.episode import PHASES
 
@@ -52,12 +53,26 @@ across sessions. Your surfaces:
 
 - `AGENTS.md` — these instructions (you may refine them)
 - `notes/` — markdown knowledge you want future sessions to have
-- `tools/` — small python utilities you may want later
+- `tools/` — small node utilities you may want later
 - `src/` — your own program: the real TypeScript source of the harness that runs you.
   Edit it and the next session is rebuilt from your edit and runs it. If your edit
   does not compile, the run ends.
 
-Each session is one phase of an episode; only these files carry over.
+Proteus supplies the cross-phase operational handoff at
+`/workspace/.proteus/handoff.md`. Read and replace it as requested by each phase prompt. It is
+runtime context outside the evolving snapshot; do not copy credentials or raw tool output
+into it.
+
+The image already contains an installed, built copy at `/opt/src`. Do not run `pnpm
+install` in `/workspace` or `/workspace/src`, and do not create `node_modules` or package
+manager caches there: those are generated dependencies, not evolution, and would pollute
+your persistent snapshot. Use `/opt/src` for read-only baseline tests and dependency-backed
+inspection. At the start of each later phase, your persistent `src/` changes are synced
+into `/opt/src` and rebuilt automatically, so the next phase is also the build gate for
+the edits you made.
+
+Each session is one phase of an episode. Harness files and the bounded Proteus handoff
+carry over; the raw conversation does not.
 """
 
 
@@ -123,6 +138,7 @@ class DshHarness:
     """`HarnessAdapter` for DeepSeek Harness's headless profile, containerized."""
 
     name = "dsh"
+    continuity_mode = "framework"
     disposition_in_files = True   # carried by AGENTS.md; keep it out of the phase prompts
 
     SURFACES = (
@@ -139,10 +155,16 @@ class DshHarness:
 
     def __init__(self, image: str = IMAGE, network: str = "host",
                  key: str | None = None, sandbox=None,
-                 phase_timeout_s: int = PHASE_TIMEOUT_S) -> None:
+                 phase_timeout_s: int = PHASE_TIMEOUT_S,
+                 permission_mode: str = "workspace-write") -> None:
+        if permission_mode not in {"workspace-write", "danger-full-access"}:
+            raise ValueError(
+                "DSH permission_mode must be 'workspace-write' or 'danger-full-access'"
+            )
         self.image = image
         self.network = network
         self.phase_timeout_s = phase_timeout_s
+        self.permission_mode = permission_mode
         # per-instance key injection first (multi-tenant runs must not share env)
         self.key = key or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_KEY", "")
         from proteus.sandbox import DockerSandbox, SandboxConfig
@@ -226,6 +248,45 @@ class DshHarness:
         root = state / "sessions"
         return {p.parent for p in root.rglob("session.jsonl.zstd")} if root.exists() else set()
 
+    def _session_trace(self, session_dir: Path, phase: str,
+                       partial: bool = False) -> list[ActionEvent]:
+        """Normalize one native session without exposing provider-specific reasoning."""
+        log = session_dir / "session.jsonl.zstd"
+        if not log.exists():
+            return []
+        raw = _zstd_partial(log.read_bytes()) if partial else _zstd_decompress(log.read_bytes())
+        events: list[ActionEvent] = []
+        last_turn = 0
+        for line in raw.decode(errors="replace").splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            data = event.get("data", {})
+            if event.get("type") == "tool/call":
+                try:
+                    args = json.loads(data.get("arguments", "") or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                last_turn = int(data.get("turn", last_turn))
+                events.append(ActionEvent(
+                    turn=last_turn, phase=phase, tool=data.get("name", ""),
+                    surface=self._surface_for_path(str(args.get("file_path", ""))),
+                    params={k: str(v)[:200] for k, v in args.items()}, text="",
+                ))
+            elif event.get("type") == "assistant/message":
+                # Deliberately retain only visible text. `reasoning` blocks are neither a
+                # portable provider contract nor suitable framework handoff material.
+                parts = data.get("message", {}).get("content", [])
+                text = " ".join(part.get("text", "") for part in parts
+                                if part.get("type") == "text")
+                if text:
+                    events.append(ActionEvent(
+                        turn=int(data.get("turn", last_turn)), phase=phase,
+                        tool=None, surface=None, params={}, text=text[:500],
+                    ))
+        return events
+
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         if not self.key:
             return EpisodeResult(episode=spec.episode, ok=False, turns=0,
@@ -234,6 +295,7 @@ class DshHarness:
         harness = run_root / "harness"
         state = run_root / ".dsh-state"
         state.mkdir(exist_ok=True)
+        handoffs = HandoffStore(run_root)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, str] = {}
         error = ""
@@ -254,6 +316,7 @@ class DshHarness:
                 capped = True
                 break
             stop_at = budget - min_pp * (len(PHASES) - idx - 1) if budget else 0
+            handoff_start = handoffs.begin(spec.episode, phase)
             before = self._session_dirs(state)
             fired = [False]
 
@@ -264,24 +327,35 @@ class DshHarness:
                     return True
                 return False
 
+            timed_out = False
             try:
                 proc = self.sandbox.run(
                     run_root,
                     ["--profile", "headless", spec.phase_prompts.get(phase, phase)],
                     env={"DEEPSEEK_API_KEY": self.key,
-                         "DSH_PERMISSION_MODE": "workspace-write"},
+                         "DSH_PERMISSION_MODE": self.permission_mode},
                     timeout_s=self.phase_timeout_s,
-                    mounts=((str(harness), "/workspace"), (str(state), "/state"))
+                    mounts=((str(harness), "/workspace"), (str(state), "/state"),
+                            (str(handoffs.root), CONTAINER_ROOT))
                            + self._task_mount(run_root),
                     stop_check=stop_check if budget else None,
                 )
             except subprocess.TimeoutExpired:
+                timed_out = True
+                proc = None
+            new = self._session_dirs(state) - before
+            phase_events: list[ActionEvent] = []
+            if new:
+                session_dir = min(new)
+                mapping[phase] = str(session_dir.relative_to(state))
+                episode_dirs |= new
+                phase_events = self._session_trace(session_dir, phase, partial=True)
+            handoffs.finish(handoff_start, phase_events,
+                            interrupted=timed_out or fired[0])
+            if timed_out:
                 error = f"phase {phase}: timeout after {self.phase_timeout_s}s"
                 break
-            new = self._session_dirs(state) - before
-            if new:
-                mapping[phase] = str(min(new).relative_to(state))
-                episode_dirs |= new
+            assert proc is not None
             if proc.returncode != 0:
                 if fired[0]:
                     # stopped at the phase's line: continue if it was only the reserve,
@@ -344,36 +418,13 @@ class DshHarness:
             log = state / rel / "session.jsonl.zstd"
             if not log.exists():
                 continue
-            last_turn = 0
-            for line in _zstd_decompress(log.read_bytes()).decode().splitlines():
-                try:
-                    e = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                data = e.get("data", {})
-                if e.get("type") == "tool/call":
-                    try:
-                        args = json.loads(data.get("arguments", "") or "{}")
-                    except json.JSONDecodeError:
-                        args = {}
-                    last_turn = int(data.get("turn", last_turn))
-                    events.append(ActionEvent(
-                        turn=turn_base + last_turn, phase=phase,
-                        tool=data.get("name", ""),
-                        surface=self._surface_for_path(str(args.get("file_path", ""))),
-                        params={k: str(v)[:200] for k, v in args.items()}, text="",
-                    ))
-                elif e.get("type") == "assistant/message":
-                    parts = data.get("message", {}).get("content", [])
-                    text = " ".join(c.get("text", "") for c in parts
-                                    if c.get("type") == "text")
-                    if text:
-                        events.append(ActionEvent(
-                            turn=turn_base + int(data.get("turn", last_turn)),
-                            phase=phase, tool=None, surface=None, params={},
-                            text=text[:500],
-                        ))
-            turn_base += last_turn
+            phase_events = self._session_trace(log.parent, phase)
+            for event in phase_events:
+                events.append(ActionEvent(
+                    turn=turn_base + event.turn, phase=event.phase, tool=event.tool,
+                    surface=event.surface, params=event.params, text=event.text,
+                ))
+            turn_base += max((event.turn for event in phase_events), default=0)
         return events
 
     def disposition_fingerprint(self, harness_root: Path) -> str:

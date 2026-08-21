@@ -48,7 +48,7 @@ Evaluator = Callable[[Sequence[ActionEvent], "GoalContext"], EvalResult]
 
 @dataclass(frozen=True)
 class Goal:
-    """One objective. `text` is shown to the agent (in the act phase); `evaluator` scores
+    """One objective. `text` is shown to the agent in every context-fresh phase; `evaluator` scores
     progress toward it. A goal with no evaluator is a stated aim with no measured feedback;
     an evaluator with no goal text is a measured signal with no announced objective.
 
@@ -125,7 +125,7 @@ class GoalConfig:
     goals: tuple[Goal, ...] = ()
     selection: str = "none"            # "none" | "accept_reject" | "rank"
     text: str = ""
-    """The freeform objective, decoupled from measurement. Shown in the act phase."""
+    """The freeform objective, decoupled from measurement. Shown in every phase."""
     evaluators: tuple[EvaluatorSpec, ...] = ()
     """Evaluators attached to this run, each with its own kind and visibility."""
 
@@ -154,7 +154,7 @@ class GoalConfig:
         return not self.goals and not self.text
 
     def goal_text(self) -> str:
-        """Objective text to show the agent in the act phase (empty under no-goal)."""
+        """Objective text to show the agent in every phase (empty under no-goal)."""
         stated = ([self.text] if self.text else []) + [g.text for g in self.goals if g.text]
         if not stated:
             return ""

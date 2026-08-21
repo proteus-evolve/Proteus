@@ -79,6 +79,10 @@ class EpisodeSpec:
     reservation stop moves to the next phase; only a spent budget ends the episode."""
     seed: int = 0                    # the run's RNG seed (condition replicate index)
     extra_env: Mapping[str, str] = field(default_factory=dict)
+    continuity_mode: str = "native"
+    """How fresh phases continue: ``native`` means the harness owns continuity,
+    ``framework`` uses Proteus's external handoff protocol, and ``none`` deliberately
+    leaves phases independent. The adapter declaration is copied here by the core."""
 
 
 @runtime_checkable
@@ -86,6 +90,11 @@ class HarnessAdapter(Protocol):
     """The whole contract. Implement this and Proteus can evolve your harness."""
 
     name: str
+
+    # Adapters may declare `continuity_mode = "framework" | "none"`. It is deliberately
+    # optional rather than a Protocol member so existing custom adapters stay compatible;
+    # absence means `native`. Framework adapters mount the run's external
+    # `.proteus-state` at `/workspace/.proteus` and use HandoffStore between phases.
 
     disposition_in_files: bool = False
     """True when `install_disposition` writes the perturbation into a file the harness

@@ -1,6 +1,7 @@
 # The episode: what updates when, and who owns it
 
 Code: [`proteus/core/episode.py`](../proteus/core/episode.py) (the loop),
+[`proteus/core/continuity.py`](../proteus/core/continuity.py) (phase handoffs),
 [`proteus/core/goal.py`](../proteus/core/goal.py) (goals and evaluators),
 [`proteus/core/snapshot.py`](../proteus/core/snapshot.py) (snapshots),
 [`proteus/core/adapter.py`](../proteus/core/adapter.py) (the adapter contract).
@@ -38,12 +39,15 @@ assemble prompts → [boot gate] → run the episode → read the trace → run 
 `_phase_prompts` starts from the four base texts (observe / propose / act / reflect) and
 applies fixed rules:
 
-- the **goal text** (freeform, decoupled from evaluators) joins the **act** phase;
+- the **goal text** (freeform, decoupled from evaluators) joins **all four phases** because
+  a fresh observe or propose otherwise investigates and plans against the wrong objective;
 - **last episode's OBSERVE-visible evaluator feedback** joins the **observe** phase
   (HIDDEN results never appear here);
 - the **disposition's phase text** joins each phase — *unless* the adapter declares
   `disposition_in_files = True` (dsh/pi carry the perturbation in `AGENTS.md`; adding
   the prompt copy would double the dose, through a channel outside `F`).
+- for `continuity_mode="framework"`, the portable handoff protocol joins every phase;
+  native and deliberately independent harnesses receive no file-specific instructions.
 
 The agent sees these texts and nothing else. It is never told why.
 
@@ -69,6 +73,12 @@ adapter's:
   mounts at `/workspace`, the
   harness's own state at `/state`, and an optional benchmark workspace at
   `/workspace/task`; self-edited code takes effect via the rebuild-on-boot wrapper.
+  DSH and Pi also bind `<run>/.proteus-state` over `/workspace/.proteus`: it remains
+  writable under workspace-only permissions while staying outside the measured harness.
+  Before each phase, the prior handoff is exposed; after it, an agent-written operational
+  summary is archived. A budget or timeout stop falls back to normalized tool names and
+  paths, never raw reasoning or tool results. History lives under
+  `.proteus-state/handoffs/epNNN/`, and reflect carries into the next episode.
   `max_turns` is enforced in two layers, both harness-agnostic: **exactly
   between phases** (no new phase once the budget is spent) and **approximately
   mid-phase** (the session log is polled live — pi's is plain JSONL, dsh's flushes one
@@ -142,9 +152,10 @@ candidate is rejected.
 
 ### 9. Next episode — framework
 
-Context-fresh: **only files cross the episode boundary.** Nothing of the previous
-episode's conversation or process state survives; the next episode wakes up to the
-working tree the snapshot describes.
+Context-fresh: the next episode wakes up to the working tree the snapshot describes. In a
+framework-continuity run, the prior reflect's bounded operational handoff also crosses the
+boundary as apparatus state; because it lives outside the harness snapshot, it cannot
+count as evolved memory. Raw conversation and process state never survive.
 
 ---
 
@@ -153,6 +164,7 @@ working tree the snapshot describes.
 | part | where |
 |---|---|
 | phase-prompt assembly rules (where goal / feedback / disposition inject) | `episode._phase_prompts` |
+| framework continuity protocol, redaction, phase history, fallback | `continuity.py` |
 | evaluator timing, visibility, crash degradation, selection | `goal.py` + `episode.run` |
 | snapshots, non-destructive rejection, gapless mapping, no ignore rules | `snapshot.py` |
 | records: eval_history / counters / progress lines | `episode.run` |
@@ -160,11 +172,12 @@ working tree the snapshot describes.
 | the measurement suite — structural distance, travel, behavioural R, audit, reliability — reads the same artefacts for every harness | `proteus/measure/` |
 | container infrastructure (image / network / mounts / resources, all user-configurable) | `proteus/sandbox/` |
 
-## Owned by the adapter (seven methods, two attributes)
+## Owned by the adapter (seven methods, optional capability attributes)
 
 | contract item | decides | examples of divergence |
 |---|---|---|
 | `name` | stable adapter identity used in records and diagnostics | minimal / dsh / pi / aki |
+| `continuity_mode` | native / framework / none; absent means native | dsh/pi: framework; aki: native; minimal: none |
 | `surfaces()` | the measurable surface manifest (data, not a constant) | minimal: notes+tools; dsh: +instructions+loop; pi: +skills |
 | `seed()` | the episode-0 state | dsh/pi extract their own code into `src/` |
 | `install_disposition()` | the perturbation's carrier | minimal: a JSON file; dsh/pi: a marked `AGENTS.md` block |
@@ -182,6 +195,7 @@ working tree the snapshot describes.
 | execution | in-process, mock policy | in-process, live model | container per phase | container per phase | delegated supervisor |
 | trace source | own JSONL | own JSONL | `session.jsonl.zstd` | session JSONL | Aki tracer |
 | disposition carrier | JSON file | JSON file | `AGENTS.md` block | `AGENTS.md` block | apparatus-native |
+| continuity | none | none | Proteus framework handoff | Proteus framework handoff | native supervisor |
 | self-code | none | none | bundled ESM (shadow mounts) | **real TS source (rebuild on boot)** | `loop.py` + package copy |
 | iteration bound | `max_turns`, hard | `max_turns`, hard | `max_turns`: exact between phases + mid-phase log watch | `max_turns`: exact between phases + mid-phase log watch | apparatus turn gate |
 | needs | nothing | API key | Docker + key | Docker + key | the private Aki repo |

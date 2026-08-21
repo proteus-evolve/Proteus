@@ -36,6 +36,10 @@ def check_adapter(adapter, *, episode: bool = False, verbose: bool = True) -> li
     ok(len(surfaces) > 0, "declares at least one surface")
     ok(all(s.name and s.subdir for s in surfaces), "surfaces have name and subdir")
     ok(len({s.name for s in surfaces}) == len(surfaces), "surface names are unique")
+    from proteus.core.continuity import MODES
+    continuity = getattr(adapter, "continuity_mode", "native")
+    ok(continuity in MODES, "declares a valid continuity mode",
+       f"expected one of {sorted(MODES)}, got {continuity!r}")
 
     # --- provisioning (filesystem only) --------------------------------------------------
     with tempfile.TemporaryDirectory(prefix="proteus-check-") as tmp:

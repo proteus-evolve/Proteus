@@ -6,6 +6,7 @@ from proteus.core.adapter import (
     Surface,
 )
 from proteus.core.disposition import NEUTRAL, Disposition, record, review
+from proteus.core.continuity import HandoffStore, PROTOCOL_VERSION
 from proteus.core.episode import RunConfig, RunResult, run
 from proteus.core.goal import (
     EvalResult,
@@ -30,6 +31,8 @@ __all__ = [
     "GoalConfig",
     "GoalContext",
     "HarnessAdapter",
+    "HandoffStore",
+    "PROTOCOL_VERSION",
     "RunConfig",
     "RunResult",
     "Surface",

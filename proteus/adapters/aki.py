@@ -57,6 +57,7 @@ class AkiHarness:
     """`HarnessAdapter` for the Aki research harness."""
 
     name = "aki"
+    continuity_mode = "native"     # Aki's supervisor owns its internal phase state
     disposition_in_files = False   # the apparatus installs its own carrier
 
     SURFACES = (

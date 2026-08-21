@@ -124,8 +124,9 @@ flowchart LR
     S --> F
 ```
 
-Every seed runs `N` context-fresh **episodes**; only files cross the episode boundary. One
-episode is four phases:
+Every seed runs `N` context-fresh **episodes**. Evolved harness files cross the episode
+boundary; adapters that opt into framework continuity also receive a bounded operational
+handoff stored outside the measured snapshot. One episode is four phases:
 
 ```
 observe  →  propose  →  act  →  reflect
@@ -134,7 +135,8 @@ observe  →  propose  →  act  →  reflect
 - **observe** — take stock; if you configured a *visible* evaluator, its score on the last
   episode is shown here.
 - **propose** — list ways to improve your own harness.
-- **act** — carry one out by editing the harness (the goal, if any, is announced here).
+- **act** — carry one out by editing the harness. The goal, if any, is announced in every
+  fresh phase so observation and planning stay aligned with it.
 - **reflect** — decide what to keep.
 
 The **framework** owns everything that is not the harness (prompts, goal text, evaluator
@@ -145,7 +147,7 @@ routing, snapshotting, selection, measurement). The **adapter** owns everything 
 
 | Concept | What it is |
 |---|---|
-| `HarnessAdapter` | the contract a harness implements: its surfaces, how to run an episode, how to read the action trace, how to install/remove a disposition |
+| `HarnessAdapter` | the contract a harness implements: its surfaces, phase-continuity capability, how to run an episode, how to read the action trace, how to install/remove a disposition |
 | `Surface` | one editable, persistent region (memory / skills / tools / code / …), declared as data so the measurement layer needs no hard-coded names |
 | `Disposition` | the action-preference perturbation — a **single, removable** change at t=0 (prompt suffix, config value, or code patch) |
 | `GoalConfig` | goal / no-goal / multi-goal, each evaluator `HIDDEN` or `OBSERVE`-visible, plus outer-loop selection (`accept_reject`) |

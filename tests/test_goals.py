@@ -36,7 +36,9 @@ def test_observe_feedback_reaches_next_observe_prompt(tmp_path):
     assert res.episodes_complete == 3
     assert "Feedback on your last episode" in adapter.prompts[2]["observe"]
     assert "Feedback" not in adapter.prompts[1]["observe"]   # nothing before episode 1
-    assert "Grow your notes." in adapter.prompts[1]["act"]   # goal text announced in act
+    # Each phase is context-fresh, so all four must receive the objective.
+    assert all("Grow your notes." in adapter.prompts[1][phase]
+               for phase in ("observe", "propose", "act", "reflect"))
 
 
 def test_hidden_feedback_never_shown(tmp_path):

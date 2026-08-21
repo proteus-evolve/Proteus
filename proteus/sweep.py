@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from proteus.core.adapter import HarnessAdapter
+from proteus.core.continuity import PROTOCOL_VERSION
 from proteus.core.disposition import Disposition
 from proteus.core.episode import RunConfig, completed_episodes, run
 from proteus.core.goal import GoalConfig
@@ -88,6 +89,11 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         shutil.rmtree(cfg.root / "progress", ignore_errors=True)
     done = completed_seeds(cfg.root, cfg.episodes) if cfg.on_existing == "resume" else set()
 
+    # The adapter declaration is part of the experimental condition. Constructing one is
+    # side-effect free; individual runs still receive isolated adapter instances below.
+    manifest_adapter = cfg.adapter_factory()
+    continuity_mode = getattr(manifest_adapter, "continuity_mode", "native")
+
     # manifest first: the live report discovers every planned run from it, so tracking
     # works from episode 1 — not only after a seed completes
     runs = [{"id": opaque_id(arm.label, s), "arm": arm.label, "seed": s}
@@ -99,6 +105,10 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         "model": cfg.model,
         "evaluators": cfg.goal.describe(),
         "announce_budget": cfg.announce_budget,
+        "continuity": {
+            "mode": continuity_mode,
+            "protocol_version": PROTOCOL_VERSION if continuity_mode == "framework" else None,
+        },
     }, indent=1))
 
     records: list[dict] = []

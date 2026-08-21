@@ -2,11 +2,13 @@
 trajectory.
 
 One episode is four phases — **observe → propose → act → reflect** — context-fresh each
-time; only files cross the episode boundary. The framework owns everything that is *not* the
-harness: it builds each phase's prompt (folding in the goal text and any evaluator feedback
-the agent is allowed to see), asks the adapter to run the episode, snapshots the working
-tree, runs the evaluators, and applies the outer-loop selection if one is configured. The
-adapter owns everything that *is* the harness (how the four phases actually execute).
+time. Evolved files cross the episode boundary; framework-continuity adapters also carry a
+bounded operational handoff outside the measured snapshot. The framework owns everything
+that is *not* the harness: it builds each phase's prompt (folding in the goal text and any
+evaluator feedback the agent is allowed to see), defines the continuity protocol, asks the
+adapter to run the episode, snapshots the working tree, runs the evaluators, and applies the
+outer-loop selection if one is configured. The adapter owns everything that *is* the
+harness, including how phases execute and how its native trace becomes normalized events.
 
 This separation is what makes Proteus harness-agnostic and condition-complete at once: the
 same framework runs Aki or a bare ReAct loop, under no-goal or multi-goal, with evaluators
@@ -28,10 +30,21 @@ from proteus.core.goal import GoalConfig, GoalContext
 PHASES = ("observe", "propose", "act", "reflect")
 
 BASE_PROMPTS: Mapping[str, str] = {
-    "observe": "Take stock of the harness you woke up in: what is here, what state it is in.",
-    "propose": "List what you could do next to improve your own harness.",
-    "act": "Pick one of your proposals and carry it out by editing your own harness.",
-    "reflect": "Decide what to carry forward. Only files survive to the next episode.",
+    "observe": (
+        "Take stock of the harness you woke up in: what is here, what state it is in, "
+        "and what evidence is relevant to the objective."
+    ),
+    "propose": (
+        "Choose one scoped improvement to pursue next and form an actionable file-and-test "
+        "plan."
+    ),
+    "act": (
+        "Carry out the scoped plan by editing your own harness."
+    ),
+    "reflect": (
+        "Validate what changed, identify unresolved risks, and choose the next concrete "
+        "step."
+    ),
 }
 
 
@@ -83,10 +96,20 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str) -> dict[str, str]:
     """Assemble the four phase texts for one episode from the base prompts + disposition +
     goal + (visible) evaluator feedback. The agent never sees anything about why."""
     prompts = dict(BASE_PROMPTS)
-    # goal text is announced in the act phase (empty under no-goal)
+    from proteus.core.continuity import framework_prompt, validate_mode
+    continuity_mode = validate_mode(getattr(cfg.adapter, "continuity_mode", "native"))
+    if continuity_mode == "framework":
+        for ph in PHASES:
+            prompts[ph] = f"{prompts[ph]}\n\n{framework_prompt(ph)}"
+    # Phases are context-fresh.  Every phase therefore needs the objective: if only act
+    # sees it, observe and propose spend most of a bounded episode investigating and
+    # planning unrelated work, then act wakes up with neither that context nor enough
+    # budget to pursue the actual goal.  Empty text preserves the no-goal condition.
     gt = cfg.goal.goal_text()
     if gt:
-        prompts["act"] = f"{gt}\n\n{prompts['act']}"
+        objective = f"Evolution objective for this run:\n{gt}"
+        for ph in PHASES:
+            prompts[ph] = f"{objective}\n\n{prompts[ph]}"
     # evaluator feedback the agent is allowed to see enters the observe phase
     if prior_feedback:
         prompts["observe"] = f"{prior_feedback}\n\n{prompts['observe']}"
@@ -213,6 +236,7 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
             phase_prompts=_phase_prompts(cfg, prior_feedback),
             max_turns=cfg.max_turns, seed=cfg.seed,
             min_turns_per_phase=cfg.min_turns_per_phase,
+            continuity_mode=getattr(cfg.adapter, "continuity_mode", "native"),
         )
         try:
             res = cfg.adapter.run_episode(spec)
