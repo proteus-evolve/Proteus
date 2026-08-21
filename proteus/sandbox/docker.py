@@ -144,13 +144,12 @@ class DockerSandbox:
         code is returned — the caller decides whether that stop was a cap or a failure.
         """
         c = self.config
-        argv = ["docker", "run", "--rm", "--init", "--network", c.network]
+        import uuid
+
+        name = f"proteus-{uuid.uuid4().hex[:12]}"
+        argv = ["docker", "run", "--rm", "--init", "--network", c.network,
+                "--name", name]
         docker_env = os.environ.copy()
-        name = ""
-        if stop_check is not None:
-            import uuid
-            name = f"proteus-{uuid.uuid4().hex[:12]}"
-            argv += ["--name", name]
         for host, cont in (mounts or ((str(run_root), "/run"),)):
             argv += ["-v", f"{host}:{cont}"]
         if c.mem_limit:
@@ -173,8 +172,16 @@ class DockerSandbox:
             argv += ["-e", f"{key}={value}"]
         argv += [*c.extra_args, c.image, *(c.entrypoint or ()), *command]
         if stop_check is None:
-            return subprocess.run(argv, capture_output=True, text=True, errors="replace",
-                                  env=docker_env, timeout=timeout_s, check=False)
+            try:
+                return subprocess.run(
+                    argv, capture_output=True, text=True, errors="replace",
+                    env=docker_env, timeout=timeout_s, check=False)
+            except subprocess.TimeoutExpired:
+                # subprocess.run kills only the docker CLI process. The named container
+                # is a separate process and otherwise survives as an orphan.
+                subprocess.run(["docker", "rm", "-f", name],
+                               capture_output=True, check=False)
+                raise
 
         import time
         proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -188,10 +195,29 @@ class DockerSandbox:
             except subprocess.TimeoutExpired:
                 pass
             if time.monotonic() > deadline:
-                subprocess.run(["docker", "kill", name], capture_output=True, check=False)
+                subprocess.run(["docker", "rm", "-f", name],
+                               capture_output=True, check=False)
                 out, err = proc.communicate()
                 raise subprocess.TimeoutExpired(argv, timeout_s, output=out, stderr=err)
-            if not stopped and stop_check():
-                stopped = True
-                subprocess.run(["docker", "kill", name], capture_output=True, check=False)
+            if not stopped:
+                try:
+                    should_stop = stop_check()
+                except Exception:
+                    subprocess.run(["docker", "rm", "-f", name],
+                                   capture_output=True, check=False)
+                    proc.communicate()
+                    raise
+                if should_stop:
+                    stopped = True
+                    removed = subprocess.run(
+                        ["docker", "rm", "-f", name], capture_output=True, check=False)
+                    if removed.returncode != 0 and proc.poll() is None:
+                        # `stop_check` may fire before Docker has registered the name.
+                        # Stop the client, then retry after its create attempt has ended.
+                        proc.terminate()
+                        proc.communicate()
+                        subprocess.run(["docker", "rm", "-f", name],
+                                       capture_output=True, check=False)
+                        out, err = "", ""
+                        break
         return subprocess.CompletedProcess(argv, proc.returncode, out, err)

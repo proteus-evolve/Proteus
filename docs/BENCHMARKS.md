@@ -72,16 +72,16 @@ Each of these exists because an agent found the exploit or a run hit the failure
 2. **Tests are held out.** `grade` rewrites the test files from the dataset before running
    them. Agents edit tests when that raises the score — ours did
    (`test_editing_the_tests_gains_nothing`).
-3. **Grading is cwd-independent.** Resolve every path beside the driver file, never
-   against the working directory: the same grader must work on the host (cwd = workspace)
-   and inside a container (cwd = whatever the image says, usually `/`).
+3. **Grading is cwd-independent.** Resolve every path from the mounted task workspace,
+   never from the framework process's working directory. Local and Polyglot graders run
+   in a networkless, read-only Docker sandbox with only `/task` mounted.
 4. **Keep the task outside the measured snapshot.** `task_root(harness_root)` resolves to
    `<run>/task/`, a sibling of `<run>/harness/`. Containerized adapters mount it at
    `/workspace/task`. This lets SWE-bench keep its own `.git` repository without turning it
    into a gitlink in the harness snapshot; selection rolls back the harness, never the task.
-5. **Grading runs agent-authored code — treat it that way.** The grader executes whatever
-   the agent left in the workspace. Run it under the same isolation as the episode, or
-   only against harnesses you trust.
+5. **Grading runs agent-authored code — contain it.** Route execution through the grader
+   sandbox (`GoalContext.grader_sandbox`); never invoke the host Python as a fallback.
+   If a secure grader is unavailable, return a legible zero without executing the code.
 6. **Heavy dependencies are imported lazily and fail legibly.** The framework must run
    without your benchmark's SDK installed; a missing dependency is a scored zero with an
    install hint, not an ImportError at import time (`swe.py` shows the pattern).

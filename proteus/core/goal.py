@@ -20,9 +20,10 @@ run and a goal run are read with the same ruler.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from proteus.core.adapter import ActionEvent
 
@@ -96,6 +97,7 @@ class GoalContext:
 
     harness_root: str
     episode: int
+    grader_sandbox: Any = None
 
 
 @dataclass(frozen=True)
@@ -164,19 +166,29 @@ class GoalConfig:
             f"  {i+1}. {t}" for i, t in enumerate(stated))
 
     def evaluate(self, trace: Sequence[ActionEvent], ctx: GoalContext) -> list[EvalResult]:
-        """Run every evaluator. Caller decides what to do with the results per visibility."""
+        """Run every evaluator independently; one broken signal never erases the others."""
         out: list[EvalResult] = []
+
+        def isolated(name: str, evaluator: Evaluator) -> EvalResult:
+            try:
+                result = evaluator(trace, ctx)
+                if not math.isfinite(float(result.score)):
+                    raise ValueError(f"non-finite score {result.score!r}")
+                if result.name != name:
+                    result = EvalResult(name=name, score=result.score, passed=result.passed,
+                                        detail=result.detail)
+                return result
+            except Exception as exc:  # noqa: BLE001 - a broken evaluator is one result
+                return EvalResult(
+                    name=name, score=0.0, passed=False,
+                    detail=f"evaluator error: {type(exc).__name__}: {exc}"[:200],
+                )
+
         for g in self.goals:
             if g.evaluator is not None:
-                out.append(g.evaluator(trace, ctx))
+                out.append(isolated(g.name, g.evaluator))
         for spec in self.evaluators:
-            r = spec.run(trace, ctx)
-            if r.name != spec.name:
-                # the spec's name is the identity everything downstream keys on (feedback,
-                # progress lines, selection); the callable's own label is advisory
-                r = EvalResult(name=spec.name, score=r.score, passed=r.passed,
-                               detail=r.detail)
-            out.append(r)
+            out.append(isolated(spec.name, spec.run))
         return out
 
     def _visible(self) -> list[tuple[str, str]]:

@@ -131,7 +131,7 @@ def main() -> int:
             git_dir = run_root / ".snapshot.git"
             ep0 = subprocess.run(
                 ["git", "--git-dir", str(git_dir), "ls-tree", "-r", "--name-only",
-                 "HEAD~" if episodes else "HEAD"],
+                 f"HEAD~{episodes}" if episodes else "HEAD"],
                 capture_output=True, text=True, errors="replace", check=False).stdout
             check("src/" in ep0, "episode-0 snapshot contains src/")
             check(adapter.check_boot(run_root / "harness") == "",

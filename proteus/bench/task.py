@@ -51,7 +51,7 @@ class BenchTask:
     id: str
     goal_text: str
     setup: Callable[[Path], None]
-    grade: Callable[[Path], EvalResult]
+    grade: Callable[..., EvalResult]
     #: git ref the task workspace starts from, when the grader needs a diff
     base_commit: str = ""
 
@@ -80,15 +80,19 @@ def as_evaluator(task: BenchTask):
     episode into its cache identity or every episode returns episode 1's verdict."""
     import inspect
     takes_episode = "episode" in inspect.signature(task.grade).parameters
+    takes_sandbox = "sandbox" in inspect.signature(task.grade).parameters
 
     def evaluate(trace: Sequence[ActionEvent], ctx: GoalContext) -> EvalResult:
         ws = task_root(ctx.harness_root)
         if not ws.exists():
             return EvalResult(name=task.id, score=0.0, passed=False,
                               detail="task workspace missing (was setup run?)")
+        kwargs = {}
         if takes_episode:
-            return task.grade(ws, episode=ctx.episode)
-        return task.grade(ws)
+            kwargs["episode"] = ctx.episode
+        if takes_sandbox:
+            kwargs["sandbox"] = ctx.grader_sandbox
+        return task.grade(ws, **kwargs)
 
     return evaluate
 

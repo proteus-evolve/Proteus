@@ -65,6 +65,31 @@ def test_multi_goal_runs_all_evaluators(tmp_path):
     assert "several objectives" not in res.eval_history[0]  # single stated text -> plain
 
 
+def test_evaluators_fail_independently_and_reject_nonfinite_scores():
+    from proteus.core import EvaluatorSpec
+    from proteus.core.goal import GoalContext
+
+    def good(trace, ctx):
+        return EvalResult(name="wrong-returned-name", score=0.75, passed=True)
+
+    def broken(trace, ctx):
+        raise RuntimeError("grader exploded")
+
+    def nan(trace, ctx):
+        return EvalResult(name="nan", score=float("nan"))
+
+    goal = GoalConfig.of(evaluators=(
+        EvaluatorSpec(name="good", run=good),
+        EvaluatorSpec(name="broken", run=broken),
+        EvaluatorSpec(name="nan", run=nan),
+    ))
+    results = goal.evaluate([], GoalContext("/unused", 1))
+    assert [(r.name, r.score) for r in results] == [
+        ("good", 0.75), ("broken", 0.0), ("nan", 0.0)]
+    assert "RuntimeError" in results[1].detail
+    assert "non-finite" in results[2].detail
+
+
 def test_accept_reject_reverts_worse_episode(tmp_path):
     # score drops on episode 2 -> episode 2 must be rejected and its tree reverted
     scores = {1: 1.0, 2: 0.0, 3: 1.0}
@@ -233,3 +258,16 @@ def test_cli_run_returns_failure_when_an_episode_fails(tmp_path):
                        "--seeds", "1", "--episodes", "1",
                        "--out", str(tmp_path / "failed")])
     assert rc == 1
+
+
+def test_cli_rejects_invalid_turn_reservations_without_traceback(tmp_path):
+    from proteus import cli
+
+    try:
+        cli.main(["run", "--harness", "minimal", "--arm", "neutral",
+                  "--max-turns", "7", "--min-turns-per-phase", "2",
+                  "--out", str(tmp_path / "bad")])
+    except SystemExit as exc:
+        assert "use --max-turns >= 8" in str(exc)
+    else:
+        raise AssertionError("invalid reservation was accepted")

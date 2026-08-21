@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import textwrap
 from pathlib import Path
 
@@ -141,15 +140,14 @@ def _write_pack(ws: Path, key: str) -> None:
     # work moves forward while accept/reject selection applies only to the harness.
 
 
-def _grade(ws: Path, key: str) -> EvalResult:
+def _grade(ws: Path, key: str, *, sandbox=None) -> EvalResult:
     # grade against the held-out tests: restore tests.py from the spec first, so an agent
     # that "passes" by editing the tests (the reward-hack this setup invites) gains nothing
     (ws / "tests.py").write_text(textwrap.dedent(_TASKS[key]["tests"]), encoding="utf-8")
     (ws / "_grade.py").write_text(_DRIVER, encoding="utf-8")
     try:
-        proc = subprocess.run([sys.executable, "_grade.py"], cwd=str(ws),
-                              capture_output=True, text=True, timeout=GRADE_TIMEOUT_S,
-                              check=False)
+        from proteus.bench.sandbox import run_python
+        proc = run_python(ws, "_grade.py", timeout_s=GRADE_TIMEOUT_S, sandbox=sandbox)
     except subprocess.TimeoutExpired:
         return EvalResult(name=key, score=0.0, passed=False,
                           detail=f"grading timed out after {GRADE_TIMEOUT_S}s")
@@ -176,7 +174,7 @@ def local_task(key: str) -> BenchTask:
         id=key,
         goal_text=_TASKS[key]["goal"],
         setup=lambda ws, k=key: _write_pack(ws, k),
-        grade=lambda ws, k=key: _grade(ws, k),
+        grade=lambda ws, sandbox=None, k=key: _grade(ws, k, sandbox=sandbox),
     )
 
 

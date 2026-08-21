@@ -51,6 +51,54 @@ def test_rejection_removes_ignored_files_too(tmp_path):
         "a rejected episode's ignored state survived the restore"
 
 
+def test_snapshot_refuses_nested_git_metadata(tmp_path):
+    h = _seed_harness(tmp_path)
+    snapshot.init(h)
+    nested = h / "nested"
+    nested.mkdir()
+    subprocess.run(["git", "-C", str(nested), "init", "-q"], check=True)
+    (nested / "payload.py").write_text("print('host payload')\n")
+    try:
+        snapshot.commit(h, "episode 1: nested")
+    except RuntimeError as exc:
+        assert "nested git" in str(exc).lower()
+    else:
+        raise AssertionError("nested repository was captured as a gitlink")
+
+
+def test_restore_removes_files_inside_a_nested_repo(tmp_path):
+    h = _seed_harness(tmp_path)
+    snapshot.init(h)
+    baseline = snapshot.head(h)
+    nested = h / "nested"
+    nested.mkdir()
+    subprocess.run(["git", "-C", str(nested), "init", "-q"], check=True)
+    (nested / "survivor.txt").write_text("must be removed\n")
+    snapshot.restore(h, baseline)
+    assert not nested.exists(), "nested repo contents survived snapshot restore"
+
+
+def test_snapshot_failure_becomes_a_seed_error(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, run
+
+    class CreatesNestedRepo(MinimalHarness):
+        def run_episode(self, spec):
+            result = super().run_episode(spec)
+            nested = spec.root / "harness" / "nested"
+            nested.mkdir(exist_ok=True)
+            subprocess.run(["git", "-C", str(nested), "init", "-q"], check=True)
+            return result
+
+    result = run(RunConfig(
+        name="nested", adapter=CreatesNestedRepo(), disposition=NEUTRAL,
+        goal=GoalConfig(), root=tmp_path / "nested-run", model="mock", episodes=1,
+    ))
+    assert result.episodes_complete == 0
+    assert "snapshot failed" in result.error and "nested git" in result.error.lower()
+
+
 # ------------------------------------------------------------------- unit identity
 
 def test_directory_units_see_every_member(tmp_path):
@@ -69,6 +117,19 @@ def test_directory_units_see_every_member(tmp_path):
     (h / "skills" / "alpha" / "scripts" / "helper.py").write_text("B = 2\n")
     assert distance.units(h, surfaces) != mid, "a nested member's edit was invisible"
     assert distance.compare(h, h, surfaces)["skills"].distance == 0.0
+
+
+def test_distance_counts_dotfiles_and_loose_directory_units(tmp_path):
+    h = tmp_path / "h"
+    (h / "notes").mkdir(parents=True)
+    (h / "notes" / ".private.md").write_text("hidden state\n")
+    (h / "notes" / "one.md").write_text("one\n")
+    (h / "notes" / "two.md").write_text("two\n")
+    file_units = distance.units(h, [Surface("notes", "notes")])
+    assert ".private.md" in file_units["notes"]
+    directory_units = distance.units(
+        h, [Surface("notes", "notes", unit="directory")])
+    assert set(directory_units["notes"]) == {".private.md", "one.md", "two.md"}
 
 
 def test_file_units_do_not_collide_on_stem(tmp_path):
@@ -230,6 +291,35 @@ def test_user_environment_reaches_the_docker_command(tmp_path):
     assert argv[argv.index("me/env:9") + 1:] == ["echo", "hi"]
 
 
+def test_docker_timeout_force_removes_the_named_container(tmp_path):
+    import subprocess as sp
+
+    from proteus.sandbox import DockerSandbox, SandboxConfig
+    import proteus.sandbox.docker as mod
+
+    calls = []
+
+    def fake_run(argv, **kw):
+        calls.append(argv)
+        if argv[:2] == ["docker", "run"]:
+            raise sp.TimeoutExpired(argv, kw["timeout"])
+        return sp.CompletedProcess(argv, 0, "", "")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        try:
+            DockerSandbox(SandboxConfig(image="image")).run(
+                tmp_path, ["work"], {}, timeout_s=1)
+        except sp.TimeoutExpired:
+            pass
+        else:
+            raise AssertionError("timeout was swallowed")
+    finally:
+        mod.subprocess.run = real
+    name = calls[0][calls[0].index("--name") + 1]
+    assert calls[1] == ["docker", "rm", "-f", name]
+
+
 # ------------------------------------------------------------------- research apparatus
 
 def test_resume_continues_a_partial_seed(tmp_path):
@@ -338,6 +428,87 @@ def test_resume_restores_the_selection_baseline(tmp_path):
         "a 0.0 episode was accepted after resume: the selection baseline was reset"
 
 
+def test_eval_history_is_durable_after_each_completed_episode(tmp_path):
+    import json
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, eval_history_path, run
+
+    class FailsOnSecond(MinimalHarness):
+        def run_episode(self, spec):
+            if spec.episode == 2:
+                return EpisodeResult(episode=2, ok=False, error="planned stop")
+            return super().run_episode(spec)
+
+    root = tmp_path / "durable"
+    res = run(RunConfig(name="t", adapter=FailsOnSecond(), disposition=NEUTRAL,
+                        goal=GoalConfig(), root=root, model="mock", episodes=2))
+    assert res.episodes_complete == 1
+    history_path = eval_history_path(root)
+    history = json.loads(history_path.read_text())
+    assert [row["episode"] for row in history] == [1]
+    assert not history_path.with_name("eval_history.json.tmp").exists()
+    assert not (root / "eval_history.json").exists(), "hidden scores leaked into run root"
+
+
+def test_resume_refuses_snapshot_history_desynchronisation(tmp_path):
+    import json
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, eval_history_path, run
+
+    root = tmp_path / "desync"
+    cfg = RunConfig(name="t", adapter=MinimalHarness(), disposition=NEUTRAL,
+                    goal=GoalConfig(), root=root, model="mock", episodes=2)
+    run(cfg)
+    history_path = eval_history_path(root)
+    history = json.loads(history_path.read_text())
+    history_path.write_text(json.dumps(history[:1]))
+    try:
+        run(cfg, start=2)
+    except ValueError as exc:
+        assert "desynchronised" in str(exc)
+    else:
+        raise AssertionError("resume accepted a snapshot/history mismatch")
+
+
+def test_core_records_disposition_drift(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import GoalConfig, review
+    from proteus.core.episode import RunConfig, run
+
+    class RewritesCondition(MinimalHarness):
+        def run_episode(self, spec):
+            result = super().run_episode(spec)
+            (spec.root / "harness" / ".disposition.json").write_text("{}")
+            return result
+
+    result = run(RunConfig(
+        name="drift", adapter=RewritesCondition(), disposition=review("notes"),
+        goal=GoalConfig(), root=tmp_path / "drift", model="mock", episodes=1))
+    assert result.episodes_complete == 1 and not result.error
+    assert result.eval_history[0]["disposition_drift"]
+    assert result.eval_history[0]["candidate_fingerprint"] != result.eval_history[0][
+        "disposition_fingerprint"] or result.eval_history[0]["accepted"]
+
+
+def test_seed_records_are_last_write_wins(tmp_path):
+    import json
+    from proteus.sweep import read_seed_records
+
+    root = tmp_path / "records"
+    root.mkdir()
+    rows = [
+        {"arm": "a", "seed": 0, "episodes_complete": 1, "error": "stopped"},
+        {"arm": "b", "seed": 0, "episodes_complete": 2, "error": ""},
+        {"arm": "a", "seed": 0, "episodes_complete": 3, "error": ""},
+    ]
+    (root / "seeds.jsonl").write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    records = read_seed_records(root)
+    assert len(records) == 2
+    assert records[0]["arm"] == "a" and records[0]["episodes_complete"] == 3
+
+
 def test_single_label_between_within_is_refused():
     from proteus.measure import stream
     try:
@@ -361,7 +532,7 @@ def test_overwrite_discards_stale_records(tmp_path):
     assert len(lines) == 1, "overwrite left stale progress lines"
 
 
-def test_task_workspace_lives_outside_the_snapshot(tmp_path):
+def test_task_workspace_lives_outside_the_snapshot(tmp_path, trusted_grader):
     import subprocess
     from proteus.adapters.minimal import MinimalHarness
     from proteus.bench import as_goal, task_root
@@ -373,7 +544,7 @@ def test_task_workspace_lives_outside_the_snapshot(tmp_path):
     root = tmp_path / "r"
     cfg = RunConfig(name="t", adapter=MinimalHarness(), disposition=NEUTRAL,
                     goal=as_goal(task), root=root, model="mock", episodes=1, seed=1,
-                    task=task)
+                    task=task, grader_sandbox=trusted_grader)
     res = run(cfg)
     assert res.episodes_complete == 1
     assert task_root(root / "harness") == root / "task"

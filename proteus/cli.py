@@ -14,13 +14,27 @@ plugs in the reference research harness.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 from proteus.core.disposition import NEUTRAL, record, review
 from proteus.core.goal import GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
+
+
+def _load_seed_records(root: Path) -> list[dict]:
+    """CLI-facing seed reader with one clean error path and last-write-wins semantics."""
+    path = root / "seeds.jsonl"
+    if not path.exists():
+        raise SystemExit(f"no seeds.jsonl at {path}")
+    from proteus.sweep import read_seed_records
+    try:
+        records = read_seed_records(root)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+    if not records:
+        raise SystemExit(f"no seed records in {path}")
+    return records
 
 
 def _adapter_factory(name: str):
@@ -183,6 +197,17 @@ def _evaluator(spec: str, adapter_factory):
 
 
 def cmd_run(args) -> int:
+    if args.max_turns < 0:
+        raise SystemExit("--max-turns must be 0 (unlimited) or a positive integer")
+    if args.min_turns_per_phase < 0:
+        raise SystemExit("--min-turns-per-phase must be 0 or a positive integer")
+    required = args.min_turns_per_phase * 4
+    if required and (not args.max_turns or required > args.max_turns):
+        raise SystemExit(
+            f"--max-turns={args.max_turns} cannot reserve "
+            f"--min-turns-per-phase={args.min_turns_per_phase} across 4 phases; "
+            f"use --max-turns >= {required}"
+        )
     factory = _harness_factory(args)
     parsed = [_evaluator(e, factory) for e in (args.evaluator or ())]
     evaluators = tuple(spec for spec, _ in parsed)
@@ -222,13 +247,10 @@ def cmd_run(args) -> int:
 
 def cmd_audit(args) -> int:
     """Which seeds left their harness, and which worked out they are an instrument."""
-    import json as _json
-
     from proteus.measure import audit
     root = Path(args.out).expanduser()
     adapter = _adapter_factory(args.harness)()
-    records = [_json.loads(line)
-               for line in (root / "seeds.jsonl").read_text().splitlines() if line.strip()]
+    records = _load_seed_records(root)
     # the study's own directories are what a subject must not be naming back at us
     outside = tuple(args.outside) or (str(root / "runs"), str(root))
     flagged = 0
@@ -252,14 +274,12 @@ def cmd_audit(args) -> int:
 
 def cmd_reliability(args) -> int:
     """Does each arm reproduce itself? Report before reading any between-arm ratio."""
-    import json as _json
     from collections import defaultdict
 
     from proteus.measure import stream
     root = Path(args.out).expanduser()
     adapter = _adapter_factory(args.harness)()
-    records = [_json.loads(line)
-               for line in (root / "seeds.jsonl").read_text().splitlines() if line.strip()]
+    records = _load_seed_records(root)
     by_arm = defaultdict(list)
     for rec in records:
         trace = adapter.read_trace(Path(rec["root"]), rec.get("episodes_complete", 0))
@@ -307,8 +327,7 @@ def cmd_measure(args) -> int:
     root = Path(args.out).expanduser()
     adapter = _adapter_factory(args.harness)()
     surfaces = adapter.surfaces()
-    records = [json.loads(line)
-               for line in (root / "seeds.jsonl").read_text().splitlines()]
+    records = _load_seed_records(root)
 
     # structural: per-arm, per-surface final unit counts (what got built)
     arm_surface = defaultdict(lambda: defaultdict(list))

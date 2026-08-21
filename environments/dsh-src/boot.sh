@@ -95,17 +95,16 @@ if [ -d /workspace/src/apps ]; then
         (cd /workspace/src && find . -name node_modules -prune -o \
             \( -type f -o -type l \) -print0 | tar -cf - --null -T -) \
             | tar -xf - -m --no-same-permissions -C "$SRC"
+        # Cache hits and rebuilds must start from the same compiled tree. Otherwise a
+        # deleted/renamed source can leave a loadable lib/*.js ghost from an earlier boot.
+        (cd "$SRC" && {
+        find apps packages vendor -type d -name lib -not -path '*/node_modules/*' \
+            -exec rm -rf {} + 2>/dev/null || true
+        find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete 2>/dev/null || true
+        })
         if [ -f "/state/dist-$HASH.tar" ]; then
             tar -xf "/state/dist-$HASH.tar" -m --no-same-permissions -C "$SRC"
         else
-            # build outputs must be derived from THIS source and nothing else: a stale
-            # artifact of a deleted entry point would boot even though the snapshot says
-            # the source is gone. Clean outputs, then build from scratch.
-            (cd "$SRC" && {
-            find apps packages vendor -type d -name lib -not -path '*/node_modules/*' \
-                -exec rm -rf {} + 2>/dev/null || true
-            find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete 2>/dev/null || true
-            })
             if ! (cd "$SRC" && npm run build:lib >/state/last-build.log 2>&1); then
                 echo "self-edited source does not build; tail of the build log:" >&2
                 tail -20 /state/last-build.log >&2

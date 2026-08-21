@@ -78,6 +78,22 @@ def test_retried_phase_preserves_the_first_attempt(tmp_path):
     assert record["attempt"] == 2
 
 
+def test_resume_reconciles_away_uncommitted_future_handoffs(tmp_path):
+    store = HandoffStore(tmp_path)
+    ep1 = store.begin(1, "reflect")
+    store.current.write_text("# Next action\nDurable episode one.\n", encoding="utf-8")
+    store.finish(ep1)
+    ep2 = store.begin(2, "reflect")
+    store.current.write_text("# Next action\nUncommitted episode two.\n", encoding="utf-8")
+    store.finish(ep2)
+
+    store.reconcile(1)
+    assert "Durable episode one" in store.latest.read_text()
+    assert "Uncommitted episode two" not in store.latest.read_text()
+    assert (store.history / "ep002" / "reflect.md").exists(), \
+        "crash evidence should be preserved even though it is not reinjected"
+
+
 def test_dsh_normalization_excludes_reasoning_blocks(tmp_path, monkeypatch):
     import proteus.adapters.dsh as dsh
 

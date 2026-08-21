@@ -9,6 +9,8 @@ reads `W_t` back under `F0`.
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -62,6 +64,13 @@ def commit(work_tree: Path, message: str) -> str:
     every episode maps to exactly one commit — the checkpoint mapping crystallization and
     path-length rely on must have no gaps.
     """
+    nested = _nested_git_metadata(work_tree)
+    if nested:
+        names = ", ".join(str(path.relative_to(work_tree)) for path in nested[:5])
+        raise RuntimeError(
+            "snapshot refused nested git metadata; nested repositories become gitlinks "
+            f"and cannot be restored faithfully: {names}"
+        )
     # `-f`: include files any ignore rule would exclude (see `init`)
     _git(work_tree, "add", "-A", "-f", "--", ".")
     _git(work_tree, "commit", "-q", "--allow-empty", "-m", message)
@@ -71,8 +80,29 @@ def commit(work_tree: Path, message: str) -> str:
 def head(work_tree: Path) -> str:
     try:
         return _git(work_tree, "rev-parse", "HEAD").strip()
-    except subprocess.CalledProcessError:
+    except RuntimeError:
         return ""
+
+
+def _nested_git_metadata(work_tree: Path) -> list[Path]:
+    """Every nested `.git` file/dir, without descending into repository internals."""
+    found: list[Path] = []
+    for root, dirs, files in os.walk(work_tree):
+        if ".git" in dirs:
+            path = Path(root) / ".git"
+            found.append(path)
+            dirs.remove(".git")
+        if ".git" in files:
+            found.append(Path(root) / ".git")
+    return sorted(found)
+
+
+def _strip_nested_git_metadata(work_tree: Path) -> None:
+    for path in _nested_git_metadata(work_tree):
+        if path.is_symlink() or path.is_file():
+            path.unlink(missing_ok=True)
+        elif path.is_dir():
+            shutil.rmtree(path)
 
 
 def commit_for_episode(work_tree: Path, episode: int) -> str | None:
@@ -100,6 +130,9 @@ def restore(work_tree: Path, sha: str) -> None:
     after `sha`). The `x` matters: without it a rejected episode's ignored files survive
     the restore, and the next episode wakes up with state selection was supposed to undo.
     """
+    # Nested repositories are never valid snapshot state. Removing their metadata first
+    # turns them into ordinary paths so restore + clean can actually remove their files.
+    _strip_nested_git_metadata(work_tree)
     _git(work_tree, "restore", "--source", sha, "--staged", "--worktree", "--", ".")
     _git(work_tree, "clean", "-fdx")
 

@@ -35,7 +35,7 @@ def _mini_dataset(tmp_path: Path) -> Path:
     return tmp_path / "repo"
 
 
-def test_lists_and_seeds_a_failing_exercise(tmp_path):
+def test_lists_and_seeds_a_failing_exercise(tmp_path, trusted_grader):
     repo = _mini_dataset(tmp_path)
     assert list_tasks(repo) == ["two-fer"]
     task = polyglot_task("two-fer", repo_dir=repo)
@@ -43,12 +43,12 @@ def test_lists_and_seeds_a_failing_exercise(tmp_path):
     ws.mkdir()
     task.setup(ws)
     assert (ws / "instructions.md").exists() and (ws / "two_fer.py").exists()
-    r = task.grade(ws)
+    r = task.grade(ws, sandbox=trusted_grader)
     assert not r.passed and r.score == 0.0, "a stub that already passes carries no signal"
     assert "0/2" in r.detail
 
 
-def test_solving_the_stub_scores_full(tmp_path):
+def test_solving_the_stub_scores_full(tmp_path, trusted_grader):
     repo = _mini_dataset(tmp_path)
     task = polyglot_task("two-fer", repo_dir=repo)
     ws = tmp_path / "ws"
@@ -56,11 +56,11 @@ def test_solving_the_stub_scores_full(tmp_path):
     task.setup(ws)
     (ws / "two_fer.py").write_text(
         'def two_fer(name=None):\n    return f"One for {name or \'you\'}, one for me."\n')
-    r = task.grade(ws)
+    r = task.grade(ws, sandbox=trusted_grader)
     assert r.passed and r.score == 1.0
 
 
-def test_editing_the_tests_gains_nothing(tmp_path):
+def test_editing_the_tests_gains_nothing(tmp_path, trusted_grader):
     repo = _mini_dataset(tmp_path)
     task = polyglot_task("two-fer", repo_dir=repo)
     ws = tmp_path / "ws"
@@ -69,7 +69,7 @@ def test_editing_the_tests_gains_nothing(tmp_path):
     (ws / "two_fer_test.py").write_text(
         "import unittest\n\nclass T(unittest.TestCase):\n"
         "    def test_free(self):\n        pass\n")
-    r = task.grade(ws)
+    r = task.grade(ws, sandbox=trusted_grader)
     assert not r.passed and r.score == 0.0, "held-out tests must be restored before grading"
 
 

@@ -89,6 +89,10 @@ def _grade(ws: Path, inst: dict[str, Any], episode: int = 0) -> EvalResult:
             test_spec=spec, pred=pred, client=docker.from_env(),
             run_id=run_id,
             timeout=GRADE_TIMEOUT_S)
+        if not result:
+            return EvalResult(name=name, score=0.0, passed=False,
+                              detail="patch did not apply, or the harness errored")
+        report = result[1][inst["instance_id"]]
     except TypeError as exc:
         return EvalResult(name=name, score=0.0, passed=False,
                           detail=f"swebench run_instance signature mismatch ({exc}); "
@@ -96,11 +100,6 @@ def _grade(ws: Path, inst: dict[str, Any], episode: int = 0) -> EvalResult:
     except Exception as exc:  # noqa: BLE001 - container/build failure is a zero, not a crash
         return EvalResult(name=name, score=0.0, passed=False,
                           detail=f"grading error: {type(exc).__name__}: {exc}"[:200])
-    if not result:
-        return EvalResult(name=name, score=0.0, passed=False,
-                          detail="patch did not apply, or the harness errored")
-
-    report = result[1][inst["instance_id"]]
     resolved = bool(report.get("resolved"))
     f2p = (report.get("tests_status", {}) or {}).get(
         "FAIL_TO_PASS", {"success": [], "failure": []})

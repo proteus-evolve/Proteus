@@ -9,7 +9,7 @@ different from measurements that compare checkpoints, seeds, or experimental arm
 
 | You need to measure | Extension point | When it runs | Automatic outputs |
 |---|---|---|---|
-| the current episode's trace or working tree | per-episode `EvaluatorSpec(kind="measurement")` | after the episode and trace, before selection and snapshot | `eval_history.json`; in a sweep, progress JSONL and live report; optional next-episode feedback |
+| the current episode's trace or working tree | per-episode `EvaluatorSpec(kind="measurement")` | after the episode and trace, before selection and snapshot | private `.proteus-records/<run-id>/eval_history.json`; in a sweep, progress JSONL and live report; optional next-episode feedback |
 | checkpoints, path length, multiple seeds, or multiple arms | post-run module/function | after a run or sweep | none; return or write your own structured result, or extend `proteus measure` |
 | provider usage or adapter-native counts | `EpisodeResult.counters` | reported by the adapter with each episode | per-episode progress JSONL; cumulative `RunResult.counters` and `seeds.jsonl` |
 
@@ -26,17 +26,21 @@ runs/demo/
 ├── manifest.json                  # planned arms, seeds, goal, evaluator metadata
 ├── seeds.jsonl                    # one completion record per run attempt
 ├── progress/<run-id>.jsonl        # live per-episode units, scores, counters
-└── runs/<run-id>/
-    ├── harness/                   # current measured harness state
-    ├── task/                      # optional benchmark exercise; not measured/snapshotted
-    ├── .snapshot.git/             # episode 0 + one mapped commit per completed episode
-    ├── traces/                    # adapter-owned trace references or normalized logs
-    └── eval_history.json          # evaluator results and accept/reject decisions
+└── runs/
+    ├── .proteus-records/<run-id>/ # framework-private; outside the subject run root
+    │   ├── eval_history.json      # evaluator results and accept/reject decisions
+    │   └── disposition_fingerprint.json
+    └── <run-id>/
+        ├── harness/               # current measured harness state
+        ├── task/                  # optional benchmark; not measured/snapshotted
+        ├── .snapshot.git/         # episode 0 + one mapped commit per completed episode
+        └── traces/                # adapter-owned trace references or normalized logs
 ```
 
 Treat `harness/` and its snapshot chain as the measured subject. `task/`, provider session
 state, build caches, condition labels, and hidden scores are apparatus or experiment
-records; do not silently count them as harness structure.
+records; do not silently count them as harness structure. Hidden evaluator history is
+outside `<run-id>/`, so even an adapter that exposes the whole run root cannot reveal it.
 
 ## Path A: a per-episode measurement evaluator
 

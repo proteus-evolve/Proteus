@@ -14,7 +14,7 @@ Layout under the run root:
       notes/  tools/    persistent surfaces the seed instructions establish
       src/              real dsh monorepo source; rebuilt and booted after edits
     .dsh-state/         DSH_HOME (sessions land here; not part of the harness)
-    traces/epNNN.json   episode -> {phase: session dir} mapping
+    traces/epNNN.json   episode -> {phase: [session dirs]} mapping
 
 Requirements: the image (build once from environments/dsh-src/), a DeepSeek key
 in DEEPSEEK_API_KEY (or DEEPSEEK_KEY), and Python 3.14+ or the `zstandard` package to read
@@ -81,30 +81,46 @@ def _zstd_partial(data: bytes) -> bytes:
 
     dsh flushes its session log one frame per event, so a file read mid-write ends in a
     partial frame; everything before it decodes cleanly. This is what makes a live turn
-    count possible while a phase is still running. Returns what could be decoded; any
-    failure (including no zstd support on this interpreter) returns what it has."""
+    count possible while a phase is still running. A partial tail is tolerated, but a
+    missing/too-old decoder is an explicit configuration error: silently returning zero
+    would disable the mid-phase turn budget."""
     out = bytearray()
     try:
-        try:
-            from compression import zstd as _z  # Python 3.14+
-            rest = data
-            while rest:
-                d = _z.ZstdDecompressor()
-                out += d.decompress(rest)
-                rest = d.unused_data
-        except ImportError:
-            import io
+        from compression import zstd as _z  # Python 3.14+
+    except ImportError:
+        import io
 
+        try:
             import zstandard
+        except ImportError as exc:
+            raise RuntimeError(
+                "reading live dsh logs needs Python 3.14+ or `pip install zstandard>=0.21`"
+            ) from exc
+        try:
             reader = zstandard.ZstdDecompressor().stream_reader(
                 io.BytesIO(data), read_across_frames=True)
+        except TypeError as exc:
+            raise RuntimeError(
+                "the installed zstandard lacks cross-frame streaming support; "
+                "install zstandard>=0.21"
+            ) from exc
+        try:
             while True:
                 chunk = reader.read(65536)
                 if not chunk:
                     break
                 out += chunk
-    except Exception:  # noqa: BLE001 - a partial tail frame is expected, not an error
-        pass
+        except zstandard.ZstdError:
+            pass  # dsh may still be writing the final frame
+    else:
+        try:
+            rest = data
+            while rest:
+                d = _z.ZstdDecompressor()
+                out += d.decompress(rest)
+                rest = d.unused_data
+        except _z.ZstdError:
+            pass  # a partially-written final frame is expected
     return bytes(out)
 
 
@@ -297,7 +313,7 @@ class DshHarness:
         state.mkdir(exist_ok=True)
         handoffs = HandoffStore(run_root)
         (run_root / "traces").mkdir(exist_ok=True)
-        mapping: dict[str, str] = {}
+        mapping: dict[str, list[str]] = {}
         error = ""
         capped = False
         budget = int(spec.max_turns or 0)
@@ -346,10 +362,12 @@ class DshHarness:
             new = self._session_dirs(state) - before
             phase_events: list[ActionEvent] = []
             if new:
-                session_dir = min(new)
-                mapping[phase] = str(session_dir.relative_to(state))
+                session_dirs = sorted(new, key=str)
+                mapping[phase] = [str(d.relative_to(state)) for d in session_dirs]
                 episode_dirs |= new
-                phase_events = self._session_trace(session_dir, phase, partial=True)
+                for session_dir in session_dirs:
+                    phase_events.extend(
+                        self._session_trace(session_dir, phase, partial=True))
             handoffs.finish(handoff_start, phase_events,
                             interrupted=timed_out or fired[0])
             if timed_out:
@@ -412,19 +430,22 @@ class DshHarness:
         events: list[ActionEvent] = []
         turn_base = 0
         for phase in PHASES:
-            rel = mapping.get(phase)
-            if not rel:
+            rels = mapping.get(phase)
+            if not rels:
                 continue
-            log = state / rel / "session.jsonl.zstd"
-            if not log.exists():
-                continue
-            phase_events = self._session_trace(log.parent, phase)
-            for event in phase_events:
-                events.append(ActionEvent(
-                    turn=turn_base + event.turn, phase=event.phase, tool=event.tool,
-                    surface=event.surface, params=event.params, text=event.text,
-                ))
-            turn_base += max((event.turn for event in phase_events), default=0)
+            if isinstance(rels, str):
+                rels = [rels]                 # traces written before the list format
+            for rel in rels:
+                log = state / rel / "session.jsonl.zstd"
+                if not log.exists():
+                    continue
+                phase_events = self._session_trace(log.parent, phase)
+                for event in phase_events:
+                    events.append(ActionEvent(
+                        turn=turn_base + event.turn, phase=event.phase, tool=event.tool,
+                        surface=event.surface, params=event.params, text=event.text,
+                    ))
+                turn_base += max((event.turn for event in phase_events), default=0)
         return events
 
     def disposition_fingerprint(self, harness_root: Path) -> str:

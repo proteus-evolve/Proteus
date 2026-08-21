@@ -96,16 +96,15 @@ if [ -d /workspace/src/packages ]; then
         (cd /workspace/src && find . -name node_modules -prune -o \
             \( -type f -o -type l \) -print0 | tar -cf - --null -T -) \
             | tar -xf - -m --no-same-permissions -C "$SRC"
+        # A cache hit must erase the same outputs as a rebuild, or removed sources leave
+        # stale compiled modules behind and the recorded tree differs from what executes.
+        (cd "$SRC" && {
+        rm -rf $DISTS
+        find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete 2>/dev/null || true
+        })
         if [ -f "/state/dist-$HASH.tar" ]; then
             tar -xf "/state/dist-$HASH.tar" -m --no-same-permissions -C "$SRC"
         else
-            # build outputs must be derived from THIS source and nothing else: a stale
-            # artifact of a deleted entry point would boot even though the snapshot says
-            # the source is gone. Clean outputs, then build from scratch.
-            (cd "$SRC" && {
-            rm -rf $DISTS
-            find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete 2>/dev/null || true
-            })
             if ! (cd "$SRC" && npm run build:offline >/state/last-build.log 2>&1); then
                 echo "self-edited source does not build; tail of the build log:" >&2
                 tail -20 /state/last-build.log >&2

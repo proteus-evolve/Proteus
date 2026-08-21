@@ -152,6 +152,30 @@ class HandoffStore:
         digest = hashlib.sha256(self.current.read_bytes()).hexdigest()
         return HandoffStart(episode, phase, previous, digest)
 
+    def reconcile(self, completed_episode: int) -> None:
+        """Point live continuity at the last durable episode after crash recovery.
+
+        Phase attempts beyond the snapshot checkpoint stay archived for diagnosis but
+        must not feed a retried episode. Older runs may have no framework history; in that
+        case the resumed phase starts with an empty operational handoff.
+        """
+        self.initialise()
+        chosen: Path | None = None
+        if completed_episode > 0:
+            phase_dir = self.history / f"ep{completed_episode:03d}"
+            for phase in ("reflect", "act", "propose", "observe"):
+                candidates = sorted(phase_dir.glob(f"{phase}*.md"))
+                if candidates:
+                    chosen = candidates[-1]
+                    break
+        if chosen is None:
+            self.latest.unlink(missing_ok=True)
+            self.current.unlink(missing_ok=True)
+            return
+        content = _clip(chosen.read_text(encoding="utf-8")) + "\n"
+        self._atomic_text(self.latest, content)
+        self._atomic_text(self.current, content)
+
     def finish(self, start: HandoffStart, events: Sequence[ActionEvent] = (),
                interrupted: bool = False) -> dict:
         """Archive one phase and make its handoff available to the next fresh context."""

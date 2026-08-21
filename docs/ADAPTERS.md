@@ -121,8 +121,10 @@ falls back to normalized tool names and paths after an interruption. Never persi
 model reasoning or tool results. DSH and Pi are the reference integrations.
 
 ### 5. Fingerprint
-`disposition_fingerprint` hashes the currently-installed disposition carrier, so drift of
-F over episodes is detectable (a self-editing agent may rewrite its own disposition).
+`disposition_fingerprint` hashes the currently-installed disposition carrier. The core
+records the initial value and every candidate/checkpoint value outside the run root, so F
+drift is auditable without forbidding self-editing. Resume requires the live value to
+match the last durable checkpoint.
 
 ## Isolation
 
@@ -214,10 +216,10 @@ natively —
    toolchain when the source hash changes (outputs cached on `/state`; an untouched copy
    boots via a pristine-hash fast path), and execs the built CLI. Dependencies stay in
    the image: they are apparatus, like the interpreter.
-2. Every phase runs with `harness/src/<piece>` **shadow-mounted over the install path**
-   (piecewise — one big mount would shadow the nested `node_modules` out of existence),
-   so the stock binary boots the seed's copy. The agent edits `src/` with its ordinary
-   workspace tools; the next session runs whatever it left.
+2. Every phase mounts the run-local harness at `/workspace`. The boot wrapper exact-syncs
+   `harness/src/` over the image's baked source tree, removes old compiled outputs, then
+   restores a hash-matched build cache or rebuilds with the upstream toolchain. The agent
+   edits `src/` with ordinary workspace tools; the next session runs exactly that tree.
 3. `src/` is a declared surface (`loop`, `is_code=True`), inside the snapshot repo — code
    edits are versioned per episode and measured with the same ruler as notes and tools.
 4. Before each episode, `check_boot()` runs `--version` through the boot path — the

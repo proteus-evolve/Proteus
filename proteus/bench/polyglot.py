@@ -34,7 +34,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from proteus.bench.task import BenchTask
@@ -123,7 +122,7 @@ def _setup(ws: Path, spec: dict) -> None:
         dest.write_text((spec["root"] / rel).read_text(encoding="utf-8"), encoding="utf-8")
 
 
-def _grade(ws: Path, spec: dict, name: str) -> EvalResult:
+def _grade(ws: Path, spec: dict, name: str, *, sandbox=None) -> EvalResult:
     # held-out tests: restore from the dataset before running, so edits to the test
     # files in the workspace cannot raise the score
     for rel in spec["test"]:
@@ -131,11 +130,11 @@ def _grade(ws: Path, spec: dict, name: str) -> EvalResult:
                               encoding="utf-8")
     driver = ws / "_grade.py"
     driver.write_text(_DRIVER, encoding="utf-8")
-    env = {**os.environ, "PROTEUS_TEST_FILES": json.dumps(spec["test"])}
+    env = {"PROTEUS_TEST_FILES": json.dumps(spec["test"])}
     try:
-        proc = subprocess.run([sys.executable, str(driver)], cwd=str(ws), env=env,
-                              capture_output=True, text=True, errors="replace",
-                              timeout=GRADE_TIMEOUT_S, check=False)
+        from proteus.bench.sandbox import run_python
+        proc = run_python(ws, "_grade.py", timeout_s=GRADE_TIMEOUT_S,
+                          env=env, sandbox=sandbox)
     except subprocess.TimeoutExpired:
         return EvalResult(name=name, score=0.0, passed=False,
                           detail=f"grading timed out after {GRADE_TIMEOUT_S}s")
@@ -169,5 +168,6 @@ def polyglot_task(name: str, repo_dir: str | os.PathLike | None = None) -> Bench
                    + "\n\nThe stub and its tests are in your `task/` directory. Implement "
                      "the solution so every test passes. Do not edit the test files."),
         setup=lambda ws, s=spec: _setup(ws, s),
-        grade=lambda ws, s=spec, n=f"polyglot:{name}": _grade(ws, s, n),
+        grade=lambda ws, sandbox=None, s=spec, n=f"polyglot:{name}": _grade(
+            ws, s, n, sandbox=sandbox),
     )

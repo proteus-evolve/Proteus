@@ -35,8 +35,7 @@ def _read(path: Path) -> str:
 
 def _files(base: Path) -> list[Path]:
     return sorted(p for p in base.rglob("*")
-                  if p.is_file() and not p.name.startswith(".")
-                  and "__pycache__" not in p.parts)
+                  if p.is_file() and "__pycache__" not in p.parts)
 
 
 def _defs(path: Path, rel: str) -> dict[str, str]:
@@ -102,7 +101,7 @@ def units(harness_root: Path, surfaces: Sequence[Surface]) -> dict[str, dict[str
                 rel = path.relative_to(base)
                 # the unit is the TOP-LEVEL directory: alpha/scripts/run.py belongs to
                 # unit "alpha", not to a separate unit "alpha/scripts"
-                key = rel.parts[0] if len(rel.parts) > 1 else "."
+                key = rel.parts[0] if len(rel.parts) > 1 else rel.as_posix()
                 groups.setdefault(key, []).append(path)
             for key, members in groups.items():
                 out[s.name][key] = _sha("\0".join(

@@ -50,6 +50,50 @@ def test_loop_surface_is_declared_and_mapped():
         assert a._surface_for_path("/workspace/src/lib/bin.js") == "loop"
 
 
+def test_instruction_carrier_handles_per_phase_only_and_neutral_cleanup(tmp_path):
+    from proteus.adapters import instructions
+    from proteus.core.disposition import Disposition, NEUTRAL
+
+    path = tmp_path / "AGENTS.md"
+    path.write_text("# Base\n")
+    instructions.install_block(
+        path, Disposition(label="phase", per_phase={"act": "Prefer small edits."}))
+    assert "During act: Prefer small edits." in path.read_text()
+    instructions.install_block(path, NEUTRAL)
+    assert path.read_text() == "# Base\n"
+
+
+def test_pi_live_budget_recognizes_all_tool_call_markers(tmp_path):
+    state = tmp_path / "state"
+    state.mkdir()
+    session = state / "s.jsonl"
+    session.write_text('\"toolCall\"\n\"tool_call\"\n\"toolUse\"\n')
+    adapter = PiHarness(key="x", sandbox=FakeSandbox())
+    assert adapter._live_calls(state, {session}, set()) == 3
+
+
+def test_read_trace_aggregates_multiple_sessions_per_phase(tmp_path):
+    import json
+
+    root = tmp_path / "run"
+    state = root / ".pi-state"
+    traces = root / "traces"
+    state.mkdir(parents=True)
+    traces.mkdir()
+
+    def event(name):
+        return json.dumps({
+            "type": "message", "message": {"role": "assistant", "content": [
+                {"type": "toolCall", "name": name, "arguments": {}}]}})
+
+    (state / "a.jsonl").write_text(event("first") + "\n")
+    (state / "b.jsonl").write_text(event("second") + "\n")
+    (traces / "ep001.json").write_text(json.dumps({"act": ["a.jsonl", "b.jsonl"]}))
+    trace = PiHarness(key="x", sandbox=FakeSandbox()).read_trace(root, 1)
+    assert [item.tool for item in trace] == ["first", "second"]
+    assert [item.turn for item in trace] == [1, 2]
+
+
 def test_source_mode_gates_through_the_boot_contract(tmp_path):
     # the boot wrapper rebuilds from /workspace/src, so the gate needs no extra mounts:
     # workspace + state are the whole contract, for both containerized harnesses

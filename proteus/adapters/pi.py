@@ -76,8 +76,7 @@ class PiHarness:
         Surface("notes", "notes", unit="file", write_tools=frozenset({"write", "edit"})),
         Surface("tools", "tools", unit="file", write_tools=frozenset({"write", "edit"}),
                 is_code=True),
-        # the harness's own program, shadow-mounted over the install path at boot — see
-        # DshHarness: same arrangement, same reasons
+        # the harness's real source, exact-synced over the baked tree and rebuilt at boot
         Surface("loop", "src", unit="file", is_code=True, free_named=False,
                 write_tools=frozenset({"write", "edit"})),
     )
@@ -221,7 +220,7 @@ class PiHarness:
         state.mkdir(exist_ok=True)
         handoffs = HandoffStore(run_root)
         (run_root / "traces").mkdir(exist_ok=True)
-        mapping: dict[str, str] = {}
+        mapping: dict[str, list[str]] = {}
         error = ""
         capped = False
         budget = int(spec.max_turns or 0)
@@ -271,10 +270,11 @@ class PiHarness:
             new = self._sessions(state) - before
             phase_events: list[ActionEvent] = []
             if new:
-                session_path = min(new)
-                mapping[phase] = session_path.name
+                session_paths = sorted(new, key=str)
+                mapping[phase] = [p.name for p in session_paths]
                 episode_files |= new
-                phase_events = self._session_trace(session_path, phase)
+                for session_path in session_paths:
+                    phase_events.extend(self._session_trace(session_path, phase))
             handoffs.finish(handoff_start, phase_events,
                             interrupted=timed_out or fired[0])
             if timed_out:
@@ -310,7 +310,9 @@ class PiHarness:
         for f in set(episode_files) | set(extra):
             path = Path(f) if isinstance(f, Path) else state / f
             try:
-                n += path.read_text(encoding="utf-8", errors="replace").count('"toolCall"')
+                text = path.read_text(encoding="utf-8", errors="replace")
+                n += sum(text.count(f'"{marker}"')
+                         for marker in ("toolCall", "tool_call", "toolUse"))
             except OSError:
                 continue
         return n
@@ -338,14 +340,19 @@ class PiHarness:
         events: list[ActionEvent] = []
         turn = 0
         for phase in PHASES:
-            name = mapping.get(phase)
-            if not name or not (state / name).exists():
+            names = mapping.get(phase)
+            if not names:
                 continue
-            phase_events = self._session_trace(state / name, phase)
-            for event in phase_events:
-                events.append(ActionEvent(
-                    turn=turn + event.turn, phase=event.phase, tool=event.tool,
-                    surface=event.surface, params=event.params, text=event.text,
-                ))
-            turn += max((event.turn for event in phase_events), default=0)
+            if isinstance(names, str):
+                names = [names]                # traces written before the list format
+            for name in names:
+                if not (state / name).exists():
+                    continue
+                phase_events = self._session_trace(state / name, phase)
+                for event in phase_events:
+                    events.append(ActionEvent(
+                        turn=turn + event.turn, phase=event.phase, tool=event.tool,
+                        surface=event.surface, params=event.params, text=event.text,
+                    ))
+                turn += max((event.turn for event in phase_events), default=0)
         return events

@@ -141,7 +141,8 @@ candidate is rejected.
 
 ### 8. Records and feedback — framework
 
-- `eval_history` appends every result plus the accept/reject flag;
+- private `eval_history` appends every result plus the accept/reject flag and is written
+  atomically after every snapshot checkpoint;
 - numeric counters (`tokens_in` / `tokens_out`, …) sum across episodes into
   `RunResult.counters`;
 - `prior_feedback` becomes the OBSERVE-visible feedback text for the next episode's
@@ -149,6 +150,11 @@ candidate is rejected.
 - the progress line — which carries the condition label and **HIDDEN scores** — goes to
   `progress_path`, which **must live outside the run root**: the subject can read its
   own run root.
+
+Both evaluator history and the initial/candidate/checkpoint disposition fingerprints live
+under the sibling `.proteus-records/<run-id>/`, never inside the subject-visible run root.
+Resume requires the snapshot count, history rows, continuity checkpoint, and current
+fingerprint to agree with the last durable checkpoint.
 
 ### 9. Next episode — framework
 
@@ -181,12 +187,12 @@ count as evolved memory. Raw conversation and process state never survive.
 | `surfaces()` | the measurable surface manifest (data, not a constant) | minimal: notes+tools; dsh: +instructions+loop; pi: +skills |
 | `seed()` | the episode-0 state | dsh/pi extract their own code into `src/` |
 | `install_disposition()` | the perturbation's carrier | minimal: a JSON file; dsh/pi: a marked `AGENTS.md` block |
-| `disposition_fingerprint()` | F-drift detection | hash of the block / file |
+| `disposition_fingerprint()` | records F drift per candidate/checkpoint; verifies resume alignment | hash of the block / file |
 | `run_episode()` | how the four phases execute | in-process / one container per phase / delegated |
 | `read_trace()` | each harness's log format → `ActionEvent`s | JSONL / zstd JSONL / session events |
 | `required_edit_tools()` | evidence the harness can still edit itself | write / write+edit |
 | `disposition_in_files` | skip the prompt channel (double-dose guard) | True for dsh/pi |
-| the self-code arrangement | how the harness's own code becomes an evolvable surface | aki: `sys.path`-first copy; dsh: shadow-mounted bundle; pi: rebuilt from real source at boot |
+| the self-code arrangement | how the harness's own code becomes an evolvable surface | aki: `sys.path`-first copy; dsh/pi: run-local real source rebuilt at boot |
 
 ## The built-in harnesses, side by side
 
@@ -196,7 +202,7 @@ count as evolved memory. Raw conversation and process state never survive.
 | trace source | own JSONL | own JSONL | `session.jsonl.zstd` | session JSONL | Aki tracer |
 | disposition carrier | JSON file | JSON file | `AGENTS.md` block | `AGENTS.md` block | apparatus-native |
 | continuity | none | none | Proteus framework handoff | Proteus framework handoff | native supervisor |
-| self-code | none | none | bundled ESM (shadow mounts) | **real TS source (rebuild on boot)** | `loop.py` + package copy |
+| self-code | none | none | **real TS source (rebuild on boot)** | **real TS source (rebuild on boot)** | `loop.py` + package copy |
 | iteration bound | `max_turns`, hard | `max_turns`, hard | `max_turns`: exact between phases + mid-phase log watch | `max_turns`: exact between phases + mid-phase log watch | apparatus turn gate |
 | needs | nothing | API key | Docker + key | Docker + key | the private Aki repo |
 
@@ -206,6 +212,7 @@ count as evolved memory. Raw conversation and process state never survive.
 |---|---|
 | a phase times out / the CLI exits nonzero | episode records the error; trajectory ends; completed episodes all kept |
 | the agent breaks its own code | the boot gate catches it (for pi, including compile errors) — no API spend, legible error |
-| an evaluator crashes | scored zero, run continues |
+| one evaluator crashes or returns a non-finite score | that evaluator gets a named zero; other evaluator results survive |
+| a nested `.git` appears in the harness | the episode records a snapshot error; nested metadata is refused and restore removes its contents |
 | the episode is rejected by selection | candidate tree preserved in history, working tree rolled back, mapping gapless |
 | the process is killed mid-run | `--on-existing resume` continues after the last snapshot commit — finished episodes are never paid for twice |

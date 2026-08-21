@@ -35,6 +35,8 @@ class SweepConfig:
     task: object | None = None
     """A `BenchTask` to seed into every run (set automatically when a benchmark
     evaluator is attached)."""
+    grader_sandbox: object | None = None
+    """Optional isolated grader runner propagated to every benchmark evaluator."""
     min_turns_per_phase: int = 0
     announce_budget: bool = False
     on_existing: str = "refuse"
@@ -58,18 +60,38 @@ def opaque_id(arm: str, seed: int) -> str:
 
 def completed_seeds(root: Path, episodes: int) -> set[tuple[str, int]]:
     """(arm, seed) pairs recorded as having finished all `episodes`, from seeds.jsonl."""
-    done: set[tuple[str, int]] = set()
-    path = root / "seeds.jsonl"
+    return {(row["arm"], row["seed"]) for row in read_seed_records(root)
+            if row.get("episodes_complete", 0) >= episodes and not row.get("error")}
+
+
+def read_seed_records(root: Path) -> list[dict]:
+    """Read the durable last record for each ``(arm, seed)`` in stable order."""
+    path = Path(root) / "seeds.jsonl"
     if not path.exists():
-        return done
-    for line in path.read_text(encoding="utf-8").splitlines():
+        return []
+    records: dict[tuple[str, int], dict] = {}
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
         try:
             row = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if row.get("episodes_complete", 0) >= episodes and not row.get("error"):
-            done.add((row["arm"], row["seed"]))
-    return done
+            key = (row["arm"], int(row["seed"]))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"invalid seed record at {path}:{lineno}: {exc}") from exc
+        # assignment preserves first insertion order while replacing the value
+        records[key] = row
+    return list(records.values())
+
+
+def _write_seed_record(path: Path, record: dict) -> None:
+    records = {(row["arm"], int(row["seed"])): row
+               for row in read_seed_records(path.parent)}
+    records[(record["arm"], int(record["seed"]))] = record
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(
+        "".join(json.dumps(row) + "\n" for row in records.values()), encoding="utf-8"
+    )
+    temporary.replace(path)
 
 
 def completed_episodes_in(run_root: Path) -> int:
@@ -113,43 +135,42 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
 
     records: list[dict] = []
     records_path = cfg.root / "seeds.jsonl"
-    with records_path.open("a", encoding="utf-8") as sink:
-        for arm in cfg.arms:
-            for s in range(cfg.seeds):
-                rid = opaque_id(arm.label, s)
-                run_root = cfg.root / "runs" / rid
-                start = 0
-                if run_root.exists():
-                    if cfg.on_existing == "refuse":
-                        raise FileExistsError(
-                            f"{run_root} already holds a run of arm {arm.label!r} seed {s}. "
-                            "Sweeping into it again would continue that seed's evolved "
-                            "harness instead of starting clean. Use a fresh --out, or "
-                            "on_existing='resume' / 'overwrite'.")
-                    if (arm.label, s) in done:
-                        continue
-                    if cfg.on_existing == "overwrite":
-                        shutil.rmtree(run_root)
-                    else:
-                        # resume: pick the seed up where it stopped rather than paying for
-                        # its finished episodes twice
-                        start = completed_episodes_in(run_root)
-                        if start:
-                            print(f"resuming {arm.label} seed {s} at episode {start + 1}",
-                                  flush=True)
-                rc = RunConfig(
-                    name=arm.label, adapter=cfg.adapter_factory(), disposition=arm,
-                    goal=cfg.goal, root=run_root, model=cfg.model,
-                    episodes=cfg.episodes, max_turns=cfg.max_turns, seed=s,
-                    min_turns_per_phase=cfg.min_turns_per_phase,
-                    announce_budget=cfg.announce_budget, task=cfg.task,
-                    progress_path=cfg.root / "progress" / f"{rid}.jsonl",
-                )
-                res = run(rc, start=start)
-                rec = {"arm": arm.label, "seed": s, "root": str(run_root),
-                       "episodes_complete": res.episodes_complete, "error": res.error,
-                       "counters": res.counters}
-                records.append(rec)
-                sink.write(json.dumps(rec) + "\n")
-                sink.flush()
+    for arm in cfg.arms:
+        for s in range(cfg.seeds):
+            rid = opaque_id(arm.label, s)
+            run_root = cfg.root / "runs" / rid
+            start = 0
+            if run_root.exists():
+                if cfg.on_existing == "refuse":
+                    raise FileExistsError(
+                        f"{run_root} already holds a run of arm {arm.label!r} seed {s}. "
+                        "Sweeping into it again would continue that seed's evolved "
+                        "harness instead of starting clean. Use a fresh --out, or "
+                        "on_existing='resume' / 'overwrite'.")
+                if (arm.label, s) in done:
+                    continue
+                if cfg.on_existing == "overwrite":
+                    shutil.rmtree(run_root)
+                else:
+                    # resume: pick the seed up where it stopped rather than paying for
+                    # its finished episodes twice
+                    start = completed_episodes_in(run_root)
+                    if start:
+                        print(f"resuming {arm.label} seed {s} at episode {start + 1}",
+                              flush=True)
+            rc = RunConfig(
+                name=arm.label, adapter=cfg.adapter_factory(), disposition=arm,
+                goal=cfg.goal, root=run_root, model=cfg.model,
+                episodes=cfg.episodes, max_turns=cfg.max_turns, seed=s,
+                min_turns_per_phase=cfg.min_turns_per_phase,
+                announce_budget=cfg.announce_budget, task=cfg.task,
+                grader_sandbox=cfg.grader_sandbox,
+                progress_path=cfg.root / "progress" / f"{rid}.jsonl",
+            )
+            res = run(rc, start=start)
+            rec = {"arm": arm.label, "seed": s, "root": str(run_root),
+                   "episodes_complete": res.episodes_complete, "error": res.error,
+                   "counters": res.counters}
+            records.append(rec)
+            _write_seed_record(records_path, rec)
     return records

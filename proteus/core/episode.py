@@ -18,6 +18,7 @@ hidden or visible, and the measurement layer reads all of it with one ruler.
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
@@ -28,6 +29,25 @@ from proteus.core.disposition import Disposition
 from proteus.core.goal import GoalConfig, GoalContext
 
 PHASES = ("observe", "propose", "act", "reflect")
+
+
+def _write_json_atomic(path: Path, value) -> None:
+    """Replace one JSON record without exposing a truncated crash-time file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(value, indent=1), encoding="utf-8")
+    temporary.replace(path)
+
+
+def private_record_dir(root: Path) -> Path:
+    """Framework-owned records outside the subject-visible run root."""
+    root = Path(root)
+    return root.parent / ".proteus-records" / root.name
+
+
+def eval_history_path(root: Path) -> Path:
+    """Durable evaluator history, including scores hidden from the subject."""
+    return private_record_dir(root) / "eval_history.json"
 
 BASE_PROMPTS: Mapping[str, str] = {
     "observe": (
@@ -67,6 +87,9 @@ class RunConfig:
     `<run>/task/`, beside the measured `<run>/harness/` and outside the snapshot. An
     adapter that supports benchmark work must expose that sibling to its agent; dsh/pi
     mount it at `/workspace/task`."""
+    grader_sandbox: object | None = None
+    """Optional isolated runner for agent-authored benchmark code. Local/polyglot use a
+    networkless Docker grader by default; host execution is never a fallback."""
     announce_budget: bool = False
     """Tell the agent its per-episode budget (`max_turns`) in every phase prompt, so it
     can plan within it. Off by default: announcing the budget changes behaviour — that is
@@ -184,12 +207,17 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
             f"max_turns={cfg.max_turns} cannot honour min_turns_per_phase="
             f"{cfg.min_turns_per_phase}: {len(PHASES)} phases need at least "
             f"{cfg.min_turns_per_phase * len(PHASES)} turns")
+    completed = completed_episodes(cfg)
     if start:
-        if completed_episodes(cfg) < start:
+        if completed != start:
             raise ValueError(
-                f"cannot resume {cfg.root} at episode {start}: only "
-                f"{completed_episodes(cfg)} episodes are snapshotted there")
+                f"cannot resume {cfg.root} at episode {start}: snapshot history has "
+                f"only {completed} completed episodes; resume must start at the exact durable "
+                "checkpoint")
     else:
+        # A fresh/overwrite run must not inherit hidden scores or an F baseline from an
+        # older run directory with the same deterministic id.
+        shutil.rmtree(private_record_dir(cfg.root), ignore_errors=True)
         cfg.adapter.seed(harness, cfg.seed)
         cfg.adapter.install_disposition(harness, cfg.disposition)
         if cfg.task is not None:
@@ -205,12 +233,47 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
     prior_feedback = ""
     totals: dict = {}
     best_score: float | None = None
-    history_path = cfg.root / "eval_history.json"
-    if start and history_path.exists():
+    records = private_record_dir(cfg.root)
+    history_path = eval_history_path(cfg.root)
+    fingerprint_path = records / "disposition_fingerprint.json"
+    fingerprint = cfg.adapter.disposition_fingerprint(harness)
+    if not start:
+        _write_json_atomic(fingerprint_path, {"fingerprint": fingerprint})
+    if start:
+        if not history_path.exists():
+            raise ValueError(
+                f"cannot resume {cfg.root}: {start} episodes are snapshotted but "
+                f"private eval history is missing at {history_path}")
         try:
-            eval_history = json.loads(history_path.read_text())[:start]
-        except (json.JSONDecodeError, OSError):
-            eval_history = []
+            eval_history = json.loads(history_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ValueError(
+                f"cannot resume {cfg.root}: private eval history is unreadable: {exc}"
+            ) from exc
+        expected = list(range(1, start + 1))
+        recorded = [row.get("episode") for row in eval_history]
+        if len(eval_history) != start or recorded != expected:
+            raise ValueError(
+                f"cannot resume {cfg.root}: snapshot history has {start} episodes but "
+                f"eval history records {recorded}; refusing a desynchronised run")
+        try:
+            installed = json.loads(fingerprint_path.read_text(encoding="utf-8"))
+            fingerprint = str(installed["fingerprint"])
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise ValueError(
+                f"cannot resume {cfg.root}: disposition fingerprint record is unreadable: "
+                f"{exc}"
+            ) from exc
+        current = cfg.adapter.disposition_fingerprint(harness)
+        checkpoint_fingerprint = str(eval_history[-1].get("disposition_fingerprint", ""))
+        if not checkpoint_fingerprint or current != checkpoint_fingerprint:
+            raise ValueError(
+                f"cannot resume {cfg.root}: current disposition fingerprint {current!r} "
+                f"does not match the last durable checkpoint {checkpoint_fingerprint!r}"
+            )
+        if getattr(cfg.adapter, "continuity_mode", "native") == "framework":
+            from proteus.core.continuity import HandoffStore
+            HandoffStore(cfg.root).reconcile(start)
         for row in eval_history:
             results = row.get("results") or []
             if results:
@@ -247,12 +310,16 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
             error = res.error
             break
 
+        candidate_fingerprint = cfg.adapter.disposition_fingerprint(harness)
+
         # evaluate the episode BEFORE snapshotting, so selection can still reject it.
         # an evaluator is user (or benchmark) code — a crash in it must not take the whole
         # trajectory down; a failed evaluator records a zero and the run continues.
         trace = cfg.adapter.read_trace(cfg.root, ep)
         try:
-            results = cfg.goal.evaluate(trace, GoalContext(str(harness), ep))
+            results = cfg.goal.evaluate(
+                trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+            )
         except Exception as exc:  # noqa: BLE001
             from proteus.core.goal import EvalResult
             results = [EvalResult(name="evaluator-error", score=0.0,
@@ -269,15 +336,20 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
             else:
                 best_score = score
 
-        if accepted:
-            last_accepted = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
-        else:
-            # non-destructive rejection: the rejected candidate tree goes into history
-            # first (as "candidate N:", outside the episode->commit mapping), then the
-            # restore is committed as episode N so the mapping stays gapless
-            snapshot.commit(harness, f"candidate {ep}: {cfg.name} [rejected]")
-            snapshot.restore(harness, last_accepted)
-            snapshot.commit(harness, f"episode {ep}: {cfg.name} [rejected]")
+        try:
+            if accepted:
+                last_accepted = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
+            else:
+                # non-destructive rejection: the rejected candidate tree goes into history
+                # first (as "candidate N:", outside the episode->commit mapping), then the
+                # restore is committed as episode N so the mapping stays gapless
+                snapshot.commit(harness, f"candidate {ep}: {cfg.name} [rejected]")
+                snapshot.restore(harness, last_accepted)
+                snapshot.commit(harness, f"episode {ep}: {cfg.name} [rejected]")
+        except Exception as exc:  # noqa: BLE001 - one bad subject must not abort a sweep
+            error = f"snapshot failed after episode {ep}: {type(exc).__name__}: {exc}"
+            break
+        checkpoint_fingerprint = cfg.adapter.disposition_fingerprint(harness)
         done = ep
         for key, value in (res.counters or {}).items():
             if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -285,7 +357,15 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
 
         eval_history.append({"episode": ep, "accepted": accepted,
                              "results": [r.__dict__ for r in results],
-                             "counters": dict(res.counters or {})})
+                             "counters": dict(res.counters or {}),
+                             "candidate_fingerprint": candidate_fingerprint,
+                             "disposition_fingerprint": checkpoint_fingerprint,
+                             "disposition_drift": candidate_fingerprint != fingerprint})
+        # The snapshot and experiment state are two halves of one durable checkpoint.
+        # Persist after every episode, atomically. A crash in the tiny interval after the
+        # git commit but before this replace is detected by the strict resume guard above
+        # instead of silently resetting selection history.
+        _write_json_atomic(history_path, eval_history)
         prior_feedback = cfg.goal.observe_feedback(by_name)  # OBSERVE-visible only
         if prior_feedback and not accepted:
             prior_feedback += "\n(Your last episode's changes were not kept.)"
@@ -293,6 +373,7 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
         if cfg.progress_path is not None:
             _append_progress(cfg, ep, res, trace, accepted, results)
 
-    history_path.write_text(json.dumps(eval_history, indent=1))
+    if not history_path.exists():
+        _write_json_atomic(history_path, eval_history)
     return RunResult(name=cfg.name, episodes_complete=done, root=str(cfg.root),
                      error=error, eval_history=eval_history, counters=totals)
