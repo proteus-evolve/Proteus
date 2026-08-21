@@ -470,6 +470,27 @@ def test_resume_continues_a_partial_seed(tmp_path):
     assert set(grown) <= set(after), "resume re-seeded over the evolved harness"
 
 
+def test_resume_discards_a_crash_time_partial_candidate(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, run
+
+    root = tmp_path / "crash-resume"
+    first = RunConfig(name="t", adapter=MinimalHarness(), disposition=NEUTRAL,
+                      goal=GoalConfig(), root=root, model="mock", episodes=1, seed=1)
+    run(first)
+    (root / "harness" / "CRASH_PARTIAL.md").write_text("never completed\n")
+    (root / "harness" / "STATE.md").write_text("dirty after SIGKILL\n")
+
+    resumed = RunConfig(name="t", adapter=MinimalHarness(), disposition=NEUTRAL,
+                        goal=GoalConfig(), root=root, model="mock", episodes=2, seed=1)
+    result = run(resumed, start=1)
+
+    assert result.episodes_complete == 2 and not result.error
+    assert not (root / "harness" / "CRASH_PARTIAL.md").exists()
+    assert (root / "harness" / "STATE.md").read_text().startswith("# minimal harness")
+
+
 def test_resume_refuses_to_skip_episodes_that_are_not_there(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
     from proteus.core import NEUTRAL, GoalConfig

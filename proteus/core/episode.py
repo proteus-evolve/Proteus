@@ -228,6 +228,15 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
                 f"cannot resume {cfg.root} at episode {start}: snapshot history has "
                 f"only {completed} completed episodes; resume must start at the exact durable "
                 "checkpoint")
+        checkpoint = snapshot.commit_for_episode(harness, start)
+        if checkpoint is None:  # guarded by completed == start; keep the failure legible
+            raise ValueError(
+                f"cannot resume {cfg.root}: episode {start} checkpoint is missing")
+        # A normal adapter/provider failure restores before returning, but SIGKILL or a
+        # machine restart cannot run that handler. Never let its dirty, half-written
+        # candidate leak into the resumed episode: files, index, and HEAD all return to the
+        # last complete episode before continuity/fingerprint checks run.
+        snapshot.reset_to_checkpoint(harness, checkpoint)
     else:
         # A fresh/overwrite run must not inherit hidden scores or an F baseline from an
         # older run directory with the same deterministic id.

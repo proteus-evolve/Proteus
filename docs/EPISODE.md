@@ -6,11 +6,12 @@ Code: [`proteus/core/episode.py`](../proteus/core/episode.py) (the loop),
 [`proteus/core/snapshot.py`](../proteus/core/snapshot.py) (snapshots),
 [`proteus/core/adapter.py`](../proteus/core/adapter.py) (the adapter contract).
 
-The whole division of labour is one sentence: **the framework owns everything that is
-not the harness; the adapter owns everything that is.** How the four phases execute
-*inside* an episode is the harness's business. What happens *between* episodes is
-identical for every harness — which is what makes a no-goal Aki run and a
-goal-conditioned pi run readable with the same ruler.
+The whole division of labour is one sentence: **the framework owns the transaction; the
+adapter owns harness execution.** Proteus owns snapshots, candidate acceptance, rollback,
+records, and resume. The adapter owns how a particular harness runs a phase and how its
+candidate is validated. This division is what makes a no-goal Aki run and a
+goal-conditioned pi run readable with the same ruler without pretending their runtimes
+are identical.
 
 ---
 
@@ -25,7 +26,10 @@ goal-conditioned pi run readable with the same ruler.
 
 Resume (`run(cfg, start=N)`) skips all four and continues on the evolved harness on
 disk from episode N+1. `completed_episodes` counts **contiguous snapshot commits**, not
-trace files — a provider outage writes a trace per failed attempt.
+trace files — a provider outage writes a trace per failed attempt. Before any resume,
+Proteus restores files, index, and HEAD to the exact episode-N checkpoint. This removes a
+half-written candidate left by SIGKILL or a machine restart before it can leak into the
+next attempt.
 
 ## Every episode N
 
@@ -34,6 +38,29 @@ assemble prompts → materialize last-valid active snapshot → run four phases 
 while writing a separate candidate → read trace → boundary viability gate → evaluators
 → selection → promote or preserve+restore → records & feedback → episode N+1 activates
 ```
+
+## Scope of the transaction contract
+
+The current implementation has two layers that must not be conflated:
+
+| layer | applies to | framework guarantee |
+|---|---|---|
+| snapshot transaction and recovery | every adapter | accepted/rejected history, automatic restore after adapter or snapshot failure, strict resume from the last complete checkpoint |
+| frozen active + writable candidate | adapters declaring `staged_activation=True` | private `active_root`, isolation prompt, episode-boundary activation |
+| candidate viability | adapters implementing `validate_candidate()` | model-free gate before evaluators; failure is preserved, rejected, and rolled back |
+
+DSH and Pi implement all three layers. Minimal and LLM do not execute an editable copy of
+their own runtime, so they currently use the common snapshot transaction without staged
+activation. Aki delegates episode execution to its native supervisor. A custom adapter
+that omits `staged_activation` receives no `active_root`; Proteus therefore assumes that
+adapter already owns any required episode-atomic execution semantics.
+
+This is currently an **explicit capability contract, not automatic enforcement for an
+arbitrary third-party adapter**. The framework can provide a frozen tree, but it cannot
+prove that an opaque external process actually executed it. A self-code adapter is
+conformant only if it declares staged activation, runs every phase from `active_root`,
+writes only to `root/harness`, and supplies a model-free validator when its candidate can
+fail to build or boot.
 
 ### 1. Assemble the four phase prompts — framework
 
@@ -61,7 +88,8 @@ For an adapter declaring `staged_activation=True`, Proteus materializes the last
 commit into a framework-private `active_root` outside the run root. `root/harness` remains
 the writable candidate. This is an episode-level boundary: **observe, propose, act, and
 reflect all execute the same active snapshot**. A phase never boots edits made earlier in
-that episode.
+that episode. Keeping `active_root` outside both the candidate and the writable handoff
+mount prevents the subject from modifying the frozen runtime through an alias path.
 
 ### 3. Run the episode — the adapter's core
 
@@ -99,7 +127,8 @@ adapter's:
 
 An exception or `res.ok == False` preserves the partial candidate under
 `refs/proteus/candidates/episode-N-failed`, automatically restores files, index, and HEAD
-to the prior valid checkpoint, and ends the trajectory so resume can retry episode N.
+to the prior valid checkpoint, and ends the trajectory so resume can retry episode N. The
+attempt does **not** receive an `episode N` commit and therefore does not count as complete.
 
 ### 4. Read the trace — adapter
 
@@ -124,7 +153,8 @@ control a model session.
   recovery feedback.
 
 The gate runs before arbitrary evaluators, so invalid candidate code is not accidentally
-executed by benchmark or custom evaluation either.
+executed by benchmark or custom evaluation either. If an adapter does not implement the
+hook, Proteus has no harness-specific compile/boot command to run and this gate is skipped.
 
 ### 6. Run every evaluator — framework
 
@@ -157,6 +187,12 @@ the agent itself never sees.
   3. `clean -fdx` — ignored files go too, or the rejected episode's residue leaks into
      the next one;
   4. commit `episode N [rejected]`, keeping the mapping gapless.
+
+A viability rejection uses the same preservation pattern with
+`candidate N [viability failed]` and
+`episode N [viability failed; rolled back]`. Unlike an infrastructure failure, it is a
+completed experimental episode: the failed evolutionary proposal is part of the
+trajectory, while its code is not allowed to control the next one.
 
 Only `harness/` participates in selection. A benchmark task is the exercise rather than
 the measured subject, so `<run>/task/` moves forward and is not restored when a harness
@@ -240,4 +276,16 @@ count as evolved memory. Raw conversation and process state never survive.
 | one evaluator crashes or returns a non-finite score | that evaluator gets a named zero; other evaluator results survive |
 | a nested `.git` appears in the harness | the episode records a snapshot error; nested metadata is refused and automatic restore removes its contents |
 | the episode is rejected by selection | candidate tree preserved in history, working tree rolled back, mapping gapless |
-| the process is killed mid-run | `--on-existing resume` continues after the last snapshot commit — finished episodes are never paid for twice |
+| the process is killed mid-run | no handler can run at kill time; `--on-existing resume` first hard-restores the last complete checkpoint, then retries without the dirty partial candidate |
+
+## Invariants to test in every staged adapter
+
+1. Every phase of episode N executes the same active commit, even after candidate writes.
+2. Active is read-only and cannot be reached through a writable handoff/task mount.
+3. Reflect can inspect candidate/diff but cannot reload candidate as its own harness.
+4. Validation happens once, after reflect and before arbitrary evaluators.
+5. A valid candidate first controls episode N+1, never episode N.
+6. A validation failure preserves evidence, restores the prior valid tree, and still
+   creates a gapless rejected episode checkpoint.
+7. An adapter/provider/snapshot failure restores but does not count the incomplete episode.
+8. Resume removes any crash-time dirty candidate before the next attempt.
