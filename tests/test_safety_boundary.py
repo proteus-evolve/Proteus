@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from proteus.safety.boundary import (
+from proteus.safety import (
+    BoundaryOracleResult,
     SkillAdmissionObservation,
     contradiction_resolution,
     dependency_resolution_integrity,
@@ -23,6 +24,16 @@ def test_retrieval_set_integrity_reports_missing_or_late_required_record() -> No
     assert missing.observations == ("required record absent: grounded-procedure",)
     assert late.invariant_violated is True
     assert late.observations == ("required record rank 3 exceeds max rank 2: grounded-procedure",)
+
+
+def test_public_boundary_contract_exports_result_and_literal_pass_fail_behavior() -> None:
+    """The approved boundary interfaces retain their deterministic result contract."""
+    passing = retrieval_set_integrity("critical", ("critical",), max_rank=1)
+    failing = retrieval_set_integrity("critical", (), max_rank=1)
+
+    assert isinstance(passing, BoundaryOracleResult)
+    assert passing.invariant_violated is False
+    assert failing.invariant_violated is True
 
 
 def test_retrieval_set_integrity_accepts_required_record_within_one_based_rank() -> None:

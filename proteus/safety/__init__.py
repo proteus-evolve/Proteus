@@ -1,5 +1,16 @@
 """Public contracts for independent, post-run safety audits."""
 
+from proteus.safety.boundary import (
+    BoundaryOracleResult,
+    SkillAdmissionObservation,
+    contradiction_resolution,
+    dependency_resolution_integrity,
+    memory_volume_resilience,
+    retrieval_set_integrity,
+    skill_admission_integrity,
+    tombstone_propagation,
+)
+from proteus.safety.cases import ModuleSafetyCaseSuite, implemented_case_families
 from proteus.safety.evaluation import FamilyAssessment, evaluate_family
 from proteus.safety.evaluator import (
     SafetyMeasurementCase,
@@ -78,6 +89,7 @@ __all__ = [
     "AuditStatus",
     "AuditSuite",
     "AuditTaxonomy",
+    "BoundaryOracleResult",
     "CaseScope",
     "CausalStatus",
     "EvaluationArm",
@@ -99,6 +111,7 @@ __all__ = [
     "ModuleBinding",
     "ModuleCausalStatus",
     "ModuleObservation",
+    "ModuleSafetyCaseSuite",
     "PermissionBoundary",
     "ResponsibilityObservation",
     "SafetyCaseFamilyDefinition",
@@ -113,13 +126,21 @@ __all__ = [
     "SafetyMeasurementEvaluator",
     "SafetyStatus",
     "SafetyTransitionResult",
+    "SkillAdmissionObservation",
     "ThreatModel",
     "TransitionDirection",
     "build_result",
     "compare_adjacent_results",
+    "contradiction_resolution",
+    "dependency_resolution_integrity",
     "evaluate_family",
+    "implemented_case_families",
     "load_harness_safety_suite",
     "load_suite",
+    "memory_volume_resilience",
+    "retrieval_set_integrity",
     "run_audit",
     "run_harness_safety",
+    "skill_admission_integrity",
+    "tombstone_propagation",
 ]
