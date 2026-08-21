@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Render the continuous-orb Proteus v0.1.0 release film.
+"""Render the silent continuous-orb Proteus v0.1.0 release film.
 
-Each feature is one expanded evolution node. The node contracts back into the trace,
-the connecting edge grows, and the next feature node expands. At the end the camera
-stays wide and the accumulated trace resolves into the Proteus mark.
+Each feature is one expanded evolution node. The camera pulls back, follows the growing
+edge and its live node through world space, then pushes into the next feature. At the end
+the camera stays wide and the accumulated trace resolves into the Proteus mark.
 """
 
 from __future__ import annotations
@@ -13,17 +13,15 @@ import math
 import shutil
 import subprocess
 import tempfile
-import wave
 from pathlib import Path
 
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 import render_features_video as ui
 
 
 W, H = 1920, 1080
-FPS, DURATION, SAMPLE_RATE = 30, 30, 44_100
+FPS, DURATION = 30, 30
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT = HERE / "proteus-v0.1.0-release-30s.mp4"
@@ -39,6 +37,8 @@ F = {
     "title": ImageFont.truetype(SERIF_BOLD, 86),
     "hero": ImageFont.truetype(SERIF_BOLD, 112),
     "number": ImageFont.truetype(BOLD, 142),
+    "detail": ImageFont.truetype(SERIF_BOLD, 30),
+    "feed": ImageFont.truetype(MONO_BOLD, 23),
 }
 
 FEATURES = [
@@ -52,10 +52,15 @@ LOGO_POINTS = ((0, 0), (84, 1), (147, 36), (0, 72), (156, 102),
                (43, 111), (96, 139), (0, 149), (0, 224))
 LOGO_EDGES = ((0, 1), (0, 3), (1, 2), (1, 5), (2, 4), (2, 5), (3, 5),
               (3, 7), (4, 6), (5, 6), (5, 7), (6, 7), (7, 8))
+ROUTE_EDGES = ((0, 1), (1, 2), (2, 4))
 LOGO_ORIGIN, LOGO_SCALE = (205, 235), 2.45
 FINAL_POINTS = tuple((LOGO_ORIGIN[0] + x * LOGO_SCALE,
                       LOGO_ORIGIN[1] + y * LOGO_SCALE) for x, y in LOGO_POINTS)
 CENTER = (960, 555)
+WORLD_NODE_RADIUS, CLOSE_SCALE, FOLLOW_SCALE = 22, 16.6, 5.5
+FINAL_CAMERA = ((CENTER[0] - LOGO_ORIGIN[0]) / LOGO_SCALE,
+                (CENTER[1] - LOGO_ORIGIN[1]) / LOGO_SCALE)
+DOME_CENTER, DOME_RADIUS = (20, 540), 1050
 
 
 def _case() -> dict:
@@ -196,40 +201,221 @@ def route(draw: ImageDraw.ImageDraw, count: int) -> None:
         node(draw, FINAL_POINTS[FEATURE_NODES[index]], 22, FEATURES[index]["color"])
 
 
+def project(world: tuple[float, float], camera: tuple[float, float], scale: float) -> tuple[float, float]:
+    return CENTER[0] + (world[0] - camera[0]) * scale, \
+        CENTER[1] + (world[1] - camera[1]) * scale
+
+
+def world_edge(draw: ImageDraw.ImageDraw, start: tuple[float, float], end: tuple[float, float],
+               camera: tuple[float, float], scale: float, progress: float = 1,
+               color: str = ui.SOFT) -> tuple[float, float]:
+    tip = point_lerp(start, end, ui.smooth(progress))
+    a, b = project(start, camera, scale), project(tip, camera, scale)
+    draw.line((*a, *b), fill=color, width=max(3, min(8, round(scale * .46))))
+    return tip
+
+
+def world_node(draw: ImageDraw.ImageDraw, world: tuple[float, float], camera: tuple[float, float],
+               scale: float, color: str, pulse: float = 0) -> tuple[float, float]:
+    position = project(world, camera, scale)
+    node(draw, position, WORLD_NODE_RADIUS * scale, color, pulse)
+    return position
+
+
+def draw_follow_world(draw: ImageDraw.ImageDraw, index: int, camera: tuple[float, float],
+                      scale: float, line_progress: float, pulse: float) -> tuple[float, float] | None:
+    for route_index in range(index):
+        a, b = ROUTE_EDGES[route_index]
+        world_edge(draw, LOGO_POINTS[a], LOGO_POINTS[b], camera, scale)
+    for feature_index in range(index + 1):
+        logo_index = FEATURE_NODES[feature_index]
+        world_node(draw, LOGO_POINTS[logo_index], camera, scale,
+                   FEATURES[feature_index]["color"], pulse)
+    if index >= 3 or line_progress <= 0:
+        return None
+    a, b = ROUTE_EDGES[index]
+    tip = world_edge(draw, LOGO_POINTS[a], LOGO_POINTS[b], camera, scale,
+                     line_progress, FEATURES[index + 1]["color"])
+    world_node(draw, tip, camera, scale, FEATURES[index + 1]["color"], pulse)
+    return tip
+
+
+def draw_logo_world(draw: ImageDraw.ImageDraw, camera: tuple[float, float], scale: float,
+                    reveal: float, pulse: float) -> None:
+    reveal = ui.smooth(reveal)
+    for a, b in LOGO_EDGES:
+        amount = 1 if (a, b) in ROUTE_EDGES else reveal
+        color = ui.mix_hex(ui.BG, ui.SOFT, amount)
+        world_edge(draw, LOGO_POINTS[a], LOGO_POINTS[b], camera, scale, color=color)
+    for logo_index, world in enumerate(LOGO_POINTS):
+        if logo_index in FEATURE_NODES:
+            feature_index = FEATURE_NODES.index(logo_index)
+            color = ui.mix_hex(FEATURES[feature_index]["color"],
+                               official_color(logo_index), reveal)
+        else:
+            color = ui.mix_hex(ui.BG, official_color(logo_index), reveal)
+        world_node(draw, world, camera, scale, color, pulse)
+
+
+def detail_color(color: str, opacity: float, *, on_disc: bool = False) -> str:
+    base = color if on_disc else ui.BG
+    target = "#FFFFFF" if on_disc else ui.INK
+    return ui.mix_hex(base, target, ui.clamp(opacity))
+
+
+def detail_kv(draw: ImageDraw.ImageDraw, x: float, y: float, label: str, value: str,
+              opacity: float, accent: str | None = None) -> float:
+    cap = ui.mix_hex(ui.BG, ui.SOFT, opacity)
+    body = ui.mix_hex(ui.BG, accent or ui.INK, opacity)
+    text(draw, (x, y), label, F["micro"], cap, "la")
+    lines = value.split("\n")
+    for offset, line in enumerate(lines):
+        text(draw, (x, y + 42 + offset * 38), line, F["detail"], body, "la")
+    return y + 42 + len(lines) * 38 + 32
+
+
+def side_details(draw: ImageDraw.ImageDraw, index: int, opacity: float) -> None:
+    if opacity <= .01:
+        return
+    nav = ui.mix_hex(ui.BG, ui.INK, opacity)
+    text(draw, (W - 76, 145), "‹ PREV   NEXT ›   × CLOSE", F["micro"], nav, "ra")
+    left_x, right_x, top = 1110, 1515, 250
+    left_sets = (
+        (("HARNESS", "DSH · Pi · custom"), ("MODEL", "choose your model"),
+         ("ADAPTER", "one small adapter"), ("UPSTREAM", "untouched")),
+        (("EPISODE", "context-fresh"), ("PHASES", "observe · propose\nact · reflect"),
+         ("BOUNDARY", "only files survive"), ("SNAPSHOT", "one git commit")),
+        (("LIVE VIEW", "camera follows\nthe active episode"), ("TRACE", "phase · tool · target"),
+         ("DIFF", "added · revised\ndropped"), ("DETAIL", "expand any point")),
+        (("EVALUATORS", "hidden or observed"), ("TARGETS", "one benchmark\nor several goals"),
+         ("HISTORY", "every snapshot kept"), ("EXPORT", "compare · inspect\nreuse")),
+    )
+    right_sets = (
+        (("SANDBOX", "prepared · pinned"), ("GOAL", "natural language"),
+         ("CUSTOM", "bring any harness"), ("RESULT", "same evolution loop")),
+        (("EVOLVING SURFACE", "code · instructions"), ("TOOLS", "read · edit · test"),
+         ("FEEDBACK", "last episode score"), ("STATE", "versioned harness")),
+        (("EPISODE POINT", "completed snapshot"), ("MEASUREMENT", "score · tool calls"),
+         ("FILES TOUCHED", "public structural diff"), ("PLAYBACK", "pause · scrub\nreplay")),
+        (("MEASURE", "capability · behavior"), ("SNAPSHOTS", "baseline · candidate\nbest"),
+         ("COMPARE", "trajectory · versions"), ("CLAIM", "evidence attached")),
+    )
+    y = top
+    for label, value in left_sets[index]:
+        y = detail_kv(draw, left_x, y, label, value, opacity,
+                      FEATURES[index]["color"] if label in {"HARNESS", "EPISODE", "LIVE VIEW", "EVALUATORS"} else None)
+    y = top
+    for label, value in right_sets[index]:
+        y = detail_kv(draw, right_x, y, label, value, opacity,
+                      FEATURES[index]["color"] if label in {"SANDBOX", "EVOLVING SURFACE", "EPISODE POINT", "MEASURE"} else None)
+
+
+def dome_feed(draw: ImageDraw.ImageDraw, index: int, opacity: float, progress: float) -> None:
+    color = FEATURES[index]["color"]
+    bright = detail_color(color, opacity, on_disc=True)
+    muted = ui.mix_hex(color, "#FFFFFF", opacity * .62)
+    x = 110
+    text(draw, (x, 165), FEATURES[index]["cap"], F["micro"], muted, "la")
+    text(draw, (x, 270), FEATURES[index]["title"], F["title"], bright, "la")
+
+    if index == 0:
+        text(draw, (x, 345), "Plug in an open-source harness—or bring your own.",
+             F["detail"], bright, "la")
+        rows = (("HARNESS", "DSH"), ("HARNESS", "PI"), ("HARNESS", "CUSTOM HARNESS"),
+                ("ADAPTER", "prepare · run · read trace"), ("SOURCE", "upstream untouched"))
+    elif index == 1:
+        text(draw, (x, 345), "A context-fresh episode. Files carry the evolution forward.",
+             F["detail"], bright, "la")
+        rows = (("OBSERVE", "read harness state"), ("PROPOSE", "choose the next change"),
+                ("ACT", "edit · test · verify"), ("REFLECT", "retain useful structure"),
+                ("BOUNDARY", "snapshot / episode"))
+    elif index == 2:
+        text(draw, (x, 345), "Watch the active node, then open any completed episode.",
+             F["detail"], bright, "la")
+        rows = (("LIVE", "phase · tool · target"), ("EPISODE", "normalized action stream"),
+                ("DIFF", "+ added · ~ revised · − dropped"), ("SCORE", "measurement beside trace"),
+                ("REPLAY", "pause · scrub · inspect"))
+    else:
+        text(draw, (x, 345), "Measurements and snapshots turn a trajectory into evidence.",
+             F["detail"], bright, "la")
+        rows = (("MEASURE", "capability score"), ("COMPARE", "baseline → candidate → best"),
+                ("SNAPSHOT", "one version per episode"), ("ANALYZE", "behavior · growth · reliability"),
+                ("EXPORT", "reuse the evolved harness"))
+
+    shown = max(1, min(len(rows), round(ui.ease(progress) * len(rows))))
+    for row, (phase, value) in enumerate(rows[:shown]):
+        y = 430 + row * 78
+        text(draw, (x, y), phase, F["feed"], muted, "la")
+        text(draw, (x + 220, y), value, F["small"], bright, "la")
+        if row == shown - 1:
+            draw.rectangle((x + 220, y + 29, x + 220 + min(500, 12 * len(value)), y + 33),
+                           fill=bright)
+
+
+def feature_dome(draw: ImageDraw.ImageDraw, index: int, morph: float,
+                 opacity: float, progress: float) -> None:
+    morph = ui.smooth(morph)
+    center = point_lerp(CENTER, DOME_CENTER, morph)
+    radius = lerp(WORLD_NODE_RADIUS * CLOSE_SCALE, DOME_RADIUS, morph)
+    color = FEATURES[index]["color"]
+    for extra, mix in ((30, .06), (15, .10)):
+        draw.ellipse((center[0] - radius - extra, center[1] - radius - extra,
+                      center[0] + radius + extra, center[1] + radius + extra),
+                     fill=ui.mix_hex(ui.BG, color, mix))
+    draw.ellipse((center[0] - radius, center[1] - radius,
+                  center[0] + radius, center[1] + radius), fill=color)
+    if morph > .72:
+        content_opacity = opacity * ui.smooth((morph - .72) / .24)
+        dome_feed(draw, index, content_opacity, progress)
+        side_details(draw, index, content_opacity)
+
+
 def feature_frame(t: float) -> Image.Image:
     index = min(3, int(t // 6))
     local = t - index * 6
-    label_index = index + 1 if index < 3 and local >= 5.5 else index
-    image = paper(t, FEATURES[label_index]["cap"])
+    current = LOGO_POINTS[FEATURE_NODES[index]]
+    next_world = LOGO_POINTS[FEATURE_NODES[index + 1]] if index < 3 else None
+
+    image = paper(t, FEATURES[index]["cap"])
     draw = ImageDraw.Draw(image)
-    route(draw, index)
+    if local < .58:
+        feature_dome(draw, index, local / .58, ui.smooth(local / .44), local / 4)
+        return image
+    if local < 3.68:
+        feature_dome(draw, index, 1, 1, local / 4)
+        return image
+    if local < 4.34:
+        close = 1 - ui.smooth((local - 3.68) / .66)
+        feature_dome(draw, index, close, close, local / 4)
+        return image
 
-    target = FINAL_POINTS[FEATURE_NODES[index]]
-    if index == 0 and local < .9:
-        grow = ui.smooth(local / .9)
-        position = point_lerp(target, CENTER, grow)
-        radius = lerp(22, 365, grow)
-        content_alpha = ui.smooth((local - .48) / .36)
-    elif local < 4.35:
-        position, radius = CENTER, 365
-        content_alpha = 1
+    line_progress = 0.0
+    if local < 4.76:
+        pullback = ui.smooth((local - 4.34) / .42)
+        camera, scale = current, lerp(CLOSE_SCALE, FOLLOW_SCALE, pullback)
+    elif index < 3 and local < 5.45:
+        line_progress = ui.smooth((local - 4.76) / .69)
+        camera = point_lerp(current, next_world, line_progress)
+        scale = FOLLOW_SCALE
+    elif index < 3:
+        line_progress = 1.0
+        pushin = ui.smooth((local - 5.45) / .55)
+        camera, scale = next_world, lerp(FOLLOW_SCALE, CLOSE_SCALE, pushin)
     else:
-        shrink = ui.smooth((local - 4.35) / .8)
-        position = point_lerp(CENTER, target, shrink)
-        radius = lerp(365, 22, shrink)
-        content_alpha = 1 - ui.smooth((local - 4.08) / .42)
-    feature_orb(draw, index, position, radius, content_alpha, local / 6)
+        # Last node: continue the same camera move, but pull out far enough to reveal
+        # the entire connected world as the Proteus mark.
+        wide = ui.smooth((local - 4.34) / 1.66)
+        camera = point_lerp(current, FINAL_CAMERA, wide)
+        scale = lerp(CLOSE_SCALE, LOGO_SCALE, wide)
 
-    if local >= 5.0:
-        route(draw, index + 1)
-    if index < 3 and local >= 4.9:
-        next_target = FINAL_POINTS[FEATURE_NODES[index + 1]]
-        edge(draw, target, next_target, (local - 4.9) / .62, FEATURES[index + 1]["color"])
-        grow = ui.smooth((local - 5.35) / .65)
-        if grow > 0:
-            next_position = point_lerp(next_target, CENTER, grow)
-            feature_orb(draw, index + 1, next_position, lerp(22, 365, grow),
-                        ui.smooth((grow - .88) / .12), grow)
+    label_index = index + 1 if index < 3 and local >= 5.45 else index
+    if label_index != index:
+        image = paper(t, FEATURES[label_index]["cap"])
+        draw = ImageDraw.Draw(image)
+    if index == 3 and local >= 4.0:
+        draw_logo_world(draw, camera, scale, (local - 4.55) / 1.3, t / 6)
+    else:
+        draw_follow_world(draw, index, camera, scale, line_progress, t / 6)
     return image
 
 
@@ -243,7 +429,8 @@ def logo_frame(t: float) -> Image.Image:
     draw = ImageDraw.Draw(image)
     reveal = ui.smooth(local / 1.0)
     for a, b in LOGO_EDGES:
-        color = ui.mix_hex(ui.BG, ui.SOFT, reveal)
+        amount = 1 if (a, b) in ROUTE_EDGES else reveal
+        color = ui.mix_hex(ui.BG, ui.SOFT, amount)
         draw.line((*FINAL_POINTS[a], *FINAL_POINTS[b]), fill=color, width=6)
     for index, position in enumerate(FINAL_POINTS):
         if index in FEATURE_NODES:
@@ -270,82 +457,9 @@ def render_frame(frame: int) -> Image.Image:
     return (feature_frame(t) if t < 24 else logo_frame(t)).convert("RGB")
 
 
-def midi(note: int) -> float:
-    return 440 * 2 ** ((note - 69) / 12)
-
-
-def original_jazz_piano(path: Path) -> None:
-    """Synthesize an original 12-bar light-jazz piano cue (no sampled material)."""
-    total = SAMPLE_RATE * DURATION
-    track = np.zeros((total, 2), dtype=np.float64)
-    rng = np.random.default_rng(14)
-
-    def add_note(start: float, duration: float, note: int, velocity: float, pan: float = 0) -> None:
-        begin = max(0, int(start * SAMPLE_RATE))
-        length = min(total - begin, int(duration * SAMPLE_RATE))
-        if length <= 0:
-            return
-        tt = np.arange(length, dtype=np.float64) / SAMPLE_RATE
-        freq = midi(note)
-        attack = 1 - np.exp(-tt * 85)
-        decay = np.exp(-tt * (2.2 + 1.2 / max(duration, .2)))
-        tone = np.zeros(length)
-        for harmonic, weight in ((1, 1.0), (2, .42), (3, .20), (4, .10), (6, .045)):
-            phase = rng.uniform(0, math.tau)
-            tone += weight * np.sin(math.tau * freq * harmonic * tt + phase)
-        hammer = rng.normal(0, .06, length) * np.exp(-tt * 55)
-        signal = (tone + hammer) * attack * decay * velocity * .14
-        left = math.sqrt((1 - pan) / 2)
-        right = math.sqrt((1 + pan) / 2)
-        track[begin:begin + length, 0] += signal * left
-        track[begin:begin + length, 1] += signal * right
-
-    beat, bar = 60 / 96, 4 * (60 / 96)
-    progression = [
-        ([50, 57, 60, 64, 65], 38), ([43, 53, 57, 59, 64], 43),
-        ([48, 55, 59, 62, 64], 36), ([45, 55, 58, 61, 65], 45),
-        ([50, 57, 60, 64, 65], 38), ([43, 53, 57, 59, 64], 43),
-        ([52, 59, 62, 67], 40), ([45, 55, 58, 61, 65], 45),
-        ([50, 57, 60, 64, 65], 38), ([43, 53, 57, 59, 64], 43),
-        ([48, 55, 59, 62, 64], 36), ([48, 55, 57, 62, 64], 36),
-    ]
-    melody = [74, 76, 77, 81, 79, 76, 74, 72, 71, 74, 76, 79,
-              81, 79, 76, 74, 72, 71, 69, 67, 69, 71, 74, 72]
-    for bar_index, (chord, bass) in enumerate(progression):
-        start = bar_index * bar
-        add_note(start, beat * 1.7, bass, .82, -.28)
-        add_note(start + beat * 2, beat * 1.4, bass + 7, .64, -.22)
-        for offset, strength in ((0, .68), (beat * 1.5, .48), (beat * 2.75, .56)):
-            for j, note in enumerate(chord):
-                add_note(start + offset + j * .008, beat * 1.35, note, strength, -.08 + j * .04)
-        if bar_index % 2 == 0:
-            phrase = melody[(bar_index * 2) % len(melody):]
-            for step in range(4):
-                swing = .08 if step % 2 else 0
-                add_note(start + beat * (step + .35) + swing, beat * .72,
-                         phrase[step % len(phrase)], .52, .30)
-
-    dry = track.copy()
-    for delay, gain in ((.075, .17), (.145, .11), (.235, .07)):
-        samples = int(delay * SAMPLE_RATE)
-        track[samples:] += dry[:-samples] * gain
-    fade = np.ones(total)
-    fade[:SAMPLE_RATE] = np.linspace(0, 1, SAMPLE_RATE)
-    fade[-SAMPLE_RATE:] = np.linspace(1, 0, SAMPLE_RATE)
-    track *= fade[:, None]
-    peak = np.max(np.abs(track)) or 1
-    pcm = (np.tanh(track / peak * 1.25) * .78 * 32767).astype("<i2")
-    with wave.open(str(path), "wb") as wav:
-        wav.setnchannels(2)
-        wav.setsampwidth(2)
-        wav.setframerate(SAMPLE_RATE)
-        wav.writeframes(pcm.tobytes())
-
-
 def main() -> None:
     temporary = Path(tempfile.mkdtemp(prefix="proteus-release-orbs-"))
     silent = temporary / "silent.mp4"
-    music = temporary / "original-jazz-piano.wav"
     encoder = subprocess.Popen([
         "ffmpeg", "-y", "-loglevel", "warning", "-f", "rawvideo", "-pix_fmt", "rgb24",
         "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264",
@@ -361,10 +475,9 @@ def main() -> None:
         encoder.stdin.close()
         if encoder.wait() != 0:
             raise RuntimeError("video encoder failed")
-        original_jazz_piano(music)
         subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "warning", "-i", str(silent), "-i", str(music),
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest",
+            "ffmpeg", "-y", "-loglevel", "warning", "-i", str(silent),
+            "-c:v", "copy", "-an",
             "-movflags", "+faststart", str(OUT),
         ], check=True)
     finally:
