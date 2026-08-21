@@ -97,6 +97,112 @@ def test_snapshot_failure_becomes_a_seed_error(tmp_path):
     ))
     assert result.episodes_complete == 0
     assert "snapshot failed" in result.error and "nested git" in result.error.lower()
+    harness = tmp_path / "nested-run" / "harness"
+    assert not (harness / "nested").exists(), \
+        "snapshot failure did not automatically restore the last valid checkpoint"
+    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 0)
+
+
+def test_staged_candidate_is_frozen_until_next_episode_and_bad_build_rolls_back(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import EpisodeResult, EvaluatorSpec, GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, run
+    from proteus.core.goal import EvalResult
+
+    class StagedHarness(MinimalHarness):
+        staged_activation = True
+
+        def __init__(self):
+            super().__init__()
+            self.active_observations = []
+
+        def run_episode(self, spec):
+            active = Path(spec.active_root)
+            candidate = spec.root / "harness"
+            self.active_observations.append({
+                "episode": spec.episode,
+                "broken_before": (active / "BROKEN").exists(),
+            })
+            if spec.episode == 1:
+                (candidate / "BROKEN").write_text("does not compile\n")
+                # Reflect sees the candidate, but the executing snapshot remains frozen.
+                self.active_observations[-1]["broken_after_act"] = (
+                    active / "BROKEN").exists()
+            else:
+                (candidate / "notes").mkdir(exist_ok=True)
+                (candidate / "notes" / "recovered.md").write_text("healthy\n")
+            return EpisodeResult(episode=spec.episode, ok=True)
+
+        def validate_candidate(self, harness_root):
+            return "compile failed: BROKEN" if (Path(harness_root) / "BROKEN").exists() else ""
+
+    adapter = StagedHarness()
+    root = tmp_path / "staged"
+    evaluated = []
+
+    def evaluator(trace, ctx):
+        evaluated.append(ctx.episode)
+        return EvalResult(name="safe", score=1.0)
+
+    result = run(RunConfig(
+        name="staged", adapter=adapter, disposition=NEUTRAL,
+        goal=GoalConfig.of(evaluators=(EvaluatorSpec(name="safe", run=evaluator),)),
+        root=root, model="mock", episodes=2,
+    ))
+
+    assert result.episodes_complete == 2 and not result.error
+    assert adapter.active_observations == [
+        {"episode": 1, "broken_before": False, "broken_after_act": False},
+        {"episode": 2, "broken_before": False},
+    ]
+    assert not result.eval_history[0]["accepted"]
+    assert result.eval_history[0]["failure_kind"] == "viability"
+    assert "compile failed" in result.eval_history[0]["error"]
+    assert result.eval_history[1]["accepted"]
+    assert evaluated == [2], "an invalid candidate reached arbitrary evaluator code"
+    assert not (root / "harness" / "BROKEN").exists()
+    assert (root / "harness" / "notes" / "recovered.md").exists()
+    assert not (root / ".proteus-state" / "active").exists(), \
+        "the frozen runtime leaked into the writable handoff mount"
+
+    log = subprocess.run(
+        ["git", "--git-dir", str(root / ".snapshot.git"), "log", "--format=%s"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "candidate 1: staged [viability failed]" in log
+    assert "episode 1: staged [viability failed; rolled back]" in log
+
+
+def test_incomplete_episode_preserves_candidate_ref_and_restores_checkpoint(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, run
+
+    class InterruptedHarness(MinimalHarness):
+        staged_activation = True
+
+        def run_episode(self, spec):
+            (spec.root / "harness" / "PARTIAL.md").write_text("keep for analysis\n")
+            return EpisodeResult(episode=spec.episode, ok=False,
+                                 error="provider unavailable")
+
+    root = tmp_path / "interrupted"
+    result = run(RunConfig(
+        name="interrupted", adapter=InterruptedHarness(), disposition=NEUTRAL,
+        goal=GoalConfig(), root=root, model="mock", episodes=1,
+    ))
+    harness = root / "harness"
+
+    assert result.episodes_complete == 0
+    assert result.error == "provider unavailable"
+    assert not (harness / "PARTIAL.md").exists()
+    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 0)
+    preserved = subprocess.run(
+        ["git", "--git-dir", str(root / ".snapshot.git"), "show",
+         "refs/proteus/candidates/episode-1-failed:PARTIAL.md"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert preserved == "keep for analysis\n"
 
 
 # ------------------------------------------------------------------- unit identity
@@ -289,6 +395,28 @@ def test_user_environment_reaches_the_docker_command(tmp_path):
     assert "MY_KEY=v" not in argv
     assert argv.index("--gpus") < argv.index("me/env:9"), "flags must precede the image"
     assert argv[argv.index("me/env:9") + 1:] == ["echo", "hi"]
+
+
+def test_docker_per_call_mount_can_be_read_only(tmp_path):
+    from proteus.sandbox import DockerSandbox, SandboxConfig
+    import proteus.sandbox.docker as mod
+
+    seen = {}
+
+    def fake_run(argv, **kw):
+        seen["argv"] = argv
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        DockerSandbox(SandboxConfig(image="image")).run(
+            tmp_path, ["work"], {}, timeout_s=1,
+            mounts=((str(tmp_path / "active"), "/workspace", "ro"),),
+        )
+    finally:
+        mod.subprocess.run = real
+    assert ["-v", f"{tmp_path / 'active'}:/workspace:ro"] == \
+        seen["argv"][seen["argv"].index("-v"):seen["argv"].index("-v") + 2]
 
 
 def test_docker_timeout_force_removes_the_named_container(tmp_path):

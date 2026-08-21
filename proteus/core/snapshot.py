@@ -137,6 +137,36 @@ def restore(work_tree: Path, sha: str) -> None:
     _git(work_tree, "clean", "-fdx")
 
 
+def preserve_failed_candidate(work_tree: Path, restore_sha: str, episode: int,
+                              message: str) -> str:
+    """Keep a failed attempt under a dedicated ref, then restore the valid checkpoint.
+
+    Unlike a scored rejection, an interrupted/infrastructure-failed episode is not a
+    completed episode and must not advance the ``episode N`` mapping. Moving HEAD back
+    after restoring lets resume retry the same episode, while the candidate remains
+    inspectable under ``refs/proteus/candidates/episode-N-failed``.
+    """
+    candidate = ""
+    try:
+        candidate = commit(work_tree, message)
+        _git(work_tree, "update-ref",
+             f"refs/proteus/candidates/episode-{episode}-failed", candidate)
+    finally:
+        reset_to_checkpoint(work_tree, restore_sha)
+    return candidate
+
+
+def reset_to_checkpoint(work_tree: Path, sha: str) -> None:
+    """Restore files, index, and HEAD to a known-valid checkpoint.
+
+    This is the recovery primitive for incomplete episodes. Scored rejections deliberately
+    keep their candidate in the main ancestry, but an infrastructure or snapshot failure
+    must leave the run exactly resumable from the prior valid episode.
+    """
+    restore(work_tree, sha)
+    _git(work_tree, "update-ref", "HEAD", sha)
+
+
 def materialize(work_tree: Path, sha: str, dest: Path) -> None:
     """Extract the tree at `sha` into `dest` (a fresh harness dir at a past state)."""
     git_dir = work_tree.parent / ".snapshot.git"

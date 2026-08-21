@@ -4,15 +4,19 @@
 MIT, Node >= 24). This adapter runs its **headless profile** — one fresh persisted session
 per phase — inside the source-mode image from `environments/dsh-src/`. The pinned upstream
 checkout stays untouched, while each run receives its own evolvable copy of the real
-TypeScript source. The adapter exact-syncs and rebuilds that copy on boot, launches the
-container, and reads dsh's native session logs back.
+TypeScript source. Every phase boots a frozen last-valid snapshot; the writable copy is
+rebuilt only by the model-free boundary validator, then activates in the next episode.
+The adapter launches the containers and reads dsh's native session logs back.
 
 Layout under the run root:
-    harness/            the workspace dsh mounts at /workspace (the evolving state)
+    harness/            writable candidate, mounted at /workspace/candidate
       AGENTS.md         instructions surface — dsh reads it natively; the disposition
                         is installed here as a removable marked block
       notes/  tools/    persistent surfaces the seed instructions establish
-      src/              real dsh monorepo source; rebuilt and booted after edits
+      src/              real dsh monorepo source; boundary-validated after edits
+    ../.proteus-records/<run>/active/
+                        framework-private last-valid snapshot, mounted read-only at
+                        /workspace (never exposed through the writable handoff mount)
     .dsh-state/         DSH_HOME (sessions land here; not part of the harness)
     traces/epNNN.json   episode -> {phase: [session dirs]} mapping
 
@@ -48,15 +52,17 @@ BOOT_TIMEOUT_S = 900
 SEED_INSTRUCTIONS = """\
 # Agent instructions
 
-You maintain and improve your own harness — the files in this workspace, which persist
-across sessions. Your surfaces:
+You maintain and improve your own harness. During a Proteus episode, the harness currently
+running is a frozen, read-only snapshot at `/workspace`; the writable candidate that
+persists across phases is `/workspace/candidate`. Make every edit in that candidate. Your
+candidate surfaces are:
 
-- `AGENTS.md` — these instructions (you may refine them)
-- `notes/` — markdown knowledge you want future sessions to have
-- `tools/` — small node utilities you may want later
-- `src/` — your own program: the real TypeScript source of the harness that runs you.
-  Edit it and the next session is rebuilt from your edit and runs it. If your edit
-  does not compile, the run ends.
+- `/workspace/candidate/AGENTS.md` — these instructions (you may refine them)
+- `/workspace/candidate/notes/` — markdown knowledge for future episodes
+- `/workspace/candidate/tools/` — small node utilities you may want later
+- `/workspace/candidate/src/` — your own program: the real TypeScript source of the
+  harness that runs you. Proteus validates it only after reflect. A valid candidate is
+  activated in the next episode; an invalid one is preserved for analysis and rolled back.
 
 Proteus supplies the cross-phase operational handoff at
 `/workspace/.proteus/handoff.md`. Read and replace it as requested by each phase prompt. It is
@@ -64,12 +70,11 @@ runtime context outside the evolving snapshot; do not copy credentials or raw to
 into it.
 
 The image already contains an installed, built copy at `/opt/src`. Do not run `pnpm
-install` in `/workspace` or `/workspace/src`, and do not create `node_modules` or package
-manager caches there: those are generated dependencies, not evolution, and would pollute
-your persistent snapshot. Use `/opt/src` for read-only baseline tests and dependency-backed
-inspection. At the start of each later phase, your persistent `src/` changes are synced
-into `/opt/src` and rebuilt automatically, so the next phase is also the build gate for
-the edits you made.
+install` in either workspace, and do not create `node_modules` or package-manager caches
+in the candidate: those are generated dependencies, not evolution, and would pollute the
+persistent snapshot. `/opt/src` is the build of the frozen active snapshot. Do not sync,
+reload, or execute candidate source during a phase; Proteus owns the model-free boundary
+build and viability gate after reflect.
 
 Each session is one phase of an episode. Harness files and the bounded Proteus handoff
 carry over; the raw conversation does not.
@@ -155,6 +160,7 @@ class DshHarness:
 
     name = "dsh"
     continuity_mode = "framework"
+    staged_activation = True
     disposition_in_files = True   # carried by AGENTS.md; keep it out of the phase prompts
 
     SURFACES = (
@@ -254,6 +260,10 @@ class DshHarness:
                     f"{(proc.stderr or proc.stdout)[-400:]}")
         return ""
 
+    def validate_candidate(self, harness_root: Path) -> str:
+        """Run the model-free episode-boundary build/boot gate on the candidate."""
+        return self.check_boot(harness_root)
+
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None:
         from proteus.adapters import instructions
         instructions.install_block(harness_root / "AGENTS.md", disposition)
@@ -318,8 +328,14 @@ class DshHarness:
         capped = False
         budget = int(spec.max_turns or 0)
         episode_dirs: set = set()
-        if (harness / "src").is_dir():
+        active = Path(spec.active_root) if spec.active_root is not None else harness
+        # Core-managed staged episodes already execute a previously validated snapshot.
+        # Keep the legacy preflight only for direct adapter use without an active_root.
+        if spec.active_root is None and (harness / "src").is_dir():
             error = self.check_boot(harness)
+        workspace_mounts = ((str(active), "/workspace", "ro"),
+                            (str(harness), "/workspace/candidate")) \
+            if spec.active_root is not None else ((str(harness), "/workspace"),)
         min_pp = int(getattr(spec, "min_turns_per_phase", 0) or 0)
         for idx, phase in enumerate(PHASES if not error else ()):
             # the budget is enforced twice, both harness-agnostically: exactly, between
@@ -351,7 +367,7 @@ class DshHarness:
                     env={"DEEPSEEK_API_KEY": self.key,
                          "DSH_PERMISSION_MODE": self.permission_mode},
                     timeout_s=self.phase_timeout_s,
-                    mounts=((str(harness), "/workspace"), (str(state), "/state"),
+                    mounts=workspace_mounts + ((str(state), "/state"),
                             (str(handoffs.root), CONTAINER_ROOT))
                            + self._task_mount(run_root),
                     stop_check=stop_check if budget else None,
@@ -409,7 +425,11 @@ class DshHarness:
     # ------------------------------------------------------------------ measure path
 
     def _surface_for_path(self, file_path: str) -> Optional[str]:
-        p = file_path.replace("/workspace/", "")
+        p = file_path
+        for prefix in ("/workspace/candidate/", "/workspace/", "candidate/"):
+            if p.startswith(prefix):
+                p = p[len(prefix):]
+                break
         if p == "AGENTS.md":
             return "instructions"
         if p.startswith("notes/"):

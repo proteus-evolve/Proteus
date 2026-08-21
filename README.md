@@ -104,11 +104,14 @@ An installed action preference measurably shifts what the harness grows — and 
 | yours | `--harness <module>:<Class>` — no registration | your adapter |
 
 `dsh` and `pi` are the source-evolving third-party integrations. At seed time each adapter
-extracts the pinned harness's real TypeScript source into `harness/src/`; every later phase
-boots that copy, rebuilding it when its content changes. The source is therefore a measured,
-snapshotted `loop` surface alongside instructions, notes, tools, and skills. The adapters
-still leave the upstream repositories untouched: they arrange the run copy, launch one
-prepared container per phase, and parse the harness's own session logs.
+extracts the pinned harness's real TypeScript source into `harness/src/`. During episode N,
+all four phases boot the same read-only last-valid snapshot while writing a separate
+candidate. After reflect, Proteus rebuilds and validates the candidate; only a passing
+candidate activates in episode N+1. A failed build is preserved for analysis and
+automatically rolled back, so the next episode remains healthy. The source is therefore a
+measured, snapshotted `loop` surface alongside instructions, notes, tools, and skills. The
+adapters still leave the upstream repositories untouched: they arrange the run copy,
+launch one prepared container per phase, and parse the harness's own session logs.
 
 ## 🏗️ How it works
 
@@ -265,8 +268,9 @@ roots, so the evolving agent can never read its own condition.
 ## 📊 Status
 
 `v0.1` (research preview). Working today: the offline `minimal` harness; the live `llm`
-harness; pinned, source-evolving DeepSeek Harness and Pi adapters with exact-tree boot,
-rebuild caching, viability gates, turn budgets, and task mounts; the Aki research adapter;
+harness; pinned, source-evolving DeepSeek Harness and Pi adapters with frozen per-episode
+activation, automatic rollback, exact-tree boundary gates, rebuild caching, turn budgets,
+and task mounts; the Aki research adapter;
 local, Polyglot, and SWE-bench task integrations; resume-safe sweeps; the full measurement,
 audit, reliability, report, and repository-export paths; and adapter/environment tooling.
 CI covers Python 3.10–3.14. The separate release-smoke workflow runs two episodes across

@@ -124,6 +124,19 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str) -> dict[str, str]:
     if continuity_mode == "framework":
         for ph in PHASES:
             prompts[ph] = f"{prompts[ph]}\n\n{framework_prompt(ph)}"
+    if getattr(cfg.adapter, "staged_activation", False):
+        staging_note = (
+            "Episode isolation contract: the harness running this phase is the frozen "
+            "last-valid snapshot at /workspace. Your writable candidate is mounted at "
+            "/workspace/candidate. Read the active harness to understand current behavior, "
+            "but make every persistent edit under /workspace/candidate. Candidate changes "
+            "do not become the running harness in any phase of this episode, including "
+            "reflect; do not replace or reload the active process from the candidate. "
+            "Reflect may inspect the candidate and its diff. Proteus validates it after "
+            "reflect and activates it only in the next episode if the gate passes."
+        )
+        for ph in PHASES:
+            prompts[ph] = f"{staging_note}\n\n{prompts[ph]}"
     # Phases are context-fresh.  Every phase therefore needs the objective: if only act
     # sees it, observe and propose spend most of a bounded episode investigating and
     # planning unrelated work, then act wakes up with neither that context nor enough
@@ -165,6 +178,7 @@ def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, result
     rec = {
         "ts": time.time(), "name": cfg.name, "seed": cfg.seed, "episode": ep,
         "episodes_target": cfg.episodes, "ok": res.ok, "turns": res.turns,
+        "error": res.error,
         "tool_calls": sum(1 for e in trace if e.tool),
         "units": {k: len(v) for k, v in units.items()},
         "accepted": accepted,
@@ -288,48 +302,97 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
             from proteus.core.goal import EvalResult
             by_name = {r["name"]: EvalResult(**r) for r in (last.get("results") or [])}
             prior_feedback = cfg.goal.observe_feedback(by_name)
-            if prior_feedback and not last.get("accepted", True):
+            if last.get("failure_kind") == "viability":
+                recovery = (
+                    "Your last candidate failed the episode-boundary viability gate and "
+                    "was rolled back. Fix the underlying issue in a new candidate: "
+                    f"{str(last.get('error', 'validation failed'))[:600]}"
+                )
+                prior_feedback = (f"{recovery}\n\n{prior_feedback}"
+                                  if prior_feedback else recovery)
+            elif prior_feedback and not last.get("accepted", True):
                 prior_feedback += "\n(Your last episode's changes were not kept.)"
     error = ""
     done = start
     last_accepted = snapshot.head(harness)   # episode-0 state, or the resume point
     for ep in range(start + 1, cfg.episodes + 1):
+        active_root = None
+        if getattr(cfg.adapter, "staged_activation", False):
+            # Keep the executable snapshot outside both the writable candidate and the
+            # agent-visible handoff mount. If it lived under `.proteus-state`, the latter's
+            # writable nested mount would give the subject a back door into its supposedly
+            # frozen runtime between phases.
+            shutil.rmtree(cfg.root / ".proteus-state" / "active", ignore_errors=True)
+            active_root = private_record_dir(cfg.root) / "active"
+            shutil.rmtree(active_root, ignore_errors=True)
+            snapshot.materialize(harness, last_accepted, active_root)
         spec = EpisodeSpec(
             root=cfg.root, episode=ep, model=cfg.model,
             phase_prompts=_phase_prompts(cfg, prior_feedback),
             max_turns=cfg.max_turns, seed=cfg.seed,
             min_turns_per_phase=cfg.min_turns_per_phase,
             continuity_mode=getattr(cfg.adapter, "continuity_mode", "native"),
+            active_root=active_root,
         )
         try:
             res = cfg.adapter.run_episode(spec)
         except Exception as exc:  # noqa: BLE001 - a failed episode is a record, not a crash
             error = f"{type(exc).__name__}: {exc}"
+            try:
+                snapshot.preserve_failed_candidate(
+                    harness, last_accepted, ep,
+                    f"candidate {ep}: {cfg.name} [run failed: {type(exc).__name__}]",
+                )
+            except Exception as restore_exc:  # noqa: BLE001
+                error += f"; automatic restore failed: {restore_exc}"
             break
         if not res.ok:
             error = res.error
+            try:
+                snapshot.preserve_failed_candidate(
+                    harness, last_accepted, ep,
+                    f"candidate {ep}: {cfg.name} [run failed]",
+                )
+            except Exception as restore_exc:  # noqa: BLE001
+                error += f"; automatic restore failed: {restore_exc}"
             break
 
         candidate_fingerprint = cfg.adapter.disposition_fingerprint(harness)
 
-        # evaluate the episode BEFORE snapshotting, so selection can still reject it.
-        # an evaluator is user (or benchmark) code — a crash in it must not take the whole
-        # trajectory down; a failed evaluator records a zero and the run continues.
         trace = cfg.adapter.read_trace(cfg.root, ep)
-        try:
-            results = cfg.goal.evaluate(
-                trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
-            )
-        except Exception as exc:  # noqa: BLE001
-            from proteus.core.goal import EvalResult
-            results = [EvalResult(name="evaluator-error", score=0.0,
-                                  detail=f"{type(exc).__name__}: {exc}"[:200])]
+        # A candidate may be inspected during reflect, but it is never executed inside the
+        # model-driven episode. Only this boundary gate may build/run it, without a model
+        # session. A failed candidate is preserved, rolled back, and
+        # counted as a completed (rejected) episode so the next episode can recover. The
+        # gate precedes arbitrary evaluators so invalid candidate code is never launched by
+        # benchmark/user evaluation either.
+        viability_error = ""
+        validator = getattr(cfg.adapter, "validate_candidate", None)
+        if validator is not None:
+            try:
+                viability_error = str(validator(harness) or "")
+            except Exception as exc:  # noqa: BLE001 - validation failure is a rejection
+                viability_error = f"{type(exc).__name__}: {exc}"
+
+        # Evaluate a viable candidate BEFORE snapshotting, so selection can still reject
+        # it. An evaluator is user (or benchmark) code — a crash in it must not take the
+        # whole trajectory down; a failed evaluator records a zero and the run continues.
+        results = []
+        if not viability_error:
+            try:
+                results = cfg.goal.evaluate(
+                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+                )
+            except Exception as exc:  # noqa: BLE001
+                from proteus.core.goal import EvalResult
+                results = [EvalResult(name="evaluator-error", score=0.0,
+                                      detail=f"{type(exc).__name__}: {exc}"[:200])]
         by_name = {r.name: r for r in results}
 
         # outer-loop selection on the scores (visibility-independent: an outer loop may
         # act on scores the agent itself never sees)
-        accepted = True
-        if cfg.goal.selection == "accept_reject" and results:
+        accepted = not viability_error
+        if accepted and cfg.goal.selection == "accept_reject" and results:
             score = sum(r.score for r in results) / len(results)
             if best_score is not None and score < best_score:
                 accepted = False
@@ -343,11 +406,16 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
                 # non-destructive rejection: the rejected candidate tree goes into history
                 # first (as "candidate N:", outside the episode->commit mapping), then the
                 # restore is committed as episode N so the mapping stays gapless
-                snapshot.commit(harness, f"candidate {ep}: {cfg.name} [rejected]")
+                reason = "viability failed" if viability_error else "rejected"
+                snapshot.commit(harness, f"candidate {ep}: {cfg.name} [{reason}]")
                 snapshot.restore(harness, last_accepted)
-                snapshot.commit(harness, f"episode {ep}: {cfg.name} [rejected]")
+                snapshot.commit(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
         except Exception as exc:  # noqa: BLE001 - one bad subject must not abort a sweep
             error = f"snapshot failed after episode {ep}: {type(exc).__name__}: {exc}"
+            try:
+                snapshot.reset_to_checkpoint(harness, last_accepted)
+            except Exception as restore_exc:  # noqa: BLE001
+                error += f"; automatic restore failed: {restore_exc}"
             break
         checkpoint_fingerprint = cfg.adapter.disposition_fingerprint(harness)
         done = ep
@@ -360,18 +428,32 @@ def run(cfg: RunConfig, start: int = 0) -> RunResult:
                              "counters": dict(res.counters or {}),
                              "candidate_fingerprint": candidate_fingerprint,
                              "disposition_fingerprint": checkpoint_fingerprint,
-                             "disposition_drift": candidate_fingerprint != fingerprint})
+                             "disposition_drift": candidate_fingerprint != fingerprint,
+                             "failure_kind": "viability" if viability_error else "",
+                             "error": viability_error})
         # The snapshot and experiment state are two halves of one durable checkpoint.
         # Persist after every episode, atomically. A crash in the tiny interval after the
         # git commit but before this replace is detected by the strict resume guard above
         # instead of silently resetting selection history.
         _write_json_atomic(history_path, eval_history)
         prior_feedback = cfg.goal.observe_feedback(by_name)  # OBSERVE-visible only
-        if prior_feedback and not accepted:
+        if viability_error:
+            recovery = ("Your last candidate failed the episode-boundary viability gate "
+                        "and was rolled back. Fix the underlying issue in a new candidate: "
+                        f"{viability_error[:600]}")
+            prior_feedback = f"{recovery}\n\n{prior_feedback}" if prior_feedback else recovery
+        elif prior_feedback and not accepted:
             prior_feedback += "\n(Your last episode's changes were not kept.)"
 
         if cfg.progress_path is not None:
-            _append_progress(cfg, ep, res, trace, accepted, results)
+            if viability_error:
+                from proteus.core.adapter import EpisodeResult
+                progress_res = EpisodeResult(
+                    episode=ep, ok=False, turns=res.turns, error=viability_error,
+                    counters=res.counters)
+            else:
+                progress_res = res
+            _append_progress(cfg, ep, progress_res, trace, accepted, results)
 
     if not history_path.exists():
         _write_json_atomic(history_path, eval_history)

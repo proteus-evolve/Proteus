@@ -42,6 +42,7 @@ build toolchain, and exact-tree boot wrapper.
 class TheirsHarness:
     name = "theirs"
     continuity_mode = "native"     # native | framework | none; optional
+    staged_activation = False       # True when editable self-code can affect execution
     disposition_in_files = False   # True if install_disposition writes a file the
                                    # harness loads itself (see step 3)
 
@@ -50,6 +51,7 @@ class TheirsHarness:
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None: ...
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None: ...
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult: ...
+    def validate_candidate(self, harness_root: Path) -> str: ...  # optional boundary gate
     def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]: ...
     def disposition_fingerprint(self, harness_root: Path) -> str: ...
 ```
@@ -60,11 +62,12 @@ The built-ins cover the two main integration shapes:
   in-process): start from `proteus/adapters/minimal.py` (~140 lines).
 - **External, source-evolving CLI** — the upstream repository stays pinned and untouched,
   but each run receives an evolvable copy of its real source: start from
-  `proteus/adapters/dsh.py` or `pi.py`. Each phase boots that copy in the prepared image,
-  rebuilding on source changes; the disposition installs as a removable marked block in
-  `AGENTS.md`, and the trace is parsed from the harness's own session logs. A workspace-only
-  CLI integration is the same shape without source extraction, the `loop` surface, rebuild,
-  and boot gate.
+  `proteus/adapters/dsh.py` or `pi.py`. Each episode boots a frozen last-valid copy while
+  the model writes a separate candidate; Proteus rebuilds and validates that candidate
+  only after reflect. The disposition installs as a removable marked block in `AGENTS.md`,
+  and the trace is parsed from the harness's own session logs. A workspace-only CLI
+  integration is the same shape without source extraction, the `loop` surface, rebuild,
+  and boundary gate.
 
 ### 1. Declare surfaces
 A `Surface` is one editable, persistent region the agent can grow. Declaring them as data
@@ -126,6 +129,24 @@ records the initial value and every candidate/checkpoint value outside the run r
 drift is auditable without forbidding self-editing. Resume requires the live value to
 match the last durable checkpoint.
 
+### 6. Stage activation for self-editable runtime code
+
+If edits to the harness can change the code controlling later phases, declare
+`staged_activation = True`. The core then supplies `EpisodeSpec.active_root`, a private
+materialization of the last accepted commit. Your adapter must:
+
+1. execute every phase from `active_root` (for containers, mount it read-only);
+2. expose `root/harness` separately as the writable candidate;
+3. never reload candidate code during observe/propose/act/reflect; and
+4. implement a model-free `validate_candidate(harness_root) -> str` when the candidate
+   needs a compile/boot check. Empty string means viable; a message means reject.
+
+DSH and Pi mount active at `/workspace:ro` and candidate at
+`/workspace/candidate:rw`. On a validation failure, the core preserves the candidate,
+restores the last valid snapshot, records a rejected episode, and continues. On a phase,
+provider, or snapshot failure, it preserves the partial attempt under a dedicated git ref,
+restores files/index/HEAD, and leaves the same episode ready for resume.
+
 ## Isolation
 
 If the harness lets the agent run its own code (most do), episodes must run under
@@ -148,10 +169,12 @@ but the adapter still owns how the harness sees files.
 - [ ] trace parsed from the harness's own logs into `ActionEvent`s
 - [ ] continuity mode declared when not native; framework state remains outside the
       harness snapshot
+- [ ] self-code adapter declares `staged_activation`; every phase uses the same read-only
+      active snapshot and writes only to a separate candidate
 - [ ] real (code-running) harness under `DockerSandbox`; containers that write bind mounts
       run as the host uid/gid
 - [ ] source-evolving adapter: exact source extraction, exact-tree overlay, rebuild cache,
-      and `check_boot()` viability gate
+      and model-free `validate_candidate()` boundary gate
 - [ ] benchmark-capable adapter: `<run>/task/` exposed separately from the snapshotted
       harness
 - [ ] `proteus check --harness <module>:<Class> --episode` passes
@@ -206,7 +229,7 @@ Instructions and notes are not the interesting ceiling: self-evolution that cann
 the loop is memory with extra steps. The arrangement that gives an external harness its
 own run-local code while leaving the pinned upstream checkout untouched is the one Aki uses
 natively —
-**copy the code into the harness at seed time, boot every episode from the copy**:
+**copy the code into the harness at seed time, but activate it only at episode boundaries**:
 
 1. `seed()` extracts the harness's **real source** from the prepared image into
    `harness/src/`: for pi the pi-mono checkout (~1,100 `.ts` files), for dsh the
@@ -216,22 +239,22 @@ natively —
    toolchain when the source hash changes (outputs cached on `/state`; an untouched copy
    boots via a pristine-hash fast path), and execs the built CLI. Dependencies stay in
    the image: they are apparatus, like the interpreter.
-2. Every phase mounts the run-local harness at `/workspace`. The boot wrapper exact-syncs
-   `harness/src/` over the image's baked source tree, removes old compiled outputs, then
-   restores a hash-matched build cache or rebuilds with the upstream toolchain. The agent
-   edits `src/` with ordinary workspace tools; the next session runs exactly that tree.
+2. At episode N, every phase mounts the same last-valid snapshot read-only at `/workspace`.
+   The writable `harness/` candidate is a separate `/workspace/candidate` mount. The boot
+   wrapper syncs only active `/workspace/src`, so an act edit cannot control reflect. The
+   agent may inspect its candidate, but activation waits for episode N+1.
 3. `src/` is a declared surface (`loop`, `is_code=True`), inside the snapshot repo — code
    edits are versioned per episode and measured with the same ruler as notes and tools.
-4. Before each episode, `check_boot()` runs `--version` through the boot path — the
-   **viability gate**. For pi that includes the rebuild, so a type error the agent wrote
-   into its own source surfaces as a build failure with the log tail; either way a copy
-   that cannot boot never runs an episode, no API spend is burned discovering it, and
-   the snapshot chain still holds every prior state.
+4. After reflect, `validate_candidate()` runs `--version` through the candidate boot path —
+   the **model-free viability gate**. For pi that includes the rebuild, so a type error the
+   agent wrote surfaces with the build log tail. A failed candidate is preserved and
+   rolled back; the next episode remains healthy. A passing candidate first runs as the
+   controlling harness in episode N+1.
 
 Verified live for both harnesses: a marker written into the real TypeScript entry point
 (`packages/coding-agent/src/cli.ts` for pi, `apps/cli/src/bin.ts` for dsh) appears on the
 next boot after the automatic in-container rebuild; the second boot hits the dist cache;
 and a planted TS type error is refused by the gate (exit 97 with the build log tail) and
-cleared by restoring the file. The Docker image itself is baked once per harness version
+automatically restored to the prior valid snapshot. The Docker image itself is baked once per harness version
 and never rebuilt during a run — per episode, an unchanged source boots via the fast
 path, and each distinct source state pays for exactly one in-container rebuild.

@@ -7,12 +7,14 @@ the adapter contract covers real third-party harnesses of any size — the whole
 symmetric with `dsh.py` and shares its disposition carrier.
 
 Per phase, one non-interactive pi session (`-p`) runs in the source-mode image from
-`environments/pi-src/`, with the workspace at `/workspace`, session/build state at
-`/state`, and an optional benchmark workspace at `/workspace/task`. Each run evolves the
-real Pi TypeScript source under `harness/src/`; the image exact-syncs and rebuilds it before
-boot. The trace is parsed from pi's session JSONL (v3: `message` events whose content blocks
-carry `toolCall` entries). Skills are loaded explicitly with `--skill /workspace/skills`,
-so the skills surface is version-robust rather than relying on discovery conventions.
+`environments/pi-src/`, with a frozen active workspace at `/workspace`, a writable
+candidate at `/workspace/candidate`, session/build state at `/state`, and an optional
+benchmark workspace at `/workspace/task`. Each run evolves the real Pi TypeScript source
+under `harness/src/`; Proteus exact-syncs and rebuilds the candidate only at the boundary,
+then activates it in the next episode. The trace is parsed from pi's session JSONL (v3:
+`message` events whose content blocks carry `toolCall` entries). Skills are loaded
+explicitly with `--skill /workspace/skills`, so the skills surface is version-robust rather
+than relying on discovery conventions.
 """
 
 from __future__ import annotations
@@ -42,24 +44,27 @@ SOURCE_TAR = "/opt/pi-source.tar"
 SEED_INSTRUCTIONS = """\
 # Agent instructions
 
-You maintain and improve your own harness — the files in this workspace, which persist
-across sessions. Your surfaces:
+You maintain and improve your own harness. During a Proteus episode, the harness currently
+running is a frozen, read-only snapshot at `/workspace`; the writable candidate that
+persists across phases is `/workspace/candidate`. Make every edit in that candidate. Your
+candidate surfaces are:
 
-- `AGENTS.md` — these instructions (you may refine them)
-- `notes/` — markdown knowledge you want future sessions to have
-- `tools/` — small python utilities you may want later
-- `skills/` — pi skill files (loaded automatically next session)
-- `src/` — your own program: the real TypeScript source of the agent that runs you.
-  Edit it and the next session is rebuilt from your edit and runs it. If your edit
-  does not compile, the run ends.
+- `/workspace/candidate/AGENTS.md` — these instructions (you may refine them)
+- `/workspace/candidate/notes/` — markdown knowledge for future episodes
+- `/workspace/candidate/tools/` — small python utilities you may want later
+- `/workspace/candidate/skills/` — pi skill files, loaded after activation
+- `/workspace/candidate/src/` — your own program: the real TypeScript source of the
+  agent that runs you. Proteus validates it only after reflect. A valid candidate is
+  activated in the next episode; an invalid one is preserved for analysis and rolled back.
 
 Proteus supplies the cross-phase operational handoff at
 `/workspace/.proteus/handoff.md`. Read and replace it as requested by each phase prompt. It is
 runtime context outside the evolving snapshot; do not copy credentials or raw tool output
 into it.
 
-Each session is one phase of an episode. Harness files and the bounded Proteus handoff
-carry over; the raw conversation does not.
+Each session is one phase of an episode. Candidate files and the bounded Proteus handoff
+carry over; the raw conversation does not. Do not reload or execute candidate code during
+the episode; Proteus owns the model-free boundary build and viability gate after reflect.
 """
 
 
@@ -68,6 +73,7 @@ class PiHarness:
 
     name = "pi"
     continuity_mode = "framework"
+    staged_activation = True
     disposition_in_files = True   # carried by AGENTS.md; keep it out of the phase prompts
 
     SURFACES = (
@@ -159,6 +165,10 @@ class PiHarness:
                     f"{(proc.stderr or proc.stdout)[-400:]}")
         return ""
 
+    def validate_candidate(self, harness_root: Path) -> str:
+        """Run the model-free episode-boundary build/boot gate on the candidate."""
+        return self.check_boot(harness_root)
+
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None:
         instructions.install_block(harness_root / "AGENTS.md", disposition)
 
@@ -225,8 +235,14 @@ class PiHarness:
         capped = False
         budget = int(spec.max_turns or 0)
         episode_files: set = set()
-        if (harness / "src").is_dir():
+        active = Path(spec.active_root) if spec.active_root is not None else harness
+        # Core-managed staged episodes already execute a previously validated snapshot.
+        # Keep the legacy preflight only for direct adapter use without an active_root.
+        if spec.active_root is None and (harness / "src").is_dir():
             error = self.check_boot(harness)
+        workspace_mounts = ((str(active), "/workspace", "ro"),
+                            (str(harness), "/workspace/candidate")) \
+            if spec.active_root is not None else ((str(harness), "/workspace"),)
         min_pp = int(getattr(spec, "min_turns_per_phase", 0) or 0)
         for idx, phase in enumerate(PHASES if not error else ()):
             # the budget is enforced twice, both harness-agnostically: exactly, between
@@ -259,7 +275,7 @@ class PiHarness:
                      "-p", spec.phase_prompts.get(phase, phase)],
                     env={"DEEPSEEK_API_KEY": self.key},
                     timeout_s=self.phase_timeout_s,
-                    mounts=((str(harness), "/workspace"), (str(state), "/state"),
+                    mounts=workspace_mounts + ((str(state), "/state"),
                             (str(handoffs.root), CONTAINER_ROOT))
                            + self._task_mount(run_root),
                     stop_check=stop_check if budget else None,
@@ -320,7 +336,11 @@ class PiHarness:
     # ------------------------------------------------------------------ measure path
 
     def _surface_for_path(self, file_path: str) -> Optional[str]:
-        p = file_path.replace("/workspace/", "")
+        p = file_path
+        for prefix in ("/workspace/candidate/", "/workspace/", "candidate/"):
+            if p.startswith(prefix):
+                p = p[len(prefix):]
+                break
         if p == "AGENTS.md":
             return "instructions"
         for s in ("skills", "notes", "tools"):

@@ -83,6 +83,15 @@ class EpisodeSpec:
     """How fresh phases continue: ``native`` means the harness owns continuity,
     ``framework`` uses Proteus's external handoff protocol, and ``none`` deliberately
     leaves phases independent. The adapter declaration is copied here by the core."""
+    active_root: Path | None = None
+    """Frozen harness snapshot that must execute every phase of this episode.
+
+    `root/harness` remains the writable candidate. Adapters declaring
+    `staged_activation = True` execute from `active_root` while exposing the candidate
+    separately for edits. Candidate changes may be inspected, but only the model-free
+    episode-boundary validator may execute them; they never become the controlling harness
+    until the next episode.
+    """
 
 
 @runtime_checkable
@@ -95,6 +104,11 @@ class HarnessAdapter(Protocol):
     # optional rather than a Protocol member so existing custom adapters stay compatible;
     # absence means `native`. Framework adapters mount the run's external
     # `.proteus-state` at `/workspace/.proteus` and use HandoffStore between phases.
+
+    # Adapters whose own editable files can affect execution may declare
+    # `staged_activation = True`. The core then materializes a frozen active snapshot
+    # for EpisodeSpec.active_root. Such adapters must keep that runtime separate from
+    # the writable candidate and may expose `validate_candidate(harness_root) -> str`.
 
     disposition_in_files: bool = False
     """True when `install_disposition` writes the perturbation into a file the harness

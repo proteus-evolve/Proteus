@@ -100,7 +100,7 @@ class SandboxConfig:
 
 class Sandbox(Protocol):
     def run(self, run_root: Path, command: list[str], env: Mapping[str, str],
-            timeout_s: int, mounts: tuple[tuple[str, str], ...] = (),
+            timeout_s: int, mounts: tuple[tuple[str, ...], ...] = (),
             stop_check: "Callable[[], bool] | None" = None,
             ) -> subprocess.CompletedProcess:
         """`stop_check`, when given, is polled while the command runs; returning True
@@ -113,7 +113,7 @@ class LocalSandbox:
     """No isolation — runs the command as a plain subprocess. For trusted harnesses only."""
 
     def run(self, run_root: Path, command: list[str], env: Mapping[str, str],
-            timeout_s: int, mounts: tuple[tuple[str, str], ...] = (),
+            timeout_s: int, mounts: tuple[tuple[str, ...], ...] = (),
             stop_check=None,   # in-process harnesses enforce budgets natively; unused here
             ) -> subprocess.CompletedProcess:
         return subprocess.run(command, capture_output=True, text=True, cwd=str(run_root),
@@ -133,7 +133,7 @@ class DockerSandbox:
         self.config = config
 
     def run(self, run_root: Path, command: list[str], env: Mapping[str, str],
-            timeout_s: int, mounts: tuple[tuple[str, str], ...] = (),
+            timeout_s: int, mounts: tuple[tuple[str, ...], ...] = (),
             stop_check=None, poll_s: float = 2.0,
             ) -> subprocess.CompletedProcess:
         """`mounts` replaces the default `<run_root>:/run` bind when given — adapters with
@@ -150,8 +150,12 @@ class DockerSandbox:
         argv = ["docker", "run", "--rm", "--init", "--network", c.network,
                 "--name", name]
         docker_env = os.environ.copy()
-        for host, cont in (mounts or ((str(run_root), "/run"),)):
-            argv += ["-v", f"{host}:{cont}"]
+        for mount in (mounts or ((str(run_root), "/run"),)):
+            if len(mount) not in (2, 3):
+                raise ValueError(f"mount must be (host, container[, options]), got {mount!r}")
+            host, cont, *options = mount
+            suffix = f":{options[0]}" if options else ""
+            argv += ["-v", f"{host}:{cont}{suffix}"]
         if c.mem_limit:
             argv += ["--memory", c.mem_limit]
         if c.cpus:

@@ -111,10 +111,13 @@ The image contract belongs to the adapter. For `dsh` and `pi`, a replacement mus
 the same source-mode contract as their bundled images: the expected source tar
 (`/opt/dsh-source.tar` or `/opt/pi-source.tar`), an entrypoint that exact-syncs
 `/workspace/src` onto the pinned tree, rebuilds on source-hash changes, and then accepts the
-adapter's CLI arguments. The adapters mount `/workspace`, `/state`, and, for benchmark runs,
-`/workspace/task`. Their defaults also run containers as the host uid/gid so bind-mounted
-files remain editable and snapshot-cleanable on Linux. A custom adapter may define a
-different image contract.
+adapter's CLI arguments. During model phases, the adapters mount the frozen active snapshot
+read-only at `/workspace`, the writable candidate at `/workspace/candidate`, native state
+at `/state`, and, for benchmark runs, the task at `/workspace/task`. The same boot contract
+is reused model-free after reflect with the candidate at `/workspace` for boundary
+validation. Their defaults also run containers as the host uid/gid so bind-mounted files
+remain editable and snapshot-cleanable on Linux. A custom adapter may define a different
+image contract.
 
 ## Bounding an episode
 
