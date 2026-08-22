@@ -308,8 +308,9 @@ Where help is wanted, in one line each — the full list with difficulty tags is
 
 - **More harnesses** — Hermes Agent first (Python, built-in self-improvement surfaces),
   then SWE-agent, OpenClaw, Codex CLI, OpenHands, OpenCode, Goose.
-- **More benchmarks** — lightweight offline packs (HumanEval, MBPP, BigCodeBench-lite),
-  SWE-bench Lite/Verified wiring, and finishing sandboxed grading for `swe`.
+- **More benchmarks** — BigCodeBench-lite and a LiveCodeBench subset, SWE-bench
+  Lite/Verified wiring, and finishing sandboxed grading for `swe` (HumanEval and MBPP
+  are shipped).
 - **Analysis** — `proteus compare` for side-by-side arms/runs; an episode-atlas view.
 - **Reproducibility & cost** — per-episode token/cost accounting; one-command reproduce.
 

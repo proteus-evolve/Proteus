@@ -38,6 +38,12 @@ proteus run --harness pi \
     --goal "Solve MBPP task 2 in task/solution.py." \
     --evaluator mbpp:2@observe \
     --arm neutral --seeds 2 --episodes 10 --out runs/mbpp-2
+
+# OpenAI HumanEval task; the official gzipped JSONL is downloaded and cached.
+proteus run --harness pi \
+    --goal "Solve HumanEval/0 in task/solution.py." \
+    --evaluator humaneval:HumanEval/0@observe \
+    --arm neutral --seeds 2 --episodes 10 --out runs/humaneval-0
 ```
 
 The CLI accepts at most one benchmark evaluator per run because a run has one task
@@ -62,6 +68,7 @@ to that `task/` directory.
 | built-in | `proteus.bench.local` | nothing | smoke tests, plumbing, CI |
 | **lightweight external** | `proteus.bench.polyglot` | Python + one shallow clone | real ablations at negligible cost |
 | **lightweight external** | `proteus.bench.mbpp` | Python + one cached JSON file | short, dense-scored synthesis tasks |
+| **lightweight external** | `proteus.bench.humaneval` | Python + one cached JSONL | official binary synthesis checks |
 | heavyweight official | `proteus.bench.swe` | Docker, ~120 GB, x86_64 | headline numbers on the real thing |
 
 **Start from `polyglot.py`** — it is deliberately the worked example. ~180 lines, no
@@ -74,6 +81,13 @@ MBPP uses Google Research's Apache-2.0 `sanitized-mbpp.json`. Set
 `PROTEUS_MBPP_PATH=/path/to/sanitized-mbpp.json` to use an existing copy; otherwise the
 file is cached under `~/.cache/proteus/mbpp/`. The prompt is seeded into the task, while
 the reference implementation and assertions remain held out by the grader.
+
+HumanEval uses OpenAI's MIT-licensed `HumanEval.jsonl.gz`. Set
+`PROTEUS_HUMANEVAL_PATH=/path/to/HumanEval.jsonl.gz` to use an existing copy; otherwise
+the file is cached under `~/.cache/proteus/humaneval/`. The public prompt is seeded into
+`solution.py`; the canonical solution and official `check(candidate)` function stay in
+the isolated grader. HumanEval's official per-sample verdict is binary, so its Proteus
+score is `0.0` or `1.0` rather than MBPP's per-assert fraction.
 
 ## What a contributed benchmark must get right
 

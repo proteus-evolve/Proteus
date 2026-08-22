@@ -43,8 +43,9 @@ a from-source coding harness that executes its own edits is well supported. Prio
 
 Each benchmark is one `BenchTask` (`setup` + `grade`); see `CONTRIBUTING.md`.
 
-- **[good first issue]** Lightweight, offline-gradable packs, one `BenchTask` each:
-  HumanEval, MBPP, BigCodeBench (lite), a LiveCodeBench subset.
+- **Shipped:** HumanEval and MBPP lightweight packs.
+- **[good first issue]** More lightweight, offline-gradable packs, one `BenchTask` each:
+  BigCodeBench (lite), a LiveCodeBench subset.
 - **[medium]** SWE-bench is already implemented (`proteus/bench/swe.py`) but heavy
   (x86_64 + large disk). Make it usable: wire **SWE-bench Lite / Verified** subsets, and
   degrade result-shape drift to a legible `0.0` instead of raising.

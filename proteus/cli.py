@@ -162,7 +162,8 @@ def _evaluator(spec: str, adapter_factory):
     """Parse one --evaluator: `<what>[@hidden|@observe]`. Returns (spec, task | None).
 
     measurement: units:<surface-name> | tool-calls | step
-    benchmark:   local:<task> | polyglot:<exercise> | mbpp:<task-id>
+    benchmark:   local:<task> | polyglot:<exercise> | mbpp:<task-id> |
+                 humaneval:<task-id>
     custom:      contains:<relpath>:<needle>
     """
     from proteus.bench.task import as_evaluator
@@ -173,7 +174,7 @@ def _evaluator(spec: str, adapter_factory):
         raise SystemExit(f"bad --evaluator {spec!r}: visibility is @hidden or @observe")
     visibility = Visibility(vis) if vis else Visibility.HIDDEN
     kind, _, arg = body.partition(":")
-    if kind in ("local", "polyglot", "mbpp") and arg:
+    if kind in ("local", "polyglot", "mbpp", "humaneval") and arg:
         try:
             if kind == "local":
                 from proteus.bench.local import local_task
@@ -181,9 +182,12 @@ def _evaluator(spec: str, adapter_factory):
             elif kind == "polyglot":
                 from proteus.bench.polyglot import polyglot_task
                 task = polyglot_task(arg)
-            else:
+            elif kind == "mbpp":
                 from proteus.bench.mbpp import mbpp_task
                 task = mbpp_task(arg)
+            else:
+                from proteus.bench.humaneval import humaneval_task
+                task = humaneval_task(arg)
         except KeyError as exc:
             raise SystemExit(str(exc)) from None
         return EvaluatorSpec(name=task.id, run=as_evaluator(task), kind="benchmark",
@@ -217,7 +221,7 @@ def _evaluator(spec: str, adapter_factory):
     raise SystemExit(
         f"bad --evaluator {spec!r} "
         "(use units:<surface-name> | tool-calls | step | local:<task> | "
-        "polyglot:<exercise> | mbpp:<task-id> "
+        "polyglot:<exercise> | mbpp:<task-id> | humaneval:<task-id> "
         "| contains:<relpath>:<needle>, with optional @hidden/@observe)")
 
 
@@ -483,7 +487,8 @@ def main(argv=None) -> int:
     r.add_argument("--evaluator", action="append", metavar="SPEC",
                    help="attach an evaluator, repeatable: units:<surface-name> | "
                         "tool-calls | step | local:<task> | polyglot:<exercise> | "
-                        "mbpp:<task-id> | contains:<relpath>:<needle>, each with optional @hidden "
+                        "mbpp:<task-id> | humaneval:<task-id> | "
+                        "contains:<relpath>:<needle>, each with optional @hidden "
                         "(default) or @observe; at most one benchmark task per run")
     r.add_argument("--seeds", type=int, default=4)
     r.add_argument("--episodes", type=int, default=10)
