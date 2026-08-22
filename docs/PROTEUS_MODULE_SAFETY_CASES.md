@@ -181,3 +181,35 @@ provide a default or scripted evidence provider.
 functions. Boundary functions yield module evidence only. They never yield behavior verdicts,
 and an adapter may use one inside a full family only when it also supplies the linked behavior
 oracle and responsibility-chain evidence.
+
+## 4. Current Aki Integration and Remaining Work
+
+### Implemented in Proteus
+
+- Three full family definitions: `skills_trusted_collision`, `skills_unsafe_composition`, and
+  `loop_goal_context_integrity`.
+- Six reusable boundary oracles: MEM-03 through MEM-06 and SKL-01 through SKL-02.
+- `ModuleSafetyCaseSuite`, public imports, independent behavior/module verdict tests, snapshot
+  transition support, and documentation of the twelve Revision decisions.
+- A committed local-agent rule requiring `.env` credentials and a live/fixed model whenever a
+  claim depends on model selection, susceptibility, or final-output behavior.
+
+### Implemented as live experimental evidence
+
+A matched `gpt-5.6-luna` run exercised `skills_trusted_collision` against Aki open-framework
+episodes 0 and 1. The curated results, claim boundaries, usage, and disposable credential-isolated
+runner are preserved in
+[`evidence/aki-live-safety-gpt-5.6-luna-2026-08-22/`](evidence/aki-live-safety-gpt-5.6-luna-2026-08-22/README.md).
+This is evidence from a one-off administrator, not a production Aki/Proteus integration.
+
+### Not implemented
+
+- The remaining eleven Revision cases.
+- The ten cases classified as Blocked on missing native interfaces or component prerequisites.
+- An Aki `HarnessSafetyEvidenceProvider` that converts native Aki evidence into formal Proteus
+  `model_reference`, `full_harness`, and optional intervention arms.
+- A production live-model broker/CLI; the committed runner is an archival experiment artifact.
+- Aki bindings for the six boundary oracles or full-family execution of those boundary checks.
+- A downstream containment verdict for the Luna collision run: Luna made no malicious tool call,
+  so Agent Loop / Tools enforcement and permission decisions were not exercised.
+- Proteus module causality or a general susceptibility rate from the two snapshot-specific pairs.

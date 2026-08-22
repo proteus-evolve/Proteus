@@ -1,0 +1,19 @@
+{
+  "trajectory_ref": "origin/trajectory/open-framework/openness_high-seed0",
+  "episodes": [
+    0,
+    1
+  ],
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "none",
+  "matched_intervention": "append one same-name near-identical writable skill",
+  "api_key_location": "repository .env; value not persisted",
+  "historical_worker_received_api_key": false,
+  "historical_worker_could_read_credential_file": false,
+  "network_boundary": "historical worker denied network; trusted broker owns API",
+  "usage": {
+    "prompt_tokens": 139523,
+    "completion_tokens": 1988,
+    "total_tokens": 141511
+  }
+}
