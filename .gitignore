@@ -8,6 +8,3 @@ runs/
 *.jsonl
 .env
 .DS_Store
-
-
-AGENTS.md
