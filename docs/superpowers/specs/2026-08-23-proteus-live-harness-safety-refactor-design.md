@@ -1,7 +1,7 @@
 # Proteus Live-Only Harness Safety Refactor Design
 
 Date: 2026-08-23
-Status: approved design direction; written specification awaiting user review
+Status: approved; implementation plan written
 
 ## Goal
 
@@ -146,7 +146,7 @@ call provenance. The historical worker owns no credential or network access.
 Replace the current safety command with this contract:
 
 ```text
-proteus safety \
+AKI_HARNESS_SRC=/Users/liujiaen/Documents/Codes/Aki proteus safety \
   --harness aki \
   --source /Users/liujiaen/Documents/Codes/Aki/Aki-experiments-data \
   --out runs/aki-live-safety-luna-10-snapshots \
@@ -159,6 +159,7 @@ proteus safety \
   --max-total-calls 2400 \
   --max-total-input-tokens 10000000 \
   --max-total-output-tokens 500000 \
+  --max-output-tokens-per-call 16384 \
   --request-timeout-s 180 \
   --cell-timeout-s 900 \
   --evaluation-id aki-luna-module-safety-v1
@@ -172,6 +173,10 @@ removed rather than retained as a compatibility mode.
 `OPENAI_API_KEY` from the Proteus repository-root `.env` before creating a result directory.
 An absent or empty key, unsupported model, missing source, invalid selection, or unavailable live
 executor exits with status 2 and creates no final evaluation.
+
+`--family` is repeatable and optional. No `--family` arguments schedule the whole suite. Unknown
+or duplicate IDs fail before output creation. This selector is for bounded live smoke runs and does
+not create another execution path.
 
 `proteus audit` remains a deterministic integrity command. Its help, result schema, and public
 names must state that it verifies the evaluator, artifacts, traces, materialization, and execution
@@ -191,13 +196,15 @@ class LiveModelConfig:
     max_total_calls: int
     max_total_input_tokens: int
     max_total_output_tokens: int
+    max_output_tokens_per_call: int
     request_timeout_s: int
     cell_timeout_s: int
 ```
 
 All fields are required and positive where numeric. The initial implementation supports the
-OpenAI Responses API only. Adding unused provider routing or a generic endpoint abstraction is out
-of scope.
+OpenAI Responses API only and calls `https://api.openai.com/v1/responses` through Python's
+standard-library HTTPS client. Adding an SDK dependency, unused provider routing, or a generic
+endpoint abstraction is out of scope.
 
 ### Runtime-owned model provenance
 
@@ -447,6 +454,10 @@ snapshots are rejected, not reconstructed.
 
 The Aki source checkout is not imported. Current Aki analysis code and the archival Luna runner are
 design references only; production execution is implemented and tested in Proteus adapter code.
+The worker may use `/Users/liujiaen/Documents/Codes/Aki/.venv/bin/python` as the dependency
+interpreter selected from `AKI_HARNESS_SRC`. The materialized workspace is first on `sys.path`, and
+the worker rejects any `aki` import resolved from the checkout. A missing interpreter blocks before
+output creation; it never triggers a current-package fallback.
 
 ## Live Safety Case Panel
 
@@ -612,9 +623,16 @@ the report must state which of those fields vary across paired-complete selected
   improvement or regression.
 - If inputs differ but all claim-bearing fields remain invariant, report that the panel observed no
   safety-relevant longitudinal difference. File inventory differences alone do not satisfy this
-  gate.
+  gate, and the active goal remains incomplete until case administration is prospectively revised
+  and the same ten identities are rerun.
 - Do not change the ten snapshot identities after seeing outcomes. If activation is inadequate,
   revise the case administration prospectively and rerun the same ten identities.
+
+Each of the five families must have at least two evidence-complete snapshots and at least one
+paired-complete selected transition. At least one predeclared claim-bearing field must vary across
+an evidence-complete pair. Otherwise the implementation may be functional, but it has not yet
+shown that these safety cases measure a difference in this snapshot panel and the requested goal is
+not complete.
 
 ## Artifact Layout and Atomic Publication
 
@@ -623,6 +641,7 @@ Write into an attempt-specific staging directory under the result root:
 ```text
 <out>/safety/.staging/<evaluation-id>-<attempt>/
   manifest.json
+  cells.jsonl
   results.jsonl
   transitions.jsonl
   summary.json
@@ -694,6 +713,7 @@ The final report distinguishes blocked execution from an evaluated `not_evaluate
 Remove, rather than wrap, these replaced paths:
 
 - `HarnessSafetyCaseSuite.provider()`;
+- `HarnessSafetyEvidenceProvider`;
 - provider-bearing `ModuleSafetyCaseSuite` construction;
 - production safety execution over Minimal/mock evidence;
 - any public generic provider path capable of labeling artifact or scripted evidence as model or
@@ -711,6 +731,7 @@ SafetyEvidenceAdapter
 SafetyMeasurementDefinition
 SafetyMeasurementCase
 SafetyMeasurementEvaluator
+HarnessSafetyEvidenceProvider
 ```
 
 Keep `AuditCase`, `AuditSuite`, `AuditContext`, `AuditAssessment`, `AuditResult`, and the concrete
@@ -831,6 +852,8 @@ Completion requires fresh evidence from:
 - the credential-gated Luna smoke test;
 - a terminal ten-snapshot manifest with the exact predeclared identities;
 - planned/canonical/live/evidence/paired denominators;
+- at least two evidence-complete snapshots and one paired-complete transition per family;
+- at least one evidence-complete variation in a predeclared claim-bearing field;
 - raw local call/worker/effect evidence for every evaluated cell;
 - sanitized result, transition, and summary artifacts; and
 - a requirement-by-requirement audit showing whether the live panel observed a genuine
