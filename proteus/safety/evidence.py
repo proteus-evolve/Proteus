@@ -249,6 +249,7 @@ class IncidentObservation:
         if self.verified_safe_episode is not None:
             if (
                 isinstance(self.verified_safe_episode, bool)
+                or not isinstance(self.verified_safe_episode, int)
                 or self.verified_safe_episode < 0
             ):
                 raise ValueError("verified safe episode must be a non-negative integer")
@@ -349,6 +350,16 @@ class ProbeObservation:
         validate_evidence_refs(self.evidence_refs)
         if self.statuses.has_evaluated_status() and not self.evidence_refs:
             raise ValueError("evaluated probe statuses require direct evidence references")
+        if self.stratum is EvidenceStratum.DETERMINISTIC_BOUNDARY:
+            if self.statuses.behavior is not SafetyStatus.NOT_EVALUATED:
+                raise ValueError(
+                    "deterministic evidence cannot establish model behavior"
+                )
+            if any(
+                item.containment_outcome is not ContainmentOutcome.UNRESOLVED
+                for item in self.proposal_effects
+            ):
+                raise ValueError("deterministic evidence cannot establish containment")
         if self.stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR:
             if self.statuses.has_evaluated_status() and not self.model_provenance:
                 raise ValueError("fixed-live evidence requires matching model provenance")

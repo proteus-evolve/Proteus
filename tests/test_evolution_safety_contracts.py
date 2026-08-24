@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
+from types import FunctionType, MethodType
 
 import pytest
 
@@ -148,6 +149,49 @@ def test_verified_recovery_requires_a_direct_relative_reference() -> None:
     assert incident.verified_safe_episode == 2
 
 
+def test_verified_safe_episode_rejects_non_integer_values() -> None:
+    with pytest.raises(ValueError, match="non-negative integer"):
+        IncidentObservation(
+            incident_id="incident-1",
+            recovery_target="state-before-trial",
+            evaluator_observed=StageValue.TRUE,
+            state_restored=StageValue.TRUE,
+            verification_ref="evidence/restored.json",
+            verified_safe_episode=1.5,
+        )
+
+
+def test_deterministic_evidence_cannot_establish_model_behavior() -> None:
+    with pytest.raises(ValueError, match="deterministic.*model behavior"):
+        ProbeObservation(
+            snapshot=_snapshot(),
+            endpoint=ProbeEndpoint.CANDIDATE,
+            arm=SUITE.definitions()[0].evaluation_arms[0],
+            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
+            statuses=ProbeStatuses(behavior=SafetyStatus.PASS),
+            evidence_refs=("evidence/boundary.json",),
+        )
+
+
+def test_deterministic_evidence_cannot_claim_containment() -> None:
+    with pytest.raises(ValueError, match="deterministic.*containment"):
+        ProbeObservation(
+            snapshot=_snapshot(),
+            endpoint=ProbeEndpoint.CANDIDATE,
+            arm=SUITE.definitions()[0].evaluation_arms[0],
+            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
+            proposal_effects=(
+                ProposalEffectObservation(
+                    proposal_id="proposal-1",
+                    effect_id="effect-1",
+                    boundary_opportunity=StageValue.TRUE,
+                    decision=BoundaryDecision.DENY,
+                    containment_outcome=ContainmentOutcome.HARNESS_CONTAINED,
+                ),
+            ),
+        )
+
+
 def test_suite_preflight_rejects_provider_bearing_suites() -> None:
     class ProviderBearingSuite:
         name = "provider-bearing"
@@ -272,7 +316,7 @@ def test_broker_normalizes_responses_and_owns_each_cell_budget() -> None:
     )
     channel = broker.channel("candidate-cell")
 
-    assert "sk-secret" not in repr(vars(channel))
+    assert "sk-secret" not in _reachable_strings_from_channel(channel)
 
     response = channel.respond(input="controlled prompt")
 
@@ -281,5 +325,34 @@ def test_broker_normalizes_responses_and_owns_each_cell_budget() -> None:
     assert response.provenance.configured_model == "gpt-5.6-luna"
     assert "sk-secret" not in repr(asdict(response))
     assert transport.credentials == ["sk-secret"]
+    assert "sk-secret" not in _reachable_strings_from_channel(channel)
     with pytest.raises(RuntimeError, match="budget exhausted"):
         channel.respond(input="second call")
+
+
+def _reachable_strings_from_channel(channel: object) -> set[str]:
+    """Traverse Python-level state and callable captures reachable from a channel."""
+    pending = list(vars(channel).values())
+    seen: set[int] = set()
+    strings: set[str] = set()
+    while pending:
+        value = pending.pop()
+        if id(value) in seen:
+            continue
+        seen.add(id(value))
+        if isinstance(value, str):
+            strings.add(value)
+        elif isinstance(value, MethodType):
+            pending.extend((value.__self__, value.__func__))
+        elif isinstance(value, FunctionType):
+            pending.extend(
+                cell.cell_contents for cell in (value.__closure__ or ())
+            )
+        elif isinstance(value, dict):
+            pending.extend(value.keys())
+            pending.extend(value.values())
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            pending.extend(value)
+        elif hasattr(value, "__dict__"):
+            pending.extend(vars(value).values())
+    return strings

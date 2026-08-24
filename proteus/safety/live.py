@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import socket
+import threading
 import urllib.request
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, cast, runtime_checkable
@@ -229,23 +231,104 @@ def _response_tool_calls(body: Mapping[str, object]) -> tuple[LiveToolCall, ...]
     return tuple(calls)
 
 
-class _BudgetedLiveModelChannel:
+def _send_message(connection: socket.socket, message: Mapping[str, object]) -> None:
+    encoded = json.dumps(message, separators=(",", ":")).encode("utf-8")
+    connection.sendall(len(encoded).to_bytes(8, "big") + encoded)
+
+
+def _receive_exact(connection: socket.socket, size: int) -> bytes | None:
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining:
+        chunk = connection.recv(remaining)
+        if not chunk:
+            return None
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _receive_message(connection: socket.socket) -> Mapping[str, object] | None:
+    header = _receive_exact(connection, 8)
+    if header is None:
+        return None
+    payload = _receive_exact(connection, int.from_bytes(header, "big"))
+    if payload is None:
+        return None
+    message = json.loads(payload.decode("utf-8"))
+    if not isinstance(message, dict):
+        raise TypeError("live channel message must be an object")
+    return message
+
+
+def _response_to_message(response: LiveModelResponse) -> dict[str, object]:
+    return {
+        "response_id": response.response_id,
+        "model": response.model,
+        "output_text": response.output_text,
+        "tool_calls": [
+            {
+                "call_id": item.call_id,
+                "name": item.name,
+                "arguments": dict(item.arguments),
+            }
+            for item in response.tool_calls
+        ],
+        "provenance": {
+            "call_id": response.provenance.call_id,
+            "response_id": response.provenance.response_id,
+            "configured_model": response.provenance.configured_model,
+            "response_model": response.provenance.response_model,
+        },
+    }
+
+
+def _response_from_message(message: Mapping[str, object]) -> LiveModelResponse:
+    raw_calls = message.get("tool_calls")
+    raw_provenance = message.get("provenance")
+    if not isinstance(raw_calls, list) or not isinstance(raw_provenance, dict):
+        raise TypeError("live channel returned malformed normalized evidence")
+    tool_calls: list[LiveToolCall] = []
+    for item in raw_calls:
+        if not isinstance(item, dict) or not isinstance(item.get("arguments"), dict):
+            raise TypeError("live channel returned malformed normalized tool calls")
+        tool_calls.append(
+            LiveToolCall(
+                call_id=str(item.get("call_id", "")),
+                name=str(item.get("name", "")),
+                arguments=cast(dict[str, object], item["arguments"]),
+            )
+        )
+    provenance = LiveCallProvenance(
+        call_id=str(raw_provenance.get("call_id", "")),
+        response_id=str(raw_provenance.get("response_id", "")),
+        configured_model=str(raw_provenance.get("configured_model", "")),
+        response_model=str(raw_provenance.get("response_model", "")),
+    )
+    return LiveModelResponse(
+        response_id=str(message.get("response_id", "")),
+        model=str(message.get("model", "")),
+        output_text=str(message.get("output_text", "")),
+        tool_calls=tuple(tool_calls),
+        provenance=provenance,
+    )
+
+
+class _SocketLiveModelChannel:
     def __init__(
         self,
         *,
-        cell_id: str,
-        config: LiveModelConfig,
-        request: Callable[[Mapping[str, object]], Mapping[str, object]],
+        connection: socket.socket,
+        model: str,
+        timeout_seconds: float,
     ) -> None:
-        _require_text("live cell ID", cell_id)
-        self._cell_id = cell_id
-        self._config = config
-        self._request = request
-        self._calls = 0
+        self._connection = connection
+        self._connection.settimeout(timeout_seconds)
+        self._model = model
 
     @property
     def model(self) -> str:
-        return self._config.model
+        return self._model
 
     def respond(
         self,
@@ -254,40 +337,76 @@ class _BudgetedLiveModelChannel:
         instructions: str = "",
         tools: Sequence[Mapping[str, object]] = (),
     ) -> LiveModelResponse:
-        if self._calls >= self._config.budget.max_calls:
-            raise RuntimeError("fixed-live cell call budget exhausted")
-        self._calls += 1
-        payload: dict[str, object] = {
-            "model": self._config.model,
-            "input": input,
-            "max_output_tokens": self._config.budget.max_output_tokens,
-            "store": False,
-        }
-        if instructions:
-            payload["instructions"] = instructions
-        if tools:
-            payload["tools"] = list(tools)
-        body = self._request(payload)
-        response_id = body.get("id")
-        response_model = body.get("model")
-        if not isinstance(response_id, str) or not response_id.strip():
-            raise ValueError("Responses API payload has no response ID")
-        if not isinstance(response_model, str) or not response_model.strip():
-            raise ValueError("Responses API payload has no model provenance")
-        call_id = f"{self._cell_id}.call-{self._calls}"
-        provenance = LiveCallProvenance(
-            call_id=call_id,
-            response_id=response_id,
-            configured_model=self._config.model,
-            response_model=response_model,
+        _send_message(
+            self._connection,
+            {
+                "input": input,
+                "instructions": instructions,
+                "tools": list(tools),
+            },
         )
-        return LiveModelResponse(
-            response_id=response_id,
-            model=response_model,
-            output_text=_response_output_text(body),
-            tool_calls=_response_tool_calls(body),
-            provenance=provenance,
-        )
+        result = _receive_message(self._connection)
+        if result is None:
+            raise RuntimeError("fixed-live broker closed the channel")
+        if result.get("ok") is not True:
+            raise RuntimeError(str(result.get("error", "fixed-live broker request failed")))
+        response = result.get("response")
+        if not isinstance(response, dict):
+            raise TypeError("fixed-live broker returned no normalized response")
+        return _response_from_message(response)
+
+    def close(self) -> None:
+        self._connection.close()
+
+    def __del__(self) -> None:
+        self._connection.close()
+
+
+def _normalized_response(
+    *,
+    body: Mapping[str, object],
+    cell_id: str,
+    call_number: int,
+    configured_model: str,
+) -> LiveModelResponse:
+    response_id = body.get("id")
+    response_model = body.get("model")
+    if not isinstance(response_id, str) or not response_id.strip():
+        raise ValueError("Responses API payload has no response ID")
+    if not isinstance(response_model, str) or not response_model.strip():
+        raise ValueError("Responses API payload has no model provenance")
+    provenance = LiveCallProvenance(
+        call_id=f"{cell_id}.call-{call_number}",
+        response_id=response_id,
+        configured_model=configured_model,
+        response_model=response_model,
+    )
+    return LiveModelResponse(
+        response_id=response_id,
+        model=response_model,
+        output_text=_response_output_text(body),
+        tool_calls=_response_tool_calls(body),
+        provenance=provenance,
+    )
+
+
+def _request_payload(
+    request: Mapping[str, object],
+    config: LiveModelConfig,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "model": config.model,
+        "input": request.get("input", ""),
+        "max_output_tokens": config.budget.max_output_tokens,
+        "store": False,
+    }
+    instructions = request.get("instructions")
+    tools = request.get("tools")
+    if isinstance(instructions, str) and instructions:
+        payload["instructions"] = instructions
+    if isinstance(tools, list) and tools:
+        payload["tools"] = tools
+    return payload
 
 
 class LiveModelBroker:
@@ -319,11 +438,57 @@ class LiveModelBroker:
         return cls(config, credential, transport=transport)
 
     def channel(self, cell_id: str) -> LiveModelChannel:
-        return _BudgetedLiveModelChannel(
-            cell_id=cell_id,
-            config=self.config,
-            request=self._create,
+        _require_text("live cell ID", cell_id)
+        executor_connection, broker_connection = socket.socketpair()
+        thread = threading.Thread(
+            target=self._serve_channel,
+            args=(broker_connection, cell_id),
+            name=f"proteus-live-{cell_id}",
+            daemon=True,
         )
+        thread.start()
+        return _SocketLiveModelChannel(
+            connection=executor_connection,
+            model=self.config.model,
+            timeout_seconds=self.config.timeout_seconds,
+        )
+
+    def _serve_channel(self, connection: socket.socket, cell_id: str) -> None:
+        calls = 0
+        with connection:
+            while True:
+                try:
+                    request = _receive_message(connection)
+                except (OSError, TypeError, ValueError):
+                    return
+                if request is None:
+                    return
+                if calls >= self.config.budget.max_calls:
+                    result: dict[str, object] = {
+                        "ok": False,
+                        "error": "fixed-live cell call budget exhausted",
+                    }
+                else:
+                    calls += 1
+                    try:
+                        body = self._create(_request_payload(request, self.config))
+                        response = _normalized_response(
+                            body=body,
+                            cell_id=cell_id,
+                            call_number=calls,
+                            configured_model=self.config.model,
+                        )
+                    except Exception as exc:  # noqa: BLE001 - broker returns a bounded error
+                        result = {
+                            "ok": False,
+                            "error": f"{type(exc).__name__}: fixed-live request failed",
+                        }
+                    else:
+                        result = {"ok": True, "response": _response_to_message(response)}
+                try:
+                    _send_message(connection, result)
+                except OSError:
+                    return
 
     def _create(self, payload: Mapping[str, object]) -> Mapping[str, object]:
         return self._transport.create(
