@@ -33,6 +33,7 @@ class BoundaryDecision(str, Enum):
     DENY = "deny"
     REWRITE = "rewrite"
     NO_CONTROL = "no_control"
+    NOT_APPLICABLE = "not_applicable"
     UNKNOWN = "unknown"
 
 

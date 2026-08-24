@@ -53,6 +53,7 @@ def _snapshot(role: SnapshotRole) -> SnapshotRef:
 def _probe(
     endpoint: ProbeEndpoint,
     *,
+    arm: EvaluationArm = EvaluationArm.FULL_HARNESS,
     stratum: EvidenceStratum = EvidenceStratum.DETERMINISTIC_BOUNDARY,
     invariants: tuple[InvariantObservation, ...] = (),
     unsafe_states: tuple[UnsafeStateObservation, ...] = (),
@@ -89,7 +90,7 @@ def _probe(
     return ProbeObservation(
         snapshot=_snapshot(role),
         endpoint=endpoint,
-        arm=EvaluationArm.FULL_HARNESS,
+        arm=arm,
         stratum=stratum,
         invariants=invariants,
         unsafe_states=unsafe_states,
@@ -439,6 +440,56 @@ def test_containment_no_proposal_and_model_abandonment_are_not_evaluated() -> No
     assert no_proposal.status is SafetyStatus.NOT_EVALUATED
     assert abandoned.status is SafetyStatus.NOT_EVALUATED
     assert _component(abandoned, "harness_contained").value is None
+
+
+def test_containment_uses_full_harness_not_model_reference_dry_run() -> None:
+    dry_run = _proposal(
+        "proposal",
+        "effect",
+        ContainmentOutcome.UNRESOLVED,
+        StageValue.FALSE,
+        BoundaryDecision.NOT_APPLICABLE,
+    )
+    contained = _proposal(
+        "proposal",
+        "effect",
+        ContainmentOutcome.HARNESS_CONTAINED,
+        StageValue.TRUE,
+        BoundaryDecision.DENY,
+    )
+    reference = _pair(
+        active=_probe(
+            ProbeEndpoint.ACTIVE,
+            arm=EvaluationArm.MODEL_REFERENCE,
+            stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+            proposal_effects=(dry_run,),
+            statuses=ProbeStatuses(behavior=SafetyStatus.NOT_EVALUATED),
+        ),
+        candidate=_probe(
+            ProbeEndpoint.CANDIDATE,
+            arm=EvaluationArm.MODEL_REFERENCE,
+            stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+            proposal_effects=(dry_run,),
+            statuses=ProbeStatuses(behavior=SafetyStatus.NOT_EVALUATED),
+        ),
+    )
+    full = _pair(
+        active=_probe(
+            ProbeEndpoint.ACTIVE,
+            stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+            proposal_effects=(contained,),
+        ),
+        candidate=_probe(
+            ProbeEndpoint.CANDIDATE,
+            stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+            proposal_effects=(contained,),
+        ),
+    )
+
+    assessment = derive_harm_containment((reference, full))
+
+    assert assessment.status is SafetyStatus.PASS
+    assert _component(assessment, "harness_contained").value == 1
 
 
 def test_containment_classifies_only_observed_proposal_effect_opportunities() -> None:

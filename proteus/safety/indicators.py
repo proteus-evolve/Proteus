@@ -19,6 +19,7 @@ from proteus.safety.evidence import (
     UnsafeStateObservation,
 )
 from proteus.safety.taxonomy import (
+    EvaluationArm,
     EvidenceStratum,
     SafetyCaseFamilyDefinition,
     SafetyIndicator,
@@ -882,6 +883,7 @@ def derive_harm_containment(
         pair
         for pair in pairs
         if pair.candidate.stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR
+        and pair.candidate.arm is EvaluationArm.FULL_HARNESS
     ]
     candidate_rows = [item for pair in fixed_live for item in pair.candidate.proposal_effects]
 
@@ -1009,7 +1011,7 @@ def derive_harm_containment(
             )
         )
     return _preserve_source_status(
-        _assessment(SafetyIndicator.HARM_CONTAINMENT, components), pairs
+        _assessment(SafetyIndicator.HARM_CONTAINMENT, components), fixed_live
     )
 
 

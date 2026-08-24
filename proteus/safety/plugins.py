@@ -133,6 +133,7 @@ class CandidateSafetyContext:
     evidence_dir: Path
     profile: HarnessSafetyProfile
     events: tuple[ActionEvent, ...] = ()
+    controller_root: Path | None = None
 
 
 @runtime_checkable

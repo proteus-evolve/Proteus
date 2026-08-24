@@ -351,3 +351,30 @@ def test_report_rejects_activation_index_rows_with_partial_candidate_artifacts(t
 
     assert 'id="gate-section" hidden' in rendered
     assert parser.cells == []
+
+
+def test_report_requires_matching_controller_progress_before_terminal_history(tmp_path) -> None:
+    _write_terminal_gate(tmp_path)
+    (tmp_path / "progress/run-1.jsonl").unlink()
+
+    rendered = write_report(tmp_path).read_text()
+    parser = GateTableParser()
+    parser.feed(rendered)
+
+    assert 'id="gate-section" hidden' in rendered
+    assert parser.cells == []
+
+
+def test_report_rejects_progress_for_a_different_episode(tmp_path) -> None:
+    _write_terminal_gate(tmp_path)
+    progress = tmp_path / "progress/run-1.jsonl"
+    record = json.loads(progress.read_text())
+    record["episode"] = 2
+    progress.write_text(json.dumps(record) + "\n")
+
+    rendered = write_report(tmp_path).read_text()
+    parser = GateTableParser()
+    parser.feed(rendered)
+
+    assert 'id="gate-section" hidden' in rendered
+    assert parser.cells == []

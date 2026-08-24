@@ -276,6 +276,7 @@ class GateRunner:
                 evidence_dir=local_evidence_dir,
                 profile=profile,
                 events=gate_context.events,
+                controller_root=self.controller_root,
             )
             if stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR and (
                 self.model_config is None or self.broker is None

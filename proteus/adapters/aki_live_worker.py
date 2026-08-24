@@ -29,6 +29,7 @@ if __name__ != "__main__":
         LiveCallProvenance,
         LiveModelChannel,
         LiveModelResponse,
+        LiveToolCall,
     )
 
 _RESULT_PREFIX = "PROTEUS_AKI_WORKER_RESULT="
@@ -65,9 +66,24 @@ class AkiWorkerResult:
     events: tuple[dict[str, object], ...] = ()
     model_inputs: tuple[tuple[dict[str, object], ...], ...] = ()
     model_provenance: tuple[LiveCallProvenance, ...] = ()
+    broker_calls: tuple[BrokerCallRecord, ...] = ()
     available_tools: tuple[str, ...] = ()
     error: str = ""
     containment: str = ""
+
+
+@dataclass(frozen=True)
+class BrokerCallRecord:
+    """Controller-owned model request, response proposals, and provenance."""
+
+    input: object
+    tool_calls: tuple[LiveToolCall, ...]
+    provenance: LiveCallProvenance
+
+
+@dataclass
+class _BrokerTranscript:
+    calls: list[BrokerCallRecord] = field(default_factory=list)
 
 
 def _send_message(connection: socket.socket, value: dict[str, object]) -> None:
@@ -109,13 +125,13 @@ def _response_dict(response: LiveModelResponse) -> dict[str, object]:
             {"call_id": item.call_id, "name": item.name, "arguments": dict(item.arguments)}
             for item in response.tool_calls
         ],
-        "provenance": asdict(response.provenance),
     }
 
 
 def _serve_broker(
     connection: socket.socket,
     channel: LiveModelChannel,
+    transcript: _BrokerTranscript,
 ) -> None:
     with connection:
         while True:
@@ -141,6 +157,13 @@ def _serve_broker(
                     "error": f"{type(exc).__name__}: live broker request failed",
                 }
             else:
+                transcript.calls.append(
+                    BrokerCallRecord(
+                        input=request.get("input", ""),
+                        tool_calls=response.tool_calls,
+                        provenance=response.provenance,
+                    )
+                )
                 result = {"ok": True, "response": _response_dict(response)}
             try:
                 _send_message(connection, result)
@@ -180,13 +203,23 @@ def _sandbox_command(
     python_executable: Path,
     worker_path: Path,
     snapshot_root: Path,
-    plan_path: Path,
+    plan_fd: int,
     broker_fd: int | None,
+    forbidden_read_paths: tuple[Path, ...],
 ) -> list[str] | None:
     sandbox = Path("/usr/bin/sandbox-exec")
     if sys.platform != "darwin" or not sandbox.is_file():
         return None
-    profile = "(version 1) (allow default) (deny network*)"
+    denied = " ".join(
+        (
+            f'(subpath "{_seatbelt_path(path)}")'
+            if path.is_dir()
+            else f'(literal "{_seatbelt_path(path)}")'
+        )
+        for path in forbidden_read_paths
+    )
+    file_rule = f" (deny file-read* {denied})" if denied else ""
+    profile = f"(version 1) (allow default) (deny network*){file_rule}"
     command = [
         str(sandbox),
         "-p",
@@ -196,12 +229,42 @@ def _sandbox_command(
         str(worker_path),
         "--workspace",
         str(snapshot_root),
-        "--plan",
-        str(plan_path),
+        "--plan-fd",
+        str(plan_fd),
     ]
     if broker_fd is not None:
         command.extend(("--broker-fd", str(broker_fd)))
     return command
+
+
+def _seatbelt_path(path: Path) -> str:
+    return str(path.resolve()).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _common_repository_root(root: Path) -> Path:
+    marker = root / ".git"
+    if not marker.is_file():
+        return root
+    try:
+        label, separator, raw_git_dir = marker.read_text(encoding="utf-8").strip().partition(":")
+        if label != "gitdir" or not separator:
+            return root
+        git_dir = Path(raw_git_dir.strip())
+        if not git_dir.is_absolute():
+            git_dir = marker.parent / git_dir
+        common = git_dir / "commondir"
+        if not common.is_file():
+            return root
+        common_dir = (git_dir / common.read_text(encoding="utf-8").strip()).resolve()
+    except OSError:
+        return root
+    return common_dir.parent if common_dir.name == ".git" else root
+
+
+def _credential_paths(worker_path: Path, python_executable: Path) -> tuple[Path, ...]:
+    roots = {worker_path.parents[2], python_executable.parent.parent.parent}
+    roots.update(_common_repository_root(root) for root in tuple(roots))
+    return tuple(sorted((root / ".env").resolve() for root in roots if (root / ".env").is_file()))
 
 
 def _limits() -> None:
@@ -225,6 +288,7 @@ class AkiWorkerController:
         timeout_seconds: float = 45.0,
         *,
         python_executable: Path | None = None,
+        forbidden_read_paths: tuple[Path, ...] = (),
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("Aki worker timeout must be positive")
@@ -233,6 +297,7 @@ class AkiWorkerController:
         # adjacent pyvenv.cfg and silently run the base interpreter without Aki's deps.
         self.python_executable = Path(python_executable or sys.executable).expanduser().absolute()
         self.worker_path = Path(__file__).resolve()
+        self.forbidden_read_paths = tuple(Path(path) for path in forbidden_read_paths)
 
     def run(
         self,
@@ -241,6 +306,7 @@ class AkiWorkerController:
         trial_root: Path,
         plan: AkiWorkerPlan,
         channel: LiveModelChannel | None,
+        forbidden_read_paths: tuple[Path, ...] = (),
     ) -> AkiWorkerResult:
         snapshot_root = Path(snapshot_root).resolve()
         trial_root = Path(trial_root).resolve()
@@ -248,15 +314,17 @@ class AkiWorkerController:
         controller.mkdir(parents=True, exist_ok=True)
         plan_path = controller / "plan.json"
         plan_path.write_text(json.dumps(asdict(plan), ensure_ascii=False), encoding="utf-8")
+        plan_fd = os.open(plan_path, os.O_RDONLY)
 
         parent_socket: socket.socket | None = None
         child_socket: socket.socket | None = None
         broker_thread: threading.Thread | None = None
+        transcript = _BrokerTranscript()
         if channel is not None:
             parent_socket, child_socket = socket.socketpair()
             broker_thread = threading.Thread(
                 target=_serve_broker,
-                args=(parent_socket, channel),
+                args=(parent_socket, channel, transcript),
                 name="proteus-aki-worker-broker",
                 daemon=True,
             )
@@ -266,14 +334,25 @@ class AkiWorkerController:
             self.python_executable,
             self.worker_path,
             snapshot_root,
-            plan_path,
+            plan_fd,
             broker_fd,
+            tuple(
+                dict.fromkeys(
+                    (
+                        *_credential_paths(self.worker_path, self.python_executable),
+                        controller,
+                        *self.forbidden_read_paths,
+                        *forbidden_read_paths,
+                    )
+                )
+            ),
         )
         if command is None:
             if parent_socket is not None:
                 parent_socket.close()
             if child_socket is not None:
                 child_socket.close()
+            os.close(plan_fd)
             return AkiWorkerResult(
                 terminal_status="not_evaluated",
                 error=_CONTAINMENT_UNAVAILABLE,
@@ -289,8 +368,9 @@ class AkiWorkerController:
             stderr=subprocess.PIPE,
             text=True,
             start_new_session=True,
-            pass_fds=(() if broker_fd is None else (broker_fd,)),
+            pass_fds=(plan_fd,) if broker_fd is None else (plan_fd, broker_fd),
         )
+        os.close(plan_fd)
         if child_socket is not None:
             child_socket.close()
         try:
@@ -323,9 +403,6 @@ class AkiWorkerController:
             )
         try:
             payload = json.loads(rows[0])
-            provenance = tuple(
-                LiveCallProvenance(**item) for item in payload.get("model_provenance", ())
-            )
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             return AkiWorkerResult(
                 terminal_status="error",
@@ -345,7 +422,8 @@ class AkiWorkerController:
                 for row in (payload.get("model_inputs") or ())
                 if isinstance(row, list)
             ),
-            model_provenance=provenance,
+            model_provenance=tuple(item.provenance for item in transcript.calls),
+            broker_calls=tuple(transcript.calls),
             available_tools=tuple(str(item) for item in payload.get("available_tools", ())),
             error=str(payload.get("error", "")),
             containment="os_network_denied",
@@ -390,10 +468,11 @@ def _responses_tools(tools: object) -> list[dict[str, object]]:
     return normalized
 
 
-def _worker_main(workspace: Path, plan_path: Path, broker_fd: int | None) -> int:
+def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
     _limits()
     workspace = workspace.resolve()
-    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    with os.fdopen(plan_fd, encoding="utf-8") as source:
+        plan = json.load(source)
     os.chdir(workspace)
     sys.path.insert(0, str(workspace))
 
@@ -409,7 +488,6 @@ def _worker_main(workspace: Path, plan_path: Path, broker_fd: int | None) -> int
         def __init__(self) -> None:
             self.script = list(plan.get("script") or ())
             self.inputs: list[list[dict[str, object]]] = []
-            self.provenance: list[dict[str, str]] = []
             self.available_tools: set[str] = set()
             self.calls = 0
 
@@ -440,14 +518,6 @@ def _worker_main(workspace: Path, plan_path: Path, broker_fd: int | None) -> int
                 response = result.get("response")
                 if not isinstance(response, dict):
                     raise TypeError("trusted broker returned malformed normalized response")
-                raw_provenance = response.get("provenance")
-                if not isinstance(raw_provenance, dict):
-                    raise TypeError("trusted broker returned no model provenance")
-                self.provenance.append(
-                    {key: str(raw_provenance.get(key, "")) for key in (
-                        "call_id", "response_id", "configured_model", "response_model"
-                    )}
-                )
                 calls = [
                     ToolCall(
                         id=str(item.get("call_id", "")),
@@ -589,7 +659,6 @@ def _worker_main(workspace: Path, plan_path: Path, broker_fd: int | None) -> int
         "return_value": _json_value(return_value),
         "events": tracer.events,
         "model_inputs": model.inputs,
-        "model_provenance": model.provenance,
         "available_tools": sorted(model.available_tools),
     }
     print(_RESULT_PREFIX + json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
@@ -599,14 +668,14 @@ def _worker_main(workspace: Path, plan_path: Path, broker_fd: int | None) -> int
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--plan-fd", type=int, required=True)
     parser.add_argument("--broker-fd", type=int)
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
-    return _worker_main(args.workspace, args.plan, args.broker_fd)
+    return _worker_main(args.workspace, args.plan_fd, args.broker_fd)
 
 
 if __name__ == "__main__":

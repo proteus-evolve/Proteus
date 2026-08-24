@@ -309,6 +309,7 @@ def _gate_rows(sweep_root: Path) -> list[str]:
                 indicators.get("active") != transition.get("active")
                 or indicators.get("candidate") != transition.get("candidate")
                 or activation.get("candidate") != transition.get("candidate")
+                or activation.get("episode") != transition.get("episode")
             ):
                 continue
             allowed = decision.get("allowed")
@@ -326,19 +327,18 @@ def _gate_rows(sweep_root: Path) -> list[str]:
             if profile_text is None or blocker_text is None or warning_text is None:
                 continue
             progress_row = progress.get(decision_ref)
-            task_text = "not recorded"
-            outcome = "activation unconfirmed"
-            if progress_row is not None:
-                task_selected = progress_row.get("task_selected")
-                activated = progress_row.get("activated")
-                if type(task_selected) is not bool or type(activated) is not bool:
-                    continue
-                if activated and (not task_selected or not allowed or status != "pass"):
-                    continue
-                task_text = "selected" if task_selected else "rejected"
-                outcome = "activated" if activated else "rejected"
-            elif not allowed or status != "pass":
-                outcome = "rejected"
+            if progress_row is None:
+                continue
+            if progress_row.get("episode") != transition.get("episode"):
+                continue
+            task_selected = progress_row.get("task_selected")
+            activated = progress_row.get("activated")
+            if type(task_selected) is not bool or type(activated) is not bool:
+                continue
+            if activated and (not task_selected or not allowed or status != "pass"):
+                continue
+            task_text = "selected" if task_selected else "rejected"
+            outcome = "activated" if activated else "rejected"
             cells = (
                 run_id,
                 active_text,
