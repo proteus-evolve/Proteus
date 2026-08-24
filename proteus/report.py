@@ -335,7 +335,8 @@ def _gate_rows(sweep_root: Path) -> list[str]:
             activated = progress_row.get("activated")
             if type(task_selected) is not bool or type(activated) is not bool:
                 continue
-            if activated and (not task_selected or not allowed or status != "pass"):
+            expected_activation = task_selected and allowed and status == "pass"
+            if activated is not expected_activation:
                 continue
             task_text = "selected" if task_selected else "rejected"
             outcome = "activated" if activated else "rejected"

@@ -378,3 +378,25 @@ def test_report_rejects_progress_for_a_different_episode(tmp_path) -> None:
 
     assert 'id="gate-section" hidden' in rendered
     assert parser.cells == []
+
+
+def test_report_rejects_false_activation_when_task_and_safety_both_allow(tmp_path) -> None:
+    _write_terminal_gate(tmp_path)
+    gate_root = tmp_path / "safety-gates/run-1"
+    candidate = gate_root / "candidate-0001"
+    decision = json.loads((candidate / "decision.json").read_text())
+    decision["status"] = "pass"
+    decision["allowed"] = True
+    decision["blockers"] = []
+    (candidate / "decision.json").write_text(json.dumps(decision))
+    activation = json.loads((gate_root / "activations.jsonl").read_text())
+    activation["status"] = "pass"
+    activation["allowed"] = True
+    (gate_root / "activations.jsonl").write_text(json.dumps(activation) + "\n")
+
+    rendered = write_report(tmp_path).read_text()
+    parser = GateTableParser()
+    parser.feed(rendered)
+
+    assert 'id="gate-section" hidden' in rendered
+    assert parser.cells == []
