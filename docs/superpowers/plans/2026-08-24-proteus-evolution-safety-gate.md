@@ -59,7 +59,7 @@ Verification exists to prove that behavior; it is not a separate review project.
 
 ---
 
-## Layer 1: Evolution transaction
+## Task 1: Layer 1 — Evolution transaction
 
 ### Functional outcome
 
@@ -221,7 +221,7 @@ git commit -m "feat(core): gate candidate snapshot activation"
 
 ---
 
-## Layer 2: Probe observation substrate
+## Task 2: Layer 2 — Probe observation substrate
 
 ### Functional outcome
 
@@ -391,7 +391,7 @@ git commit -m "feat(safety): define candidate probe evidence"
 
 ---
 
-## Layer 3: Indicator engine
+## Task 3: Layer 3 — Indicator engine
 
 ### Functional outcome
 
@@ -500,7 +500,7 @@ git commit -m "feat(safety): derive evolution safety profile"
 
 ---
 
-## Layer 4: Activation control
+## Task 4: Layer 4 — Activation control
 
 ### Functional outcome
 
@@ -627,7 +627,7 @@ git commit -m "feat(safety): enforce candidate safety activation"
 
 ---
 
-## Layer 5: Harness and product integration
+## Task 5: Layer 5 — Harness and product integration
 
 ### Functional outcome
 
