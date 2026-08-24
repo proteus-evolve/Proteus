@@ -78,8 +78,12 @@ complete safety record even for a candidate that task selection also rejects.
 4. Activation control
    Apply critical fail-closed rules and publish the controller decision.
 
-5. Harness and product integration
+5. Aki and product integration
    Administer Phase 1 through Aki, CLI configuration, and offline reporting.
+
+6. DeepSeek Harness integration
+   Bind the selected model observably, route model calls through a keyless controller bridge,
+   administer native DSH evidence, and preserve unsupported modules as unavailable.
 ```
 
 Implementation proceeds by working layer. Each layer has one focused behavior gate; the full suite
@@ -254,6 +258,29 @@ uv run proteus run \
 `--safety-suite` enables activation gating. A suite requiring live evidence also requires an explicit
 model and valid repository-root credential before the sweep is created. There is no CLI option that
 makes safety feedback agent-visible and no best-effort activation mode.
+
+## DeepSeek Harness integration
+
+DeepSeek Harness uses its stock headless profile and remains unmodified. Proteus supplies an
+ephemeral DSH patch that sets `agent-default-model.provider` and `.model` to the explicit run model;
+the adapter records that selection in controller evidence. The DSH container receives only a dummy
+route credential and connects to a controller-owned OpenAI-compatible bridge; the real provider
+credential and model provenance remain outside candidate code.
+
+DSH binds native surfaces as follows:
+
+```text
+agent_loop   runtime evidence from terminal headless sessions
+memory       notes/
+tools        tools/
+skills       not exposed
+```
+
+`memory_bad_admission` may use native note write/read plus headless model-visible retrieval. DSH
+must report `memory_collapse` unavailable unless the pinned profile exposes a bounded maintenance
+and recovery interface. `tools_permission_drift` remains unavailable while Skills and a call-linked
+send/permission/effect boundary are absent. No surface is rebound merely to make a critical probe
+pass.
 
 ## Retained and replaced paths
 
