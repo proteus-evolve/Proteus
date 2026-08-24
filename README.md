@@ -233,59 +233,58 @@ proteus watch --out runs/demo          # http://localhost:8300/report.html
 Tracking data (condition labels, hidden scores) lives at the sweep level, outside run
 roots, so the evolving agent can never read its own condition.
 
-## 🛡️ Safety auditing
+## 🛡️ Candidate safety and integrity auditing
 
-Proteus keeps three kinds of evidence separate:
+Proteus keeps task selection, online candidate safety, and post-run instrument auditing
+separate. Task evaluators may affect selection or provide configured feedback. Safety
+indicators can reject a frozen candidate, but their values, names, evidence, blockers, and
+warnings never enter prompts, reward, critique, memory, or later episodes.
 
-| signal | role |
-|---|---|
-| task evaluator | measures the configured objective and may be visible or used by selection |
-| agent self-evaluation | reflect-phase subject claim, retained only as diagnostic evidence |
-| safety audit oracle | independent post-run observation, never fed back into evolution |
+Enable the Phase 1 activation gate explicitly:
 
-The built-in audit runner examines a completed sweep without changing any run, prompt,
-selection, or snapshot:
+```bash
+uv run proteus run \
+  --harness aki \
+  --arm neutral \
+  --goal none \
+  --seeds 1 \
+  --episodes 3 \
+  --model gpt-5.6-luna \
+  --safety-suite proteus.safety.phase1:SUITE \
+  --out runs/evolution-safety-phase1
+```
+
+Repeat `--safety-family <family-id>` to run a declared subset; omitting it runs every
+family. Preflight validates the suite, selected families, adapter bindings, live-model
+budget, and repository-root `.env` credential before creating the sweep directory. There
+is no best-effort, policy-selection, scalar-threshold, or safety-feedback option.
+
+Every evolved tree is frozen before task and safety evaluation. Proteus activates it only
+when both decisions allow; otherwise it restores the previous active tree while preserving
+the rejected candidate and controller evidence. Terminal artifacts live under
+`<sweep>/safety-gates/`, outside subject run roots. `proteus report --out <sweep>` renders
+logical active/candidate identity, task selection, activation outcome, five independent
+indicator profiles, blockers, warnings, and artifact links. It does not compute a combined
+safety score or describe a rejected candidate as active.
+
+The Aki adapter owns Phase 1 administration and executes only each materialized endpoint's
+native `loop.py::run_episode(ctx)` inside a keyless, network-denied worker. The trusted
+controller owns model credentials and API calls. A missing native loader, permission,
+maintenance, lineage, or recovery interface remains `not_exposed` or `not_evaluated` and
+therefore blocks critical activation; Proteus does not install a fallback.
+
+The deterministic integrity audit remains a separate post-run command:
 
 ```bash
 proteus audit --harness minimal --out runs/demo \
     --audit-id instrument-integrity-v1
-proteus report --out runs/demo             # regenerate the report with the audit table
+proteus report --out runs/demo
 ```
 
-Audit manifests, JSONL results, summaries, and evidence live under `runs/demo/audits/`,
-outside every evolving harness. Outcomes preserve `not_evaluated`, `invalid`, and `error`;
-`not_evaluated` is not a pass, and Proteus does not collapse unlike cases into a safety
-score. The default `instrument-integrity` suite verifies that snapshots and normalized
-traces are observable—it does **not** establish general harness safety. Adapter-specific
-suites plug in with `--suite <module>:<object>`.
-
-Module-first harness-safety suites run separately across every snapshot from episode 0
-through the completed trajectory:
-
-```bash
-proteus safety --harness minimal --out runs/demo \
-    --suite mypackage.safety:SUITE --evaluation-id module-safety-v1
-```
-
-The adapter declares how its native surfaces bind to Agent Loop, Memory, Skills, and Tools.
-The suite supplies case-family definitions and an evidence provider. Proteus derives
-independent behavior and module verdicts, harness contribution, and adjacent-snapshot
-transitions under `runs/demo/safety/`. Proteus ships no generic concrete cases because the
-native behavior and effect oracles belong to the harness integration.
-
-For reusable measurements, an adapter may expose a generic evidence provider and a
-`SafetyMeasurementEvaluator` maps its evidence to the independent verdict. The provider
-writes evidence beneath the supplied `context.evidence_dir`; the evaluator, not the
-provider, decides `pass`, `fail`, or `not_evaluated`. See the generic
-[provider recipe](docs/RECIPES.md#generic-safety-evidence-provider) for a complete example.
-Replay providers must supply their own OS containment boundary; Proteus only gives them a
-disposable snapshot copy. An Aki provider is one possible integration, not a core special
-case.
-
-Custom suites are trusted local Python extensions, not sandboxed plugins. Proteus omits the
-source run root from their audit context, but it cannot prevent arbitrary extension code
-from accessing host files. Use only trusted artifact suites; run replay or untrusted suite
-code inside a separate OS containment boundary.
+Audit artifacts live under `<sweep>/audits/`. The default `instrument-integrity` suite
+checks snapshot and trace observability; it does not establish harness safety. Audit
+outcomes preserve `not_evaluated`, `invalid`, and `error`, and audit results never affect
+selection or later episodes.
 
 ## 📊 Status
 

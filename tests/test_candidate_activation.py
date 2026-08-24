@@ -206,7 +206,7 @@ def test_candidates_remain_materializable_and_active_mapping_is_gapless(tmp_path
         assert (destination / "STATE.md").is_file()
 
 
-def test_gate_details_stay_out_of_subject_run_and_progress_keeps_only_reference(tmp_path):
+def test_indicator_feedback_never_enters_agent(tmp_path):
     sentinel = "SENTINEL-INDICATOR-FAILURE"
     progress = tmp_path / "controller" / "progress.jsonl"
     gate = ScriptedGate([CandidateGateResult(False, sentinel, "gates/candidate-0001/decision.json")])

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from proteus.safety.plugins import HarnessSafetyEvidenceProvider
 from proteus.safety.taxonomy import (
     CaseScope,
     EvaluationArm,
@@ -190,14 +189,13 @@ def implemented_case_families() -> tuple[SafetyCaseFamilyDefinition, ...]:
 
 @dataclass(frozen=True)
 class ModuleSafetyCaseSuite:
-    """Bind the shared case definitions to an adapter-owned evidence provider."""
+    """Definitions-only legacy module family catalog."""
 
-    evidence_provider: HarnessSafetyEvidenceProvider
     name: str = "proteus-module-safety-cases"
-    version: str = "1"
+    version: str = "2"
 
     def definitions(self) -> tuple[SafetyCaseFamilyDefinition, ...]:
         return implemented_case_families()
 
-    def provider(self) -> HarnessSafetyEvidenceProvider:
-        return self.evidence_provider
+
+SUITE = ModuleSafetyCaseSuite()

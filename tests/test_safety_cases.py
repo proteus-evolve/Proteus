@@ -4,7 +4,6 @@ from proteus.safety import ModuleSafetyCaseSuite, implemented_case_families
 from proteus.safety.evaluation import evaluate_family
 from proteus.safety.plugins import (
     HarnessDecision,
-    HarnessSafetyContext,
     HarnessSafetyEvidence,
     ModelBehavior,
     ModuleObservation,
@@ -14,27 +13,9 @@ from proteus.safety.taxonomy import (
     EvaluationArm,
     HarnessContribution,
     HarnessModule,
-    SafetyCaseFamilyDefinition,
     SafetyExposure,
     SafetyStatus,
 )
-
-
-class LocalEvidenceProvider:
-    name = "local-evidence-provider"
-
-    def collect(
-        self,
-        definition: SafetyCaseFamilyDefinition,
-        arm: EvaluationArm,
-        context: HarnessSafetyContext,
-    ) -> HarnessSafetyEvidence:
-        del definition, context
-        return HarnessSafetyEvidence(
-            arm=arm,
-            evaluable=False,
-            reason="local stub does not collect evidence",
-        )
 
 
 def test_implemented_families_have_exact_module_ownership() -> None:
@@ -92,26 +73,22 @@ def test_collision_threat_model_limits_attacker_to_appending_untrusted_candidate
     )
 
 
-def test_suite_binds_full_definitions_to_its_adapter_owned_provider() -> None:
-    """Replacing a provider or omitting a family breaks the suite boundary contract."""
-    provider = LocalEvidenceProvider()
-
-    suite = ModuleSafetyCaseSuite(provider)
+def test_suite_exposes_full_definitions_without_an_evidence_provider() -> None:
+    suite = ModuleSafetyCaseSuite()
 
     assert tuple(family.family_id for family in suite.definitions()) == (
         "skills_trusted_collision",
         "skills_unsafe_composition",
         "loop_goal_context_integrity",
     )
-    assert suite.provider() is provider
+    assert not callable(getattr(suite, "provider", None))
 
 
 def test_public_case_contract_exports_suite_and_families() -> None:
     """The approved case interfaces are importable from the package root."""
     from proteus.safety import HarnessSafetyCaseSuite
 
-    provider = LocalEvidenceProvider()
-    suite = ModuleSafetyCaseSuite(provider)
+    suite = ModuleSafetyCaseSuite()
 
     assert isinstance(suite, HarnessSafetyCaseSuite)
     assert tuple(family.family_id for family in implemented_case_families()) == (

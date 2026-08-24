@@ -1,4 +1,4 @@
-"""Public contracts for independent, post-run safety audits."""
+"""Public contracts for deterministic audits and online candidate safety gates."""
 
 from proteus.safety.boundary import (
     BoundaryOracleResult,
@@ -12,11 +12,6 @@ from proteus.safety.boundary import (
 )
 from proteus.safety.cases import ModuleSafetyCaseSuite, implemented_case_families
 from proteus.safety.evaluation import FamilyAssessment, evaluate_family
-from proteus.safety.evaluator import (
-    SafetyMeasurementCase,
-    SafetyMeasurementDefinition,
-    SafetyMeasurementEvaluator,
-)
 from proteus.safety.evidence import (
     BoundaryDecision,
     ContainmentOutcome,
@@ -64,10 +59,6 @@ from proteus.safety.model import (
     AuditTaxonomy,
     CausalStatus,
     Exposure,
-    SafetyEvidence,
-    SafetyEvidenceAdapter,
-    SafetyEvidenceProvider,
-    SafetyEvidenceRequest,
     build_result,
 )
 from proteus.safety.phase1 import (
@@ -86,19 +77,11 @@ from proteus.safety.plugins import (
     HarnessSafetyCaseSuite,
     HarnessSafetyContext,
     HarnessSafetyEvidence,
-    HarnessSafetyEvidenceProvider,
     ModelBehavior,
     ModuleObservation,
     ResponsibilityObservation,
 )
 from proteus.safety.runner import AuditRunSummary, run_audit
-from proteus.safety.runtime import (
-    HarnessSafetyResult,
-    HarnessSafetyRunSummary,
-    SafetyTransitionResult,
-    compare_adjacent_results,
-    run_harness_safety,
-)
 from proteus.safety.taxonomy import (
     EVOLUTION_SAFETY_TAXONOMY_VERSION,
     MODULE_SAFETY_TAXONOMY_VERSION,
@@ -159,10 +142,7 @@ __all__ = [
     "HarnessSafetyCaseSuite",
     "HarnessSafetyContext",
     "HarnessSafetyEvidence",
-    "HarnessSafetyEvidenceProvider",
     "HarnessSafetyProfile",
-    "HarnessSafetyResult",
-    "HarnessSafetyRunSummary",
     "IncidentObservation",
     "IndicatorRequirement",
     "InvariantObservation",
@@ -187,19 +167,11 @@ __all__ = [
     "ProposalEffectObservation",
     "ResponsibilityObservation",
     "SafetyCaseFamilyDefinition",
-    "SafetyEvidence",
-    "SafetyEvidenceAdapter",
-    "SafetyEvidenceProvider",
-    "SafetyEvidenceRequest",
     "SafetyExposure",
     "SafetyIndicator",
     "SafetyInvariantDefinition",
     "SafetyKind",
-    "SafetyMeasurementCase",
-    "SafetyMeasurementDefinition",
-    "SafetyMeasurementEvaluator",
     "SafetyStatus",
-    "SafetyTransitionResult",
     "SkillAdmissionObservation",
     "StageValue",
     "StdlibResponsesTransport",
@@ -208,7 +180,6 @@ __all__ = [
     "UnsafeStateObservation",
     "UtilityObservation",
     "build_result",
-    "compare_adjacent_results",
     "contradiction_resolution",
     "dependency_resolution_integrity",
     "evaluate_family",
@@ -222,7 +193,6 @@ __all__ = [
     "preflight_live_model",
     "retrieval_set_integrity",
     "run_audit",
-    "run_harness_safety",
     "skill_admission_integrity",
     "suite_requires_fixed_live",
     "tombstone_propagation",

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 from proteus.core.adapter import ActionEvent, HarnessAdapter, Surface
 
@@ -83,24 +83,6 @@ class AuditObservation:
     causal_status: CausalStatus = CausalStatus.NOT_EVALUATED
 
 
-@dataclass(frozen=True)
-class SafetyEvidenceRequest:
-    mode: AuditMode
-    scenario: str
-    parameters: Mapping[str, object] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class SafetyEvidence:
-    mode: AuditMode
-    evaluable: bool
-    exposure: Exposure = Exposure.UNKNOWN
-    observed_behavior: tuple[str, ...] = ()
-    evidence_refs: tuple[str, ...] = ()
-    observation: AuditObservation = field(default_factory=AuditObservation)
-    reason: str = ""
-
-
 def validate_evidence_refs(refs: tuple[str, ...]) -> None:
     for ref in refs:
         path = Path(ref)
@@ -153,21 +135,6 @@ class AuditContext:
     surfaces: tuple[Surface, ...]
     events: tuple[ActionEvent, ...]
     self_assessments: tuple[str, ...]
-
-
-class SafetyEvidenceProvider(Protocol):
-    name: str
-
-    def collect(
-        self,
-        request: SafetyEvidenceRequest,
-        context: AuditContext,
-    ) -> SafetyEvidence: ...
-
-
-@runtime_checkable
-class SafetyEvidenceAdapter(Protocol):
-    def safety_evidence_provider(self) -> SafetyEvidenceProvider: ...
 
 
 @dataclass(frozen=True)

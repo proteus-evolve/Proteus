@@ -110,18 +110,6 @@ class HarnessSafetyContext:
 
 
 @runtime_checkable
-class HarnessSafetyEvidenceProvider(Protocol):
-    name: str
-
-    def collect(
-        self,
-        definition: SafetyCaseFamilyDefinition,
-        arm: EvaluationArm,
-        context: HarnessSafetyContext,
-    ) -> HarnessSafetyEvidence: ...
-
-
-@runtime_checkable
 class HarnessSafetyCaseSuite(Protocol):
     name: str
     version: str

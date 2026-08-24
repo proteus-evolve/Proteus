@@ -6,202 +6,222 @@ from pathlib import Path
 
 import pytest
 
+from proteus import cli
 from proteus.adapters.minimal import MinimalHarness
-from proteus.cli import main
-from proteus.core import NEUTRAL, GoalConfig
-from proteus.safety.plugins import (
-    HarnessDecision,
-    HarnessSafetyContext,
-    HarnessSafetyEvidence,
-    ModelBehavior,
-    ModuleObservation,
-    ResponsibilityObservation,
-)
-from proteus.safety.taxonomy import (
-    CaseScope,
-    EvaluationArm,
-    EvidenceStratum,
-    FaultModel,
-    HarnessModule,
-    IndicatorRequirement,
-    SafetyCaseFamilyDefinition,
-    SafetyExposure,
-    SafetyIndicator,
-    SafetyInvariantDefinition,
-    SafetyKind,
-)
-from proteus.sweep import SweepConfig, run_sweep
+from proteus.safety.phase1 import SUITE
+from proteus.safety.plugins import CandidateSafetyContext
+from proteus.safety.taxonomy import HarnessModule
 
 
-class CliProvider:
-    name = "cli-provider"
+class _NoopExecutor:
+    name = "cli-noop"
 
-    def collect(
-        self,
-        definition: SafetyCaseFamilyDefinition,
-        arm: EvaluationArm,
-        context: HarnessSafetyContext,
-    ) -> HarnessSafetyEvidence:
-        del definition
-        evidence_path = context.evidence_dir / f"{arm.value}.json"
-        evidence_path.parent.mkdir(parents=True, exist_ok=True)
-        evidence_path.write_text('{"safe": true}\n', encoding="utf-8")
-        return HarnessSafetyEvidence(
-            arm=arm,
-            evaluable=True,
-            exposure=SafetyExposure.EXPOSED,
-            responsibility=ResponsibilityObservation(
-                model_behavior=ModelBehavior.SAFE_RESPONSE,
-                harness_decision=HarnessDecision.NOT_APPLICABLE,
-                behavior_invariant_violated=False,
-                operation_attempted=False,
-                harmful_effect_committed=False,
-                utility_preserved=True,
-            ),
-            module=ModuleObservation(
-                invariant_violated=(
-                    False if arm is EvaluationArm.FULL_HARNESS else None
-                )
-            ),
-            evidence_refs=(
-                evidence_path.relative_to(context.evaluation_root).as_posix(),
-            ),
-        )
+    def collect(self, definition, endpoint, arm, stratum, context, channel):
+        del definition, endpoint, arm, stratum, context, channel
+        raise AssertionError("preflight test must not execute a safety cell")
 
 
-class CliSuite:
-    name = "cli-suite"
-    version = "1"
+class _CandidateAdapter(MinimalHarness):
+    name = "cli-candidate"
 
-    def definitions(self) -> tuple[SafetyCaseFamilyDefinition, ...]:
-        return (
-            SafetyCaseFamilyDefinition(
-                family_id="tools-benign-call",
-                family_version="2",
-                primary_module=HarnessModule.TOOLS,
-                supporting_modules=(),
-                scope=CaseScope.SINGLE_MODULE,
-                safety_kind=SafetyKind.NON_ADVERSARIAL,
-                scenario="a benign tool call completes",
-                invariant=SafetyInvariantDefinition(
-                    "tools-benign-call.available",
-                    "the benign operation remains available",
-                ),
-                indicator_requirements=(
-                    IndicatorRequirement(
-                        SafetyIndicator.INVARIANT_PRESERVATION,
-                        True,
-                        (EvidenceStratum.DETERMINISTIC_BOUNDARY,),
-                    ),
-                ),
-                utility_minimum=0.9,
-                exposure_rule="The adapter exposes native tool execution.",
-                behavior_failure="the complete agent lost benign utility",
-                module_failure="the tools module rejected the benign operation",
-                evaluation_arms=(
-                    EvaluationArm.MODEL_REFERENCE,
-                    EvaluationArm.FULL_HARNESS,
-                ),
-                fault_model=FaultModel(
-                    source="tool runtime",
-                    condition="a benign tool call could fail",
-                ),
-            ),
-        )
-
-    def provider(self) -> CliProvider:
-        return CliProvider()
+    def candidate_safety_executor(self):
+        return _NoopExecutor()
 
 
-def _install_suite(monkeypatch: pytest.MonkeyPatch) -> str:
-    module = types.ModuleType("fixture_cli_safety")
-    module.SUITE = CliSuite()
+def _install_candidate_adapter(monkeypatch: pytest.MonkeyPatch) -> str:
+    module = types.ModuleType("fixture_candidate_adapter")
+    module.CandidateAdapter = _CandidateAdapter
     monkeypatch.setitem(sys.modules, module.__name__, module)
-    return f"{module.__name__}:SUITE"
+    return f"{module.__name__}:CandidateAdapter"
 
 
-def _make_sweep(tmp_path: Path) -> Path:
-    root = tmp_path / "sweep"
-    run_sweep(
-        SweepConfig(
-            name="fixture",
-            adapter_factory=MinimalHarness,
-            arms=(NEUTRAL,),
-            seeds=1,
-            goal=GoalConfig.no_goal(),
-            root=root,
-            model="mock",
-            episodes=1,
-        )
-    )
-    return root
+def _base_run(out: Path, *, harness: str = "aki") -> list[str]:
+    return [
+        "run",
+        "--harness",
+        harness,
+        "--arm",
+        "neutral",
+        "--goal",
+        "none",
+        "--seeds",
+        "1",
+        "--episodes",
+        "1",
+        "--out",
+        str(out),
+    ]
 
 
-def test_minimal_adapter_declares_generic_module_bindings() -> None:
-    adapter = MinimalHarness()
+def test_aki_adapter_declares_all_canonical_module_bindings() -> None:
+    from proteus.adapters.aki import AkiHarness
+
+    adapter = AkiHarness()
     profile = adapter.harness_safety_profile()
 
     profile.validate_surfaces(adapter.surfaces())
-    assert profile.binding_for(HarnessModule.AGENT_LOOP) is not None
-    assert profile.binding_for(HarnessModule.MEMORY).surface_names == ("notes",)
-    assert profile.binding_for(HarnessModule.TOOLS).surface_names == ("tools",)
-    assert profile.binding_for(HarnessModule.SKILLS) is None
+    assert {binding.module for binding in profile.bindings} == set(HarnessModule)
 
 
-def test_safety_command_rejects_provider_bearing_suite(tmp_path, monkeypatch, capfd) -> None:
-    sweep = _make_sweep(tmp_path)
-    suite = _install_suite(monkeypatch)
+def test_repository_root_follows_a_linked_worktree_to_the_common_checkout(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    git_dir = repository / ".git/worktrees/safety"
+    git_dir.mkdir(parents=True)
+    (git_dir / "commondir").write_text("../..\n")
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {git_dir}\n")
 
-    code = main(
+    assert cli._repository_root(worktree) == repository
+
+
+def test_run_preflight_rejects_missing_live_credential_before_output_creation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    out = tmp_path / "never-created"
+    monkeypatch.setattr(cli, "_repository_root", lambda: repository)
+
+    code = cli.main(
         [
-            "safety",
-            "--harness",
-            "minimal",
-            "--out",
-            str(sweep),
-            "--suite",
-            suite,
-            "--evaluation-id",
-            "cli-v1",
+            *_base_run(out),
+            "--model",
+            "gpt-5.6-luna",
+            "--safety-suite",
+            "proteus.safety.phase1:SUITE",
         ]
     )
 
     assert code == 2
-    assert "definitions-only" in capfd.readouterr().err
-    assert not (sweep / "safety").exists()
-    assert not (sweep / "audits").exists()
+    assert "repository-root credential file is missing" in capsys.readouterr().err
+    assert not out.exists()
 
 
-def test_provider_suite_rejection_is_stable_and_creates_no_output(
-    tmp_path,
-    monkeypatch,
-    capsys,
+@pytest.mark.parametrize(
+    ("families", "message"),
+    [
+        (("memory_collapse", "memory_collapse"), "duplicate safety family"),
+        (("unknown-family",), "unknown safety family"),
+    ],
+)
+def test_run_preflight_rejects_duplicate_or_unknown_families_before_output(
+    tmp_path: Path,
+    families: tuple[str, ...],
+    message: str,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    sweep = _make_sweep(tmp_path)
-    suite = _install_suite(monkeypatch)
-    args = [
-        "safety",
-        "--harness",
-        "minimal",
-        "--out",
-        str(sweep),
-        "--suite",
-        suite,
-        "--evaluation-id",
-        "same",
+    out = tmp_path / "never-created"
+    argv = [
+        *_base_run(out),
+        "--model",
+        "gpt-5.6-luna",
+        "--safety-suite",
+        "proteus.safety.phase1:SUITE",
     ]
+    for family in families:
+        argv.extend(("--safety-family", family))
 
-    assert main(args) == 2
-    assert main(args) == 2
-    assert "definitions-only" in capsys.readouterr().err
-    assert not (sweep / "safety").exists()
+    assert cli.main(argv) == 2
+    assert message in capsys.readouterr().err
+    assert not out.exists()
 
 
-def test_safety_help_describes_completed_sweep_execution(capsys) -> None:
+def test_run_preflight_rejects_adapter_without_candidate_safety_protocol(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    out = tmp_path / "never-created"
+
+    code = cli.main(
+        [
+            *_base_run(out, harness="minimal"),
+            "--safety-suite",
+            "proteus.safety.phase1:SUITE",
+            "--safety-family",
+            "memory_collapse",
+        ]
+    )
+
+    assert code == 2
+    assert "does not implement candidate safety" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_run_preflight_constructs_per_run_gate_with_selected_definitions_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = _install_candidate_adapter(monkeypatch)
+    captured = []
+
+    def fake_run_sweep(config):
+        captured.append(config)
+        return []
+
+    monkeypatch.setattr(cli, "run_sweep", fake_run_sweep)
+    out = tmp_path / "sweep"
+
+    code = cli.main(
+        [
+            *_base_run(out, harness=harness),
+            "--safety-suite",
+            "proteus.safety.phase1:SUITE",
+            "--safety-family",
+            "memory_collapse",
+        ]
+    )
+
+    assert code == 0
+    assert len(captured) == 1
+    gate = captured[0].candidate_gate_factory("run-1")
+    assert [item.family_id for item in gate.suite.definitions()] == ["memory_collapse"]
+    assert gate.controller_root == out
+    assert gate.model_config is None
+    assert gate.broker is None
+
+
+def test_safety_family_without_suite_is_rejected_before_output(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    out = tmp_path / "never-created"
+
+    code = cli.main([*_base_run(out), "--safety-family", "memory_collapse"])
+
+    assert code == 2
+    assert "--safety-family requires --safety-suite" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_completed_sweep_safety_command_is_removed(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as caught:
-        main(["safety", "--help"])
+        cli.main(["safety", "--help"])
+
+    assert caught.value.code == 2
+    assert "invalid choice: 'safety'" in capsys.readouterr().err
+
+
+def test_run_help_exposes_only_suite_and_repeatable_family_safety_controls(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as caught:
+        cli.main(["run", "--help"])
 
     assert caught.value.code == 0
     output = capsys.readouterr().out
-    assert "module-first harness safety" in output
-    assert "<module>:<object>" in output
+    assert "--safety-suite" in output
+    assert "--safety-family" in output
+    assert "feedback" not in output.lower()
+    assert "threshold" not in output.lower()
+    assert "policy" not in output.lower()
+
+
+def test_phase1_suite_is_still_definitions_only() -> None:
+    assert SUITE.definitions()
+    assert not callable(getattr(SUITE, "provider", None))
+    assert CandidateSafetyContext.__module__ == "proteus.safety.plugins"

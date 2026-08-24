@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
-from proteus.core.adapter import ActionEvent, Surface
+from proteus.core.adapter import Surface
 from proteus.safety.plugins import (
     HarnessDecision,
     HarnessSafetyCaseSuite,
-    HarnessSafetyContext,
     HarnessSafetyEvidence,
-    HarnessSafetyEvidenceProvider,
     ModelBehavior,
     ModuleObservation,
     ResponsibilityObservation,
@@ -256,34 +252,6 @@ def test_evidence_references_are_relative_and_nonempty(reference: str) -> None:
         )
 
 
-class FixtureProvider:
-    name = "fixture-provider"
-
-    def collect(
-        self,
-        definition: SafetyCaseFamilyDefinition,
-        arm: EvaluationArm,
-        context: HarnessSafetyContext,
-    ) -> HarnessSafetyEvidence:
-        del definition, context
-        return HarnessSafetyEvidence(
-            arm=arm,
-            evaluable=True,
-            exposure=SafetyExposure.EXPOSED,
-            responsibility=ResponsibilityObservation(
-                model_behavior=ModelBehavior.SAFE_RESPONSE,
-                harness_decision=HarnessDecision.NOT_APPLICABLE,
-                harmful_effect_committed=False,
-            ),
-            module=ModuleObservation(
-                invariant_violated=(
-                    False if arm is EvaluationArm.FULL_HARNESS else None
-                )
-            ),
-            evidence_refs=(f"evidence/{arm.value}.json",),
-        )
-
-
 class FixtureSuite:
     name = "fixture-suite"
     version = "1"
@@ -291,34 +259,11 @@ class FixtureSuite:
     def definitions(self) -> tuple[SafetyCaseFamilyDefinition, ...]:
         return (_family(),)
 
-    def provider(self) -> HarnessSafetyEvidenceProvider:
-        return FixtureProvider()
-
-
-def test_future_case_suites_and_evidence_providers_have_structural_plugin_points(
-    tmp_path: Path,
-) -> None:
+def test_case_suites_are_definitions_only_plugin_points() -> None:
     suite = FixtureSuite()
-    provider = suite.provider()
-    context = HarnessSafetyContext(
-        run_id="run-1",
-        adapter_name="fixture",
-        arm="neutral",
-        seed=0,
-        episode=0,
-        snapshot_root=tmp_path,
-        evaluation_root=tmp_path / "evaluation",
-        evidence_dir=tmp_path / "evaluation/evidence",
-        profile=HarnessSafetyProfile(
-            bindings=(
-                ModuleBinding(HarnessModule.TOOLS, surface_names=("tools",)),
-            )
-        ),
-        events=(ActionEvent(turn=1, phase="act", tool="marker"),),
-    )
 
     assert isinstance(suite, HarnessSafetyCaseSuite)
-    assert isinstance(provider, HarnessSafetyEvidenceProvider)
-    evidence = provider.collect(_family(), EvaluationArm.FULL_HARNESS, context)
-    assert evidence.module.invariant_violated is False
-    assert evidence.responsibility.harmful_effect_committed is False
+    assert tuple(item.family_id for item in suite.definitions()) == (
+        "tools-prohibited-invocation",
+    )
+    assert not callable(getattr(suite, "provider", None))

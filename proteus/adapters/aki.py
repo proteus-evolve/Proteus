@@ -31,11 +31,16 @@ import hashlib
 import json
 import os
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import TYPE_CHECKING
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.disposition import Disposition
+
+if TYPE_CHECKING:
+    from proteus.adapters.aki_safety import AkiCandidateSafetyExecutor
+    from proteus.safety.taxonomy import HarnessSafetyProfile
 
 #: Aki phase names -> Proteus phase names.
 _PHASE = {"observe": "observe", "propose": "propose",
@@ -71,7 +76,7 @@ class AkiHarness:
     def __init__(self, src: str | None = None, docker: bool = True) -> None:
         self.src = Path(src or os.environ.get("AKI_HARNESS_SRC", "")).expanduser()
         self.docker = docker
-        self._pending_root: Optional[Path] = None
+        self._pending_root: Path | None = None
         self._run_configs: dict[Path, object] = {}
 
     # ---------------------------------------------------------------- contract: metadata
@@ -81,6 +86,50 @@ class AkiHarness:
 
     def required_edit_tools(self) -> frozenset[str]:
         return frozenset({"memory_write", "skill_write", "tool_write", "file_write"})
+
+    def harness_safety_profile(self) -> HarnessSafetyProfile:
+        """Bind Aki's four native modules to its candidate-local safety executor."""
+        from proteus.safety.taxonomy import (
+            HarnessModule,
+            HarnessSafetyProfile,
+            ModuleBinding,
+        )
+
+        return HarnessSafetyProfile(
+            bindings=(
+                ModuleBinding(
+                    HarnessModule.AGENT_LOOP,
+                    surface_names=("loop",),
+                    runtime_evidence=True,
+                ),
+                ModuleBinding(
+                    HarnessModule.MEMORY,
+                    surface_names=("memory",),
+                    runtime_evidence=True,
+                ),
+                ModuleBinding(
+                    HarnessModule.SKILLS,
+                    surface_names=("skills",),
+                    runtime_evidence=True,
+                ),
+                ModuleBinding(
+                    HarnessModule.TOOLS,
+                    surface_names=("tools",),
+                    runtime_evidence=True,
+                ),
+            )
+        )
+
+    def candidate_safety_executor(self) -> AkiCandidateSafetyExecutor:
+        """Return the optional Aki-native Phase 1 executor."""
+        from proteus.adapters.aki_live_worker import AkiWorkerController
+        from proteus.adapters.aki_safety import AkiCandidateSafetyExecutor
+
+        source_python = self.src / ".venv" / "bin" / "python"
+        worker = AkiWorkerController(
+            python_executable=(source_python if source_python.is_file() else None)
+        )
+        return AkiCandidateSafetyExecutor(worker)
 
     # ---------------------------------------------------------------- run path (needs Aki)
 
@@ -95,9 +144,9 @@ class AkiHarness:
         os.environ["AKI_EPISODE_DOCKER"] = "1" if self.docker else "0"
         if str(self.src) not in sys.path:
             sys.path.insert(0, str(self.src))
-        from experiments import grid                      # noqa: PLC0415
-        from experiments.runner import supervisor         # noqa: PLC0415
-        from experiments.runner.config import Condition, RunConfig  # noqa: PLC0415
+        from experiments import grid
+        from experiments.runner import supervisor
+        from experiments.runner.config import Condition, RunConfig
         return grid, supervisor, Condition, RunConfig
 
     def _arm_label(self, disposition: Disposition) -> str:
@@ -167,7 +216,7 @@ class AkiHarness:
                 return candidate
         raise FileNotFoundError(f"no trace for episode {episode} under {traces}")
 
-    def _surface_for_tool(self, tool: str) -> Optional[str]:
+    def _surface_for_tool(self, tool: str) -> str | None:
         for s in self.SURFACES:
             if tool in s.write_tools:
                 return s.name

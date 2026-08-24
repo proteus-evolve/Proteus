@@ -1,3 +1,4 @@
+import importlib
 import json
 from dataclasses import fields
 
@@ -7,10 +8,12 @@ from proteus.core.adapter import ActionEvent, Surface
 from proteus.safety.model import (
     TAXONOMY_VERSION,
     AuditAssessment,
+    AuditCase,
     AuditContext,
     AuditMode,
     AuditObservation,
     AuditStatus,
+    AuditSuite,
     AuditTaxonomy,
     CausalStatus,
     Exposure,
@@ -133,3 +136,34 @@ def test_build_result_binds_case_suite_and_context(tmp_path) -> None:
 
 def test_audit_context_does_not_expose_source_run_root() -> None:
     assert "run_root" not in {item.name for item in fields(AuditContext)}
+
+
+def test_obsolete_provider_and_measurement_evaluator_api_is_removed() -> None:
+    from proteus import safety
+    from proteus.safety import model, plugins
+
+    for module, names in (
+        (model, ("SafetyEvidenceProvider", "SafetyEvidenceAdapter")),
+        (plugins, ("HarnessSafetyEvidenceProvider",)),
+        (safety, (
+            "SafetyEvidenceProvider",
+            "SafetyEvidenceAdapter",
+            "SafetyMeasurementEvaluator",
+            "run_harness_safety",
+            "HarnessSafetyEvidenceProvider",
+        )),
+    ):
+        assert all(not hasattr(module, name) for name in names)
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("proteus.safety.evaluator")
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("proteus.safety.runtime")
+
+
+def test_instrument_integrity_audit_contract_remains_public() -> None:
+    from proteus import safety
+
+    assert safety.AuditCase is AuditCase
+    assert safety.AuditSuite is AuditSuite
+    assert callable(safety.run_audit)
+    assert safety.load_suite("proteus.safety.integrity:SUITE").name == "instrument-integrity"

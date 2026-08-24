@@ -14,11 +14,138 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from proteus.core.disposition import NEUTRAL, record, review
 from proteus.core.goal import Goal, GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
+
+
+def _repository_root(start: Path | None = None) -> Path:
+    """Repository root whose explicit ``.env`` is trusted by safety preflight."""
+    root = Path(start or Path(__file__).resolve().parents[1]).resolve()
+    marker = root / ".git"
+    if not marker.is_file():
+        return root
+    try:
+        label, separator, raw_git_dir = marker.read_text(encoding="utf-8").strip().partition(":")
+        if label != "gitdir" or not separator:
+            return root
+        git_dir = Path(raw_git_dir.strip())
+        if not git_dir.is_absolute():
+            git_dir = marker.parent / git_dir
+        common = git_dir / "commondir"
+        if not common.is_file():
+            return root
+        common_dir = (git_dir / common.read_text(encoding="utf-8").strip()).resolve()
+    except OSError:
+        return root
+    return common_dir.parent if common_dir.name == ".git" else root
+
+
+@dataclass(frozen=True)
+class _SelectedSafetySuite:
+    name: str
+    version: str
+    families: tuple[object, ...]
+
+    def definitions(self):
+        return self.families
+
+
+def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
+    """Preflight an optional online gate before the sweep root can be created."""
+    if not args.safety_suite:
+        if args.safety_family:
+            raise ValueError("--safety-family requires --safety-suite")
+        return None
+
+    from proteus.safety.gate import GateRunner
+    from proteus.safety.harness_loading import (
+        load_harness_safety_suite,
+        preflight_harness_safety_suite,
+        suite_requires_fixed_live,
+        validate_harness_safety_suite,
+    )
+    from proteus.safety.live import LiveModelBroker, LiveModelConfig
+    from proteus.safety.plugins import CandidateSafetyAdapter, CandidateSafetyExecutor
+
+    for label, value in (
+        ("seeds", args.seeds),
+        ("episodes", args.episodes),
+        ("max turns", args.max_turns),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(f"safety-gated run {label} must be a positive integer")
+
+    suite = load_harness_safety_suite(args.safety_suite)
+    definitions = validate_harness_safety_suite(suite)
+    selected_ids = tuple(args.safety_family or ())
+    if len(selected_ids) != len(set(selected_ids)):
+        raise ValueError("duplicate safety family selection")
+    declared = {item.family_id: item for item in definitions}
+    unknown = [family_id for family_id in selected_ids if family_id not in declared]
+    if unknown:
+        raise ValueError(f"unknown safety family: {', '.join(unknown)}")
+    selected = (
+        tuple(declared[family_id] for family_id in selected_ids)
+        if selected_ids
+        else definitions
+    )
+    configured_suite = _SelectedSafetySuite(suite.name, suite.version, selected)
+
+    adapter = adapter_factory()
+    if not isinstance(adapter, CandidateSafetyAdapter):
+        raise TypeError(f"adapter {adapter.name!r} does not implement candidate safety")
+    executor = adapter.candidate_safety_executor()
+    if not isinstance(executor, CandidateSafetyExecutor):
+        raise TypeError(f"adapter {adapter.name!r} returned an invalid candidate safety executor")
+    profile = adapter.harness_safety_profile()
+    profile.validate_surfaces(adapter.surfaces())
+    required_modules = {
+        module
+        for definition in selected
+        for module in (definition.primary_module, *definition.supporting_modules)
+    }
+    missing_modules = sorted(
+        module.value for module in required_modules if profile.binding_for(module) is None
+    )
+    if missing_modules:
+        raise ValueError(
+            f"adapter {adapter.name!r} does not bind required safety modules: "
+            f"{', '.join(missing_modules)}"
+        )
+
+    model_config = None
+    broker = None
+    if suite_requires_fixed_live(selected):
+        if not isinstance(args.model, str) or not args.model.strip():
+            raise ValueError("fixed-live safety evidence requires an explicit --model")
+        model_config = LiveModelConfig(model=args.model)
+        preflight_harness_safety_suite(
+            configured_suite,
+            model_config=model_config,
+            repository_root=_repository_root(),
+        )
+        broker = LiveModelBroker.from_repository(model_config, _repository_root())
+    else:
+        preflight_harness_safety_suite(
+            configured_suite,
+            model_config=None,
+            repository_root=_repository_root(),
+        )
+
+    def factory(_run_id: str):
+        return GateRunner(
+            adapter=adapter_factory(),
+            suite=configured_suite,
+            controller_root=controller_root,
+            model_config=model_config,
+            broker=broker,
+        )
+
+    return factory
 
 
 def _adapter_factory(name: str):
@@ -71,18 +198,30 @@ def _goal(spec: str) -> GoalConfig:
 
 
 def cmd_run(args) -> int:
-    cfg = SweepConfig(
-        name=args.out,
-        adapter_factory=_adapter_factory(args.harness),
-        arms=[_arm(a) for a in args.arm],
-        seeds=args.seeds,
-        goal=_goal(args.goal),
-        root=Path(args.out).expanduser(),
-        model=args.model,
-        episodes=args.episodes,
-        max_turns=args.max_turns,
-    )
-    records = run_sweep(cfg)
+    try:
+        adapter_factory = _adapter_factory(args.harness)
+        root = Path(args.out).expanduser()
+        candidate_gate_factory = _candidate_gate_factory(
+            args,
+            adapter_factory=adapter_factory,
+            controller_root=root,
+        )
+        cfg = SweepConfig(
+            name=args.out,
+            adapter_factory=adapter_factory,
+            arms=[_arm(a) for a in args.arm],
+            seeds=args.seeds,
+            goal=_goal(args.goal),
+            root=root,
+            model=args.model,
+            episodes=args.episodes,
+            max_turns=args.max_turns,
+            candidate_gate_factory=candidate_gate_factory,
+        )
+        records = run_sweep(cfg)
+    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
+        print(f"run failed: {exc}", file=sys.stderr)
+        return 2
     done = sum(r["episodes_complete"] for r in records)
     print(f"ran {len(records)} seeds, {done} episodes -> {args.out}")
     return 0
@@ -181,27 +320,6 @@ def cmd_audit(args) -> int:
     return 0
 
 
-def cmd_safety(args) -> int:
-    """Run module-first harness safety over a completed sweep."""
-    from proteus.safety.harness_loading import load_harness_safety_suite
-    from proteus.safety.runtime import run_harness_safety
-
-    try:
-        adapter = _adapter_factory(args.harness)()
-        suite = load_harness_safety_suite(args.suite)
-        result = run_harness_safety(
-            Path(args.out).expanduser(),
-            adapter,
-            suite,
-            evaluation_id=args.evaluation_id,
-        )
-    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
-        print(f"safety evaluation failed: {exc}", file=sys.stderr)
-        return 2
-    print(f"harness safety results: {result.total_results} -> {result.evaluation_root}")
-    return 0
-
-
 def cmd_check(args) -> int:
     from proteus.testing import check_adapter
     adapter = _adapter_factory(args.harness)()
@@ -264,6 +382,10 @@ def main(argv=None) -> int:
     r.add_argument("--max-turns", type=int, default=100)
     r.add_argument("--model", default="",
                    help="model name; empty uses the adapter's default")
+    r.add_argument("--safety-suite", default="",
+                   help="online candidate-safety suite as <module>:<object>")
+    r.add_argument("--safety-family", action="append", default=None,
+                   help="family ID to run (repeatable; default: every declared family)")
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 
@@ -286,19 +408,6 @@ def main(argv=None) -> int:
     a.add_argument("--audit-id", default="",
                    help="output id under <sweep>/audits (default: suite name)")
     a.set_defaults(func=cmd_audit)
-
-    hs = sub.add_parser(
-        "safety",
-        help="run module-first harness safety over a completed sweep",
-        description="Run module-first harness safety over a completed evolution sweep.",
-    )
-    hs.add_argument("--harness", default="minimal")
-    hs.add_argument("--out", required=True)
-    hs.add_argument("--suite", required=True,
-                    help="case suite plug-in as <module>:<object>")
-    hs.add_argument("--evaluation-id", default="",
-                    help="output id under <sweep>/safety (default: suite name)")
-    hs.set_defaults(func=cmd_safety)
 
     c = sub.add_parser("check", help="compliance-check a HarnessAdapter implementation")
     c.add_argument("--harness", required=True, help="built-in name or <module>:<Class>")
