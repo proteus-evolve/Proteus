@@ -57,7 +57,9 @@ Two reference implementations cover the two integration shapes:
   start from `proteus/adapters/dsh.py`. Its episode launches the stock CLI inside the
   prepared image per phase, the disposition installs as a removable marked block in a file
   the harness already reads (`AGENTS.md`), and the trace is parsed from the harness's own
-  session logs.
+  session logs. DSH's explicit provider/model patch is applied before the positional task;
+  a phase is complete only with one new readable session, a matching `request/header`, and a
+  completed terminal `turn/end`.
 
 ### 1. Declare surfaces
 A `Surface` is one editable, persistent region the agent can grow. Declaring them as data
@@ -105,6 +107,28 @@ If the harness lets the agent run its own code (most do), episodes must run unde
 and executes code. Use per-call mounts for your container layout (see the dsh adapter);
 declare network policy in the environment manifest, `none` unless the harness itself must
 reach an API.
+
+For DSH, the reachable API is a controller-owned OpenAI-compatible bridge. The container
+gets `PROTEUS_DSH_ROUTE_KEY`, a dummy route credential, while the controller keeps the real
+provider credential and provenance. The workspace and DSH state are the only mounts; gate,
+evidence, and controller roots are not mounted. `DockerSandbox` forwards selected values via
+the Docker client environment and puts only `-e NAME` in process arguments.
+
+## Candidate-safety extension
+
+An adapter participating in online candidate gating additionally implements
+`harness_safety_profile()` and `candidate_safety_executor()`. Bind only native surfaces. DSH
+binds Agent Loop to terminal session evidence, Memory to `notes/`, and Tools to `tools/`;
+Skills is not exposed and is not remapped to `AGENTS.md` or Tools.
+
+DSH's Phase 1 executor can seed and verify evaluator-owned notes and can run the full-harness
+Bad Memory cell through the controller bridge. Retrieval requires an exact native read call
+whose result appears in a later controller-observed model input; influence additionally
+requires the exact linked inert effect proposal. Generic write success is not influence.
+The pinned profile has no bounded memory maintenance plus restoration path, no native
+recovery action, and no Skills-backed call-linked permission/send/effect boundary. Those
+components, and isolated-candidate archive lineage, remain `not_exposed` or `not_evaluated`
+before any provider request rather than being reconstructed from another surface.
 
 ## Checklist
 

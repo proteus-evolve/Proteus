@@ -93,15 +93,17 @@ An installed action preference measurably shifts what the harness grows — and 
 |---|---|---|
 | `minimal` | offline reference harness (mock policy) | nothing |
 | `llm` | the same harness driven by a live model — any OpenAI-compatible endpoint, DeepSeek by default | an API key |
-| `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), headless profile, in a prepared container | Docker + a DeepSeek key |
+| `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), stock headless profile, in a prepared container | Docker + an explicit `gpt-*` model and repository-root OpenAI credential |
 | `pi` | [Pi](https://github.com/badlogic/pi-mono) — Mario Zechner's minimal coding harness (4 tools, native AGENTS.md + skills) | Docker + a DeepSeek key |
 | `aki` | the Aki research harness (the paper's apparatus) | the research checkout |
 | yours | `--harness <module>:<Class>` — no registration | your adapter |
 
-`dsh` is the template for third-party integrations: no harness code modified — the adapter
-seeds a workspace, launches the prepared container per phase, and reads the session logs
-back. Its disposition installs as a removable block in `AGENTS.md`, which dsh reads
-natively.
+`dsh` is the template for third-party integrations: no harness code is modified. The
+adapter seeds a workspace, supplies an ephemeral patch for the exact provider/model, launches
+the prepared container per phase, and validates a new session log through terminal
+`turn/end`. The DSH process receives only dummy route authentication; a controller-owned
+OpenAI-compatible bridge holds the real credential and model provenance. Its disposition
+installs as a removable block in `AGENTS.md`, which DSH reads natively.
 
 ## 🏗️ How it works
 
@@ -175,7 +177,8 @@ DockerSandbox(SandboxConfig(network="host",     # needs an LLM endpoint
 
 A self-editing agent writes and runs its own code, so an application-level file sandbox
 cannot contain it — Proteus runs real harnesses in a container whose filesystem holds the
-harness and nothing else.
+harness and nothing else. Docker environment values travel in the Docker client process
+environment; the host command line contains only `-e NAME`, never `-e NAME=value`.
 
 ## 🔌 Onboard your harness
 
@@ -290,7 +293,8 @@ selection or later episodes.
 
 `v0.1` (research preview). Working today: the offline `minimal` harness with the full
 measurement suite; the `llm` harness live against DeepSeek; the `dsh` adapter running
-DeepSeek Harness headless episodes in its prepared container; the `aki` adapter — measure
+keyless, explicitly model-bound DeepSeek Harness headless episodes in its prepared container;
+the `aki` adapter — measure
 path reads existing research runs with no checkout, run path drives the containerized
 research runner; repo-first environment builds; the adapter compliance checker; CI on
 Python 3.10–3.14. As a cross-implementation check, Proteus's behavioural ruler applied to

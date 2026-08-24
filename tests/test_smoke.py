@@ -58,3 +58,16 @@ def test_distance_path_length(tmp_path):
     # two consecutive states differ (the run added units)
     d = distance.compare(work, work, surfaces)
     assert d["notes"].distance == 0.0     # identical to itself
+
+
+def test_dsh_candidate_safety_contract_loads_offline():
+    from proteus.adapters.dsh import DshHarness
+    from proteus.adapters.dsh_safety import DshCandidateSafetyExecutor
+    from proteus.safety.taxonomy import HarnessModule
+
+    adapter = DshHarness()
+    profile = adapter.harness_safety_profile()
+
+    profile.validate_surfaces(adapter.surfaces())
+    assert profile.binding_for(HarnessModule.SKILLS) is None
+    assert isinstance(adapter.candidate_safety_executor(), DshCandidateSafetyExecutor)

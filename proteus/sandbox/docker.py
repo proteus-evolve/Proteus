@@ -13,10 +13,12 @@ endpoint needs egress).
 
 from __future__ import annotations
 
+import os
 import subprocess
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Protocol
 
 
 @dataclass(frozen=True)
@@ -32,7 +34,7 @@ class SandboxConfig:
     entrypoint: tuple[str, ...] = ()      # override; adapter usually supplies the command
 
     @classmethod
-    def from_manifest(cls, path: Path) -> "SandboxConfig":
+    def from_manifest(cls, path: Path) -> SandboxConfig:
         """Load the `[environment]` table of an `environments/<name>/environment.toml`.
 
         `docker_image` (a registry ref) takes precedence over `image` (the local tag the
@@ -67,7 +69,7 @@ class LocalSandbox:
             timeout_s: int, mounts: tuple[tuple[str, str], ...] = ()
             ) -> subprocess.CompletedProcess:
         return subprocess.run(command, capture_output=True, text=True, cwd=str(run_root),
-                              env={**dict(env)}, timeout=timeout_s)
+                              env={**dict(env)}, timeout=timeout_s, check=False)
 
 
 class DockerSandbox:
@@ -99,6 +101,15 @@ class DockerSandbox:
             argv += ["-v", f"{host}:{cont}"]
         for key in c.env_passthrough:
             if key in env:
-                argv += ["-e", f"{key}={env[key]}"]
+                argv += ["-e", key]
         argv += [c.image, *(c.entrypoint or ()), *command]
-        return subprocess.run(argv, capture_output=True, text=True, timeout=timeout_s)
+        client_env = os.environ.copy()
+        client_env.update({key: env[key] for key in c.env_passthrough if key in env})
+        return subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            env=client_env,
+            check=False,
+        )

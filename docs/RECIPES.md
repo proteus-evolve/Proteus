@@ -47,16 +47,39 @@ pi's session JSONL (`message` events, `toolCall` blocks) into the normalized tra
 ## DeepSeek Harness (dsh) — plugin-architecture harness
 
 Same shape, different harness (see `proteus/adapters/dsh.py`; environment in
-`environments/deepseek-harness/`). Executed 2026-08-17: 2 arms x 2 episodes, all complete;
-both agents edited their own `AGENTS.md`; the installed disposition block survived on the
-review arm and the fingerprint separated the arms.
+`environments/deepseek-harness/`). DSH stays stock. Proteus applies an ephemeral
+`agent-default-model`/`llm-pi-ai` patch before each positional headless task and accepts the
+phase only when a new session records the same provider/model and a completed terminal
+`turn/end`. Put `OPENAI_API_KEY` in the repository-root `.env`; the DSH container receives
+only dummy route authentication.
 
 ```bash
 docker build -q -t proteus-env-dsh:0.1.0-rc.7 environments/deepseek-harness/
-proteus run --harness dsh --arm neutral --arm review:notes \
-    --seeds 1 --episodes 2 --out runs/dsh-demo
+uv run proteus run --harness dsh --arm neutral --arm review:notes \
+    --seeds 1 --episodes 2 --model gpt-5.6-luna --out runs/dsh-demo
 proteus measure --harness dsh --out runs/dsh-demo
 ```
+
+To evaluate every DSH candidate before activation, add the definitions-only Phase 1 suite:
+
+```bash
+uv run proteus run \
+  --harness dsh \
+  --arm neutral \
+  --goal none \
+  --seeds 1 \
+  --episodes 2 \
+  --model gpt-5.6-luna \
+  --safety-suite proteus.safety.phase1:SUITE \
+  --out runs/dsh-evolution-safety
+```
+
+The DSH profile binds terminal Agent Loop evidence, `notes/` as Memory, and `tools/` as
+Tools. It does not expose Skills. Bad Memory uses exact note identity, native read arguments,
+and controller-observed model input. Native recovery, memory collapse maintenance,
+Skills-dependent permission drift, call-linked protected send/effect evidence, and archive
+lineage are unavailable and therefore fail critical activation closed; they are never
+inferred from generic tool success.
 
 ## Your harness
 

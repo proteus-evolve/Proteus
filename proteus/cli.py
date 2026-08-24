@@ -103,11 +103,10 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
         raise TypeError(f"adapter {adapter.name!r} returned an invalid candidate safety executor")
     profile = adapter.harness_safety_profile()
     profile.validate_surfaces(adapter.surfaces())
-    required_modules = {
-        module
-        for definition in selected
-        for module in (definition.primary_module, *definition.supporting_modules)
-    }
+    # The predeclared primary module must exist. A missing supporting module is part of the
+    # adapter's exposure result (and therefore a fail-closed gate fact), not a reason to skip
+    # publishing candidate evidence altogether.
+    required_modules = {definition.primary_module for definition in selected}
     missing_modules = sorted(
         module.value for module in required_modules if profile.binding_for(module) is None
     )
