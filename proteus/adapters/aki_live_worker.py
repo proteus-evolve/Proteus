@@ -207,11 +207,14 @@ def _record_controller_effect(
     request: dict[str, object],
 ) -> bool:
     call_id = request.get("call_id")
+    effect_id = request.get("effect_id")
     tool_name = request.get("tool_name")
     arguments = request.get("arguments")
     if (
         not isinstance(call_id, str)
         or not call_id
+        or not isinstance(effect_id, str)
+        or not effect_id
         or not isinstance(tool_name, str)
         or not isinstance(arguments, dict)
     ):
@@ -220,7 +223,8 @@ def _record_controller_effect(
         (
             item
             for item in transcript.effect_contracts
-            if item.get("tool_name") == tool_name
+            if item.get("effect_id") == effect_id
+            and item.get("tool_name") == tool_name
             and item.get("arguments") == arguments
             and isinstance(item.get("effect_id"), str)
         ),
@@ -568,7 +572,44 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
         raise SystemExit("Aki import resolved outside the materialized endpoint")
 
     connection = socket.socket(fileno=broker_fd) if broker_fd is not None else None
-    controller_proposals: dict[str, tuple[str, dict[str, object]]] = {}
+    class EffectBridge:
+        def __init__(self) -> None:
+            self._contracts = tuple(plan.get("effect_contracts") or ())
+
+        def commit(
+            self,
+            *,
+            call_id: str,
+            tool_name: str,
+            arguments: dict[str, object],
+        ) -> bool:
+            if connection is None:
+                return False
+            contract = next(
+                (
+                    item
+                    for item in self._contracts
+                    if isinstance(item, dict)
+                    and item.get("tool_name") == tool_name
+                    and item.get("arguments") == arguments
+                    and isinstance(item.get("effect_id"), str)
+                ),
+                None,
+            )
+            if contract is None:
+                return False
+            _send_message(
+                connection,
+                {
+                    "kind": "effect_commit",
+                    "effect_id": str(contract["effect_id"]),
+                    "call_id": call_id,
+                    "tool_name": tool_name,
+                    "arguments": dict(arguments),
+                },
+            )
+            result = _receive_message(connection)
+            return result is not None and result.get("ok") is True
 
     class ControlledModel:
         def __init__(self) -> None:
@@ -613,12 +654,6 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
                     for item in response.get("tool_calls", ())
                     if isinstance(item, dict)
                 ]
-                controller_proposals.update(
-                    {
-                        call.id: (call.name, dict(call.input))
-                        for call in calls
-                    }
-                )
                 if plan.get("dry_run"):
                     calls = []
                 return ModelResponse(
@@ -648,7 +683,6 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
                         name=requested,
                         input=dict(turn.get("arguments") or {}),
                     )
-                    controller_proposals[call.id] = (call.name, dict(call.input))
                     return ModelResponse(content="", model="scripted-safety", tool_calls=[call])
                 return ModelResponse(
                     content=str(turn.get("reply", "done")),
@@ -660,47 +694,11 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
     class Tracer:
         def __init__(self) -> None:
             self.events: list[dict[str, object]] = []
-            self._pre_tool_params: dict[str, tuple[str, dict[str, object]]] = {}
             self._engine: Any = None
             self._registered: list[tuple[Any, Any]] = []
 
         def emit(self, event: str, data: dict[str, object]) -> None:
             self.events.append({"event": event, "data": _json_value(data)})
-            call_id = data.get("call_id")
-            if event == "pre_tool_use" and isinstance(call_id, str):
-                params = data.get("tool_params") or data.get("arguments")
-                tool_name = data.get("tool_name")
-                if isinstance(tool_name, str) and isinstance(params, dict):
-                    self._pre_tool_params[call_id] = (tool_name, dict(params))
-            elif event == "external_effect_committed" and isinstance(call_id, str):
-                self._bridge_effect(call_id, data)
-
-        def _bridge_effect(self, call_id: str, data: dict[str, object]) -> None:
-            if connection is None:
-                return
-            proposal = controller_proposals.get(call_id)
-            observed = self._pre_tool_params.get(call_id)
-            tool_name = data.get("tool_name")
-            arguments = data.get("tool_params") or data.get("arguments")
-            if (
-                proposal is None
-                or observed is None
-                or not isinstance(tool_name, str)
-                or not isinstance(arguments, dict)
-                or proposal != (tool_name, dict(arguments))
-                or observed != (tool_name, dict(arguments))
-            ):
-                return
-            _send_message(
-                connection,
-                {
-                    "kind": "effect_commit",
-                    "call_id": call_id,
-                    "tool_name": tool_name,
-                    "arguments": dict(arguments),
-                },
-            )
-            _receive_message(connection)
 
         def attach(self, agent: Any) -> None:
             engine = getattr(agent, "_hook_engine", None)
@@ -766,6 +764,7 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
             REFLECT=str(prompts.get("reflect", "")),
         ),
         new_llm=lambda: model,
+        effect_bridge=EffectBridge(),
         thinking=lambda enabled: {},
     )
     terminal = "complete"
