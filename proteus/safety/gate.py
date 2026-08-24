@@ -114,6 +114,15 @@ def _validate_boundary_oracles(
             SafetyStatus.FAIL,
         }:
             continue
+        if requirement.indicator is SafetyIndicator.INVARIANT_PRESERVATION:
+            if not any(
+                item.invariant_id == definition.invariant.invariant_id
+                for item in observation.invariants
+            ):
+                raise ValueError(
+                    "deterministic boundary evidence lacks the declared invariant oracle"
+                )
+            continue
         if any(not group for group in required_groups.get(requirement.indicator, ())):
             raise ValueError(
                 f"deterministic boundary evidence lacks a direct {requirement.indicator.value} oracle"
@@ -218,7 +227,12 @@ class GateRunner:
         subject_roots = [context.active_root.resolve(), context.candidate_root.resolve()]
         if context.active_root.parent.resolve() == context.candidate_root.parent.resolve():
             subject_roots.append(context.active_root.parent.resolve())
-        if any(controller == root or controller.is_relative_to(root) for root in subject_roots):
+        if any(
+            controller == root
+            or controller.is_relative_to(root)
+            or root.is_relative_to(controller)
+            for root in subject_roots
+        ):
             raise ValueError("controller_root must be outside active, candidate, and run roots")
 
     def _collect(

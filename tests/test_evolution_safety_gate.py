@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 import pytest
@@ -255,6 +255,57 @@ def test_policy_maps_critical_not_exposed_to_not_evaluated() -> None:
     assert "critical_not_exposed" in {blocker.code for blocker in decision.blockers}
 
 
+@pytest.mark.parametrize(
+    ("critical", "allowed", "blocker_code", "warning"),
+    [
+        (True, False, "critical_unknown_exposure", None),
+        (
+            False,
+            True,
+            None,
+            "family-1:invariant_preservation:exposure:unknown",
+        ),
+    ],
+)
+def test_unknown_exposure_is_never_silently_complete(
+    critical: bool,
+    allowed: bool,
+    blocker_code: str | None,
+    warning: str | None,
+) -> None:
+    family = _family(critical=critical)
+    profile = _profile(
+        SafetyIndicator.INVARIANT_PRESERVATION,
+        _component("conditional_regression"),
+    )
+    active, candidate = _snapshots()
+
+    def observation(snapshot, endpoint):
+        return ProbeObservation(
+            snapshot=snapshot,
+            endpoint=endpoint,
+            arm=EvaluationArm.FULL_HARNESS,
+            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
+            statuses=ProbeStatuses(module=SafetyStatus.PASS),
+            invariants=(InvariantObservation("family-1.invariant", StageValue.TRUE),),
+            evidence_refs=(f"evidence/{endpoint.value}.json",),
+        )
+
+    pair = MatchedProbeObservations(
+        observation(active, ProbeEndpoint.ACTIVE),
+        observation(candidate, ProbeEndpoint.CANDIDATE),
+    )
+
+    decision = evaluate_safety_policy(profile, (family,), {"family-1": (pair,)})
+
+    assert decision.allowed is allowed
+    if blocker_code is not None:
+        assert decision.status is SafetyGateStatus.NOT_EVALUATED
+        assert blocker_code in {blocker.code for blocker in decision.blockers}
+    if warning is not None:
+        assert warning in decision.warnings
+
+
 def test_policy_blocks_matched_benign_utility_below_declared_minimum() -> None:
     family = _family(utility_minimum=0.75)
     profile = _profile(
@@ -270,6 +321,7 @@ def test_policy_blocks_matched_benign_utility_below_declared_minimum() -> None:
             arm=EvaluationArm.FULL_HARNESS,
             stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
             statuses=ProbeStatuses(utility=SafetyStatus.PASS),
+            exposure=SafetyExposure.EXPOSED,
             utilities=(
                 UtilityObservation("benign-1", StageValue.TRUE, completed),
                 UtilityObservation("benign-2", StageValue.TRUE, StageValue.TRUE),
@@ -286,6 +338,61 @@ def test_policy_blocks_matched_benign_utility_below_declared_minimum() -> None:
 
     assert decision.status is SafetyGateStatus.FAIL
     assert decision.blockers[-1].code == "matched_benign_utility_below_minimum"
+
+
+@pytest.mark.parametrize(
+    "candidate_utilities",
+    [
+        (UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),),
+        (
+            UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),
+            UtilityObservation("benign-2", StageValue.FALSE, StageValue.TRUE),
+        ),
+        (
+            UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),
+            UtilityObservation("benign-2", StageValue.TRUE, StageValue.TRUE),
+            UtilityObservation("benign-3", StageValue.TRUE, StageValue.TRUE),
+        ),
+    ],
+)
+def test_utility_requires_exact_matched_active_candidate_opportunities(
+    candidate_utilities: tuple[UtilityObservation, ...],
+) -> None:
+    family = _family(utility_minimum=0.75)
+    profile = _profile(
+        SafetyIndicator.INVARIANT_PRESERVATION,
+        _component("conditional_regression"),
+    )
+    active, candidate = _snapshots()
+    active_utilities = (
+        UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),
+        UtilityObservation("benign-2", StageValue.TRUE, StageValue.TRUE),
+    )
+
+    def observation(snapshot, endpoint, utilities):
+        return ProbeObservation(
+            snapshot=snapshot,
+            endpoint=endpoint,
+            arm=EvaluationArm.FULL_HARNESS,
+            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
+            statuses=ProbeStatuses(utility=SafetyStatus.PASS),
+            exposure=SafetyExposure.EXPOSED,
+            utilities=utilities,
+            evidence_refs=(f"evidence/{endpoint.value}.json",),
+        )
+
+    pair = MatchedProbeObservations(
+        observation(active, ProbeEndpoint.ACTIVE, active_utilities),
+        observation(candidate, ProbeEndpoint.CANDIDATE, candidate_utilities),
+    )
+
+    decision = evaluate_safety_policy(profile, (family,), {"family-1": (pair,)})
+
+    assert decision.allowed is False
+    assert decision.status is SafetyGateStatus.NOT_EVALUATED
+    assert "matched_benign_utility_not_comparable" in {
+        blocker.code for blocker in decision.blockers
+    }
 
 
 def test_noncritical_unknown_warns_and_persistent_baseline_failure_does_not_block() -> None:
@@ -382,8 +489,13 @@ class _Executor:
         if stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR:
             model = "wrong-model" if self.mode == "wrong-model" else "gpt-fixed"
             provenance = (LiveCallProvenance("call-1", "response-1", model, model),)
+        invariant_id = (
+            "unrelated.invariant"
+            if self.mode == "wrong-invariant"
+            else definition.invariant.invariant_id
+        )
         invariants = () if self.mode == "missing-oracle" else (
-            InvariantObservation(definition.invariant.invariant_id, StageValue.TRUE),
+            InvariantObservation(invariant_id, StageValue.TRUE),
         )
         refs = ("evidence/missing.json",) if self.mode == "missing-ref" else (ref,)
         return ProbeObservation(
@@ -542,6 +654,32 @@ def test_controller_root_must_be_outside_every_subject_root(tmp_path: Path, loca
     assert not runner.controller_root.exists()
 
 
+@pytest.mark.parametrize("location", ["active", "candidate", "shared"])
+def test_subject_roots_must_not_be_inside_controller_root(
+    tmp_path: Path, location: str
+) -> None:
+    context = _context(tmp_path)
+    controller = tmp_path / "controller"
+    if location == "active":
+        active_root = controller / "active"
+        candidate_root = tmp_path / "outside" / "candidate"
+    elif location == "candidate":
+        active_root = tmp_path / "outside" / "active"
+        candidate_root = controller / "candidate"
+    else:
+        active_root = controller / "subject-run" / "active"
+        candidate_root = controller / "subject-run" / "candidate"
+    active_root.mkdir(parents=True, exist_ok=True)
+    candidate_root.mkdir(parents=True, exist_ok=True)
+    context = replace(context, active_root=active_root, candidate_root=candidate_root)
+    runner = _runner(tmp_path, _Executor())
+
+    with pytest.raises(ValueError, match="outside active, candidate, and run roots"):
+        runner.evaluate(context)
+
+    assert not (controller / "safety-gates").exists()
+
+
 @pytest.mark.parametrize(
     ("mode", "expected_status"),
     [
@@ -549,6 +687,7 @@ def test_controller_root_must_be_outside_every_subject_root(tmp_path: Path, loca
         ("wrong-type", "invalid"),
         ("missing-ref", "invalid"),
         ("missing-oracle", "invalid"),
+        ("wrong-invariant", "invalid"),
         ("not-exposed", "not_evaluated"),
     ],
 )

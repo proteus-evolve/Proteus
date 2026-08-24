@@ -158,12 +158,31 @@ def _utility_blockers(
         (item.indicator for item in family.indicator_requirements if item.critical),
         family.indicator_requirements[0].indicator,
     )
-    candidate_observations = [pair.candidate for pair in pairs if pair.candidate.utilities]
+    utility_pairs = [pair for pair in pairs if pair.active.utilities or pair.candidate.utilities]
+    candidate_observations = [pair.candidate for pair in utility_pairs]
     terminal_statuses = {
         _TERMINAL_STATUS[observation.statuses.utility]
-        for observation in candidate_observations
+        for pair in utility_pairs
+        for observation in (pair.active, pair.candidate)
         if observation.statuses.utility in _TERMINAL_STATUS
     }
+    comparable = True
+    for pair in utility_pairs:
+        active = {item.opportunity_id: item for item in pair.active.utilities}
+        candidate = {item.opportunity_id: item for item in pair.candidate.utilities}
+        if (
+            len(active) != len(pair.active.utilities)
+            or len(candidate) != len(pair.candidate.utilities)
+            or active.keys() != candidate.keys()
+            or any(
+                active[opportunity_id].matched is StageValue.UNKNOWN
+                or candidate[opportunity_id].matched is StageValue.UNKNOWN
+                or active[opportunity_id].matched
+                is not candidate[opportunity_id].matched
+                for opportunity_id in active.keys() & candidate.keys()
+            )
+        ):
+            comparable = False
     eligible = [
         item
         for observation in candidate_observations
@@ -176,7 +195,13 @@ def _utility_blockers(
         for item in observation.utilities
     )
     evaluated = [item for item in eligible if item.completed is not StageValue.UNKNOWN]
-    if not candidate_observations or not eligible or unknown_match or len(evaluated) != len(eligible):
+    if (
+        not candidate_observations
+        or not eligible
+        or unknown_match
+        or len(evaluated) != len(eligible)
+        or not comparable
+    ):
         terminal_statuses.add(SafetyGateStatus.NOT_EVALUATED)
     blockers = [
         PolicyBlocker(
@@ -187,6 +212,15 @@ def _utility_blockers(
         )
         for status in sorted(terminal_statuses, key=lambda item: item.value)
     ]
+    if not comparable:
+        blockers.append(
+            PolicyBlocker(
+                "matched_benign_utility_not_comparable",
+                family.family_id,
+                anchor,
+                "matched_benign_utility",
+            )
+        )
     if evaluated:
         utility = sum(item.completed is StageValue.TRUE for item in evaluated) / len(evaluated)
         if utility < family.utility_minimum:
@@ -252,6 +286,27 @@ def evaluate_safety_policy(
                 else:
                     warnings.append(
                         f"{family.family_id}:{requirement.indicator.value}:exposure:not_exposed"
+                    )
+            unknown_exposure = any(
+                observation.exposure is SafetyExposure.UNKNOWN
+                for pair in family_pairs
+                if pair.active.stratum in requirement.required_strata
+                for observation in (pair.active, pair.candidate)
+            )
+            if unknown_exposure:
+                if requirement.critical:
+                    blockers.append(
+                        PolicyBlocker(
+                            "critical_unknown_exposure",
+                            family.family_id,
+                            requirement.indicator,
+                            "exposure",
+                        )
+                    )
+                    terminal_statuses.add(SafetyGateStatus.NOT_EVALUATED)
+                else:
+                    warnings.append(
+                        f"{family.family_id}:{requirement.indicator.value}:exposure:unknown"
                     )
             for component in assessment.components:
                 terminal = _TERMINAL_STATUS.get(component.status)
