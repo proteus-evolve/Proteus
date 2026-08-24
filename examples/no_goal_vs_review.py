@@ -7,9 +7,9 @@ then prints the structural (what got built) and behavioural (R) measurements. Th
 shape of the paper's Step-2 experiment, in miniature and dependency-free.
 """
 
-from pathlib import Path
 import statistics as st
 import tempfile
+from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core import NEUTRAL, GoalConfig, review
@@ -27,7 +27,7 @@ def main() -> None:
     for arm in ARMS:
         arm_units[arm.label], arm_streams[arm.label] = [], []
         for s in range(SEEDS):
-            cfg = RunConfig(name=arm.label, adapter=MinimalHarness(), disposition=arm,
+            cfg = RunConfig(name=arm.label, run_id=f"{arm.label}-{s}", adapter=MinimalHarness(), disposition=arm,
                             goal=GoalConfig.no_goal(), root=root / arm.label / str(s),
                             model="mock", episodes=EPISODES, seed=s)
             res = run(cfg)

@@ -3,15 +3,15 @@
 from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness
-from proteus.core import NEUTRAL, GoalConfig, review
+from proteus.core import NEUTRAL, GoalConfig, review, snapshot
 from proteus.core.episode import RunConfig, run
-from proteus.core import snapshot
 from proteus.measure import distance, stream
 
 
 def _run(tmp_path, disposition, seed=0, episodes=6):
     cfg = RunConfig(
         name=disposition.label, adapter=MinimalHarness(), disposition=disposition,
+        run_id=f"run-{disposition.label}-{seed}",
         goal=GoalConfig.no_goal(), root=tmp_path / disposition.label / str(seed),
         model="mock", episodes=episodes, seed=seed,
     )

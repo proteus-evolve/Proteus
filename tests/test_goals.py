@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness, mock_policy
-from proteus.core import GoalConfig, Goal, NEUTRAL, Visibility, snapshot
+from proteus.core import NEUTRAL, Goal, GoalConfig, Visibility, snapshot
 from proteus.core.episode import RunConfig, run
 from proteus.core.evaluators import surface_units, tool_calls
 from proteus.core.goal import EvalResult
@@ -23,7 +23,7 @@ class RecordingHarness(MinimalHarness):
 
 
 def _cfg(tmp_path, adapter, goal, episodes=3, disposition=NEUTRAL):
-    return RunConfig(name="t", adapter=adapter, disposition=disposition, goal=goal,
+    return RunConfig(name="t", run_id="run-goals", adapter=adapter, disposition=disposition, goal=goal,
                      root=tmp_path / "run", model="mock", episodes=episodes, seed=0)
 
 
@@ -76,8 +76,8 @@ def test_accept_reject_reverts_worse_episode(tmp_path):
     from proteus.core import review
     res = run(_cfg(tmp_path, MinimalHarness(), goal, disposition=review("notes")))
     assert res.episodes_complete == 3
-    accepted = [h["accepted"] for h in res.eval_history]
-    assert accepted == [True, False, True]
+    activated = [h["activated"] for h in res.eval_history]
+    assert activated == [True, False, True]
 
     work = Path(res.root) / "harness"
     sha1 = snapshot.commit_for_episode(work, 1)

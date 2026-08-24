@@ -74,7 +74,7 @@ def check_adapter(adapter, *, episode: bool = False, verbose: bool = True) -> li
     # --- one live episode (optional: may cost money) --------------------------------------
     if episode:
         with tempfile.TemporaryDirectory(prefix="proteus-check-ep-") as tmp:
-            cfg = RunConfig(name="check", adapter=adapter, disposition=NEUTRAL,
+            cfg = RunConfig(name="check", run_id="run-check", adapter=adapter, disposition=NEUTRAL,
                             goal=GoalConfig.no_goal(), root=Path(tmp) / "run",
                             model="", episodes=1, seed=0)
             res = run(cfg)

@@ -9,10 +9,11 @@ Aki, or any plugged-in adapter, under no-goal or goal.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
 
+from proteus.core.activation import CandidateGate
 from proteus.core.adapter import HarnessAdapter
 from proteus.core.disposition import Disposition
 from proteus.core.episode import RunConfig, run
@@ -30,6 +31,7 @@ class SweepConfig:
     model: str = "mock"
     episodes: int = 30
     max_turns: int = 100
+    candidate_gate_factory: Callable[[str], CandidateGate] | None = None
 
 
 def opaque_id(arm: str, seed: int) -> str:
@@ -58,10 +60,12 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
                 rid = opaque_id(arm.label, s)
                 run_root = cfg.root / "runs" / rid
                 rc = RunConfig(
-                    name=arm.label, adapter=cfg.adapter_factory(), disposition=arm,
+                    name=arm.label, run_id=rid, adapter=cfg.adapter_factory(), disposition=arm,
                     goal=cfg.goal, root=run_root, model=cfg.model,
                     episodes=cfg.episodes, max_turns=cfg.max_turns, seed=s,
                     progress_path=cfg.root / "progress" / f"{rid}.jsonl",
+                    candidate_gate=(cfg.candidate_gate_factory(rid)
+                                    if cfg.candidate_gate_factory is not None else None),
                 )
                 res = run(rc)
                 rec = {"arm": arm.label, "seed": s, "root": str(run_root),

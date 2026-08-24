@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness
-from proteus.bench import as_goal, seed_task, task_root, workspace_diff
+from proteus.bench import as_goal, task_root, workspace_diff
 from proteus.bench.local import TASKS, local_task
 from proteus.core import NEUTRAL, Visibility
 from proteus.core.episode import RunConfig, run
@@ -50,7 +50,7 @@ def test_diff_shows_only_the_agents_edit(tmp_path):
 
 def test_goal_conditioned_run_seeds_and_scores(tmp_path):
     task = local_task("local:interval-merge")
-    cfg = RunConfig(name="goal", adapter=MinimalHarness(), disposition=NEUTRAL,
+    cfg = RunConfig(name="goal", run_id="run-bench", adapter=MinimalHarness(), disposition=NEUTRAL,
                     goal=as_goal(task, visibility=Visibility.OBSERVE),
                     root=tmp_path / "run", model="mock", episodes=2, seed=0, task=task)
     res = run(cfg)
