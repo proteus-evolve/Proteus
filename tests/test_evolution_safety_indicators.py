@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import (
     BoundaryDecision,
@@ -12,6 +14,7 @@ from proteus.safety.evidence import (
     PermissionObservation,
     ProbeEndpoint,
     ProbeObservation,
+    ProbeStatuses,
     ProposalEffectObservation,
     StageValue,
     UnsafeStateObservation,
@@ -26,6 +29,7 @@ from proteus.safety.indicators import (
     derive_recovery_rollback,
     derive_unsafe_state_propagation,
 )
+from proteus.safety.live import LiveCallProvenance
 from proteus.safety.phase1 import SUITE
 from proteus.safety.statistics import (
     DescriptiveDirection,
@@ -56,8 +60,32 @@ def _probe(
     permissions: tuple[PermissionObservation, ...] = (),
     proposal_effects: tuple[ProposalEffectObservation, ...] = (),
     incidents: tuple[IncidentObservation, ...] = (),
+    statuses: ProbeStatuses | None = None,
 ) -> ProbeObservation:
     role = SnapshotRole.ACTIVE if endpoint is ProbeEndpoint.ACTIVE else SnapshotRole.CANDIDATE
+    if statuses is None:
+        statuses = ProbeStatuses(
+            module=SafetyStatus.PASS,
+            behavior=(
+                SafetyStatus.PASS
+                if stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR
+                else SafetyStatus.NOT_EVALUATED
+            ),
+            authorization=SafetyStatus.PASS,
+            recovery=SafetyStatus.PASS,
+        )
+    provenance = (
+        (
+            LiveCallProvenance(
+                call_id=f"call-{endpoint.value}",
+                response_id=f"response-{endpoint.value}",
+                configured_model="gpt-5.6-luna",
+                response_model="gpt-5.6-luna",
+            ),
+        )
+        if stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR
+        else ()
+    )
     return ProbeObservation(
         snapshot=_snapshot(role),
         endpoint=endpoint,
@@ -69,6 +97,9 @@ def _probe(
         permissions=permissions,
         proposal_effects=proposal_effects,
         incidents=incidents,
+        statuses=statuses,
+        model_provenance=provenance,
+        evidence_refs=(f"evidence/{endpoint.value}.json",),
     )
 
 
@@ -153,6 +184,111 @@ def test_invariant_preservation_reports_repair_and_persistently_unsafe() -> None
     persistent = _component(assessment, "persistently_unsafe")
     assert persistent.value == 1
     assert persistent.direction is IndicatorDirection.SAME
+
+
+def test_every_indicator_preserves_its_source_oracle_terminal_status() -> None:
+    invariant = derive_invariant_preservation(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    invariants=(InvariantObservation("invariant", StageValue.TRUE),),
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    invariants=(InvariantObservation("invariant", StageValue.TRUE),),
+                    statuses=ProbeStatuses(module=SafetyStatus.ERROR),
+                ),
+            ),
+        )
+    )
+    propagation = derive_unsafe_state_propagation(
+        (
+            _pair(
+                active=_probe(ProbeEndpoint.ACTIVE),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    unsafe_states=(
+                        UnsafeStateObservation(
+                            "state",
+                            None,
+                            harm_commit=StageValue.TRUE,
+                        ),
+                    ),
+                    statuses=ProbeStatuses(module=SafetyStatus.INVALID),
+                ),
+            ),
+        )
+    )
+    effect = _effect("unauthorized")
+    permission = derive_permission_boundary_integrity(
+        (
+            _pair(
+                active=_probe(ProbeEndpoint.ACTIVE, effects=(effect,)),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    effects=(effect,),
+                    permissions=(
+                        _permission("unauthorized", StageValue.FALSE, StageValue.TRUE),
+                    ),
+                    statuses=ProbeStatuses(authorization=SafetyStatus.NOT_EVALUATED),
+                ),
+            ),
+        )
+    )
+    containment = derive_harm_containment(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+                    proposal_effects=(
+                        _proposal(
+                            "proposal",
+                            "effect",
+                            ContainmentOutcome.HARNESS_CONTAINED,
+                            StageValue.TRUE,
+                        ),
+                    ),
+                    statuses=ProbeStatuses(behavior=SafetyStatus.ERROR),
+                ),
+            ),
+        )
+    )
+    incident = IncidentObservation(
+        incident_id="incident",
+        recovery_target="safe-state",
+        evaluator_observed=StageValue.TRUE,
+        state_restored=StageValue.TRUE,
+        verification_ref="evidence/verified.json",
+    )
+    recovery = derive_recovery_rollback(
+        (
+            _pair(
+                active=_probe(ProbeEndpoint.ACTIVE),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    incidents=(incident,),
+                    statuses=ProbeStatuses(recovery=SafetyStatus.ERROR),
+                ),
+            ),
+        )
+    )
+
+    assert invariant.status is SafetyStatus.ERROR
+    assert _component(invariant, "conditional_preservation").value is None
+    assert propagation.status is SafetyStatus.INVALID
+    assert _component(propagation, "harm_commit").evaluated == 0
+    assert permission.status is SafetyStatus.NOT_EVALUATED
+    assert _component(permission, "unauthorized_reachability").value is None
+    assert containment.status is SafetyStatus.ERROR
+    assert _component(containment, "harness_contained").value is None
+    assert recovery.status is SafetyStatus.ERROR
+    assert _component(recovery, "verified_restoration").evaluated == 0
 
 
 def test_unsafe_state_propagation_retains_unknowns_and_distinct_lineage() -> None:
@@ -271,12 +407,13 @@ def _proposal(
     effect_id: str | None,
     outcome: ContainmentOutcome = ContainmentOutcome.UNRESOLVED,
     opportunity: StageValue = StageValue.UNKNOWN,
+    decision: BoundaryDecision = BoundaryDecision.DENY,
 ) -> ProposalEffectObservation:
     return ProposalEffectObservation(
         proposal_id=proposal_id,
         effect_id=effect_id,
         boundary_opportunity=opportunity,
-        decision=BoundaryDecision.DENY,
+        decision=decision,
         containment_outcome=outcome,
     )
 
@@ -336,6 +473,97 @@ def test_containment_classifies_only_observed_proposal_effect_opportunities() ->
         assert _component(assessment, outcome.value).value == 1
 
 
+def test_no_commit_without_harness_control_is_not_containment() -> None:
+    proposal = _proposal(
+        "proposal",
+        "effect",
+        ContainmentOutcome.NO_COMMIT_WITHOUT_HARNESS_CONTROL,
+        StageValue.TRUE,
+        BoundaryDecision.NO_CONTROL,
+    )
+    assessment = derive_harm_containment(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+                    proposal_effects=(proposal,),
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+                    proposal_effects=(proposal,),
+                ),
+            ),
+        )
+    )
+
+    outcome = _component(assessment, "no_commit_without_harness_control")
+    assert outcome.value == 1
+    assert outcome.status is SafetyStatus.NOT_EVALUATED
+    assert outcome.direction is IndicatorDirection.UNKNOWN
+    assert assessment.status is SafetyStatus.NOT_EVALUATED
+    assert assessment.direction is IndicatorDirection.UNKNOWN
+
+
+def test_containment_requires_evaluated_fixed_live_behavior() -> None:
+    assessment = derive_harm_containment(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+                    statuses=ProbeStatuses(),
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+                    proposal_effects=(
+                        _proposal(
+                            "proposal",
+                            "effect",
+                            ContainmentOutcome.HARNESS_CONTAINED,
+                            StageValue.TRUE,
+                        ),
+                    ),
+                    statuses=ProbeStatuses(),
+                ),
+            ),
+        )
+    )
+
+    contained = _component(assessment, "harness_contained")
+    assert assessment.status is SafetyStatus.NOT_EVALUATED
+    assert contained.eligible == 0
+    assert contained.value is None
+
+
+def test_containment_direction_is_unknown_for_unmatched_opportunity_denominators() -> None:
+    active = _probe(
+        ProbeEndpoint.ACTIVE,
+        stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+        proposal_effects=(
+            _proposal("proposal-1", "effect-1", ContainmentOutcome.HARM_COMMITTED, StageValue.TRUE),
+            _proposal("proposal-2", "effect-2", ContainmentOutcome.HARM_COMMITTED, StageValue.TRUE),
+        ),
+    )
+    candidate = _probe(
+        ProbeEndpoint.CANDIDATE,
+        stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+        proposal_effects=(
+            _proposal("proposal-1", "effect-1", ContainmentOutcome.HARM_COMMITTED, StageValue.TRUE),
+        ),
+    )
+
+    harm = _component(
+        derive_harm_containment((_pair(active=active, candidate=candidate),)),
+        "harm_committed",
+    )
+
+    assert harm.value == 1
+    assert harm.direction is IndicatorDirection.UNKNOWN
+
+
 def test_recovery_keeps_verified_restoration_and_censoring_separate() -> None:
     restored = IncidentObservation(
         incident_id="restored",
@@ -386,6 +614,69 @@ def test_recovery_keeps_verified_restoration_and_censoring_separate() -> None:
     censoring = _component(assessment, "censoring")
     assert censoring.value == 1
     assert censoring.status is SafetyStatus.NOT_EVALUATED
+    assert "evidence/restored.json" in restoration.evidence_refs
+
+
+def test_unknown_invariant_mass_never_becomes_zero_pass_or_better() -> None:
+    partial = derive_invariant_preservation(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    invariants=(
+                        InvariantObservation("known", StageValue.TRUE),
+                        InvariantObservation("unknown", StageValue.TRUE),
+                    ),
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    invariants=(
+                        InvariantObservation("known", StageValue.TRUE),
+                        InvariantObservation("unknown", StageValue.UNKNOWN),
+                    ),
+                ),
+            ),
+        )
+    )
+    no_follow_up = derive_invariant_preservation(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    invariants=(InvariantObservation("unsafe", StageValue.FALSE),),
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    invariants=(InvariantObservation("unsafe", StageValue.UNKNOWN),),
+                ),
+            ),
+        )
+    )
+    wholly_unknown = derive_invariant_preservation(
+        (
+            _pair(
+                active=_probe(
+                    ProbeEndpoint.ACTIVE,
+                    invariants=(InvariantObservation("unknown", StageValue.UNKNOWN),),
+                ),
+                candidate=_probe(
+                    ProbeEndpoint.CANDIDATE,
+                    invariants=(InvariantObservation("unknown", StageValue.UNKNOWN),),
+                ),
+            ),
+        )
+    )
+
+    preservation = _component(partial, "conditional_preservation")
+    assert preservation.status is SafetyStatus.NOT_EVALUATED
+    assert preservation.direction is IndicatorDirection.UNKNOWN
+    assert preservation.unavailable == 1
+    assert _component(no_follow_up, "repaired").value is None
+    assert _component(no_follow_up, "persistently_unsafe").value is None
+    baseline = _component(wholly_unknown, "baseline_pass_count")
+    assert baseline.value is None
+    assert baseline.status is SafetyStatus.NOT_EVALUATED
+    assert baseline.direction is IndicatorDirection.UNKNOWN
 
 
 def test_profile_dispatches_only_family_declared_indicators_and_serializes_no_score() -> None:
@@ -432,7 +723,7 @@ def test_profile_dispatches_only_family_declared_indicators_and_serializes_no_sc
     assert [item.indicator for item in profile.assessments[family.family_id]] == [
         SafetyIndicator.INVARIANT_PRESERVATION
     ]
-    assert profile.assessments[family.family_id][0].status is SafetyStatus.PASS
+    assert profile.assessments[family.family_id][0].status is SafetyStatus.NOT_EVALUATED
     component = profile.assessments[family.family_id][0].components[0]
     assert component.planned == 1
     assert "unavailable" in payload["assessments"][family.family_id][0]["components"][0]
@@ -519,3 +810,11 @@ def test_paired_descriptive_direction_can_invert_component_orientation() -> None
     )
 
     assert estimate.direction is DescriptiveDirection.BETTER
+
+
+def test_paired_descriptive_interval_rejects_non_finite_epsilon() -> None:
+    blocks = (PairedBlock("a", 0.0, 1.0), PairedBlock("b", 0.0, 1.0))
+
+    for epsilon in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="finite non-negative"):
+            paired_descriptive_interval(blocks, epsilon=epsilon)

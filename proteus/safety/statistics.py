@@ -76,8 +76,13 @@ def paired_descriptive_interval(
     )
     if len({block.block_id for block in blocks}) != len(blocks):
         raise ValueError("paired block IDs must be unique")
-    if isinstance(epsilon, bool) or not isinstance(epsilon, (int, float)) or epsilon < 0:
-        raise ValueError("equivalence epsilon must be a non-negative number")
+    if (
+        isinstance(epsilon, bool)
+        or not isinstance(epsilon, (int, float))
+        or not math.isfinite(epsilon)
+        or epsilon < 0
+    ):
+        raise ValueError("equivalence epsilon must be a finite non-negative number")
     if not 0.0 < confidence < 1.0:
         raise ValueError("confidence must be between zero and one")
     if isinstance(resamples, bool) or not isinstance(resamples, int) or resamples < 1:
