@@ -9,6 +9,7 @@ from enum import Enum
 from proteus.core.adapter import Surface
 
 MODULE_SAFETY_TAXONOMY_VERSION = "proteus-module-safety/1"
+EVOLUTION_SAFETY_TAXONOMY_VERSION = "proteus-evolution-safety/1"
 
 
 class HarnessModule(str, Enum):
@@ -70,6 +71,20 @@ class TransitionDirection(str, Enum):
     NOT_EVALUATED = "not_evaluated"
 
 
+class SafetyIndicator(str, Enum):
+    INVARIANT_PRESERVATION = "invariant_preservation"
+    UNSAFE_STATE_PROPAGATION = "unsafe_state_propagation"
+    PERMISSION_BOUNDARY_INTEGRITY = "permission_boundary_integrity"
+    HARM_CONTAINMENT = "harm_containment"
+    RECOVERY_ROLLBACK = "recovery_rollback"
+
+
+class EvidenceStratum(str, Enum):
+    DETERMINISTIC_BOUNDARY = "deterministic_boundary"
+    FIXED_LIVE_BEHAVIOR = "fixed_live_behavior"
+    ARCHIVE_LINEAGE = "archive_lineage"
+
+
 def _require_text(label: str, value: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be non-empty")
@@ -127,6 +142,35 @@ class PermissionBoundary:
 
 
 @dataclass(frozen=True)
+class SafetyInvariantDefinition:
+    invariant_id: str
+    statement: str
+
+    def __post_init__(self) -> None:
+        _require_text("invariant ID", self.invariant_id)
+        _require_text("invariant statement", self.statement)
+
+
+@dataclass(frozen=True)
+class IndicatorRequirement:
+    indicator: SafetyIndicator
+    critical: bool
+    required_strata: tuple[EvidenceStratum, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.indicator, SafetyIndicator):
+            raise TypeError("indicator requirement requires a SafetyIndicator")
+        if not isinstance(self.critical, bool):
+            raise TypeError("indicator requirement critical flag requires a bool")
+        if not self.required_strata:
+            raise ValueError("indicator requirement requires evidence strata")
+        if not all(isinstance(item, EvidenceStratum) for item in self.required_strata):
+            raise TypeError("indicator requirement strata require EvidenceStratum values")
+        if len(self.required_strata) != len(set(self.required_strata)):
+            raise ValueError("indicator requirement strata must be unique")
+
+
+@dataclass(frozen=True)
 class ModuleBinding:
     module: HarnessModule
     surface_names: tuple[str, ...] = ()
@@ -166,12 +210,16 @@ class HarnessSafetyProfile:
 @dataclass(frozen=True)
 class SafetyCaseFamilyDefinition:
     family_id: str
+    family_version: str
     primary_module: HarnessModule
     supporting_modules: tuple[HarnessModule, ...]
     scope: CaseScope
     safety_kind: SafetyKind
     scenario: str
-    safety_invariant: str
+    invariant: SafetyInvariantDefinition
+    indicator_requirements: tuple[IndicatorRequirement, ...]
+    utility_minimum: float
+    exposure_rule: str
     behavior_failure: str
     module_failure: str
     evaluation_arms: tuple[EvaluationArm, ...]
@@ -183,12 +231,31 @@ class SafetyCaseFamilyDefinition:
     def __post_init__(self) -> None:
         for label, value in (
             ("family ID", self.family_id),
+            ("family version", self.family_version),
             ("scenario", self.scenario),
-            ("safety invariant", self.safety_invariant),
+            ("exposure rule", self.exposure_rule),
             ("behavior failure", self.behavior_failure),
             ("module failure", self.module_failure),
         ):
             _require_text(label, value)
+        if not isinstance(self.invariant, SafetyInvariantDefinition):
+            raise TypeError("case family invariant requires a SafetyInvariantDefinition")
+        if not self.indicator_requirements:
+            raise ValueError("case family requires indicator requirements")
+        if not all(
+            isinstance(requirement, IndicatorRequirement)
+            for requirement in self.indicator_requirements
+        ):
+            raise TypeError("case family indicator requirements must be typed")
+        indicators = [requirement.indicator for requirement in self.indicator_requirements]
+        if len(indicators) != len(set(indicators)):
+            raise ValueError("case family indicator requirements must be unique")
+        if isinstance(self.utility_minimum, bool) or not isinstance(
+            self.utility_minimum, (int, float)
+        ):
+            raise TypeError("utility minimum requires a number")
+        if not 0.0 <= self.utility_minimum <= 1.0:
+            raise ValueError("utility minimum must be between zero and one")
         self._validate_modules()
         self._validate_arms()
         self._validate_source()

@@ -9,9 +9,13 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from proteus.core.adapter import ActionEvent
+from proteus.core.snapshot import SnapshotRef
+from proteus.safety.evidence import ProbeEndpoint, ProbeObservation
+from proteus.safety.live import LiveModelChannel
 from proteus.safety.model import validate_evidence_refs
 from proteus.safety.taxonomy import (
     EvaluationArm,
+    EvidenceStratum,
     HarnessSafetyProfile,
     SafetyCaseFamilyDefinition,
     SafetyExposure,
@@ -122,14 +126,44 @@ class HarnessSafetyCaseSuite(Protocol):
     name: str
     version: str
 
-    def definitions(
-        self,
-        profile: HarnessSafetyProfile,
-    ) -> Sequence[SafetyCaseFamilyDefinition]: ...
-
-    def provider(self) -> HarnessSafetyEvidenceProvider: ...
+    def definitions(self) -> Sequence[SafetyCaseFamilyDefinition]: ...
 
 
 @runtime_checkable
 class HarnessSafetyAdapter(Protocol):
     def harness_safety_profile(self) -> HarnessSafetyProfile: ...
+
+
+@dataclass(frozen=True)
+class CandidateSafetyContext:
+    run_id: str
+    episode: int
+    adapter_name: str
+    snapshot: SnapshotRef
+    snapshot_root: Path
+    trial_root: Path
+    evidence_dir: Path
+    profile: HarnessSafetyProfile
+    events: tuple[ActionEvent, ...] = ()
+
+
+@runtime_checkable
+class CandidateSafetyExecutor(Protocol):
+    name: str
+
+    def collect(
+        self,
+        definition: SafetyCaseFamilyDefinition,
+        endpoint: ProbeEndpoint,
+        arm: EvaluationArm,
+        stratum: EvidenceStratum,
+        context: CandidateSafetyContext,
+        channel: LiveModelChannel | None,
+    ) -> ProbeObservation: ...
+
+
+@runtime_checkable
+class CandidateSafetyAdapter(Protocol):
+    def harness_safety_profile(self) -> HarnessSafetyProfile: ...
+
+    def candidate_safety_executor(self) -> CandidateSafetyExecutor: ...

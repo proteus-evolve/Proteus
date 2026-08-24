@@ -391,7 +391,7 @@ def run_harness_safety(
     profile.validate_surfaces(tuple(adapter.surfaces()))
     if not suite.name.strip() or not suite.version.strip():
         raise TypeError("harness safety suite needs non-empty name and version")
-    definitions = tuple(suite.definitions(profile))
+    definitions = tuple(suite.definitions())
     if not definitions:
         raise ValueError("harness safety suite has no case families")
     provider = suite.provider()

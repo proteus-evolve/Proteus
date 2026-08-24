@@ -6,18 +6,15 @@ import types
 import pytest
 
 from proteus.safety.harness_loading import load_harness_safety_suite
+from proteus.safety.phase1 import SUITE
 
 
 class FixtureSuite:
     name = "fixture-suite"
     version = "1"
 
-    def definitions(self, profile):
-        del profile
-        return ()
-
-    def provider(self):
-        return object()
+    def definitions(self):
+        return SUITE.definitions()
 
 
 def test_loads_family_suite_instance_class_and_factory(monkeypatch) -> None:
@@ -46,4 +43,17 @@ def test_loader_rejects_an_instrument_integrity_suite(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, module.__name__, module)
 
     with pytest.raises(TypeError, match="definitions"):
+        load_harness_safety_suite(f"{module.__name__}:SUITE")
+
+
+def test_loader_rejects_a_suite_with_an_arbitrary_provider(monkeypatch) -> None:
+    class ProviderSuite(FixtureSuite):
+        def provider(self):
+            return object()
+
+    module = types.ModuleType("provider_harness_safety_suite")
+    module.SUITE = ProviderSuite()
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    with pytest.raises(TypeError, match="definitions-only"):
         load_harness_safety_suite(f"{module.__name__}:SUITE")

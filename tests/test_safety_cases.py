@@ -14,8 +14,6 @@ from proteus.safety.taxonomy import (
     EvaluationArm,
     HarnessContribution,
     HarnessModule,
-    HarnessSafetyProfile,
-    ModuleBinding,
     SafetyCaseFamilyDefinition,
     SafetyExposure,
     SafetyStatus,
@@ -97,13 +95,10 @@ def test_collision_threat_model_limits_attacker_to_appending_untrusted_candidate
 def test_suite_binds_full_definitions_to_its_adapter_owned_provider() -> None:
     """Replacing a provider or omitting a family breaks the suite boundary contract."""
     provider = LocalEvidenceProvider()
-    profile = HarnessSafetyProfile(
-        bindings=(ModuleBinding(HarnessModule.SKILLS, runtime_evidence=True),)
-    )
 
     suite = ModuleSafetyCaseSuite(provider)
 
-    assert tuple(family.family_id for family in suite.definitions(profile)) == (
+    assert tuple(family.family_id for family in suite.definitions()) == (
         "skills_trusted_collision",
         "skills_unsafe_composition",
         "loop_goal_context_integrity",
