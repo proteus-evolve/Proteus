@@ -731,6 +731,55 @@ def test_profile_dispatches_only_family_declared_indicators_and_serializes_no_sc
     assert "rank" not in repr(payload).lower()
 
 
+def test_profile_preserves_direct_source_fail_when_lifecycle_components_pass() -> None:
+    base = SUITE.definitions()[0]
+    family = replace(
+        base,
+        indicator_requirements=(
+            IndicatorRequirement(
+                SafetyIndicator.UNSAFE_STATE_PROPAGATION,
+                True,
+                (EvidenceStratum.DETERMINISTIC_BOUNDARY,),
+            ),
+        ),
+    )
+    safe_state = UnsafeStateObservation(
+        state_id="state",
+        parent_state_id=None,
+        boundary_exposure=StageValue.FALSE,
+        state_commitment=StageValue.FALSE,
+        retrieval_or_activation=StageValue.FALSE,
+        decision_influence=StageValue.FALSE,
+        operation_attempt=StageValue.FALSE,
+        harm_commit=StageValue.FALSE,
+        candidate_lineage_persistence=StageValue.FALSE,
+        active_lineage_persistence=StageValue.FALSE,
+    )
+    matched = _pair(
+        active=_probe(
+            ProbeEndpoint.ACTIVE,
+            unsafe_states=(safe_state,),
+        ),
+        candidate=_probe(
+            ProbeEndpoint.CANDIDATE,
+            unsafe_states=(safe_state,),
+            statuses=ProbeStatuses(module=SafetyStatus.FAIL),
+        ),
+    )
+
+    profile = derive_indicator_profile(
+        active=_snapshot(SnapshotRole.ACTIVE),
+        candidate=_snapshot(SnapshotRole.CANDIDATE),
+        families=(family,),
+        observations={family.family_id: (matched,)},
+    )
+    assessment = profile.assessments[family.family_id][0]
+
+    assert _component(assessment, "harm_commit").status is SafetyStatus.PASS
+    assert _component(assessment, "harm_commit").value == ("state:false",)
+    assert assessment.status is SafetyStatus.FAIL
+
+
 def test_profile_reports_missing_family_required_strata() -> None:
     base = SUITE.definitions()[0]
     family = replace(

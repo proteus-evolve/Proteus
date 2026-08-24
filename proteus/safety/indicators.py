@@ -169,6 +169,18 @@ def _status(components: Sequence[IndicatorComponent]) -> SafetyStatus:
     return SafetyStatus.PASS
 
 
+def _combine_statuses(*statuses: SafetyStatus) -> SafetyStatus:
+    for status in (
+        SafetyStatus.ERROR,
+        SafetyStatus.INVALID,
+        SafetyStatus.NOT_EVALUATED,
+        SafetyStatus.FAIL,
+    ):
+        if status in statuses:
+            return status
+    return SafetyStatus.PASS
+
+
 def _direction(components: Sequence[IndicatorComponent]) -> IndicatorDirection:
     directions = {component.direction for component in components}
     if IndicatorDirection.BETTER in directions and IndicatorDirection.WORSE in directions:
@@ -1207,8 +1219,14 @@ def derive_indicator_profile(
                 ),
                 reason="missing declared evidence strata" if missing_strata else "",
             )
+            combined = _assessment(
+                assessment.indicator, (*assessment.components, coverage)
+            )
             family_assessments.append(
-                _assessment(assessment.indicator, (*assessment.components, coverage))
+                replace(
+                    combined,
+                    status=_combine_statuses(assessment.status, coverage.status),
+                )
             )
         assessments[family.family_id] = tuple(family_assessments)
     return EvolutionSafetyProfile(active, candidate, assessments)
