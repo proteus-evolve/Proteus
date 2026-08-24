@@ -68,6 +68,7 @@ class AkiWorkerResult:
     model_inputs: tuple[tuple[dict[str, object], ...], ...] = ()
     model_provenance: tuple[LiveCallProvenance, ...] = ()
     broker_calls: tuple[BrokerCallRecord, ...] = ()
+    pre_tool_records: tuple[ControllerPreToolRecord, ...] = ()
     committed_effects: tuple[ControllerEffectRecord, ...] = ()
     available_tools: tuple[str, ...] = ()
     error: str = ""
@@ -93,12 +94,22 @@ class ControllerEffectRecord:
     arguments: dict[str, object]
 
 
+@dataclass(frozen=True)
+class ControllerPreToolRecord:
+    """Exact pre-tool boundary crossing accepted by the controller."""
+
+    effect_id: str
+    call_id: str
+    tool_name: str
+    arguments: dict[str, object]
+
+
 @dataclass
 class _BrokerTranscript:
     calls: list[BrokerCallRecord] = field(default_factory=list)
+    pre_tools: list[ControllerPreToolRecord] = field(default_factory=list)
     effects: list[ControllerEffectRecord] = field(default_factory=list)
     effect_contracts: tuple[dict[str, object], ...] = ()
-    live: bool = False
 
 
 def _send_message(connection: socket.socket, value: dict[str, object]) -> None:
@@ -156,6 +167,13 @@ def _serve_broker(
                 return
             if request is None:
                 return
+            if request.get("kind") == "effect_pre_tool":
+                recorded = _record_controller_pre_tool(transcript, request)
+                try:
+                    _send_message(connection, {"ok": recorded})
+                except OSError:
+                    return
+                continue
             if request.get("kind") == "effect_commit":
                 recorded = _record_controller_effect(transcript, request)
                 try:
@@ -202,10 +220,10 @@ def _serve_broker(
                 return
 
 
-def _record_controller_effect(
+def _validated_effect_request(
     transcript: _BrokerTranscript,
     request: dict[str, object],
-) -> bool:
+) -> tuple[str, str, str, dict[str, object]] | None:
     call_id = request.get("call_id")
     effect_id = request.get("effect_id")
     tool_name = request.get("tool_name")
@@ -218,7 +236,7 @@ def _record_controller_effect(
         or not isinstance(tool_name, str)
         or not isinstance(arguments, dict)
     ):
-        return False
+        return None
     contract = next(
         (
             item
@@ -231,26 +249,63 @@ def _record_controller_effect(
         None,
     )
     if contract is None:
-        return False
-    if transcript.live and not any(
+        return None
+    if not any(
         proposal.call_id == call_id
         and proposal.name == tool_name
         and dict(proposal.arguments) == arguments
         for model_call in transcript.calls
         for proposal in model_call.tool_calls
     ):
+        return None
+    return str(contract["effect_id"]), call_id, tool_name, dict(arguments)
+
+
+def _record_controller_pre_tool(
+    transcript: _BrokerTranscript,
+    request: dict[str, object],
+) -> bool:
+    validated = _validated_effect_request(transcript, request)
+    if validated is None:
+        return False
+    effect_id, call_id, tool_name, arguments = validated
+    record = ControllerPreToolRecord(
+        effect_id=effect_id,
+        call_id=call_id,
+        tool_name=tool_name,
+        arguments=arguments,
+    )
+    if record not in transcript.pre_tools:
+        transcript.pre_tools.append(record)
+    return True
+
+
+def _record_controller_effect(
+    transcript: _BrokerTranscript,
+    request: dict[str, object],
+) -> bool:
+    validated = _validated_effect_request(transcript, request)
+    if validated is None:
+        return False
+    effect_id, call_id, tool_name, arguments = validated
+    if ControllerPreToolRecord(
+        effect_id=effect_id,
+        call_id=call_id,
+        tool_name=tool_name,
+        arguments=arguments,
+    ) not in transcript.pre_tools:
         return False
     if any(
-        item.call_id == call_id and item.effect_id == contract["effect_id"]
+        item.call_id == call_id and item.effect_id == effect_id
         for item in transcript.effects
     ):
         return True
     transcript.effects.append(
         ControllerEffectRecord(
-            effect_id=str(contract["effect_id"]),
+            effect_id=effect_id,
             call_id=call_id,
             tool_name=tool_name,
-            arguments=dict(arguments),
+            arguments=arguments,
         )
     )
     return True
@@ -406,7 +461,6 @@ class AkiWorkerController:
         broker_thread: threading.Thread | None = None
         transcript = _BrokerTranscript(
             effect_contracts=plan.effect_contracts,
-            live=plan.live,
         )
         if channel is not None or plan.effect_contracts:
             parent_socket, child_socket = socket.socketpair()
@@ -512,6 +566,7 @@ class AkiWorkerController:
             ),
             model_provenance=tuple(item.provenance for item in transcript.calls),
             broker_calls=tuple(transcript.calls),
+            pre_tool_records=tuple(transcript.pre_tools),
             committed_effects=tuple(transcript.effects),
             available_tools=tuple(str(item) for item in payload.get("available_tools", ())),
             error=str(payload.get("error", "")),
@@ -576,8 +631,9 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
         def __init__(self) -> None:
             self._contracts = tuple(plan.get("effect_contracts") or ())
 
-        def commit(
+        def _request(
             self,
+            kind: str,
             *,
             call_id: str,
             tool_name: str,
@@ -601,7 +657,7 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
             _send_message(
                 connection,
                 {
-                    "kind": "effect_commit",
+                    "kind": kind,
                     "effect_id": str(contract["effect_id"]),
                     "call_id": call_id,
                     "tool_name": tool_name,
@@ -610,6 +666,34 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
             )
             result = _receive_message(connection)
             return result is not None and result.get("ok") is True
+
+        def pre_tool(
+            self,
+            *,
+            call_id: str,
+            tool_name: str,
+            arguments: dict[str, object],
+        ) -> bool:
+            return self._request(
+                "effect_pre_tool",
+                call_id=call_id,
+                tool_name=tool_name,
+                arguments=arguments,
+            )
+
+        def commit(
+            self,
+            *,
+            call_id: str,
+            tool_name: str,
+            arguments: dict[str, object],
+        ) -> bool:
+            return self._request(
+                "effect_commit",
+                call_id=call_id,
+                tool_name=tool_name,
+                arguments=arguments,
+            )
 
     class ControlledModel:
         def __init__(self) -> None:

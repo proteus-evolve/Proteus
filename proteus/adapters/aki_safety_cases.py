@@ -115,6 +115,7 @@ def _worker_payload(result: AkiWorkerResult) -> dict[str, object]:
         "model_inputs": result.model_inputs,
         "model_provenance": [asdict(item) for item in result.model_provenance],
         "broker_calls": [asdict(item) for item in result.broker_calls],
+        "pre_tool_records": [asdict(item) for item in result.pre_tool_records],
         "committed_effects": [asdict(item) for item in result.committed_effects],
         "available_tools": result.available_tools,
         "error": result.error,
