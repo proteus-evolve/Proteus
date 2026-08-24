@@ -41,6 +41,15 @@ class ScriptedGate:
         return outcome
 
 
+class CandidateMutationGate:
+    def __init__(self) -> None:
+        self.saw_task_mutation = False
+
+    def evaluate(self, context):
+        self.saw_task_mutation = (context.candidate_root / "task-evaluator-mutation.txt").exists()
+        return CandidateGateResult(True, "pass", "gates/one")
+
+
 def _cfg(tmp_path, *, gate, goal=None, episodes=2, progress_path=None):
     return RunConfig(
         name="candidate-test",
@@ -99,7 +108,7 @@ def test_pass_activates_the_exact_frozen_candidate_tree(tmp_path):
     assert active is not None
     materialized = tmp_path / "candidate"
     snapshot.materialize_candidate(work_tree, candidate, materialized)
-    assert (materialized / "notes").glob("*.md")
+    assert any((materialized / "notes").glob("*.md"))
     active_root = tmp_path / "active"
     snapshot.materialize(work_tree, active, active_root)
     assert _files(materialized) == _files(active_root)
@@ -112,6 +121,10 @@ def test_pass_activates_the_exact_frozen_candidate_tree(tmp_path):
         CandidateGateResult(False, "not_evaluated", "gates/not-evaluated"),
         CandidateGateResult(False, "invalid", "gates/invalid"),
         CandidateGateResult(False, "error", "gates/error"),
+        CandidateGateResult(True, "fail", "gates/contradictory-fail"),
+        CandidateGateResult(True, "not_evaluated", "gates/contradictory-not-evaluated"),
+        CandidateGateResult(True, "invalid", "gates/contradictory-invalid"),
+        CandidateGateResult(True, "error", "gates/contradictory-error"),
         RuntimeError("gate crashed"),
     ],
 )
@@ -157,6 +170,24 @@ def test_task_selection_and_gate_must_both_allow_activation(tmp_path, task_selec
     assert len(gate.contexts) == 2
 
 
+def test_safety_gate_receives_an_unmodified_frozen_candidate(tmp_path):
+    gate = CandidateMutationGate()
+
+    def evaluator(_trace, context):
+        (Path(context.harness_root) / "task-evaluator-mutation.txt").write_text("mutated")
+        return EvalResult(name="task", score=1.0)
+
+    result = run(_cfg(
+        tmp_path,
+        gate=gate,
+        goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
+        episodes=1,
+    ))
+
+    assert result.eval_history[0]["activated"] is True
+    assert gate.saw_task_mutation is False
+
+
 def test_candidates_remain_materializable_and_active_mapping_is_gapless(tmp_path):
     gate = ScriptedGate([
         CandidateGateResult(True, "pass", "gates/one"),
@@ -196,3 +227,17 @@ def test_gate_details_stay_out_of_subject_run_and_progress_keeps_only_reference(
     assert record["decision_ref"] == "gates/candidate-0001/decision.json"
     assert "accepted" not in record
     assert sentinel not in json.dumps(result.eval_history)
+
+
+def test_progress_path_inside_subject_run_is_rejected(tmp_path):
+    cfg = _cfg(
+        tmp_path,
+        gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+        episodes=1,
+        progress_path=tmp_path / "run" / "controller" / "progress.jsonl",
+    )
+
+    with pytest.raises(ValueError, match="outside the subject run"):
+        run(cfg)
+
+    assert not cfg.root.exists()

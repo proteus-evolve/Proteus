@@ -152,8 +152,15 @@ def _evaluate_gate(gate: CandidateGate, context: CandidateGateContext) -> Candid
     return result
 
 
+def _validate_progress_path(cfg: RunConfig) -> None:
+    """Keep controller progress outside the agent-readable subject run."""
+    if cfg.progress_path is not None and cfg.progress_path.resolve().is_relative_to(cfg.root.resolve()):
+        raise ValueError("progress_path must be outside the subject run")
+
+
 def run(cfg: RunConfig) -> RunResult:
     """Run one seed's full trajectory, harness retained under `cfg.root`."""
+    _validate_progress_path(cfg)
     harness = cfg.root / "harness"
     cfg.adapter.seed(harness, cfg.seed)
     cfg.adapter.install_disposition(harness, cfg.disposition)
@@ -187,8 +194,10 @@ def run(cfg: RunConfig) -> RunResult:
         candidate = snapshot.freeze_candidate(
             harness, run_id=cfg.run_id, episode=ep, label=cfg.name
         )
-        with materialized_transition(harness, last_active, candidate) as (active_root, candidate_root):
-            results = cfg.goal.evaluate(trace, GoalContext(str(candidate_root), ep))
+        with materialized_transition(
+            harness, last_active, candidate
+        ) as (active_root, task_candidate_root, gate_candidate_root):
+            results = cfg.goal.evaluate(trace, GoalContext(str(task_candidate_root), ep))
             task_selected, best_score = _select_task_candidate(cfg.goal, results, best_score)
             if cfg.candidate_gate is None:
                 safety_result = CandidateGateResult(True, "pass", "")
@@ -201,13 +210,13 @@ def run(cfg: RunConfig) -> RunResult:
                         active=SnapshotRef(cfg.run_id, ep - 1, SnapshotRole.ACTIVE),
                         candidate=candidate,
                         active_root=active_root,
-                        candidate_root=candidate_root,
+                        candidate_root=gate_candidate_root,
                         adapter_name=cfg.adapter.name,
                         events=trace,
                     ),
                 )
 
-        activated = task_selected and safety_result.allowed
+        activated = task_selected and safety_result.allowed and safety_result.status == "pass"
         if activated:
             last_active = snapshot.commit(harness, f"episode {ep}: {cfg.name} [activated]")
         else:

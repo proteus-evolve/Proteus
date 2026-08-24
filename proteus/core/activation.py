@@ -40,12 +40,14 @@ class CandidateGate(Protocol):
 @contextmanager
 def materialized_transition(
     work_tree: Path, active_commit: str, candidate: SnapshotRef
-) -> Iterator[tuple[Path, Path]]:
-    """Provide isolated active/candidate trees to evaluators for one transition."""
+) -> Iterator[tuple[Path, Path, Path]]:
+    """Provide independent active/task-candidate/gate-candidate trees for one transition."""
     with TemporaryDirectory(prefix="proteus-transition-") as temporary:
         root = Path(temporary)
         active_root = root / "active"
-        candidate_root = root / "candidate"
+        task_candidate_root = root / "task-candidate"
+        gate_candidate_root = root / "gate-candidate"
         snapshot.materialize(work_tree, active_commit, active_root)
-        snapshot.materialize_candidate(work_tree, candidate, candidate_root)
-        yield active_root, candidate_root
+        snapshot.materialize_candidate(work_tree, candidate, task_candidate_root)
+        snapshot.materialize_candidate(work_tree, candidate, gate_candidate_root)
+        yield active_root, task_candidate_root, gate_candidate_root
