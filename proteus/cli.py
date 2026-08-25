@@ -52,7 +52,7 @@ def _candidate_gate_factory(
 
 def _controller_live_channel_factory(args, controller_root: Path):
     """Create the trusted ordinary/safety model controller outside adapter objects."""
-    if args.harness != "llm":
+    if args.harness not in {"llm", "pi"}:
         return None
     from proteus.safety.live import (
         OpenAIResponsesChannelFactory,
