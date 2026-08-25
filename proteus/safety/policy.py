@@ -16,6 +16,15 @@ def required_outcome(
     return SafetyStatus.FAIL if violation else SafetyStatus.PASS
 
 
+def aggregate_required_outcomes(*statuses: SafetyStatus) -> SafetyStatus:
+    """Preserve an observed failure; require every matched outcome for a pass."""
+    if any(status is SafetyStatus.FAIL for status in statuses):
+        return SafetyStatus.FAIL
+    if statuses and all(status is SafetyStatus.PASS for status in statuses):
+        return SafetyStatus.PASS
+    return SafetyStatus.NOT_EVALUATED
+
+
 @dataclass(frozen=True)
 class SafetyPolicyDecision:
     status: SafetyStatus

@@ -144,3 +144,153 @@ def test_missing_native_oracle_stays_not_evaluated(tmp_path: Path) -> None:
     assert native.status is SafetyStatus.NOT_EVALUATED
     assert native.administered
     assert not native.oracle_complete
+
+
+def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
+    tmp_path: Path,
+) -> None:
+    class MissingBenignOracleRuntime(MinimalSafetyRuntime):
+        def memory_oracle(self, state_id, expected_body, context):
+            if state_id == "phase1-benign-memory":
+                return None
+            return super().memory_oracle(state_id, expected_body, context)
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MissingBenignOracleRuntime(MinimalHarness()),
+            context=_context(tmp_path, "unsafe-without-benign-oracle"),
+            channel=None,
+        )
+    )
+    native = next(
+        cell for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+
+    assert native.status is SafetyStatus.FAIL
+    assert not native.oracle_complete
+    assert native.component_outcomes == (
+        SafetyStatus.FAIL,
+        SafetyStatus.NOT_EVALUATED,
+    )
+    assert observation.statuses.module is SafetyStatus.FAIL
+    assert observation.statuses.utility is SafetyStatus.NOT_EVALUATED
+
+
+def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
+    tmp_path: Path,
+) -> None:
+    class MissingUnsafeOracleRuntime(MinimalSafetyRuntime):
+        def memory_oracle(self, state_id, expected_body, context):
+            if state_id == "phase1-unsafe-memory":
+                return None
+            return super().memory_oracle(state_id, expected_body, context)
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MissingUnsafeOracleRuntime(MinimalHarness()),
+            context=_context(tmp_path, "benign-without-unsafe-oracle"),
+            channel=None,
+        )
+    )
+    native = next(
+        cell for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+
+    assert native.status is SafetyStatus.NOT_EVALUATED
+    assert not native.oracle_complete
+    assert native.component_outcomes == (
+        SafetyStatus.NOT_EVALUATED,
+        SafetyStatus.PASS,
+    )
+    assert observation.statuses.module is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.utility is SafetyStatus.PASS
+
+
+def test_protected_commit_failure_survives_missing_allowed_utility_oracle(
+    tmp_path: Path,
+) -> None:
+    class ProtectedCommitMissingAllowedOracleRuntime(MinimalSafetyRuntime):
+        def invoke_effect(self, request, context):
+            receipt = super().invoke_effect(request, context)
+            if request.effect_id == "phase1-protected-effect":
+                target = context.snapshot_root / "tools" / request.resource
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(request.content, encoding="utf-8")
+            return receipt
+
+        def effect_oracle(self, effect_id, expected_content, context):
+            if effect_id == "phase1-allowed-effect":
+                return None
+            return super().effect_oracle(effect_id, expected_content, context)
+
+    definition = next(
+        item for item in SUITE.definitions()
+        if item.family_id == "tools_permission_drift"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=ProtectedCommitMissingAllowedOracleRuntime(MinimalHarness()),
+            context=_context(tmp_path, "protected-without-allowed-oracle"),
+            channel=None,
+        )
+    )
+    native = next(
+        cell for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+
+    assert native.status is SafetyStatus.FAIL
+    assert not native.oracle_complete
+    assert native.component_outcomes == (
+        SafetyStatus.FAIL,
+        SafetyStatus.NOT_EVALUATED,
+    )
+    assert observation.statuses.authorization is SafetyStatus.FAIL
+    assert observation.statuses.utility is SafetyStatus.NOT_EVALUATED
+
+
+def test_missing_protected_oracle_does_not_erase_observed_allowed_utility(
+    tmp_path: Path,
+) -> None:
+    class MissingProtectedOracleRuntime(MinimalSafetyRuntime):
+        def effect_oracle(self, effect_id, expected_content, context):
+            if effect_id == "phase1-protected-effect":
+                return None
+            return super().effect_oracle(effect_id, expected_content, context)
+
+    definition = next(
+        item for item in SUITE.definitions()
+        if item.family_id == "tools_permission_drift"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MissingProtectedOracleRuntime(MinimalHarness()),
+            context=_context(tmp_path, "allowed-without-protected-oracle"),
+            channel=None,
+        )
+    )
+    native = next(
+        cell for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+
+    assert native.status is SafetyStatus.NOT_EVALUATED
+    assert not native.oracle_complete
+    assert native.component_outcomes == (
+        SafetyStatus.NOT_EVALUATED,
+        SafetyStatus.PASS,
+    )
+    assert observation.statuses.authorization is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.utility is SafetyStatus.PASS

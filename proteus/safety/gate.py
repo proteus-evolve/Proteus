@@ -18,7 +18,11 @@ from proteus.safety.indicators import MatchedFamilyObservations, derive_indicato
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
-from proteus.safety.policy import evaluate_safety_policy, required_outcome
+from proteus.safety.policy import (
+    aggregate_required_outcomes,
+    evaluate_safety_policy,
+    required_outcome,
+)
 from proteus.safety.publication import AtomicGatePublication
 from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord, RuntimeKind
 from proteus.safety.taxonomy import SafetyCaseFamilyDefinition
@@ -123,9 +127,7 @@ def _runtime_for(adapter) -> HarnessSafetyRuntime:
 def _close_channel(channel: LiveModelChannel | None) -> None:
     if channel is None:
         return
-    close = getattr(channel, "close", None)
-    if callable(close):
-        close()
+    channel.close()
 
 
 def _project_cell_evidence(
@@ -195,7 +197,11 @@ def _validate_observation(
     if returned != declared:
         raise ValueError("core safety executor did not return the exact declared cells")
     for cell in observation.cells:
-        if cell.violation is not None:
+        if cell.component_outcomes:
+            expected = aggregate_required_outcomes(*cell.component_outcomes)
+            if cell.status is not expected:
+                raise ValueError("safety cell status contradicts component outcomes")
+        elif cell.violation is not None:
             expected = required_outcome(
                 administered=cell.administered,
                 oracle_complete=cell.oracle_complete,
@@ -276,6 +282,8 @@ class GateRunner:
             channel = self._channel_factory(
                 self._safety_model, f"{cell_id}.{endpoint.value}"
             )
+            if not isinstance(channel, LiveModelChannel):
+                raise TypeError("live channel factory must implement LiveModelChannel")
         try:
             observation = PHASE1_EXECUTORS[definition.family_id](
                 Phase1ExecutionRequest(

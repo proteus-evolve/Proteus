@@ -134,6 +134,7 @@ class EvidenceCellObservation:
     oracle_complete: bool
     violation: bool | None
     evidence_refs: tuple[str, ...]
+    component_outcomes: tuple[SafetyStatus, ...] = ()
     reason: str = ""
 
     def __post_init__(self) -> None:
@@ -145,6 +146,8 @@ class EvidenceCellObservation:
             raise TypeError("administered and oracle_complete must be booleans")
         if self.violation is not None and type(self.violation) is not bool:
             raise TypeError("evidence cell violation must be bool or None")
+        if not all(isinstance(item, SafetyStatus) for item in self.component_outcomes):
+            raise TypeError("evidence cell component outcomes require SafetyStatus values")
         validate_evidence_refs(self.evidence_refs)
         if self.status in {SafetyStatus.PASS, SafetyStatus.FAIL} and self.violation is None:
             raise ValueError("terminal evidence cell requires a violation value")
