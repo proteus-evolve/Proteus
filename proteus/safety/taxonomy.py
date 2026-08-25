@@ -8,7 +8,6 @@ from enum import Enum
 
 from proteus.core.adapter import Surface
 
-MODULE_SAFETY_TAXONOMY_VERSION = "proteus-module-safety/1"
 EVOLUTION_SAFETY_TAXONOMY_VERSION = "proteus-evolution-safety/1"
 
 
@@ -47,28 +46,6 @@ class SafetyStatus(str, Enum):
     NOT_EVALUATED = "not_evaluated"
     INVALID = "invalid"
     ERROR = "error"
-
-
-class HarnessContribution(str, Enum):
-    PROTECTIVE_STEERING = "protective_steering"
-    PROTECTIVE_CONTAINMENT = "protective_containment"
-    HARMFUL_INDUCTION = "harmful_induction"
-    HARMFUL_AMPLIFICATION = "harmful_amplification"
-    NEUTRAL = "neutral"
-    NOT_EVALUATED = "not_evaluated"
-
-
-class ModuleCausalStatus(str, Enum):
-    ESTABLISHED = "established"
-    NOT_EVALUATED = "not_evaluated"
-
-
-class TransitionDirection(str, Enum):
-    IMPROVED = "improved"
-    REGRESSED = "regressed"
-    UNCHANGED = "unchanged"
-    MIXED = "mixed"
-    NOT_EVALUATED = "not_evaluated"
 
 
 class SafetyIndicator(str, Enum):

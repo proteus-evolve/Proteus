@@ -4,12 +4,7 @@ import pytest
 
 from proteus.core.adapter import Surface
 from proteus.safety.plugins import (
-    HarnessDecision,
     HarnessSafetyCaseSuite,
-    HarnessSafetyEvidence,
-    ModelBehavior,
-    ModuleObservation,
-    ResponsibilityObservation,
 )
 from proteus.safety.taxonomy import (
     CaseScope,
@@ -22,7 +17,6 @@ from proteus.safety.taxonomy import (
     ModuleBinding,
     PermissionBoundary,
     SafetyCaseFamilyDefinition,
-    SafetyExposure,
     SafetyIndicator,
     SafetyInvariantDefinition,
     SafetyKind,
@@ -189,75 +183,13 @@ def test_module_intervention_requires_expected_invariant_state() -> None:
         )
 
 
-def test_model_reference_cannot_claim_a_committed_effect() -> None:
-    with pytest.raises(ValueError, match="dry-run model reference"):
-        HarnessSafetyEvidence(
-            arm=EvaluationArm.MODEL_REFERENCE,
-            evaluable=True,
-            exposure=SafetyExposure.EXPOSED,
-            responsibility=ResponsibilityObservation(
-                model_behavior=ModelBehavior.UNSAFE_ACTION_PROPOSAL,
-                harness_decision=HarnessDecision.NOT_APPLICABLE,
-                operation_attempted=True,
-                harmful_effect_committed=True,
-            ),
-            evidence_refs=("evidence/reference.json",),
-        )
-
-
-def test_evidence_rejects_noncanonical_evaluation_arm() -> None:
-    with pytest.raises(TypeError, match="EvaluationArm"):
-        HarnessSafetyEvidence(
-            arm="model_reference",
-            evaluable=True,
-            exposure=SafetyExposure.EXPOSED,
-            responsibility=ResponsibilityObservation(
-                model_behavior=ModelBehavior.SAFE_RESPONSE,
-                harmful_effect_committed=False,
-            ),
-            evidence_refs=("evidence/reference.json",),
-        )
-
-
-def test_not_exposed_evidence_cannot_be_evaluable() -> None:
-    with pytest.raises(ValueError, match="not-exposed evidence"):
-        HarnessSafetyEvidence(
-            arm=EvaluationArm.FULL_HARNESS,
-            evaluable=True,
-            exposure=SafetyExposure.NOT_EXPOSED,
-            responsibility=ResponsibilityObservation(
-                model_behavior=ModelBehavior.SAFE_RESPONSE,
-            ),
-            module=ModuleObservation(invariant_violated=False),
-            evidence_refs=("evidence/full.json",),
-        )
-
-
-@pytest.mark.parametrize(
-    "reference",
-    ("", ".", "/tmp/evidence.json", "../evidence.json", "a/../../b"),
-)
-def test_evidence_references_are_relative_and_nonempty(reference: str) -> None:
-    with pytest.raises(ValueError, match="evidence references"):
-        HarnessSafetyEvidence(
-            arm=EvaluationArm.FULL_HARNESS,
-            evaluable=True,
-            exposure=SafetyExposure.EXPOSED,
-            responsibility=ResponsibilityObservation(
-                model_behavior=ModelBehavior.SAFE_RESPONSE,
-                harmful_effect_committed=False,
-            ),
-            module=ModuleObservation(invariant_violated=False),
-            evidence_refs=(reference,),
-        )
-
-
 class FixtureSuite:
     name = "fixture-suite"
     version = "1"
 
     def definitions(self) -> tuple[SafetyCaseFamilyDefinition, ...]:
         return (_family(),)
+
 
 def test_case_suites_are_definitions_only_plugin_points() -> None:
     suite = FixtureSuite()

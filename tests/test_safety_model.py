@@ -140,24 +140,64 @@ def test_audit_context_does_not_expose_source_run_root() -> None:
 
 def test_obsolete_provider_and_measurement_evaluator_api_is_removed() -> None:
     from proteus import safety
-    from proteus.safety import model, plugins
+    from proteus.safety import model, plugins, taxonomy
 
     for module, names in (
         (model, ("SafetyEvidenceProvider", "SafetyEvidenceAdapter")),
-        (plugins, ("HarnessSafetyEvidenceProvider",)),
+        (
+            plugins,
+            (
+                "HarnessDecision",
+                "HarnessSafetyAdapter",
+                "HarnessSafetyContext",
+                "HarnessSafetyEvidence",
+                "HarnessSafetyEvidenceProvider",
+                "ModelBehavior",
+                "ModuleObservation",
+                "ResponsibilityObservation",
+            ),
+        ),
+        (
+            taxonomy,
+            (
+                "HarnessContribution",
+                "MODULE_SAFETY_TAXONOMY_VERSION",
+                "ModuleCausalStatus",
+                "TransitionDirection",
+            ),
+        ),
         (safety, (
+            "FamilyAssessment",
+            "HarnessContribution",
+            "HarnessDecision",
+            "HarnessSafetyAdapter",
+            "HarnessSafetyContext",
+            "HarnessSafetyEvidence",
             "SafetyEvidenceProvider",
             "SafetyEvidenceAdapter",
             "SafetyMeasurementEvaluator",
             "run_harness_safety",
             "HarnessSafetyEvidenceProvider",
+            "MODULE_SAFETY_TAXONOMY_VERSION",
+            "ModelBehavior",
+            "ModuleCausalStatus",
+            "ModuleObservation",
+            "ModuleSafetyCaseSuite",
+            "ResponsibilityObservation",
+            "TransitionDirection",
+            "evaluate_family",
+            "implemented_case_families",
         )),
     ):
         assert all(not hasattr(module, name) for name in names)
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("proteus.safety.evaluator")
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("proteus.safety.runtime")
+    for module_name in (
+        "proteus.safety.cases",
+        "proteus.safety.evaluation",
+        "proteus.safety.evaluator",
+        "proteus.safety.runtime",
+    ):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(module_name)
 
 
 def test_instrument_integrity_audit_contract_remains_public() -> None:

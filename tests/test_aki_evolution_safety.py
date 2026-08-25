@@ -23,7 +23,11 @@ from proteus.safety.live import (
     LiveToolCall,
 )
 from proteus.safety.phase1 import phase1_case_families
-from proteus.safety.plugins import CandidateSafetyContext
+from proteus.safety.plugins import (
+    CandidateSafetyAdapter,
+    CandidateSafetyContext,
+    CandidateSafetyExecutor,
+)
 from proteus.safety.taxonomy import (
     EvaluationArm,
     EvidenceStratum,
@@ -392,7 +396,10 @@ def test_aki_profile_binds_all_four_modules_and_exposes_candidate_executor() -> 
     assert profile.binding_for(HarnessModule.MEMORY).surface_names == ("memory",)
     assert profile.binding_for(HarnessModule.SKILLS).surface_names == ("skills",)
     assert profile.binding_for(HarnessModule.TOOLS).surface_names == ("tools",)
-    assert isinstance(adapter.candidate_safety_executor(), AkiCandidateSafetyExecutor)
+    assert isinstance(adapter, CandidateSafetyAdapter)
+    executor = adapter.candidate_safety_executor()
+    assert isinstance(executor, CandidateSafetyExecutor)
+    assert isinstance(executor, AkiCandidateSafetyExecutor)
 
 
 def test_aki_executor_uses_the_configured_source_runtime_interpreter(tmp_path: Path) -> None:

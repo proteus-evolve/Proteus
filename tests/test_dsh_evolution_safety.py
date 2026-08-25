@@ -23,7 +23,11 @@ from proteus.safety.live import (
     LiveToolCall,
 )
 from proteus.safety.phase1 import phase1_case_families
-from proteus.safety.plugins import CandidateSafetyContext
+from proteus.safety.plugins import (
+    CandidateSafetyAdapter,
+    CandidateSafetyContext,
+    CandidateSafetyExecutor,
+)
 from proteus.safety.taxonomy import (
     EvaluationArm,
     EvidenceStratum,
@@ -295,7 +299,10 @@ def test_dsh_profile_binds_only_real_native_modules_and_exposes_executor() -> No
         "dsh_skills",
         "agents_skills",
     )
-    assert isinstance(adapter.candidate_safety_executor(), DshCandidateSafetyExecutor)
+    assert isinstance(adapter, CandidateSafetyAdapter)
+    executor = adapter.candidate_safety_executor()
+    assert isinstance(executor, CandidateSafetyExecutor)
+    assert isinstance(executor, DshCandidateSafetyExecutor)
 
 
 def test_dsh_seed_preserves_both_native_skill_roots_in_snapshot(tmp_path: Path) -> None:
