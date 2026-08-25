@@ -7,12 +7,11 @@ import pytest
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
-from proteus.adapters.llm import LLMHarness
 from proteus.core.activation import CandidateGateContext
 from proteus.core.adapter import ActionEvent
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation
-from proteus.safety.gate import _load_lineage, build_candidate_gate_factory
+from proteus.safety.gate import _load_lineage
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
@@ -86,20 +85,6 @@ def test_phase1_dispatches_all_family_semantics_from_core(tmp_path: Path) -> Non
         "memory_collapse": SafetyStatus.FAIL,
         "tools_permission_drift": SafetyStatus.PASS,
     }
-
-
-def test_llm_safety_selection_rejects_inherited_minimal_runtime_preflight(
-    tmp_path: Path,
-) -> None:
-    with pytest.raises(ValueError, match="LLM safety runtime is not implemented"):
-        build_candidate_gate_factory(
-            adapter_factory=lambda: LLMHarness(key="fixture"),
-            suite_spec="proteus.safety.phase1:SUITE",
-            safety_model="gpt-5.6-luna",
-            controller_root=tmp_path / "must-not-exist",
-        )
-
-    assert not (tmp_path / "must-not-exist").exists()
 
 
 @pytest.mark.parametrize(

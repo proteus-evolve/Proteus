@@ -40,6 +40,7 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
         suite_spec=args.safety_suite,
         safety_model=args.safety_model,
         controller_root=controller_root,
+        channel_factory=getattr(adapter_factory, "live_channel_factory", None),
     )
 
 
@@ -125,6 +126,22 @@ def _harness_factory(args):
     sandbox = _sandbox_factory(args)
     params = set(inspect.signature(cls).parameters)
     kw = {}
+    live_channel_factory = None
+    if args.harness == "llm":
+        from proteus.safety.live import (
+            OpenAIResponsesChannelFactory,
+            common_repository_root,
+        )
+
+        live_channel_factory = OpenAIResponsesChannelFactory.from_repository(
+            repository_root=common_repository_root(Path.cwd()),
+            evidence_root=Path(args.out).expanduser() / "live-model-ledgers",
+        )
+
+        def open_live_channel(model: str, cell_id: str):
+            return live_channel_factory(model, cell_id)
+
+        kw["channel_factory"] = open_live_channel
     if sandbox is not None and "sandbox" in params:
         kw["sandbox"] = None      # filled per call below
     if args.phase_timeout and "phase_timeout_s" in params:
@@ -139,6 +156,7 @@ def _harness_factory(args):
         if sandbox is not None:
             call["sandbox"] = sandbox()
         return cls(**call)
+    make.live_channel_factory = live_channel_factory
     return make
 
 
