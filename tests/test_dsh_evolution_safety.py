@@ -848,14 +848,15 @@ def test_bad_memory_fixed_live_fails_closed_when_exact_seeded_note_changes(
     assert result.reason == "native_note_identity_or_body_changed"
 
 
-def test_bad_memory_phase_error_preserves_error_and_note_mutation_evidence(
+def test_bad_memory_phase_error_preserves_error_and_malformed_file_evidence(
     tmp_path: Path,
 ) -> None:
     from proteus.adapters.dsh import DshPhaseResult
     from proteus.adapters.dsh_safety import DshCandidateSafetyExecutor
 
     def fail_after_mutation(kwargs):
-        (kwargs["workspace"] / _UNSAFE_NOTE).write_text("candidate rewrite\n", encoding="utf-8")
+        (kwargs["workspace"] / _UNSAFE_NOTE).write_bytes(b"\xff\xfe")
+        (kwargs["workspace"] / "tools/proteus-memory-influence.txt").write_bytes(b"\xff\xfe")
         return DshPhaseResult(False, error="phase safety: terminal error")
 
     root = _snapshot(tmp_path / "snapshot")
@@ -875,8 +876,57 @@ def test_bad_memory_phase_error_preserves_error_and_note_mutation_evidence(
     assert result.reason == "phase safety: terminal error"
     assert result.statuses.module is SafetyStatus.ERROR
     assert failure["error"] == "phase safety: terminal error"
+    assert failure["details"]["post_run_notes"]["unsafe"]["present"] is True
+    assert failure["details"]["post_run_notes"]["unsafe"]["readable"] is False
     assert failure["details"]["post_run_notes"]["unsafe"]["exact_body"] is False
+    assert failure["details"]["post_run_notes"]["unsafe"]["reason"] == "invalid_utf8"
     assert failure["details"]["post_run_notes"]["benign"]["exact_body"] is True
+    assert failure["details"]["post_run_marker"]["present"] is True
+    assert failure["details"]["post_run_marker"]["readable"] is False
+    assert failure["details"]["post_run_marker"]["exact_body"] is False
+    assert failure["details"]["post_run_marker"]["reason"] == "invalid_utf8"
+
+
+def test_bad_memory_malformed_marker_is_unresolved_not_executor_error(tmp_path: Path) -> None:
+    from proteus.adapters.dsh_safety import DshCandidateSafetyExecutor
+
+    effect = LiveToolCall(
+        "write-effect",
+        "write",
+        {"file_path": _INFLUENCE_PATH, "content": _INFLUENCE_BODY},
+    )
+    records = (_record(1, model_input=_UNSAFE_BODY, tool_calls=(effect,)),)
+    events = (_tool_event(effect), _tool_result_event(effect.call_id))
+
+    def complete(kwargs):
+        (kwargs["workspace"] / "tools/proteus-memory-influence.txt").write_bytes(b"\xff\xfe")
+        return _phase_result(events=events, records=records)
+
+    root = _snapshot(tmp_path / "snapshot")
+    context = _context(tmp_path, root)
+    result = DshCandidateSafetyExecutor(_ScriptedRuntime(complete)).collect(
+        _definition("memory_bad_admission"),
+        ProbeEndpoint.CANDIDATE,
+        EvaluationArm.FULL_HARNESS,
+        EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+        context,
+        _FakeChannel(),
+    )
+
+    evidence = json.loads(
+        (context.evidence_dir / "fixed-live-headless.json").read_text(encoding="utf-8")
+    )
+    assert result.reason == "native_recovery_unavailable"
+    assert result.statuses.behavior is SafetyStatus.NOT_EVALUATED
+    assert result.unsafe_states[0].harm_commit is StageValue.FALSE
+    assert result.proposal_effects[0].containment_outcome is ContainmentOutcome.UNRESOLVED
+    assert evidence["post_run_marker"] == {
+        "relative_path": "tools/proteus-memory-influence.txt",
+        "present": True,
+        "readable": False,
+        "exact_body": False,
+        "reason": "invalid_utf8",
+    }
 
 
 def test_fixed_live_rejects_unsupported_channel_model_before_runtime_or_paid_call(
