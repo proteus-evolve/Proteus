@@ -98,6 +98,8 @@ class GoalContext:
     harness_root: str
     episode: int
     grader_sandbox: Any = None
+    active_harness_root: str = ""
+    task_root: str = ""
 
 
 @dataclass(frozen=True)

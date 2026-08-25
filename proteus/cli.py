@@ -23,6 +23,26 @@ from proteus.core.goal import GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
 
 
+def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
+    """Load safety only for an explicitly safety-gated run.
+
+    Normal Minimal/benchmark runs must remain usable while optional safety providers are
+    absent or have unavailable live dependencies, so the import belongs behind the CLI flag.
+    """
+    if not args.safety_suite:
+        if args.safety_model:
+            raise ValueError("--safety-model requires --safety-suite")
+        return None
+    from proteus.safety.gate import build_candidate_gate_factory
+
+    return build_candidate_gate_factory(
+        adapter_factory=adapter_factory,
+        suite_spec=args.safety_suite,
+        safety_model=args.safety_model,
+        controller_root=controller_root,
+    )
+
+
 def _load_seed_records(root: Path) -> list[dict]:
     """CLI-facing seed reader with one clean error path and last-write-wins semantics."""
     path = root / "seeds.jsonl"
@@ -252,6 +272,13 @@ def cmd_run(args) -> int:
     if args.checkpoint_turns and not args.announce_budget:
         raise SystemExit("--checkpoint-turns requires --announce-budget")
     factory = _harness_factory(args)
+    root = Path(args.out).expanduser()
+    try:
+        candidate_gate_factory = _candidate_gate_factory(
+            args, adapter_factory=factory, controller_root=root
+        )
+    except (ImportError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
     parsed = [_evaluator(e, factory) for e in (args.evaluator or ())]
     evaluators = tuple(spec for spec, _ in parsed)
     tasks = [task for _, task in parsed if task is not None]
@@ -264,7 +291,7 @@ def cmd_run(args) -> int:
         arms=[_arm(a) for a in args.arm],
         seeds=args.seeds,
         goal=_goal(args.goal, evaluators),
-        root=Path(args.out).expanduser(),
+        root=root,
         model=args.model,
         episodes=args.episodes,
         max_turns=args.max_turns,
@@ -284,10 +311,15 @@ def cmd_run(args) -> int:
         checkpoint_turns=args.checkpoint_turns,
         announce_budget=args.announce_budget,
         on_existing=args.on_existing,
+        candidate_gate_factory=candidate_gate_factory,
+        candidate_gate_config=(
+            {"suite": args.safety_suite, "model": args.safety_model}
+            if args.safety_suite else {}
+        ),
     )
     try:
         records = run_sweep(cfg)
-    except (FileExistsError, ValueError) as exc:
+    except (FileExistsError, ImportError, ValueError) as exc:
         raise SystemExit(str(exc)) from None
     done = sum(r["episodes_complete"] for r in records)
     print(f"ran {len(records)} seeds, {done} episodes -> {args.out}")
@@ -529,6 +561,10 @@ def main(argv=None) -> int:
                         "resume unfinished seeds, or overwrite them")
     r.add_argument("--model", default="",
                    help="model name; empty uses the adapter's default")
+    r.add_argument("--safety-suite", default="", metavar="SPEC",
+                   help="optional candidate safety suite; loads safety runtime lazily")
+    r.add_argument("--safety-model", default="", metavar="MODEL",
+                   help="fixed model for the optional safety suite (requires --safety-suite)")
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 

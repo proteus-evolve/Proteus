@@ -25,6 +25,14 @@ from pathlib import Path
 from typing import Mapping
 
 from proteus.core import snapshot
+from proteus.core.activation import (
+    CandidateGate,
+    CandidateGateContext,
+    CandidateGateResult,
+    activate_frozen_candidate,
+    materialized_transition,
+    reject_frozen_candidate,
+)
 from proteus.core.adapter import EpisodeSpec, HarnessAdapter
 from proteus.core.budget import PHASES, make_budget_plan
 from proteus.core.disposition import Disposition
@@ -35,6 +43,7 @@ from proteus.core.episode_protocol import (
     default_phase_prompts,
 )
 from proteus.core.goal import GoalConfig, GoalContext
+from proteus.core.snapshot import SnapshotRef, SnapshotRole
 
 def _write_json_atomic(path: Path, value) -> None:
     """Replace one JSON record without exposing a truncated crash-time file."""
@@ -153,6 +162,8 @@ class RunConfig:
     goal: GoalConfig
     root: Path
     model: str
+    run_id: str = ""
+    """Opaque sweep identity used only in controller-owned candidate records."""
     episodes: int = 30
     max_turns: int = 100
     min_turns_per_phase: int = 0
@@ -183,6 +194,8 @@ class RunConfig:
     """Where to append one JSON line per finished episode (live tracking). Must live
     OUTSIDE `root`: the subject agent can read its own run root, and a progress record
     carries the condition label and HIDDEN evaluator scores."""
+    candidate_gate: CandidateGate | None = None
+    """Optional controller-only gate. Ordinary runs do not construct or import safety code."""
 
 
 @dataclass
@@ -298,6 +311,34 @@ def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, result
         sink.write(json.dumps(rec) + "\n")
 
 
+def _select_task_candidate(
+    goal: GoalConfig, results, active_best_score: float | None
+) -> tuple[bool, float | None]:
+    """Apply the current-main task selection rule without mutating its incumbent."""
+    if goal.selection != "accept_reject" or not results:
+        return True, active_best_score
+    candidate_score = sum(result.score for result in results) / len(results)
+    if active_best_score is not None and candidate_score < active_best_score:
+        return False, active_best_score
+    return True, candidate_score
+
+
+def _evaluate_gate(gate: CandidateGate, context: CandidateGateContext) -> CandidateGateResult:
+    """A crashed or malformed gate fails closed without exposing its detail to the subject."""
+    try:
+        result = gate.evaluate(context)
+    except Exception:  # noqa: BLE001 - controller failure must never activate a candidate
+        return CandidateGateResult(False, "error", "")
+    if (
+        not isinstance(result, CandidateGateResult)
+        or type(result.allowed) is not bool
+        or not isinstance(result.status, str)
+        or not isinstance(result.decision_ref, str)
+    ):
+        return CandidateGateResult(False, "invalid", "")
+    return result
+
+
 def completed_episodes(cfg: RunConfig) -> int:
     """Contiguous episodes already snapshotted under `cfg.root`, for mid-seed resume.
 
@@ -326,6 +367,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     skipped entirely.
     """
     harness = cfg.root / "harness"
+    run_id = cfg.run_id or cfg.root.name
     records = private_record_dir(cfg.root)
     staged_activation = bool(getattr(cfg.adapter, "staged_activation", False))
     make_budget_plan(
@@ -566,25 +608,73 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             except Exception as exc:  # noqa: BLE001 - validation failure is a rejection
                 viability_error = f"{type(exc).__name__}: {exc}"
 
-        # Evaluate a viable candidate BEFORE snapshotting, so selection can still reject
-        # it. An evaluator is user (or benchmark) code — a crash in it must not take the
-        # whole trajectory down; a failed evaluator records a zero and the run continues.
+        # Evaluate a viable candidate before normal activation. With no gate, retain the
+        # current-main path exactly. A gated run freezes first and gives the task evaluator
+        # and controller independent copies so neither can change the candidate being judged.
         results = []
+        task_selected = not viability_error
+        candidate_score: float | None = None
+        safety_result: CandidateGateResult | None = None
+        frozen_candidate: SnapshotRef | None = None
         if not viability_error:
-            try:
-                results = cfg.goal.evaluate(
-                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+            if cfg.candidate_gate is None:
+                try:
+                    results = cfg.goal.evaluate(
+                        trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    from proteus.core.goal import EvalResult
+                    results = [EvalResult(name="evaluator-error", score=0.0,
+                                          detail=f"{type(exc).__name__}: {exc}"[:200])]
+            else:
+                frozen_candidate = snapshot.freeze_candidate(
+                    harness, run_id=run_id, episode=ep, label=cfg.name
                 )
-            except Exception as exc:  # noqa: BLE001
-                from proteus.core.goal import EvalResult
-                results = [EvalResult(name="evaluator-error", score=0.0,
-                                      detail=f"{type(exc).__name__}: {exc}"[:200])]
+                with materialized_transition(harness, last_accepted, frozen_candidate) as (
+                    active_root, task_candidate_root, gate_candidate_root
+                ):
+                    try:
+                        results = cfg.goal.evaluate(
+                            trace,
+                            GoalContext(
+                                str(task_candidate_root), ep,
+                                grader_sandbox=cfg.grader_sandbox,
+                                active_harness_root=str(active_root),
+                                task_root=str(task_candidate_root.parent / "task"),
+                            ),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        from proteus.core.goal import EvalResult
+                        results = [EvalResult(name="evaluator-error", score=0.0,
+                                              detail=f"{type(exc).__name__}: {exc}"[:200])]
+                    task_selected, candidate_score = _select_task_candidate(
+                        cfg.goal, results, best_score
+                    )
+                    safety_result = _evaluate_gate(
+                        cfg.candidate_gate,
+                        CandidateGateContext(
+                            run_id=run_id,
+                            episode=ep,
+                            active=SnapshotRef(run_id, ep - 1, SnapshotRole.ACTIVE),
+                            candidate=frozen_candidate,
+                            active_root=active_root,
+                            candidate_root=gate_candidate_root,
+                            events=tuple(trace),
+                        ),
+                    )
         by_name = {r.name: r for r in results}
 
         # outer-loop selection on the scores (visibility-independent: an outer loop may
         # act on scores the agent itself never sees)
         accepted = not viability_error
-        if accepted and cfg.goal.selection == "accept_reject" and results:
+        if cfg.candidate_gate is not None and not viability_error:
+            assert safety_result is not None
+            accepted = task_selected and safety_result.allowed and safety_result.status == "pass"
+            # A rejected candidate's score is not an incumbent. This includes task-selected
+            # candidates denied by safety, so a later lower task score remains eligible.
+            if accepted:
+                best_score = candidate_score
+        elif accepted and cfg.goal.selection == "accept_reject" and results:
             score = sum(r.score for r in results) / len(results)
             if best_score is not None and score < best_score:
                 accepted = False
@@ -594,18 +684,30 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         candidate_commit = ""
         try:
             if accepted:
-                candidate_commit = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
+                if frozen_candidate is not None:
+                    candidate_commit = activate_frozen_candidate(
+                        harness, frozen_candidate, message=f"episode {ep}: {cfg.name} [activated]"
+                    )
+                else:
+                    candidate_commit = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
                 last_accepted = candidate_commit
             else:
                 # non-destructive rejection: the rejected candidate tree goes into history
                 # first (as "candidate N:", outside the episode->commit mapping), then the
                 # restore is committed as episode N so the mapping stays gapless
                 reason = "viability failed" if viability_error else "rejected"
-                candidate_commit = snapshot.commit(
-                    harness, f"candidate {ep}: {cfg.name} [{reason}]"
-                )
-                snapshot.restore(harness, last_accepted)
-                snapshot.commit(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
+                if frozen_candidate is not None:
+                    candidate_commit = snapshot.candidate_commit(harness, frozen_candidate)
+                    reject_frozen_candidate(
+                        harness, last_accepted, frozen_candidate,
+                        message=f"episode {ep}: {cfg.name} [{reason}; rolled back]",
+                    )
+                else:
+                    candidate_commit = snapshot.commit(
+                        harness, f"candidate {ep}: {cfg.name} [{reason}]"
+                    )
+                    snapshot.restore(harness, last_accepted)
+                    snapshot.commit(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
         except Exception as exc:  # noqa: BLE001 - one bad subject must not abort a sweep
             error = f"snapshot failed after episode {ep}: {type(exc).__name__}: {exc}"
             try:
@@ -637,15 +739,24 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 totals[key] = totals.get(key, 0) + value
 
-        eval_history.append({"episode": ep, "accepted": accepted,
-                             "results": [r.__dict__ for r in results],
-                             "counters": dict(res.counters or {}),
-                             "candidate_commit": candidate_commit,
-                             "candidate_fingerprint": candidate_fingerprint,
-                             "disposition_fingerprint": checkpoint_fingerprint,
-                             "disposition_drift": candidate_fingerprint != fingerprint,
-                             "failure_kind": "viability" if viability_error else "",
-                             "error": viability_error})
+        history_row = {"episode": ep, "accepted": accepted,
+                       "results": [r.__dict__ for r in results],
+                       "counters": dict(res.counters or {}),
+                       "candidate_commit": candidate_commit,
+                       "candidate_fingerprint": candidate_fingerprint,
+                       "disposition_fingerprint": checkpoint_fingerprint,
+                       "disposition_drift": candidate_fingerprint != fingerprint,
+                       "failure_kind": "viability" if viability_error else "",
+                       "error": viability_error}
+        if safety_result is not None:
+            history_row.update({
+                "task_selected": task_selected,
+                "candidate_score": candidate_score,
+                "safety_status": safety_result.status,
+                "decision_ref": safety_result.decision_ref,
+                "activated": accepted,
+            })
+        eval_history.append(history_row)
         # The snapshot and experiment state are two halves of one durable checkpoint.
         # Persist after every episode, atomically. A crash in the tiny interval after the
         # git commit but before this replace is detected by the strict resume guard above

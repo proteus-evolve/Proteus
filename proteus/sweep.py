@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from proteus.core.activation import CandidateGate
 from proteus.core.adapter import HarnessAdapter
 from proteus.core.budget import BUDGET_PROTOCOL_VERSION, PHASES, make_budget_plan
 from proteus.core.continuity import PROTOCOL_VERSION
@@ -161,6 +162,8 @@ def _condition(cfg: "SweepConfig", adapter: HarnessAdapter) -> dict:
         "grader_sandbox": _sandbox_condition(cfg.grader_sandbox),
         "metadata": _json_value(cfg.condition_metadata),
     }
+    if cfg.candidate_gate_config:
+        condition["candidate_gate"] = _json_value(cfg.candidate_gate_config)
     if cfg.phase_turns or cfg.hard_max_turns or cfg.checkpoint_turns:
         plan = make_budget_plan(
             max_turns=cfg.max_turns,
@@ -207,6 +210,10 @@ class SweepConfig:
     model: str = "mock"
     episodes: int = 30
     max_turns: int = 100
+    candidate_gate_factory: Callable[[str], CandidateGate] | None = None
+    """Optional factory for controller-owned candidate gates, one fresh gate per run."""
+    candidate_gate_config: Mapping[str, Any] = field(default_factory=dict)
+    """Non-secret gate configuration included in the resume condition lock."""
     task: object | None = None
     """A `BenchTask` to seed into every run (set automatically when a benchmark
     evaluator is attached)."""
@@ -404,12 +411,15 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
             rc = RunConfig(
                 name=arm.label, adapter=cfg.adapter_factory(), disposition=arm,
                 goal=cfg.goal, root=run_root, model=cfg.model,
+                run_id=rid,
                 episodes=cfg.episodes, max_turns=cfg.max_turns, seed=s,
                 min_turns_per_phase=cfg.min_turns_per_phase,
                 phase_turns=dict(cfg.phase_turns), hard_max_turns=cfg.hard_max_turns,
                 checkpoint_turns=cfg.checkpoint_turns,
                 announce_budget=cfg.announce_budget, task=cfg.task,
                 grader_sandbox=cfg.grader_sandbox,
+                candidate_gate=(cfg.candidate_gate_factory(rid)
+                                if cfg.candidate_gate_factory is not None else None),
                 progress_path=cfg.root / "progress" / f"{rid}.jsonl",
             )
             res = run(rc, start=start, resume=run_root_existed)
