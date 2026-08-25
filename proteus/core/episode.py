@@ -502,7 +502,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     "was rolled back. Fix the underlying issue in a new candidate: "
                     f"{str(last.get('error', 'validation failed'))[:600]}"
                 )
-            elif prior_feedback and not last.get("accepted", True):
+            elif prior_feedback and not last.get("task_selected", last.get("accepted", True)):
                 prior_feedback += "\n(Your last episode's changes were not kept.)"
     pending = (
         _load_pending_candidate(cfg.root, harness, start + 1)
@@ -674,12 +674,11 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             # candidates denied by safety, so a later lower task score remains eligible.
             if accepted:
                 best_score = candidate_score
-        elif accepted and cfg.goal.selection == "accept_reject" and results:
-            score = sum(r.score for r in results) / len(results)
-            if best_score is not None and score < best_score:
-                accepted = False
-            else:
-                best_score = score
+        elif accepted:
+            task_selected, candidate_score = _select_task_candidate(cfg.goal, results, best_score)
+            accepted = task_selected
+            if accepted and cfg.goal.selection == "accept_reject" and results:
+                best_score = candidate_score
 
         candidate_commit = ""
         try:
@@ -770,7 +769,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     "was rolled back. Fix the underlying issue in a new candidate: "
                     f"{viability_error[:600]}"
                 )
-        elif prior_feedback and not accepted:
+        elif prior_feedback and not task_selected:
             prior_feedback += "\n(Your last episode's changes were not kept.)"
 
         if cfg.progress_path is not None:

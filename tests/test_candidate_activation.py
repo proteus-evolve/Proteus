@@ -6,9 +6,9 @@ from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness, mock_policy
 from proteus.bench.task import BenchTask
-from proteus.core import Goal, GoalConfig, review, snapshot
+from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, snapshot
 from proteus.core.activation import CandidateGateResult
-from proteus.core.episode import RunConfig, run
+from proteus.core.episode import RunConfig, pending_candidate_path, run
 from proteus.core.goal import EvalResult
 
 
@@ -220,3 +220,113 @@ def test_resume_uses_only_previously_activated_scores_as_its_selection_baseline(
 
     assert [row["activated"] for row in resumed.eval_history] == [False, True]
     assert resumed.eval_history[1]["task_selected"] is True
+
+
+def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
+    sentinel = "SENTINEL-SAFETY-ONLY-REJECTION"
+
+    def evaluator(_trace, _context):
+        return EvalResult(name="task", score=1.0, detail="task feedback")
+
+    goal = GoalConfig.single(
+        Goal("task", evaluator=evaluator, visibility=Visibility.OBSERVE)
+    )
+    cfg = _cfg(
+        tmp_path,
+        gate=ScriptedGate([
+            CandidateGateResult(False, sentinel, "gates/one"),
+            CandidateGateResult(True, "pass", "gates/two"),
+        ]),
+        goal=goal,
+    )
+    result = run(cfg)
+
+    observe = cfg.adapter.prompts[2]["observe"]
+    assert "Feedback on your last episode" in observe
+    assert "not kept" not in observe
+    assert sentinel not in observe
+    assert result.eval_history[0]["task_selected"] is True
+    assert result.eval_history[0]["activated"] is False
+
+
+def test_resume_after_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
+    sentinel = "SENTINEL-RESUMED-SAFETY-REJECTION"
+
+    def evaluator(_trace, _context):
+        return EvalResult(name="task", score=1.0, detail="task feedback")
+
+    goal = GoalConfig.single(
+        Goal("task", evaluator=evaluator, visibility=Visibility.OBSERVE)
+    )
+    first = run(_cfg(
+        tmp_path,
+        gate=ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")]),
+        goal=goal,
+        episodes=1,
+    ))
+    resumed_cfg = _cfg(
+        tmp_path,
+        gate=ScriptedGate([
+            CandidateGateResult(False, "unused", "unused"),
+            CandidateGateResult(True, "pass", "gates/two"),
+        ]),
+        goal=goal,
+        episodes=2,
+    )
+    run(resumed_cfg, start=first.episodes_complete, resume=True)
+
+    observe = resumed_cfg.adapter.prompts[2]["observe"]
+    assert "Feedback on your last episode" in observe
+    assert "not kept" not in observe
+    assert sentinel not in observe
+
+
+def test_staged_viability_repair_keeps_active_runtime_then_activates_through_gate(tmp_path):
+    class StagedHarness(MinimalHarness):
+        staged_activation = True
+
+        def __init__(self) -> None:
+            super().__init__(policy=mock_policy)
+            self.active_observations = []
+
+        def run_episode(self, spec):
+            active = Path(spec.active_root)
+            candidate = spec.root / "harness"
+            self.active_observations.append({
+                "episode": spec.episode,
+                "active_broken": (active / "BROKEN").exists(),
+                "candidate_broken": (candidate / "BROKEN").exists(),
+            })
+            if spec.episode == 1:
+                (candidate / "BROKEN").write_text("does not compile\n", encoding="utf-8")
+                assert not (active / "BROKEN").exists()
+            else:
+                assert (candidate / "BROKEN").read_text(encoding="utf-8") == "does not compile\n"
+                assert not (active / "BROKEN").exists()
+                (candidate / "BROKEN").unlink()
+                (candidate / "repaired.txt").write_text("healthy\n", encoding="utf-8")
+            return EpisodeResult(episode=spec.episode, ok=True)
+
+        def validate_candidate(self, harness_root):
+            return "compile failed" if (Path(harness_root) / "BROKEN").exists() else ""
+
+    adapter = StagedHarness()
+    gate = ScriptedGate([
+        CandidateGateResult(False, "unused", "unused"),
+        CandidateGateResult(True, "pass", "gates/two"),
+    ])
+    root = tmp_path / "staged"
+    result = run(RunConfig(
+        name="staged", run_id="run-staged", adapter=adapter, disposition=review("notes"),
+        goal=GoalConfig(), root=root, model="mock", episodes=2, candidate_gate=gate,
+    ))
+
+    assert adapter.active_observations == [
+        {"episode": 1, "active_broken": False, "candidate_broken": False},
+        {"episode": 2, "active_broken": False, "candidate_broken": True},
+    ]
+    assert [context.episode for context in gate.contexts] == [2]
+    assert result.eval_history[0]["failure_kind"] == "viability"
+    assert result.eval_history[1]["activated"] is True
+    assert (root / "harness" / "repaired.txt").read_text(encoding="utf-8") == "healthy\n"
+    assert not pending_candidate_path(root).exists()
