@@ -331,9 +331,18 @@ class OpenAICompatibleBridge:
             response_ref = f"bridge-response-{sequence:03d}.json"
             self._write_json(self._evidence_root / request_ref, payload)
             result_ids = _tool_result_ids(input_value)
-            linked_ids = tuple(
-                call_id for call_id in result_ids if call_id in self._issued_tool_calls
+            if len(result_ids) != len(set(result_ids)):
+                raise LiveProtocolError("native request repeats a tool result call ID")
+            unknown_results = tuple(
+                call_id
+                for call_id in result_ids
+                if call_id not in self._issued_tool_calls
             )
+            if unknown_results:
+                raise LiveProtocolError(
+                    "native tool result does not belong to a controller-issued call"
+                )
+            linked_ids = result_ids
             response = self._channel.respond(
                 input=input_value,
                 instructions=instructions,
@@ -346,6 +355,11 @@ class OpenAICompatibleBridge:
             ):
                 raise LiveProtocolError("bridge response model provenance does not match request")
             tool_call_ids = tuple(call.call_id for call in response.tool_calls)
+            if (
+                len(tool_call_ids) != len(set(tool_call_ids))
+                or any(call_id in self._issued_tool_calls for call_id in tool_call_ids)
+            ):
+                raise LiveProtocolError("controller response repeats a tool call ID")
             self._issued_tool_calls.update(tool_call_ids)
             items = _response_items(response)
             record = BridgeCallRecord(

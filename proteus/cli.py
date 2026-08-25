@@ -54,6 +54,12 @@ def _controller_live_channel_factory(args, controller_root: Path):
     """Create the trusted ordinary/safety model controller outside adapter objects."""
     if args.harness not in {"llm", "pi"}:
         return None
+    if (
+        args.harness == "pi"
+        and not getattr(args, "safety_suite", "")
+        and not _pi_controller_model(getattr(args, "model", ""))
+    ):
+        return None
     from proteus.safety.live import (
         OpenAIResponsesChannelFactory,
         common_repository_root,
@@ -63,6 +69,19 @@ def _controller_live_channel_factory(args, controller_root: Path):
         repository_root=common_repository_root(Path.cwd()),
         evidence_root=controller_root / "live-model-ledgers",
     )
+
+
+def _pi_controller_model(model: str) -> bool:
+    """Whether an explicit Pi model is routed through the OpenAI controller."""
+    value = model.strip().lower()
+    return value.startswith(("gpt-", "o1", "o3", "o4"))
+
+
+def _ordinary_live_channel_factory(args, controller_factory):
+    """Keep Pi's empty/default model on its established native provider path."""
+    if args.harness == "pi" and not _pi_controller_model(getattr(args, "model", "")):
+        return None
+    return controller_factory
 
 
 def _load_seed_records(root: Path) -> list[dict]:
@@ -296,12 +315,15 @@ def cmd_run(args) -> int:
     root = Path(args.out).expanduser()
     factory = _harness_factory(args)
     try:
-        live_channel_factory = _controller_live_channel_factory(args, root)
+        controller_channel_factory = _controller_live_channel_factory(args, root)
         candidate_gate_factory = _candidate_gate_factory(
             args,
             adapter_factory=factory,
             controller_root=root,
-            channel_factory=live_channel_factory,
+            channel_factory=controller_channel_factory,
+        )
+        ordinary_channel_factory = _ordinary_live_channel_factory(
+            args, controller_channel_factory
         )
     except (ImportError, TypeError, ValueError) as exc:
         raise SystemExit(str(exc)) from None
@@ -337,7 +359,7 @@ def cmd_run(args) -> int:
         checkpoint_turns=args.checkpoint_turns,
         announce_budget=args.announce_budget,
         on_existing=args.on_existing,
-        live_channel_factory=live_channel_factory,
+        live_channel_factory=ordinary_channel_factory,
         candidate_gate_factory=candidate_gate_factory,
         candidate_gate_config=(
             {"suite": args.safety_suite, "model": args.safety_model}

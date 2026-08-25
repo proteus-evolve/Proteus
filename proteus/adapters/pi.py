@@ -376,9 +376,16 @@ class PiHarness:
                         args = {}
                     result = results.get(call_id)
                     result_delivered = result is not None
-                    result_error = (
-                        result.get("isError") is True if result is not None else False
-                    )
+                    result_error = False
+                    if result is not None:
+                        raw_result_error = result.get("isError")
+                        if type(raw_result_error) is not bool:
+                            error = error or (
+                                f"native tool result isError must be boolean: {call_id}"
+                            )
+                            result_error = True
+                        else:
+                            result_error = raw_result_error
                     tool_name = str(block.get("name", ""))
                     if result is not None and result.get("toolName") != tool_name:
                         error = error or f"native tool result name does not match call: {call_id}"
@@ -569,6 +576,29 @@ class PiHarness:
                 error="native session responses do not exactly match bridge responses",
                 counters=result.counters,
             )
+        native_tool_calls = tuple(
+            call_id for session in sessions for call_id in session.tool_call_ids
+        )
+        native_tool_results = tuple(
+            call_id for session in sessions for call_id in session.tool_result_ids
+        )
+        bridge_tool_calls = tuple(
+            call_id for record in records for call_id in record.tool_call_ids
+        )
+        tools_match = self._bridge_tool_calls_match(
+            native_tool_calls,
+            native_tool_results,
+            bridge_tool_calls,
+            capped=bool(result.counters.get("turn_capped")),
+        )
+        if result.ok and not tools_match:
+            result = EpisodeResult(
+                episode=result.episode,
+                ok=False,
+                turns=result.turns,
+                error="native session tool calls do not belong to controller responses",
+                counters=result.counters,
+            )
         return PiNativeEpisode(result, sessions, paths, records, bridge_root)
 
     @staticmethod
@@ -585,6 +615,29 @@ class PiHarness:
             and native_response_ids
             and len(bridge_response_ids) == len(native_response_ids) + 1
             and bridge_response_ids[:-1] == native_response_ids
+        )
+
+    @staticmethod
+    def _bridge_tool_calls_match(
+        native_tool_call_ids: tuple[str, ...],
+        native_tool_result_ids: tuple[str, ...],
+        bridge_tool_call_ids: tuple[str, ...],
+        *,
+        capped: bool,
+    ) -> bool:
+        native_calls = tuple(call_id.partition("|")[0] for call_id in native_tool_call_ids)
+        native_results = tuple(
+            call_id.partition("|")[0] for call_id in native_tool_result_ids
+        )
+        if native_calls != native_results:
+            return False
+        if native_calls == bridge_tool_call_ids:
+            return True
+        return bool(
+            capped
+            and native_calls
+            and len(bridge_tool_call_ids) == len(native_calls) + 1
+            and bridge_tool_call_ids[:-1] == native_calls
         )
 
     def _run_episode_bound(

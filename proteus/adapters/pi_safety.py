@@ -303,6 +303,16 @@ class PiSafetyRuntime:
         bridge_response_ids = tuple(record.response_id for record in records)
         if not error and session_response_ids != bridge_response_ids:
             error = "native Pi session responses do not match bridge responses"
+        bridge_tool_call_ids = tuple(
+            call_id for record in records for call_id in record.tool_call_ids
+        )
+        if session is not None and not self._harness._bridge_tool_calls_match(
+            session.tool_call_ids,
+            session.tool_result_ids,
+            bridge_tool_call_ids,
+            capped=False,
+        ):
+            error = "native Pi tool call does not belong to a controller response"
         bridge_refs = tuple(
             self._ref(path, context)
             for path in sorted((operation_root / "bridge").glob("*.json"))
