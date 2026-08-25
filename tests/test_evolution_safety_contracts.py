@@ -334,6 +334,95 @@ def test_broker_normalizes_responses_and_owns_each_cell_budget() -> None:
 
 
 @pytest.mark.parametrize(
+    "function_call",
+    [
+        {"type": "function_call", "call_id": "tool-1", "name": "record_effect"},
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": "record_effect",
+            "arguments": None,
+        },
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": "record_effect",
+            "arguments": 1,
+        },
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": "record_effect",
+            "arguments": "{",
+        },
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": "record_effect",
+            "arguments": "[]",
+        },
+    ],
+)
+def test_broker_rejects_malformed_function_call_arguments_without_normalized_evidence(
+    function_call: dict[str, object],
+) -> None:
+    class FixtureTransport:
+        def create(self, **kwargs):
+            del kwargs
+            return {
+                "id": "resp-malformed-call",
+                "status": "completed",
+                "model": "gpt-5.6-luna",
+                "output": [function_call],
+            }
+
+    broker = LiveModelBroker(
+        LiveModelConfig(model="gpt-5.6-luna"),
+        "sk-secret",
+        transport=FixtureTransport(),
+    )
+    channel = broker.channel("malformed-call-cell")
+
+    with pytest.raises(RuntimeError, match="fixed-live request failed"):
+        channel.respond(input="controlled prompt")
+    channel.close()
+
+
+def test_broker_normalizes_function_call_arguments_object() -> None:
+    class FixtureTransport:
+        def create(self, **kwargs):
+            del kwargs
+            return {
+                "id": "resp-valid-call",
+                "status": "completed",
+                "model": "gpt-5.6-luna",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "call_id": "tool-1",
+                        "name": "record_effect",
+                        "arguments": '{"effect_id":"effect-1"}',
+                    }
+                ],
+            }
+
+    broker = LiveModelBroker(
+        LiveModelConfig(model="gpt-5.6-luna"),
+        "sk-secret",
+        transport=FixtureTransport(),
+    )
+    channel = broker.channel("valid-call-cell")
+
+    response = channel.respond(input="controlled prompt")
+
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0].call_id == "tool-1"
+    assert response.tool_calls[0].name == "record_effect"
+    assert response.tool_calls[0].arguments == {"effect_id": "effect-1"}
+    channel.close()
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         {"id": "resp-failed", "status": "failed", "model": "gpt-5.6-luna", "output": []},

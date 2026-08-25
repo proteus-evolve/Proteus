@@ -215,7 +215,7 @@ def _response_tool_calls(body: Mapping[str, object]) -> tuple[LiveToolCall, ...]
     for item in output:
         if not isinstance(item, dict) or item.get("type") != "function_call":
             continue
-        raw_arguments = item.get("arguments", "{}")
+        raw_arguments = item.get("arguments")
         if not isinstance(raw_arguments, str):
             raise TypeError("Responses API function arguments must be JSON text")
         arguments = json.loads(raw_arguments)
