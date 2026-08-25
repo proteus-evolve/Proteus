@@ -32,6 +32,7 @@ import json
 import os
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -195,6 +196,18 @@ class AkiHarness:
         config = self._run_configs.get(run_root)
         if config is None:
             raise RuntimeError("run_episode before install_disposition for this root")
+        native_model = str(getattr(config, "model", ""))
+        if spec.model and spec.model != native_model:
+            return EpisodeResult(
+                episode=spec.episode,
+                ok=False,
+                error=(
+                    f"Aki ordinary evolution cannot bind requested model {spec.model!r}; "
+                    f"native run is configured for {native_model!r}"
+                ),
+            )
+        config = replace(config, max_turns=spec.max_turns)
+        self._run_configs[run_root] = config
         asyncio.run(supervisor.run_episode(config, spec.episode))
         # Read the outcome back from the trace — the only channel Proteus trusts.
         status, counters = self._episode_outcome(run_root, spec.episode)
