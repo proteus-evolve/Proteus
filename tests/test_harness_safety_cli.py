@@ -102,35 +102,6 @@ def test_run_preflight_rejects_missing_live_credential_before_output_creation(
     assert not out.exists()
 
 
-@pytest.mark.parametrize(
-    ("families", "message"),
-    [
-        (("memory_collapse", "memory_collapse"), "duplicate safety family"),
-        (("unknown-family",), "unknown safety family"),
-    ],
-)
-def test_run_preflight_rejects_duplicate_or_unknown_families_before_output(
-    tmp_path: Path,
-    families: tuple[str, ...],
-    message: str,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    out = tmp_path / "never-created"
-    argv = [
-        *_base_run(out),
-        "--model",
-        "gpt-5.6-luna",
-        "--safety-suite",
-        "proteus.safety.phase1:SUITE",
-    ]
-    for family in families:
-        argv.extend(("--safety-family", family))
-
-    assert cli.main(argv) == 2
-    assert message in capsys.readouterr().err
-    assert not out.exists()
-
-
 def test_run_preflight_rejects_adapter_without_candidate_safety_protocol(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -142,8 +113,6 @@ def test_run_preflight_rejects_adapter_without_candidate_safety_protocol(
             *_base_run(out, harness="minimal"),
             "--safety-suite",
             "proteus.safety.phase1:SUITE",
-            "--safety-family",
-            "memory_collapse",
         ]
     )
 
@@ -152,10 +121,17 @@ def test_run_preflight_rejects_adapter_without_candidate_safety_protocol(
     assert not out.exists()
 
 
-def test_run_preflight_constructs_per_run_gate_with_selected_definitions_only(
+def test_run_preflight_constructs_per_run_gate_with_complete_suite_definitions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / ".env").write_text(
+        "OPENAI_API_KEY=dummy-controller\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "_repository_root", lambda: repository)
     harness = _install_candidate_adapter(monkeypatch)
     captured = []
 
@@ -169,33 +145,25 @@ def test_run_preflight_constructs_per_run_gate_with_selected_definitions_only(
     code = cli.main(
         [
             *_base_run(out, harness=harness),
+            "--model",
+            "gpt-5.6-luna",
             "--safety-suite",
             "proteus.safety.phase1:SUITE",
-            "--safety-family",
-            "memory_collapse",
         ]
     )
 
     assert code == 0
     assert len(captured) == 1
     gate = captured[0].candidate_gate_factory("run-1")
-    assert [item.family_id for item in gate.suite.definitions()] == ["memory_collapse"]
+    assert [item.family_id for item in gate.suite.definitions()] == [
+        "memory_bad_admission",
+        "memory_collapse",
+        "tools_permission_drift",
+    ]
     assert gate.controller_root == out
-    assert gate.model_config is None
-    assert gate.broker is None
-
-
-def test_safety_family_without_suite_is_rejected_before_output(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    out = tmp_path / "never-created"
-
-    code = cli.main([*_base_run(out), "--safety-family", "memory_collapse"])
-
-    assert code == 2
-    assert "--safety-family requires --safety-suite" in capsys.readouterr().err
-    assert not out.exists()
+    assert gate.model_config is not None
+    assert gate.model_config.model == "gpt-5.6-luna"
+    assert gate.broker is not None
 
 
 def test_completed_sweep_safety_command_is_removed(capsys: pytest.CaptureFixture[str]) -> None:
@@ -206,7 +174,7 @@ def test_completed_sweep_safety_command_is_removed(capsys: pytest.CaptureFixture
     assert "invalid choice: 'safety'" in capsys.readouterr().err
 
 
-def test_run_help_exposes_only_suite_and_repeatable_family_safety_controls(
+def test_run_help_exposes_only_complete_suite_safety_control(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as caught:
@@ -215,7 +183,7 @@ def test_run_help_exposes_only_suite_and_repeatable_family_safety_controls(
     assert caught.value.code == 0
     output = capsys.readouterr().out
     assert "--safety-suite" in output
-    assert "--safety-family" in output
+    assert "--safety-family" not in output
     assert "feedback" not in output.lower()
     assert "threshold" not in output.lower()
     assert "policy" not in output.lower()

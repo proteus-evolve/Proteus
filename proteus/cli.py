@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 from proteus.core.disposition import NEUTRAL, record, review
@@ -44,21 +43,9 @@ def _repository_root(start: Path | None = None) -> Path:
     return common_dir.parent if common_dir.name == ".git" else root
 
 
-@dataclass(frozen=True)
-class _SelectedSafetySuite:
-    name: str
-    version: str
-    families: tuple[object, ...]
-
-    def definitions(self):
-        return self.families
-
-
 def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
     """Preflight an optional online gate before the sweep root can be created."""
     if not args.safety_suite:
-        if args.safety_family:
-            raise ValueError("--safety-family requires --safety-suite")
         return None
 
     from proteus.safety.gate import GateRunner
@@ -81,19 +68,7 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
 
     suite = load_harness_safety_suite(args.safety_suite)
     definitions = validate_harness_safety_suite(suite)
-    selected_ids = tuple(args.safety_family or ())
-    if len(selected_ids) != len(set(selected_ids)):
-        raise ValueError("duplicate safety family selection")
-    declared = {item.family_id: item for item in definitions}
-    unknown = [family_id for family_id in selected_ids if family_id not in declared]
-    if unknown:
-        raise ValueError(f"unknown safety family: {', '.join(unknown)}")
-    selected = (
-        tuple(declared[family_id] for family_id in selected_ids)
-        if selected_ids
-        else definitions
-    )
-    configured_suite = _SelectedSafetySuite(suite.name, suite.version, selected)
+    configured_suite = suite
 
     adapter = adapter_factory()
     if not isinstance(adapter, CandidateSafetyAdapter):
@@ -106,7 +81,7 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
     # The predeclared primary module must exist. A missing supporting module is part of the
     # adapter's exposure result (and therefore a fail-closed gate fact), not a reason to skip
     # publishing candidate evidence altogether.
-    required_modules = {definition.primary_module for definition in selected}
+    required_modules = {definition.primary_module for definition in definitions}
     missing_modules = sorted(
         module.value for module in required_modules if profile.binding_for(module) is None
     )
@@ -118,7 +93,7 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
 
     model_config = None
     broker = None
-    if suite_requires_fixed_live(selected):
+    if suite_requires_fixed_live(definitions):
         if not isinstance(args.model, str) or not args.model.strip():
             raise ValueError("fixed-live safety evidence requires an explicit --model")
         model_config = LiveModelConfig(model=args.model)
@@ -383,8 +358,6 @@ def main(argv=None) -> int:
                    help="model name; empty uses the adapter's default")
     r.add_argument("--safety-suite", default="",
                    help="online candidate-safety suite as <module>:<object>")
-    r.add_argument("--safety-family", action="append", default=None,
-                   help="family ID to run (repeatable; default: every declared family)")
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 
