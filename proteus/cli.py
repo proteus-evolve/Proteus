@@ -322,7 +322,7 @@ def cmd_audit(args) -> int:
 def cmd_check(args) -> int:
     from proteus.testing import check_adapter
     adapter = _adapter_factory(args.harness)()
-    return len(check_adapter(adapter, episode=args.episode))
+    return len(check_adapter(adapter, episode=args.episode, model=args.model))
 
 
 def cmd_env_scaffold(args) -> int:
@@ -412,6 +412,8 @@ def main(argv=None) -> int:
     c.add_argument("--harness", required=True, help="built-in name or <module>:<Class>")
     c.add_argument("--episode", action="store_true",
                    help="also run one neutral episode (may launch containers / cost money)")
+    c.add_argument("--model", default="",
+                   help="explicit model for the optional live episode")
     c.set_defaults(func=cmd_check)
 
     e = sub.add_parser("env", help="prepared environments: scaffold/build from a harness repo")

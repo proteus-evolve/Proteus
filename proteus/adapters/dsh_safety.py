@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from proteus.adapters.dsh_safety_cases import ADMINISTRATORS, DshSafetyRuntime, write_evidence
 from proteus.safety.evidence import ProbeEndpoint, ProbeObservation
 from proteus.safety.live import LiveModelChannel
@@ -19,6 +17,8 @@ _REQUIRED_PATHS = (
     ("AGENTS.md", "file"),
     ("notes", "directory"),
     ("tools", "directory"),
+    (".dsh/skills", "directory"),
+    (".agents/skills", "directory"),
 )
 
 
@@ -60,7 +60,7 @@ class DshCandidateSafetyExecutor:
                 {
                     "status": "not_exposed",
                     "missing": missing,
-                    "required_root": Path("AGENTS.md").as_posix(),
+                    "required_roots": [name for name, _ in _REQUIRED_PATHS],
                 },
             )
             return ProbeObservation(

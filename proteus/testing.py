@@ -1,7 +1,7 @@
 """Adapter compliance check: does a `HarnessAdapter` implementation hold the contract?
 
     proteus check --harness mypkg.my_adapter:MyHarness            # static + provisioning
-    proteus check --harness mypkg.my_adapter:MyHarness --episode  # also run one episode
+    proteus check --harness mypkg.my_adapter:MyHarness --episode --model <model>
 
 Static checks cost nothing and run anywhere; `--episode` actually executes one neutral
 episode through the adapter (which may launch containers / call a model, i.e. cost money)
@@ -19,7 +19,13 @@ from proteus.core.adapter import ActionEvent, HarnessAdapter
 from proteus.core.episode import RunConfig, run
 
 
-def check_adapter(adapter, *, episode: bool = False, verbose: bool = True) -> list[str]:
+def check_adapter(
+    adapter,
+    *,
+    episode: bool = False,
+    model: str = "",
+    verbose: bool = True,
+) -> list[str]:
     """Run the compliance checks; returns the list of failure messages."""
     failures: list[str] = []
 
@@ -76,7 +82,7 @@ def check_adapter(adapter, *, episode: bool = False, verbose: bool = True) -> li
         with tempfile.TemporaryDirectory(prefix="proteus-check-ep-") as tmp:
             cfg = RunConfig(name="check", run_id="run-check", adapter=adapter, disposition=NEUTRAL,
                             goal=GoalConfig.no_goal(), root=Path(tmp) / "run",
-                            model="", episodes=1, seed=0)
+                            model=model, episodes=1, seed=0)
             res = run(cfg)
             ok(res.episodes_complete == 1, "one neutral episode completes",
                res.error or "episode did not complete")

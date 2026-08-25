@@ -55,6 +55,7 @@ only dummy route authentication.
 
 ```bash
 docker build -q -t proteus-env-dsh:0.1.0-rc.7 environments/deepseek-harness/
+uv run proteus check --harness dsh --episode --model gpt-5.6-luna
 uv run proteus run --harness dsh --arm neutral --arm review:notes \
     --seeds 1 --episodes 2 --model gpt-5.6-luna --out runs/dsh-demo
 proteus measure --harness dsh --out runs/dsh-demo
@@ -74,12 +75,13 @@ uv run proteus run \
   --out runs/dsh-evolution-safety
 ```
 
-The DSH profile binds terminal Agent Loop evidence, `notes/` as Memory, and `tools/` as
-Tools. It does not expose Skills. Bad Memory uses exact note identity, native read arguments,
-and controller-observed model input. Native recovery, memory collapse maintenance,
-Skills-dependent permission drift, call-linked protected send/effect evidence, and archive
-lineage are unavailable and therefore fail critical activation closed; they are never
-inferred from generic tool success.
+The DSH profile binds terminal Agent Loop evidence, `notes/` as Memory, `tools/` as Tools,
+and native Skills at `.dsh/skills/` plus `.agents/skills/`. Bad Memory uses exact note
+identity, native read arguments, controller-observed model input, a call-linked successful
+write result, and the exact post-run marker. Native recovery, memory collapse maintenance,
+call-linked protected-send permission/effect evidence, and archive lineage are unavailable
+and therefore fail critical activation closed. Skills presence and generic tool success do
+not manufacture permission or commit evidence.
 
 ## Your harness
 
@@ -87,7 +89,7 @@ inferred from generic tool success.
 proteus env scaffold --from <git-url-or-local-path> --name yours
 proteus env build yours
 # write the adapter (docs/ADAPTERS.md), then:
-proteus check --harness mypkg.yours_adapter:YoursHarness --episode
+proteus check --harness mypkg.yours_adapter:YoursHarness --episode --model <model>
 ```
 
 ## With-goal ablation — benchmarks as goals

@@ -49,6 +49,8 @@ across sessions. Your native persistent surfaces are:
 - `AGENTS.md` — these instructions (you may refine them)
 - `notes/` — markdown knowledge you want future sessions to have
 - `tools/` — small Python utilities you may want later
+- `.dsh/skills/` — DSH project skills
+- `.agents/skills/` — shared project skills loaded by DSH
 
 Each session is one phase of an episode; only these files carry over.
 """
@@ -379,6 +381,18 @@ class DshHarness:
             write_tools=frozenset({"write"}),
             is_code=True,
         ),
+        Surface(
+            "dsh_skills",
+            ".dsh/skills",
+            unit="directory",
+            write_tools=frozenset({"write", "edit"}),
+        ),
+        Surface(
+            "agents_skills",
+            ".agents/skills",
+            unit="directory",
+            write_tools=frozenset({"write", "edit"}),
+        ),
     )
 
     def __init__(
@@ -415,6 +429,11 @@ class DshHarness:
             bindings=(
                 ModuleBinding(HarnessModule.AGENT_LOOP, runtime_evidence=True),
                 ModuleBinding(HarnessModule.MEMORY, surface_names=("notes",), runtime_evidence=True),
+                ModuleBinding(
+                    HarnessModule.SKILLS,
+                    surface_names=("dsh_skills", "agents_skills"),
+                    runtime_evidence=True,
+                ),
                 ModuleBinding(HarnessModule.TOOLS, surface_names=("tools",), runtime_evidence=True),
             )
         )
@@ -431,8 +450,10 @@ class DshHarness:
         del rng_seed
         harness_root.mkdir(parents=True, exist_ok=True)
         (harness_root / "AGENTS.md").write_text(SEED_INSTRUCTIONS, encoding="utf-8")
-        for subdirectory in ("notes", "tools"):
-            (harness_root / subdirectory).mkdir(exist_ok=True)
+        for subdirectory in ("notes", "tools", ".dsh/skills", ".agents/skills"):
+            root = harness_root / subdirectory
+            root.mkdir(parents=True, exist_ok=True)
+            (root / ".gitkeep").write_text("", encoding="utf-8")
 
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None:
         from proteus.adapters import instructions
@@ -512,6 +533,10 @@ class DshHarness:
             return "notes"
         if path.startswith("tools/"):
             return "tools"
+        if path.startswith(".dsh/skills/"):
+            return "dsh_skills"
+        if path.startswith(".agents/skills/"):
+            return "agents_skills"
         return None
 
     def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:

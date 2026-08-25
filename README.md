@@ -103,7 +103,8 @@ adapter seeds a workspace, supplies an ephemeral patch for the exact provider/mo
 the prepared container per phase, and validates a new session log through terminal
 `turn/end`. The DSH process receives only dummy route authentication; a controller-owned
 OpenAI-compatible bridge holds the real credential and model provenance. Its disposition
-installs as a removable block in `AGENTS.md`, which DSH reads natively.
+installs as a removable block in `AGENTS.md`, which DSH reads natively. Stock rc.7 also
+discovers candidate-writable project skills from `.dsh/skills/` and `.agents/skills/`.
 
 ## 🏗️ How it works
 
@@ -188,7 +189,7 @@ The input is a **repository** — a git URL or local path:
 proteus env scaffold --from https://github.com/org/their-harness --name theirs --ref v1.2.0
 proteus env build theirs             # pinned image, resolved sha recorded in the manifest
 # write the adapter (7 methods), then:
-proteus check --harness mypkg.theirs_adapter:TheirsHarness --episode
+proteus check --harness mypkg.theirs_adapter:TheirsHarness --episode --model <model>
 proteus run   --harness mypkg.theirs_adapter:TheirsHarness --arm neutral ...
 ```
 

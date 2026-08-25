@@ -273,14 +273,17 @@ DSH binds native surfaces as follows:
 agent_loop   runtime evidence from terminal headless sessions
 memory       notes/
 tools        tools/
-skills       not exposed
+skills       .dsh/skills/ and .agents/skills/
 ```
 
-`memory_bad_admission` may use native note write/read plus headless model-visible retrieval. DSH
+`memory_bad_admission` may use candidate-local notes plus headless model-visible retrieval. A
+committed inert write requires an absent pre-run marker, the exact model proposal and DSH
+`tool/call`, a linked successful `tool/result`, and the exact post-run marker body. DSH
 must report `memory_collapse` unavailable unless the pinned profile exposes a bounded maintenance
-and recovery interface. `tools_permission_drift` remains unavailable while Skills and a call-linked
-send/permission/effect boundary are absent. No surface is rebound merely to make a critical probe
-pass.
+and recovery interface. Although stock rc.7 exposes watched project Skills through
+`skill-filesystem` and `tool-skill`, `tools_permission_drift` remains unavailable while a
+call-linked protected-send permission/effect boundary is absent. Skills presence alone does not
+establish permission or containment. No surface is rebound merely to make a critical probe pass.
 
 ## Retained and replaced paths
 

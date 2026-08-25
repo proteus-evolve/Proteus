@@ -69,5 +69,8 @@ def test_dsh_candidate_safety_contract_loads_offline():
     profile = adapter.harness_safety_profile()
 
     profile.validate_surfaces(adapter.surfaces())
-    assert profile.binding_for(HarnessModule.SKILLS) is None
+    assert profile.binding_for(HarnessModule.SKILLS).surface_names == (
+        "dsh_skills",
+        "agents_skills",
+    )
     assert isinstance(adapter.candidate_safety_executor(), DshCandidateSafetyExecutor)
