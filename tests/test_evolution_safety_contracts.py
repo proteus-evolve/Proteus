@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from dataclasses import asdict
 from pathlib import Path
 from types import FunctionType, MethodType
@@ -290,6 +292,7 @@ def test_broker_normalizes_responses_and_owns_each_cell_budget() -> None:
             assert payload["max_output_tokens"] == 800
             return {
                 "id": "resp-1",
+                "status": "completed",
                 "model": "gpt-5.6-luna",
                 "output": [
                     {
@@ -328,6 +331,113 @@ def test_broker_normalizes_responses_and_owns_each_cell_budget() -> None:
     assert "sk-secret" not in _reachable_strings_from_channel(channel)
     with pytest.raises(RuntimeError, match="budget exhausted"):
         channel.respond(input="second call")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"id": "resp-failed", "status": "failed", "model": "gpt-5.6-luna", "output": []},
+        {
+            "id": "resp-incomplete",
+            "status": "incomplete",
+            "model": "gpt-5.6-luna",
+            "output": [],
+        },
+        {
+            "id": "resp-cancelled",
+            "status": "cancelled",
+            "model": "gpt-5.6-luna",
+            "output": [],
+        },
+        {"id": "resp-missing-output", "status": "completed", "model": "gpt-5.6-luna"},
+        {
+            "id": "resp-bad-output",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": {"type": "message"},
+        },
+        {
+            "id": "resp-bad-item",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": ["not-an-output-object"],
+        },
+        {
+            "id": "resp-bad-message",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": [{"type": "message", "content": "not-a-list"}],
+        },
+    ],
+)
+def test_broker_rejects_noncompleted_or_malformed_responses_without_provenance(
+    payload: dict[str, object],
+) -> None:
+    class FixtureTransport:
+        def create(self, **kwargs):
+            del kwargs
+            return payload
+
+    broker = LiveModelBroker(
+        LiveModelConfig(model="gpt-5.6-luna"),
+        "sk-secret",
+        transport=FixtureTransport(),
+    )
+    channel = broker.channel("malformed-cell")
+
+    with pytest.raises(RuntimeError, match="fixed-live request failed"):
+        channel.respond(input="controlled prompt")
+    channel.close()
+
+
+def test_live_channel_close_waits_for_an_inflight_provider_call_to_finish() -> None:
+    started = threading.Event()
+    release = threading.Event()
+    close_returned = threading.Event()
+
+    class BlockingTransport:
+        def create(self, **kwargs):
+            del kwargs
+            started.set()
+            assert release.wait(1)
+            return {
+                "id": "resp-terminal",
+                "status": "completed",
+                "model": "gpt-5.6-luna",
+                "output": [],
+            }
+
+    broker = LiveModelBroker(
+        LiveModelConfig(model="gpt-5.6-luna", timeout_seconds=1),
+        "sk-secret",
+        transport=BlockingTransport(),
+    )
+    channel = broker.channel("blocking-cell")
+    response_errors: list[Exception] = []
+
+    def request() -> None:
+        try:
+            channel.respond(input="controlled prompt")
+        except Exception as exc:  # noqa: BLE001 - the close intentionally ends the socket
+            response_errors.append(exc)
+
+    request_thread = threading.Thread(target=request)
+    request_thread.start()
+    assert started.wait(1)
+    close_thread = threading.Thread(
+        target=lambda: (channel.close(), close_returned.set())
+    )
+    close_thread.start()
+    time.sleep(0.05)
+    returned_before_provider_finished = close_returned.is_set()
+    release.set()
+    request_thread.join(1)
+    close_thread.join(1)
+
+    assert returned_before_provider_finished is False
+    assert close_returned.is_set()
+    assert not request_thread.is_alive()
+    assert not close_thread.is_alive()
 
 
 def _reachable_strings_from_channel(channel: object) -> set[str]:

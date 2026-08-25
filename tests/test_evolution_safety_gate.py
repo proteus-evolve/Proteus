@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
@@ -437,6 +438,31 @@ class _Broker:
         return _Channel()
 
 
+class _LateCallChannel:
+    model = "gpt-fixed"
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.closed = False
+
+    def respond(self, *, input, instructions="", tools=()):
+        del input, instructions, tools
+        self.calls += 1
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _LateCallBroker:
+    def __init__(self) -> None:
+        self.channels: list[_LateCallChannel] = []
+
+    def channel(self, _cell_id: str):
+        channel = _LateCallChannel()
+        self.channels.append(channel)
+        return channel
+
+
 class _Executor:
     name = "recording-executor"
 
@@ -509,6 +535,29 @@ class _Executor:
             model_provenance=provenance,
             evidence_refs=refs,
         )
+
+
+class _LateTerminalExecutor:
+    name = "late-terminal-executor"
+
+    def __init__(self, marker: Path) -> None:
+        self.marker = marker
+        self.finished: list[str] = []
+        self.all_finished = threading.Event()
+        self._lock = threading.Lock()
+
+    def collect(self, definition, endpoint, arm, stratum, context, channel):
+        del definition, arm, stratum, context
+        time.sleep(0.05)
+        assert channel is not None
+        channel.respond(input="late controller call")
+        with self.marker.open("a", encoding="utf-8") as sink:
+            sink.write(endpoint.value + "\n")
+        with self._lock:
+            self.finished.append(endpoint.value)
+            if len(self.finished) == 2:
+                self.all_finished.set()
+        raise TimeoutError("executor-owned timeout after terminal cleanup")
 
 
 class _Adapter:
@@ -703,28 +752,39 @@ def test_executor_and_evidence_failures_are_published_rejections(
     assert "sk-secret-must-not-be-published" not in artifacts
 
 
-def test_executor_timeout_is_an_error_rejection(tmp_path: Path) -> None:
+def test_gate_waits_for_executor_terminal_side_effects_and_calls_before_publication(
+    tmp_path: Path,
+) -> None:
     config = LiveModelConfig(model="gpt-fixed", timeout_seconds=0.01)
+    family = _family(strata=(EvidenceStratum.FIXED_LIVE_BEHAVIOR,))
+    broker = _LateCallBroker()
+    executor = _LateTerminalExecutor(tmp_path / "late-effects.txt")
 
-    result = _runner(tmp_path, _Executor("timeout"), model_config=config).evaluate(
-        _context(tmp_path)
+    result = _runner(
+        tmp_path,
+        executor,
+        family=family,
+        model_config=config,
+        broker=broker,
+    ).evaluate(_context(tmp_path))
+    finished_at_return = tuple(executor.finished)
+    calls_at_return = sum(channel.calls for channel in broker.channels)
+    channels_closed_at_return = bool(broker.channels) and all(
+        channel.closed for channel in broker.channels
     )
+    marker_at_return = (
+        (tmp_path / "late-effects.txt").read_text(encoding="utf-8")
+        if (tmp_path / "late-effects.txt").is_file()
+        else ""
+    )
+    executor.all_finished.wait(1)
 
     assert result.allowed is False
     assert result.status == "error"
-    published_root = tmp_path / "controller" / "safety-gates"
-    before = {
-        path.relative_to(published_root).as_posix(): path.read_bytes()
-        for path in published_root.rglob("*")
-        if path.is_file()
-    }
-    time.sleep(0.08)
-    after = {
-        path.relative_to(published_root).as_posix(): path.read_bytes()
-        for path in published_root.rglob("*")
-        if path.is_file()
-    }
-    assert after == before
+    assert set(finished_at_return) == {"active", "candidate"}
+    assert calls_at_return == 4
+    assert set(marker_at_return.splitlines()) == {"active", "candidate"}
+    assert channels_closed_at_return is True
 
 
 def test_fixed_live_provenance_must_match_the_configured_model(tmp_path: Path) -> None:

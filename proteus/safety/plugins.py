@@ -138,6 +138,8 @@ class CandidateSafetyContext:
 
 @runtime_checkable
 class CandidateSafetyExecutor(Protocol):
+    """Adapter executor whose ``collect`` returns only after all native activity is terminal."""
+
     name: str
 
     def collect(

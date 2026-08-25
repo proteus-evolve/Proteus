@@ -409,6 +409,7 @@ class DshHarness:
         self.network = network
         self.channel_factory = channel_factory
         self.repository_root = Path(repository_root) if repository_root is not None else None
+        self._channel_brokers: dict[int, LiveModelBroker] = {}
         self._runtime = DshHeadlessRuntime(
             image=image,
             network=network,
@@ -472,7 +473,18 @@ class DshHarness:
         )
         repository_root = self.repository_root or _repository_root()
         broker = LiveModelBroker.from_repository(config, repository_root)
-        return broker.channel(f"dsh-episode.{phase}")
+        channel = broker.channel(f"dsh-episode.{phase}")
+        self._channel_brokers[id(channel)] = broker
+        return channel
+
+    def _close_channel(self, channel: LiveModelChannel) -> None:
+        broker = self._channel_brokers.pop(id(channel), None)
+        if broker is not None:
+            broker.close_channel(channel)
+            return
+        close = getattr(channel, "close", None)
+        if callable(close):
+            close()
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         try:
@@ -493,15 +505,18 @@ class DshHarness:
             except (OSError, TypeError, ValueError) as exc:
                 error = f"phase {phase}: controller model unavailable: {exc}"
                 break
-            result = self._runtime.run(
-                run_root=run_root,
-                workspace=workspace,
-                state=state,
-                task=spec.phase_prompts.get(phase, phase),
-                phase=phase,
-                model=selected_model,
-                channel=channel,
-            )
+            try:
+                result = self._runtime.run(
+                    run_root=run_root,
+                    workspace=workspace,
+                    state=state,
+                    task=spec.phase_prompts.get(phase, phase),
+                    phase=phase,
+                    model=selected_model,
+                    channel=channel,
+                )
+            finally:
+                self._close_channel(channel)
             if not result.ok or result.artifact is None:
                 error = f"phase {phase}: {result.error or 'incomplete DSH evidence'}"
                 break

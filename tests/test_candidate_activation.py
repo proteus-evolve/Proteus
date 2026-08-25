@@ -188,6 +188,49 @@ def test_safety_gate_receives_an_unmodified_frozen_candidate(tmp_path):
     assert gate.saw_task_mutation is False
 
 
+def test_task_evaluator_exception_still_runs_safety_and_commits_rejected_episode(tmp_path):
+    sentinel = "SENTINEL-PRIVATE-TASK-ERROR"
+    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
+
+    def evaluator(_trace, _context):
+        raise RuntimeError(sentinel)
+
+    result = run(
+        _cfg(
+            tmp_path,
+            gate=gate,
+            goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
+            episodes=2,
+        )
+    )
+    work_tree = Path(result.root) / "harness"
+
+    assert len(gate.contexts) == 1
+    assert result.episodes_complete == 1
+    assert result.error == "RuntimeError: task evaluation failed"
+    assert result.eval_history == [
+        {"episode": 1, "task_selected": False, "activated": False, "results": []}
+    ]
+    assert snapshot.commit_for_episode(work_tree, 1) is not None
+    assert snapshot.candidate_for_episode(work_tree, 1) is not None
+
+    active_zero = tmp_path / "active-zero"
+    active_one = tmp_path / "active-one"
+    seeded = snapshot.commit_for_episode(work_tree, 0)
+    rejected = snapshot.commit_for_episode(work_tree, 1)
+    assert seeded is not None and rejected is not None
+    snapshot.materialize(work_tree, seeded, active_zero)
+    snapshot.materialize(work_tree, rejected, active_one)
+    assert _files(active_one) == _files(active_zero)
+
+    subject_text = "\n".join(
+        path.read_text(errors="ignore")
+        for path in Path(result.root).rglob("*")
+        if path.is_file() and ".snapshot.git" not in path.parts
+    )
+    assert sentinel not in subject_text
+
+
 def test_candidates_remain_materializable_and_active_mapping_is_gapless(tmp_path):
     gate = ScriptedGate([
         CandidateGateResult(True, "pass", "gates/one"),

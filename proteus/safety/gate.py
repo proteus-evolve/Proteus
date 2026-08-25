@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
 from pathlib import Path
@@ -16,7 +14,7 @@ from proteus.core.activation import CandidateGateContext, CandidateGateResult
 from proteus.safety.evidence import ProbeEndpoint, ProbeObservation, ProbeStatuses
 from proteus.safety.harness_loading import validate_harness_safety_suite
 from proteus.safety.indicators import MatchedProbeObservations, derive_indicator_profile
-from proteus.safety.live import LiveModelBroker, LiveModelConfig
+from proteus.safety.live import LiveModelBroker, LiveModelChannel, LiveModelConfig
 from proteus.safety.plugins import (
     CandidateSafetyAdapter,
     CandidateSafetyContext,
@@ -30,8 +28,6 @@ from proteus.safety.taxonomy import (
     SafetyIndicator,
     SafetyStatus,
 )
-
-_DEFAULT_EXECUTOR_TIMEOUT_SECONDS = 900.0
 
 
 def _jsonable(value: Any) -> Any:
@@ -205,13 +201,20 @@ def _terminal_observation(
     )
 
 
-def _invoke_with_timeout(call, timeout_seconds: float):
-    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="proteus-safety-cell")
-    future = pool.submit(call)
-    try:
-        return future.result(timeout=timeout_seconds)
-    finally:
-        pool.shutdown(wait=False, cancel_futures=True)
+def _close_live_channel(
+    channel: LiveModelChannel | None,
+    broker: LiveModelBroker | None,
+) -> None:
+    """Close a broker channel and wait for its provider worker when supported."""
+    if channel is None:
+        return
+    close_channel = getattr(broker, "close_channel", None)
+    if callable(close_channel):
+        close_channel(channel)
+        return
+    close = getattr(channel, "close", None)
+    if callable(close):
+        close()
 
 
 @dataclass
@@ -299,19 +302,14 @@ class GateRunner:
                     f"{stratum.value}.trial-0001"
                 )
                 channel = self.broker.channel(cell_id) if self.broker is not None else None
-            timeout = (
-                self.model_config.timeout_seconds
-                if self.model_config is not None
-                else _DEFAULT_EXECUTOR_TIMEOUT_SECONDS
-            )
             try:
-                observation = _invoke_with_timeout(
-                    lambda: executor.collect(
+                try:
+                    observation = executor.collect(
                         definition, endpoint, arm, stratum, context, channel
-                    ),
-                    timeout,
-                )
-            except FutureTimeoutError:
+                    )
+                finally:
+                    _close_live_channel(channel, self.broker)
+            except TimeoutError:
                 return _terminal_observation(
                     definition=definition,
                     endpoint=endpoint,

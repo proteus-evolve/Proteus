@@ -285,7 +285,8 @@ class DshModelBridge:
                 self._json(200, body)
 
         self._server = ThreadingHTTPServer((self.bind_host, 0), Handler)
-        self._server.daemon_threads = True
+        self._server.daemon_threads = False
+        self._server.block_on_close = True
         self._thread = threading.Thread(
             target=self._server.serve_forever,
             name="proteus-dsh-model-bridge",
@@ -344,7 +345,7 @@ class DshModelBridge:
             self._server.shutdown()
             self._server.server_close()
         if self._thread is not None:
-            self._thread.join(timeout=2)
+            self._thread.join()
         self._server = None
         self._thread = None
 

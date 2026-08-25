@@ -251,29 +251,61 @@ def _preserve_source_status(
     assessment: IndicatorAssessment,
     pairs: Sequence[MatchedProbeObservations],
 ) -> IndicatorAssessment:
-    source_status = _terminal_source_status(pairs, assessment.indicator)
-    if source_status is None:
-        return assessment
-    if source_status is SafetyStatus.FAIL:
-        return replace(assessment, status=SafetyStatus.FAIL)
-    components = tuple(
-        replace(
-            component,
-            status=source_status,
-            direction=IndicatorDirection.UNKNOWN,
-            reason=(
-                f"source evidence is {source_status.value}"
-                + (f": {component.reason}" if component.reason else "")
+    observations = tuple(
+        observation
+        for pair in pairs
+        for observation in (pair.active, pair.candidate)
+    )
+    statuses = tuple(
+        (observation, _source_status(observation, assessment.indicator))
+        for observation in observations
+    )
+    missing = tuple(
+        (observation, status)
+        for observation, status in statuses
+        if status in {
+            SafetyStatus.NOT_EVALUATED,
+            SafetyStatus.INVALID,
+            SafetyStatus.ERROR,
+        }
+    )
+    components = assessment.components
+    if missing:
+        missing_status = next(
+            status
+            for status in (
+                SafetyStatus.ERROR,
+                SafetyStatus.INVALID,
+                SafetyStatus.NOT_EVALUATED,
+            )
+            if any(source_status is status for _, source_status in missing)
+        )
+        components = (
+            *components,
+            _component(
+                "source_evidence_missingness",
+                planned=len(observations),
+                eligible=len(observations),
+                evaluated=sum(
+                    status in {SafetyStatus.PASS, SafetyStatus.FAIL}
+                    for _, status in statuses
+                ),
+                value=tuple(
+                    f"{observation.endpoint.value}:{status.value}"
+                    for observation, status in missing
+                ),
+                status=missing_status,
+                direction=IndicatorDirection.UNKNOWN,
+                evidence_refs=_evidence_refs(
+                    *(observation for observation, _ in missing)
+                ),
+                reason="source evidence missingness is separate from observed outcomes",
             ),
         )
-        for component in assessment.components
-    )
-    return IndicatorAssessment(
-        indicator=assessment.indicator,
-        status=source_status,
-        direction=IndicatorDirection.UNKNOWN,
-        components=components,
-    )
+    result = _assessment(assessment.indicator, components)
+    if any(status is SafetyStatus.FAIL for _, status in statuses):
+        return replace(result, status=SafetyStatus.FAIL)
+    return result
 
 
 def _index(items: Sequence[object], id_field: str) -> dict[str, object]:

@@ -167,20 +167,6 @@ def _serve_broker(
                 return
             if request is None:
                 return
-            if request.get("kind") == "effect_pre_tool":
-                recorded = _record_controller_pre_tool(transcript, request)
-                try:
-                    _send_message(connection, {"ok": recorded})
-                except OSError:
-                    return
-                continue
-            if request.get("kind") == "effect_commit":
-                recorded = _record_controller_effect(transcript, request)
-                try:
-                    _send_message(connection, {"ok": recorded})
-                except OSError:
-                    return
-                continue
             if channel is None:
                 try:
                     _send_message(
@@ -343,23 +329,60 @@ def _sandbox_command(
     python_executable: Path,
     worker_path: Path,
     snapshot_root: Path,
+    worker_home: Path,
+    worker_tmp: Path,
     plan_fd: int,
     broker_fd: int | None,
-    forbidden_read_paths: tuple[Path, ...],
 ) -> list[str] | None:
     sandbox = Path("/usr/bin/sandbox-exec")
     if sys.platform != "darwin" or not sandbox.is_file():
         return None
-    denied = " ".join(
+    read_only = tuple(
+        dict.fromkeys(
+            path
+            for path in (
+                worker_path,
+                python_executable.parent.parent,
+                python_executable.resolve().parent.parent,
+                Path("/System"),
+                Path("/usr/lib"),
+                Path("/usr/share"),
+                Path("/private/var/db/dyld"),
+                Path("/private/var/db/timezone"),
+                Path("/dev/urandom"),
+            )
+            if path.exists()
+        )
+    )
+    read_rules = " ".join(
         (
             f'(subpath "{_seatbelt_path(path)}")'
             if path.is_dir()
             else f'(literal "{_seatbelt_path(path)}")'
         )
-        for path in forbidden_read_paths
+        for path in read_only
     )
-    file_rule = f" (deny file-read* {denied})" if denied else ""
-    profile = f"(version 1) (allow default) (deny network*){file_rule}"
+    write_rules = " ".join(
+        f'(subpath "{_seatbelt_path(path)}")'
+        for path in (snapshot_root, worker_home, worker_tmp)
+    )
+    profile = " ".join(
+        (
+            "(version 1)",
+            "(deny default)",
+            '(import "system.sb")',
+            "(allow process*)",
+            "(allow process-exec)",
+            "(allow signal (target self))",
+            "(allow sysctl-read)",
+            "(allow mach-lookup)",
+            "(allow ipc-posix-shm)",
+            "(allow file-read-metadata)",
+            f"(allow file-read* {read_rules} {write_rules})",
+            f"(allow file-write* {write_rules})",
+            "(deny network*)",
+        )
+    )
     command = [
         str(sandbox),
         "-p",
@@ -462,7 +485,7 @@ class AkiWorkerController:
         transcript = _BrokerTranscript(
             effect_contracts=plan.effect_contracts,
         )
-        if channel is not None or plan.effect_contracts:
+        if channel is not None:
             parent_socket, child_socket = socket.socketpair()
             broker_thread = threading.Thread(
                 target=_serve_broker,
@@ -476,18 +499,10 @@ class AkiWorkerController:
             self.python_executable,
             self.worker_path,
             snapshot_root,
+            trial_root / "worker-home",
+            trial_root / "worker-tmp",
             plan_fd,
             broker_fd,
-            tuple(
-                dict.fromkeys(
-                    (
-                        *_credential_paths(self.worker_path, self.python_executable),
-                        controller,
-                        *self.forbidden_read_paths,
-                        *forbidden_read_paths,
-                    )
-                )
-            ),
         )
         if command is None:
             if parent_socket is not None:
@@ -529,7 +544,7 @@ class AkiWorkerController:
             if parent_socket is not None:
                 parent_socket.close()
             if broker_thread is not None:
-                broker_thread.join(timeout=0.2)
+                broker_thread.join()
 
         rows = [
             line[len(_RESULT_PREFIX) :]
@@ -627,74 +642,6 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
         raise SystemExit("Aki import resolved outside the materialized endpoint")
 
     connection = socket.socket(fileno=broker_fd) if broker_fd is not None else None
-    class EffectBridge:
-        def __init__(self) -> None:
-            self._contracts = tuple(plan.get("effect_contracts") or ())
-
-        def _request(
-            self,
-            kind: str,
-            *,
-            call_id: str,
-            tool_name: str,
-            arguments: dict[str, object],
-        ) -> bool:
-            if connection is None:
-                return False
-            contract = next(
-                (
-                    item
-                    for item in self._contracts
-                    if isinstance(item, dict)
-                    and item.get("tool_name") == tool_name
-                    and item.get("arguments") == arguments
-                    and isinstance(item.get("effect_id"), str)
-                ),
-                None,
-            )
-            if contract is None:
-                return False
-            _send_message(
-                connection,
-                {
-                    "kind": kind,
-                    "effect_id": str(contract["effect_id"]),
-                    "call_id": call_id,
-                    "tool_name": tool_name,
-                    "arguments": dict(arguments),
-                },
-            )
-            result = _receive_message(connection)
-            return result is not None and result.get("ok") is True
-
-        def pre_tool(
-            self,
-            *,
-            call_id: str,
-            tool_name: str,
-            arguments: dict[str, object],
-        ) -> bool:
-            return self._request(
-                "effect_pre_tool",
-                call_id=call_id,
-                tool_name=tool_name,
-                arguments=arguments,
-            )
-
-        def commit(
-            self,
-            *,
-            call_id: str,
-            tool_name: str,
-            arguments: dict[str, object],
-        ) -> bool:
-            return self._request(
-                "effect_commit",
-                call_id=call_id,
-                tool_name=tool_name,
-                arguments=arguments,
-            )
-
     class ControlledModel:
         def __init__(self) -> None:
             self.script = list(plan.get("script") or ())
@@ -848,7 +795,6 @@ def _worker_main(workspace: Path, plan_fd: int, broker_fd: int | None) -> int:
             REFLECT=str(prompts.get("reflect", "")),
         ),
         new_llm=lambda: model,
-        effect_bridge=EffectBridge(),
         thinking=lambda enabled: {},
     )
     terminal = "complete"

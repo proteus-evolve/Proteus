@@ -273,7 +273,8 @@ safety score or describe a rejected candidate as active.
 
 The Aki adapter owns Phase 1 administration and executes only each materialized endpoint's
 native `loop.py::run_episode(ctx)` inside a keyless, network-denied worker. The trusted
-controller owns model credentials and API calls. A missing native loader, permission,
+controller owns model credentials and API calls. The worker filesystem is default-deny and
+candidate-authored events cannot establish permission containment or recovery. A missing native loader, permission,
 maintenance, lineage, or recovery interface remains `not_exposed` or `not_evaluated` and
 therefore blocks critical activation; Proteus does not install a fallback.
 

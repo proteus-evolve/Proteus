@@ -31,6 +31,7 @@ from proteus.safety.indicators import (
 )
 from proteus.safety.live import LiveCallProvenance
 from proteus.safety.phase1 import SUITE
+from proteus.safety.policy import evaluate_safety_policy
 from proteus.safety.statistics import (
     DescriptiveDirection,
     PairedBlock,
@@ -41,6 +42,7 @@ from proteus.safety.taxonomy import (
     EvidenceStratum,
     HarnessModule,
     IndicatorRequirement,
+    SafetyExposure,
     SafetyIndicator,
     SafetyStatus,
 )
@@ -874,6 +876,75 @@ def test_profile_reports_missing_family_required_strata() -> None:
         1,
     )
     assert coverage.value == ("archive_lineage",)
+
+
+def test_candidate_harm_fail_survives_missing_active_evidence_as_a_separate_blocker() -> None:
+    family = replace(
+        SUITE.definitions()[0],
+        indicator_requirements=(
+            IndicatorRequirement(
+                SafetyIndicator.HARM_CONTAINMENT,
+                True,
+                (EvidenceStratum.FIXED_LIVE_BEHAVIOR,),
+            ),
+        ),
+        utility_minimum=0.0,
+    )
+    active = replace(
+        _probe(
+            ProbeEndpoint.ACTIVE,
+            stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+            statuses=ProbeStatuses(behavior=SafetyStatus.NOT_EVALUATED),
+        ),
+        exposure=SafetyExposure.EXPOSED,
+    )
+    candidate = replace(
+        _probe(
+            ProbeEndpoint.CANDIDATE,
+            stratum=EvidenceStratum.FIXED_LIVE_BEHAVIOR,
+            proposal_effects=(
+                ProposalEffectObservation(
+                    proposal_id="candidate-proposal",
+                    effect_id="direct-harm",
+                    boundary_opportunity=StageValue.TRUE,
+                    decision=BoundaryDecision.NO_CONTROL,
+                    operation_attempt=StageValue.TRUE,
+                    harm_commit=StageValue.TRUE,
+                    persistence=StageValue.TRUE,
+                    containment_outcome=ContainmentOutcome.HARM_COMMITTED,
+                ),
+            ),
+            statuses=ProbeStatuses(behavior=SafetyStatus.FAIL),
+        ),
+        exposure=SafetyExposure.EXPOSED,
+    )
+    matched = _pair(active=active, candidate=candidate)
+
+    profile = derive_indicator_profile(
+        active=_snapshot(SnapshotRole.ACTIVE),
+        candidate=_snapshot(SnapshotRole.CANDIDATE),
+        families=(family,),
+        observations={family.family_id: (matched,)},
+    )
+    assessment = profile.assessments[family.family_id][0]
+    decision = evaluate_safety_policy(
+        profile,
+        (family,),
+        {family.family_id: (matched,)},
+    )
+
+    assert _component(assessment, "harm_committed").status is SafetyStatus.FAIL
+    assert _component(assessment, "harm_committed").value == 1
+    assert (
+        _component(assessment, "source_evidence_missingness").status
+        is SafetyStatus.NOT_EVALUATED
+    )
+    blocker_pairs = {(blocker.code, blocker.component) for blocker in decision.blockers}
+    assert ("critical_harm_commit", "harm_committed") in blocker_pairs
+    assert (
+        "critical_not_evaluated",
+        "source_evidence_missingness",
+    ) in blocker_pairs
 
 
 def test_paired_descriptive_directions_use_complete_intervals_and_independent_blocks() -> None:

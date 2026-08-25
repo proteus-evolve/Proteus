@@ -325,6 +325,8 @@ class _SocketLiveModelChannel:
         self._connection = connection
         self._connection.settimeout(timeout_seconds)
         self._model = model
+        self._io_lock = threading.Lock()
+        self._closed = False
 
     @property
     def model(self) -> str:
@@ -337,29 +339,68 @@ class _SocketLiveModelChannel:
         instructions: str = "",
         tools: Sequence[Mapping[str, object]] = (),
     ) -> LiveModelResponse:
-        _send_message(
-            self._connection,
-            {
-                "input": input,
-                "instructions": instructions,
-                "tools": list(tools),
-            },
-        )
-        result = _receive_message(self._connection)
-        if result is None:
-            raise RuntimeError("fixed-live broker closed the channel")
-        if result.get("ok") is not True:
-            raise RuntimeError(str(result.get("error", "fixed-live broker request failed")))
-        response = result.get("response")
-        if not isinstance(response, dict):
-            raise TypeError("fixed-live broker returned no normalized response")
-        return _response_from_message(response)
+        with self._io_lock:
+            if self._closed:
+                raise RuntimeError("fixed-live broker channel is closed")
+            _send_message(
+                self._connection,
+                {
+                    "input": input,
+                    "instructions": instructions,
+                    "tools": list(tools),
+                },
+            )
+            result = _receive_message(self._connection)
+            if result is None:
+                raise RuntimeError("fixed-live broker closed the channel")
+            if result.get("ok") is not True:
+                raise RuntimeError(str(result.get("error", "fixed-live broker request failed")))
+            response = result.get("response")
+            if not isinstance(response, dict):
+                raise TypeError("fixed-live broker returned no normalized response")
+            return _response_from_message(response)
 
     def close(self) -> None:
-        self._connection.close()
+        with self._io_lock:
+            if self._closed:
+                return
+            self._closed = True
+            try:
+                self._connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            self._connection.close()
 
     def __del__(self) -> None:
-        self._connection.close()
+        self.close()
+
+
+def _validate_completed_response(body: Mapping[str, object]) -> None:
+    if body.get("status") != "completed":
+        raise ValueError("Responses API payload is not completed")
+    output = body.get("output")
+    if not isinstance(output, list):
+        raise TypeError("Responses API output must be a list")
+    for item in output:
+        if not isinstance(item, dict):
+            raise TypeError("Responses API output items must be objects")
+        item_type = item.get("type")
+        if not isinstance(item_type, str) or not item_type:
+            raise ValueError("Responses API output item has no type")
+        if item_type == "message":
+            content = item.get("content")
+            if not isinstance(content, list):
+                raise TypeError("Responses API message content must be a list")
+            for part in content:
+                if not isinstance(part, dict):
+                    raise TypeError("Responses API message content parts must be objects")
+                part_type = part.get("type")
+                if not isinstance(part_type, str) or not part_type:
+                    raise ValueError("Responses API message content part has no type")
+                if part_type == "output_text" and not isinstance(part.get("text"), str):
+                    raise TypeError("Responses API output text must be text")
+                if part_type == "refusal" and not isinstance(part.get("refusal"), str):
+                    raise TypeError("Responses API refusal must be text")
 
 
 def _normalized_response(
@@ -369,6 +410,7 @@ def _normalized_response(
     call_number: int,
     configured_model: str,
 ) -> LiveModelResponse:
+    _validate_completed_response(body)
     response_id = body.get("id")
     response_model = body.get("model")
     if not isinstance(response_id, str) or not response_id.strip():
@@ -425,6 +467,8 @@ class LiveModelBroker:
         self.config = config
         self._credential = credential
         self._transport = transport or StdlibResponsesTransport()
+        self._channel_threads: dict[int, threading.Thread] = {}
+        self._channel_threads_lock = threading.Lock()
 
     @classmethod
     def from_repository(
@@ -447,11 +491,24 @@ class LiveModelBroker:
             daemon=True,
         )
         thread.start()
-        return _SocketLiveModelChannel(
+        channel = _SocketLiveModelChannel(
             connection=executor_connection,
             model=self.config.model,
             timeout_seconds=self.config.timeout_seconds,
         )
+        with self._channel_threads_lock:
+            self._channel_threads[id(channel)] = thread
+        return channel
+
+    def close_channel(self, channel: LiveModelChannel) -> None:
+        """Close one executor capability and join its trusted broker worker."""
+        close = getattr(channel, "close", None)
+        if callable(close):
+            close()
+        with self._channel_threads_lock:
+            thread = self._channel_threads.pop(id(channel), None)
+        if thread is not None and thread is not threading.current_thread():
+            thread.join()
 
     def _serve_channel(self, connection: socket.socket, cell_id: str) -> None:
         calls = 0

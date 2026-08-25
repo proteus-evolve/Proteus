@@ -15,10 +15,16 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+
+
+def _container_name() -> str:
+    return f"proteus-{uuid.uuid4().hex}"
 
 
 @dataclass(frozen=True)
@@ -90,26 +96,77 @@ class DockerSandbox:
         """`mounts` replaces the default `<run_root>:/run` bind when given — adapters with
         their own container layout (e.g. dsh's /workspace + /state) pass it per call."""
         c = self.config
-        argv = ["docker", "run", "--rm", "--init", "--network", c.network]
-        for host, cont in (mounts or ((str(run_root), "/run"),)):
-            argv += ["-v", f"{host}:{cont}"]
-        if c.mem_limit:
-            argv += ["--memory", c.mem_limit]
-        if c.cpus:
-            argv += ["--cpus", c.cpus]
-        for host, cont in c.extra_mounts:
-            argv += ["-v", f"{host}:{cont}"]
-        for key in c.env_passthrough:
-            if key in env:
-                argv += ["-e", key]
-        argv += [c.image, *(c.entrypoint or ()), *command]
-        client_env = os.environ.copy()
-        client_env.update({key: env[key] for key in c.env_passthrough if key in env})
-        return subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            env=client_env,
-            check=False,
-        )
+        name = _container_name()
+        with tempfile.TemporaryDirectory(prefix="proteus-docker-") as temporary:
+            cidfile = Path(temporary) / "container.cid"
+            argv = [
+                "docker",
+                "run",
+                "--rm",
+                "--init",
+                "--name",
+                name,
+                "--cidfile",
+                str(cidfile),
+            ]
+            if hasattr(os, "getuid") and hasattr(os, "getgid"):
+                argv += ["--user", f"{os.getuid()}:{os.getgid()}"]
+            argv += ["--network", c.network]
+            for host, cont in (mounts or ((str(run_root), "/run"),)):
+                argv += ["-v", f"{host}:{cont}"]
+            if c.mem_limit:
+                argv += ["--memory", c.mem_limit]
+            if c.cpus:
+                argv += ["--cpus", c.cpus]
+            for host, cont in c.extra_mounts:
+                argv += ["-v", f"{host}:{cont}"]
+            for key in c.env_passthrough:
+                if key in env:
+                    argv += ["-e", key]
+            entrypoint_args: tuple[str, ...] = ()
+            if c.entrypoint:
+                argv += ["--entrypoint", c.entrypoint[0]]
+                entrypoint_args = c.entrypoint[1:]
+            argv += [c.image, *entrypoint_args, *command]
+            client_env = os.environ.copy()
+            client_env.update({key: env[key] for key in c.env_passthrough if key in env})
+            process = subprocess.Popen(
+                argv,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=client_env,
+            )
+            try:
+                stdout, stderr = process.communicate(timeout=timeout_s)
+            except subprocess.TimeoutExpired as exc:
+                target = name
+                try:
+                    recorded = cidfile.read_text(encoding="utf-8").strip()
+                except OSError:
+                    recorded = ""
+                if recorded:
+                    target = recorded
+                try:
+                    subprocess.run(
+                        ["docker", "rm", "-f", target],
+                        capture_output=True,
+                        text=True,
+                        timeout=max(5, min(timeout_s, 30)),
+                        check=False,
+                        env=client_env,
+                    )
+                finally:
+                    stdout, stderr = process.communicate()
+                raise subprocess.TimeoutExpired(
+                    argv,
+                    timeout_s,
+                    output=stdout,
+                    stderr=stderr,
+                ) from exc
+            return subprocess.CompletedProcess(
+                argv,
+                process.returncode,
+                stdout,
+                stderr,
+            )

@@ -197,8 +197,19 @@ def run(cfg: RunConfig) -> RunResult:
         with materialized_transition(
             harness, last_active, candidate
         ) as (active_root, task_candidate_root, gate_candidate_root):
-            results = cfg.goal.evaluate(trace, GoalContext(str(task_candidate_root), ep))
-            task_selected, best_score = _select_task_candidate(cfg.goal, results, best_score)
+            task_error = ""
+            try:
+                results = cfg.goal.evaluate(trace, GoalContext(str(task_candidate_root), ep))
+                task_selected, next_best_score = _select_task_candidate(
+                    cfg.goal, results, best_score
+                )
+            except Exception as exc:  # noqa: BLE001 - safety still evaluates the frozen candidate
+                results = ()
+                task_selected = False
+                next_best_score = best_score
+                task_error = f"{type(exc).__name__}: task evaluation failed"
+            else:
+                best_score = next_best_score
             if cfg.candidate_gate is None:
                 safety_result = CandidateGateResult(True, "pass", "")
             else:
@@ -224,17 +235,19 @@ def run(cfg: RunConfig) -> RunResult:
             last_active = snapshot.commit(harness, f"episode {ep}: {cfg.name} [rejected]")
         done = ep
 
-        by_name = {r.name: r for r in results}
         eval_history.append({"episode": ep, "task_selected": task_selected, "activated": activated,
                              "results": [r.__dict__ for r in results]})
-        prior_feedback = cfg.goal.observe_feedback(by_name)  # OBSERVE-visible only
-        if prior_feedback and not activated:
-            prior_feedback += "\n(Your last episode's changes were not kept.)"
-
         if cfg.progress_path is not None:
             _append_progress(
                 cfg, ep, res, trace, task_selected, activated, safety_result.decision_ref, results
             )
+        if task_error:
+            error = task_error
+            break
+        by_name = {r.name: r for r in results}
+        prior_feedback = cfg.goal.observe_feedback(by_name)  # OBSERVE-visible only
+        if prior_feedback and not activated:
+            prior_feedback += "\n(Your last episode's changes were not kept.)"
 
     (cfg.root / "eval_history.json").write_text(json.dumps(eval_history, indent=1))
     return RunResult(name=cfg.name, episodes_complete=done, root=str(cfg.root),

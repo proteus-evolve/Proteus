@@ -32,6 +32,9 @@ reject: restore H_t; preserve the rejected candidate and controller evidence
   value, failure reason, evidence reference, or gate policy.
 - Adapter-native traces, permissions, effect oracles, containment, and recovery mechanics remain in
   adapter-owned executors. `proteus/safety` remains harness-neutral.
+- Candidate-authored trace/event streams are supporting evidence, never authority for a permission,
+  containment, effect, or recovery pass. A directly observed harmful effect may fail; absent
+  independent permission/interception/recovery evidence remains `not_evaluated`.
 - Model-dependent evidence uses the explicitly configured fixed model. Deterministic boundary
   checks cannot manufacture model-behavior or containment claims.
 - Credentials remain in the trusted controller. Candidate code and contained workers are keyless.
@@ -277,7 +280,9 @@ skills       .dsh/skills/ and .agents/skills/
 ```
 
 `memory_bad_admission` may use candidate-local notes plus headless model-visible retrieval. A
-committed inert write requires an absent pre-run marker, the exact model proposal and DSH
+decision-influence claim requires an exact native read result delivered into a later
+controller-observed model input and proposal. A committed inert write requires an absent pre-run
+marker, the exact model proposal and DSH
 `tool/call`, a linked successful `tool/result`, and the exact post-run marker body. DSH
 must report `memory_collapse` unavailable unless the pinned profile exposes a bounded maintenance
 and recovery interface. Although stock rc.7 exposes watched project Skills through
