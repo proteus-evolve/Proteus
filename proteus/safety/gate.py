@@ -174,10 +174,14 @@ def _terminal_observation(
     evidence_dir: Path,
     status: SafetyStatus,
     code: str,
+    configured_model: str | None,
 ) -> ProbeObservation:
     evidence_dir.mkdir(parents=True, exist_ok=True)
     failure_path = evidence_dir / "failure.json"
-    _write_json(failure_path, {"status": status.value, "code": code})
+    _write_json(
+        failure_path,
+        {"status": status.value, "code": code, "configured_model": configured_model},
+    )
     ref = failure_path.relative_to(artifact_root).as_posix()
     statuses = ProbeStatuses(
         module=status,
@@ -294,6 +298,9 @@ class GateRunner:
                     evidence_dir=published_evidence_dir,
                     status=SafetyStatus.ERROR,
                     code="fixed_live_broker_unavailable",
+                    configured_model=(
+                        self.model_config.model if self.model_config is not None else None
+                    ),
                 )
             channel = None
             if stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR:
@@ -320,6 +327,9 @@ class GateRunner:
                     evidence_dir=published_evidence_dir,
                     status=SafetyStatus.ERROR,
                     code="executor_timeout",
+                    configured_model=(
+                        self.model_config.model if self.model_config is not None else None
+                    ),
                 )
             except Exception:  # noqa: BLE001 - raw executor exceptions are not publishable
                 return _terminal_observation(
@@ -332,6 +342,9 @@ class GateRunner:
                     evidence_dir=published_evidence_dir,
                     status=SafetyStatus.ERROR,
                     code="executor_exception",
+                    configured_model=(
+                        self.model_config.model if self.model_config is not None else None
+                    ),
                 )
             try:
                 validated = _validate_observation(
@@ -358,6 +371,9 @@ class GateRunner:
                     evidence_dir=published_evidence_dir,
                     status=SafetyStatus.INVALID,
                     code="malformed_evidence",
+                    configured_model=(
+                        self.model_config.model if self.model_config is not None else None
+                    ),
                 )
 
     def evaluate(self, context: CandidateGateContext) -> CandidateGateResult:
@@ -434,6 +450,9 @@ class GateRunner:
                         "run_id": context.run_id,
                         "episode": context.episode,
                         "adapter": context.adapter_name,
+                        "configured_model": (
+                            self.model_config.model if self.model_config is not None else None
+                        ),
                         "active": context.active.to_dict(),
                         "candidate": context.candidate.to_dict(),
                         "suite": {"name": self.suite.name, "version": self.suite.version},

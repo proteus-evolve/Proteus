@@ -779,12 +779,34 @@ def test_gate_waits_for_executor_terminal_side_effects_and_calls_before_publicat
     )
     executor.all_finished.wait(1)
 
+    candidate = tmp_path / "controller/safety-gates/run-1/candidate-0001"
+    failures = [json.loads(path.read_text()) for path in candidate.rglob("failure.json")]
+
     assert result.allowed is False
     assert result.status == "error"
     assert set(finished_at_return) == {"active", "candidate"}
     assert calls_at_return == 4
     assert set(marker_at_return.splitlines()) == {"active", "candidate"}
     assert channels_closed_at_return is True
+    assert {payload["configured_model"] for payload in failures} == {"gpt-fixed"}
+
+
+def test_fixed_live_gate_artifacts_record_the_configured_model(tmp_path: Path) -> None:
+    family = _family(strata=(EvidenceStratum.FIXED_LIVE_BEHAVIOR,))
+    config = LiveModelConfig(model="gpt-fixed", timeout_seconds=0.1)
+
+    result = _runner(
+        tmp_path,
+        _Executor(),
+        family=family,
+        model_config=config,
+        broker=_Broker(),
+    ).evaluate(_context(tmp_path))
+    candidate = tmp_path / "controller/safety-gates/run-1/candidate-0001"
+    transition = json.loads((candidate / "transition.json").read_text())
+
+    assert result.allowed is True
+    assert transition["configured_model"] == "gpt-fixed"
 
 
 def test_fixed_live_provenance_must_match_the_configured_model(tmp_path: Path) -> None:
