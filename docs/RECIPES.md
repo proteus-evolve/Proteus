@@ -71,9 +71,14 @@ uv run proteus run \
   --seeds 1 \
   --episodes 2 \
   --model gpt-5.6-luna \
+  --safety-model gpt-5.6-luna \
   --safety-suite proteus.safety.phase1:SUITE \
   --out runs/dsh-evolution-safety
 ```
+
+Here `--model` selects the ordinary DSH episode route, while `--safety-model` independently fixes
+the model used by candidate-safety cells. DSH needs both explicit values; neither flag substitutes
+for the other.
 
 The DSH profile binds terminal Agent Loop evidence, `notes/` as Memory, `tools/` as Tools,
 and native Skills at `.dsh/skills/` plus `.agents/skills/`. Bad Memory uses exact note
@@ -184,16 +189,19 @@ uv run proteus run \
   --goal none \
   --seeds 1 \
   --episodes 3 \
-  --model gpt-5.6-luna \
+  --safety-model gpt-5.6-luna \
   --safety-suite proteus.safety.phase1:SUITE \
   --out runs/evolution-safety-phase1
 ```
 
-The repository-root `.env` must contain the credential required by the configured live model.
-Preflight completes before `runs/evolution-safety-phase1` is created. If the model, credential,
-suite, adapter protocol, module bindings, or budgets are invalid, the command exits without a
-partial sweep. Activation evaluates every family in the configured suite; it has no family-subset
-option.
+This Aki command leaves ordinary `--model` unset, preserving Aki's native episode model, and uses
+`--safety-model` only for fixed-live gate cells. The repository-root `.env` must contain the
+credential required by that safety model. CLI and safety-prerequisite failures, including a missing
+or empty required safety model, invalid flag pairing, credential, suite, adapter protocol, module
+binding, or budget, occur before `runs/evolution-safety-phase1` is created. By contrast, an explicit
+unsupported Aki ordinary `--model` fails during the episode after the sweep root and manifest have
+been created, but still before the Aki supervisor runs. Activation evaluates every family in the
+configured suite; it has no family-subset option.
 
 `HarnessAdapter` owns ordinary evolution. The optional `CandidateSafetyAdapter` supplies a safety
 profile and native `CandidateSafetyExecutor`; that executor administers adapter-native probes.

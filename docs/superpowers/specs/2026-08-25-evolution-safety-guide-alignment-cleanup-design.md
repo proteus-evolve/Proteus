@@ -39,6 +39,7 @@ must continue to satisfy the runtime-checkable contracts.
 5. Stop Aki from silently substituting its native ordinary-run model for an explicit requested model.
 6. Remove obsolete public evidence, evaluator, context, adapter, and legacy-family APIs.
 7. Keep unsupported native mechanisms explicitly `not_exposed` or `not_evaluated`.
+8. Give ordinary evolution and fixed-live candidate safety distinct model controls.
 
 ## Non-goals
 
@@ -115,7 +116,23 @@ state which fixed model was configured:
 
 Tests must cover both a successful fixed-live gate and a terminal fixed-live failure.
 
-## 5. Aki Ordinary-Run Model and Turn Binding
+## 5. Split Ordinary and Safety Model Configuration
+
+`--model` belongs only to ordinary evolution and must continue to populate `SweepConfig.model` and
+`EpisodeSpec.model`. `--safety-model` belongs only to fixed-live candidate safety and supplies the
+`LiveModelConfig` used by `GateRunner`. A fixed-live suite requires a non-empty `--safety-model`, and
+`--safety-model` without `--safety-suite` fails before output creation. Do not fall back from one
+model flag to the other and do not add a compatibility alias.
+
+Aki activation commands omit `--model`, preserving the native ordinary binding, and set
+`--safety-model gpt-5.6-luna`. DSH activation commands set both `--model gpt-5.6-luna` for ordinary
+headless episodes and `--safety-model gpt-5.6-luna` for fixed-live safety cells.
+
+This split does not weaken Aki's explicit ordinary-model validation. CLI and safety-prerequisite
+failures occur before the sweep root is created; an unsupported explicit Aki ordinary model is an
+episode failure after the root and manifest exist but before the Aki supervisor runs.
+
+## 6. Aki Ordinary-Run Model and Turn Binding
 
 Aki's safety executor already receives the fixed safety model through the controller channel. This
 change concerns only ordinary evolution through `AkiHarness.run_episode()`.
@@ -130,7 +147,7 @@ run configuration before execution and retain that updated configuration for lat
 Supporting a different provider/model would require a new native or brokered Aki evolution route and
 is outside this cleanup. No run may claim that the requested model was used when it was not.
 
-## 6. Remove the Superseded Public Path
+## 7. Remove the Superseded Public Path
 
 Delete without aliases:
 
@@ -158,7 +175,7 @@ Retain:
 - `proteus audit`, `AuditCase`, `AuditSuite`, and instrument-integrity cases; and
 - historical design/plan documents as historical records.
 
-## 7. Documentation
+## 8. Documentation
 
 Update current-facing documentation to say plainly:
 
@@ -178,9 +195,10 @@ Use red-green TDD for every behavior change:
 1. DSH snapshot-entry/runtime-start marker evidence and fresh-rewrite regression.
 2. CLI rejection of removed `--safety-family` and full-suite gate construction.
 3. Configured-model publication for successful and terminal fixed-live cells.
-4. Aki model mismatch fails before supervisor execution; matching/empty model binds `max_turns`.
-5. Removed legacy modules and public symbols are not importable.
-6. Aki and DSH satisfy the active candidate-safety protocols.
+4. Separate ordinary and safety model routing, required flag pairing, and CLI help.
+5. Aki model mismatch fails before supervisor execution; matching/empty model binds `max_turns`.
+6. Removed legacy modules and public symbols are not importable.
+7. Aki and DSH satisfy the active candidate-safety protocols.
 
 Then run:
 
@@ -201,6 +219,7 @@ contracts and mechanisms only; they do not establish live-model behavior.
 - DSH distinguishes snapshot-entry marker state from runtime-start absence and attributes an exact
   successful rewrite as a fresh commit.
 - Gate artifacts always carry the configured fixed model when one exists.
+- `--model` reaches only ordinary episodes and `--safety-model` reaches only fixed-live gate cells.
 - Aki never silently substitutes a different ordinary-run model.
 - The obsolete evaluator, evidence, context, adapter, and legacy family catalog are absent from the
   public package.

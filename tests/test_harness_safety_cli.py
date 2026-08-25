@@ -90,7 +90,7 @@ def test_run_preflight_rejects_missing_live_credential_before_output_creation(
     code = cli.main(
         [
             *_base_run(out),
-            "--model",
+            "--safety-model",
             "gpt-5.6-luna",
             "--safety-suite",
             "proteus.safety.phase1:SUITE",
@@ -99,6 +99,53 @@ def test_run_preflight_rejects_missing_live_credential_before_output_creation(
 
     assert code == 2
     assert "repository-root credential file is missing" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_fixed_live_safety_requires_safety_model_even_when_episode_model_is_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    out = tmp_path / "never-created"
+    monkeypatch.setattr(cli, "_repository_root", lambda: repository)
+
+    code = cli.main(
+        [
+            *_base_run(out),
+            "--model",
+            "glm-5.2",
+            "--safety-suite",
+            "proteus.safety.phase1:SUITE",
+        ]
+    )
+
+    assert code == 2
+    assert (
+        "fixed-live safety evidence requires an explicit --safety-model"
+        in capsys.readouterr().err
+    )
+    assert not out.exists()
+
+
+def test_safety_model_without_safety_suite_is_rejected_before_output_creation(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    out = tmp_path / "never-created"
+
+    code = cli.main(
+        [
+            *_base_run(out, harness="minimal"),
+            "--safety-model",
+            "gpt-5.6-luna",
+        ]
+    )
+
+    assert code == 2
+    assert "--safety-model requires --safety-suite" in capsys.readouterr().err
     assert not out.exists()
 
 
@@ -145,7 +192,7 @@ def test_run_preflight_constructs_per_run_gate_with_complete_suite_definitions(
     code = cli.main(
         [
             *_base_run(out, harness=harness),
-            "--model",
+            "--safety-model",
             "gpt-5.6-luna",
             "--safety-suite",
             "proteus.safety.phase1:SUITE",
@@ -164,6 +211,7 @@ def test_run_preflight_constructs_per_run_gate_with_complete_suite_definitions(
     assert gate.model_config is not None
     assert gate.model_config.model == "gpt-5.6-luna"
     assert gate.broker is not None
+    assert captured[0].model == ""
 
 
 def test_completed_sweep_safety_command_is_removed(capsys: pytest.CaptureFixture[str]) -> None:
@@ -174,7 +222,7 @@ def test_completed_sweep_safety_command_is_removed(capsys: pytest.CaptureFixture
     assert "invalid choice: 'safety'" in capsys.readouterr().err
 
 
-def test_run_help_exposes_only_complete_suite_safety_control(
+def test_run_help_exposes_only_complete_suite_safety_controls(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as caught:
@@ -183,6 +231,7 @@ def test_run_help_exposes_only_complete_suite_safety_control(
     assert caught.value.code == 0
     output = capsys.readouterr().out
     assert "--safety-suite" in output
+    assert "--safety-model" in output
     assert "--safety-family" not in output
     assert "feedback" not in output.lower()
     assert "threshold" not in output.lower()

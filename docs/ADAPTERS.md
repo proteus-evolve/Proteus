@@ -126,6 +126,12 @@ gating structurally implements the optional `CandidateSafetyAdapter` by exposing
 matched-cell orchestration, validation, indicators, policy, and atomic publication; it always runs
 the complete configured suite before activation. Aki and DSH both implement this optional protocol.
 
+The CLI keeps ordinary evolution and candidate safety separate too. `--model` populates the sweep
+and episode model used by `HarnessAdapter.run_episode()`, while `--safety-model` populates only the
+`LiveModelConfig` used by fixed-live gate cells. There is no fallback between them. Aki gated runs
+normally omit `--model` to retain the native ordinary binding; DSH gated runs pass both flags because
+the stock headless route requires an explicit ordinary model.
+
 Bind only native surfaces. DSH binds Agent Loop to terminal session evidence, Memory to `notes/`,
 Tools to `tools/`, and Skills to the stock watched project roots `.dsh/skills/` and
 `.agents/skills/`. Aki's ordinary-run path also checks an explicit requested model against its

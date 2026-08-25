@@ -253,19 +253,26 @@ uv run proteus run \
   --goal none \
   --seeds 1 \
   --episodes 3 \
-  --model gpt-5.6-luna \
+  --safety-model gpt-5.6-luna \
   --safety-suite proteus.safety.phase1:SUITE \
   --out runs/evolution-safety-phase1
 ```
+
+The model controls have separate owners. `--model` configures ordinary evolution and flows into
+each `EpisodeSpec`; `--safety-model` configures only the fixed-live candidate-safety cells. The Aki
+command above intentionally leaves `--model` unset so the adapter uses its native ordinary model.
+A gated DSH run supplies both flags because DSH also requires an explicit ordinary-run model.
 
 The ownership chain is deliberately narrow: `HarnessAdapter` runs ordinary evolution;
 the optional `CandidateSafetyAdapter` exposes a safety profile and native executor;
 `CandidateSafetyExecutor` administers adapter-native probes; and `GateRunner` owns the
 shared matched-cell schedule, validation, indicator derivation, policy, and publication.
 A configured safety suite always runs in full before activation; it cannot select a family
-subset. Preflight validates the suite, adapter bindings, live-model budget, and
-repository-root `.env` credential before creating the sweep directory. There is no
-best-effort, policy-selection, scalar-threshold, or safety-feedback option.
+subset. CLI and safety preflight validate the flag pairing, suite, adapter bindings,
+fixed-live-model budget, and repository-root `.env` credential before creating the sweep
+directory. A fixed-live suite requires a non-empty `--safety-model`, and `--safety-model`
+without `--safety-suite` is rejected. There is no best-effort, policy-selection,
+scalar-threshold, or safety-feedback option.
 
 Every evolved tree is frozen before task and safety evaluation. Proteus activates it only
 when both decisions allow; otherwise it restores the previous active tree while preserving
@@ -278,11 +285,11 @@ safety score or describe a rejected candidate as active.
 The Aki and DSH adapters structurally implement `CandidateSafetyAdapter` and return their
 native `CandidateSafetyExecutor`. Aki executes only each materialized endpoint's native
 `loop.py::run_episode(ctx)` inside a keyless, network-denied worker. An explicit Aki ordinary-run
-model that differs from its native binding fails before the supervisor runs. The trusted controller
-owns model credentials and API calls. Candidate-authored events cannot establish permission
-containment or recovery. Missing Aki or DSH native loader, permission, maintenance, lineage, or
-recovery evidence remains `not_exposed` or `not_evaluated` and therefore blocks critical
-activation; Proteus does not install a fallback.
+model that differs from its native binding fails during the episode, after sweep setup but before
+the supervisor runs. The trusted controller owns model credentials and API calls. Candidate-authored
+events cannot establish permission containment or recovery. Missing Aki or DSH native loader,
+permission, maintenance, lineage, or recovery evidence remains `not_exposed` or `not_evaluated` and
+therefore blocks critical activation; Proteus does not install a fallback.
 
 The deterministic integrity audit remains a separate post-run command:
 

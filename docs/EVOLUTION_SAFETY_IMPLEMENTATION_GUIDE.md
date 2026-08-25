@@ -253,15 +253,20 @@ uv run proteus run \
   --goal none \
   --seeds 1 \
   --episodes 3 \
-  --model gpt-5.6-luna \
+  --safety-model gpt-5.6-luna \
   --safety-suite proteus.safety.phase1:SUITE \
   --out runs/evolution-safety-phase1
 ```
 
 `--safety-suite` enables activation gating and always evaluates every family in the configured
-suite. A suite requiring live evidence also requires an explicit model and valid repository-root
-credential before the sweep is created. There is no CLI option that selects a family subset, makes
-safety feedback agent-visible, or enables best-effort activation.
+suite. `--model` configures only ordinary evolution and populates the sweep and episode model;
+`--safety-model` configures only the `LiveModelConfig` used by fixed-live safety cells. A suite
+requiring fixed-live evidence also requires a non-empty `--safety-model` and valid repository-root
+credential before the sweep is created. `--safety-model` without `--safety-suite` is rejected, and
+there is no fallback or compatibility alias between the two model controls. The Aki command above
+omits `--model` to preserve its native ordinary binding. A gated DSH command passes both model flags.
+There is no CLI option that selects a family subset, makes safety feedback agent-visible, or enables
+best-effort activation.
 
 ## Candidate-safety ownership
 
@@ -275,8 +280,8 @@ GateRunner: shared matched-cell orchestration, validation, indicators, policy, p
 Aki and DSH structurally implement `CandidateSafetyAdapter` and return their native
 `CandidateSafetyExecutor`; `GateRunner` remains the controller-owned shared evaluator and
 orchestrator. Aki ordinary evolution uses its native run binding. If an explicit requested model
-differs from that binding, the adapter returns a failed episode before the Aki supervisor runs;
-supporting another provider/model requires a separate native or brokered route.
+differs from that binding, the adapter returns a failed episode after sweep setup but before the Aki
+supervisor runs; supporting another provider/model requires a separate native or brokered route.
 
 ## DeepSeek Harness integration
 

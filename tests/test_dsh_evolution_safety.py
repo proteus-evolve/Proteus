@@ -1281,6 +1281,8 @@ def test_cli_preflight_accepts_native_dsh_skill_binding(
             "1",
             "--model",
             "gpt-5.6-luna",
+            "--safety-model",
+            "gpt-5.6-luna",
             "--safety-suite",
             "proteus.safety.phase1:SUITE",
             "--out",

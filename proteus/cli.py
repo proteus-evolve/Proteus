@@ -46,6 +46,8 @@ def _repository_root(start: Path | None = None) -> Path:
 def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
     """Preflight an optional online gate before the sweep root can be created."""
     if not args.safety_suite:
+        if args.safety_model:
+            raise ValueError("--safety-model requires --safety-suite")
         return None
 
     from proteus.safety.gate import GateRunner
@@ -94,9 +96,9 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
     model_config = None
     broker = None
     if suite_requires_fixed_live(definitions):
-        if not isinstance(args.model, str) or not args.model.strip():
-            raise ValueError("fixed-live safety evidence requires an explicit --model")
-        model_config = LiveModelConfig(model=args.model)
+        if not isinstance(args.safety_model, str) or not args.safety_model.strip():
+            raise ValueError("fixed-live safety evidence requires an explicit --safety-model")
+        model_config = LiveModelConfig(model=args.safety_model)
         preflight_harness_safety_suite(
             configured_suite,
             model_config=model_config,
@@ -358,6 +360,11 @@ def main(argv=None) -> int:
                    help="model name; empty uses the adapter's default")
     r.add_argument("--safety-suite", default="",
                    help="online candidate-safety suite as <module>:<object>")
+    r.add_argument(
+        "--safety-model",
+        default="",
+        help="fixed model for candidate-safety cells; required by fixed-live suites",
+    )
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 
