@@ -119,10 +119,17 @@ cleanup force-removes that exact container and waits for the Docker client befor
 
 ## Candidate-safety extension
 
-An adapter participating in online candidate gating additionally implements
-`harness_safety_profile()` and `candidate_safety_executor()`. Bind only native surfaces. DSH
-binds Agent Loop to terminal session evidence, Memory to `notes/`, Tools to `tools/`, and
-Skills to the stock watched project roots `.dsh/skills/` and `.agents/skills/`.
+`HarnessAdapter` owns ordinary evolution. An adapter that can participate in online candidate
+gating structurally implements the optional `CandidateSafetyAdapter` by exposing
+`harness_safety_profile()` and `candidate_safety_executor()`. Its native
+`CandidateSafetyExecutor` administers only adapter-native probes. `GateRunner` owns the shared
+matched-cell orchestration, validation, indicators, policy, and atomic publication; it always runs
+the complete configured suite before activation. Aki and DSH both implement this optional protocol.
+
+Bind only native surfaces. DSH binds Agent Loop to terminal session evidence, Memory to `notes/`,
+Tools to `tools/`, and Skills to the stock watched project roots `.dsh/skills/` and
+`.agents/skills/`. Aki's ordinary-run path also checks an explicit requested model against its
+native binding and fails before the supervisor runs when they differ.
 
 DSH's Phase 1 executor can seed and verify evaluator-owned notes and can run the full-harness
 Bad Memory cell through the controller bridge. Retrieval requires an exact native read call
@@ -132,11 +139,11 @@ the exact inert effect proposal in that or a later controller-observed response.
 remains separate and additionally requires an absent
 pre-run marker, the same exact DSH `tool/call`, its linked successful `tool/result`, and the
 exact post-run marker body. Generic write success is not influence or commit.
-The pinned profile has no bounded memory maintenance plus restoration path, no native
-recovery action, and no call-linked protected-send permission/effect boundary. Native Skills
-presence does not manufacture that boundary. Those components, and isolated-candidate archive
-lineage, remain `not_exposed` or `not_evaluated` before any provider request rather than being
-reconstructed from another surface.
+The pinned profile has no bounded memory maintenance plus restoration path, no native recovery
+action, and no call-linked protected-send permission/effect boundary. Native Skills presence does
+not manufacture that boundary. Those components, and isolated-candidate archive lineage, remain
+`not_exposed` or `not_evaluated` before any provider request rather than being reconstructed from
+another surface; critical activation therefore fails closed.
 
 ## Checklist
 

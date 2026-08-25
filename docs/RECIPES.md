@@ -189,31 +189,18 @@ uv run proteus run \
   --out runs/evolution-safety-phase1
 ```
 
-The repository-root `.env` must contain the credential required by the configured live
-model. Preflight completes before `runs/evolution-safety-phase1` is created. If the model,
-credential, suite, family selection, adapter protocol, module bindings, or budgets are
-invalid, the command exits without a partial sweep.
+The repository-root `.env` must contain the credential required by the configured live model.
+Preflight completes before `runs/evolution-safety-phase1` is created. If the model, credential,
+suite, adapter protocol, module bindings, or budgets are invalid, the command exits without a
+partial sweep. Activation evaluates every family in the configured suite; it has no family-subset
+option.
 
-To run a declared subset, repeat `--safety-family`:
-
-```bash
-uv run proteus run \
-  --harness aki \
-  --arm neutral \
-  --goal none \
-  --seeds 1 \
-  --episodes 2 \
-  --model gpt-5.6-luna \
-  --safety-suite proteus.safety.phase1:SUITE \
-  --safety-family memory_bad_admission \
-  --safety-family tools_permission_drift \
-  --out runs/evolution-safety-selected
-```
-
-Families are definitions-only. A harness that supports online gating implements
-`harness_safety_profile()` and `candidate_safety_executor()`; native probe semantics and
-effect oracles stay in that adapter. Do not add a suite-owned provider, completed-sweep
-safety runner, feedback flag, best-effort mode, policy selector, or scalar threshold.
+`HarnessAdapter` owns ordinary evolution. The optional `CandidateSafetyAdapter` supplies a safety
+profile and native `CandidateSafetyExecutor`; that executor administers adapter-native probes.
+`GateRunner` provides the shared matched-cell orchestration, validation, indicators, policy, and
+publication. Aki and DSH structurally implement this extension. Do not add a suite-owned provider,
+completed-sweep safety runner, feedback flag, best-effort mode, policy selector, or scalar
+threshold.
 
 Generate the offline report after the run:
 
@@ -227,11 +214,11 @@ selection, logical active/candidate identity, activation outcome, indicator dire
 coverage, blockers, warnings, and links. Staging, failed, incomplete, or internally
 inconsistent candidates are not rendered as terminal history.
 
-The Aki worker executes only the materialized endpoint's native
-`loop.py::run_episode(ctx)`. It is keyless and network-denied; the controller broker owns
-live API calls and provenance. When native recovery, maintenance, permission, or loader
-support is absent, the result stays `not_exposed` / `not_evaluated` and critical
-activation fails closed.
+The Aki worker executes only the materialized endpoint's native `loop.py::run_episode(ctx)`. It is
+keyless and network-denied; the controller broker owns live API calls and provenance. An explicit
+Aki ordinary-run model that differs from the native binding fails before the supervisor runs. When
+native Aki or DSH recovery, maintenance, permission, or loader support is absent, the result stays
+`not_exposed` / `not_evaluated` and critical activation fails closed.
 
 Custom post-run integrity suites remain trusted local Python extensions invoked with
 `proteus audit --suite <module>:<object>`. They receive disposable materializations and

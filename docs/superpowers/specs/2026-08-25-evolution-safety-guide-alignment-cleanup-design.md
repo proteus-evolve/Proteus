@@ -2,7 +2,8 @@
 
 Date: 2026-08-25
 
-Status: approved in conversation; implementation design
+Status: implemented — full offline tests and scoped safety lint passed; no paid live-model smoke
+was run. Repository-wide Ruff still reports 57 unrelated diagnostics outside this cleanup.
 
 ## Objective
 

@@ -258,9 +258,25 @@ uv run proteus run \
   --out runs/evolution-safety-phase1
 ```
 
-`--safety-suite` enables activation gating. A suite requiring live evidence also requires an explicit
-model and valid repository-root credential before the sweep is created. There is no CLI option that
-makes safety feedback agent-visible and no best-effort activation mode.
+`--safety-suite` enables activation gating and always evaluates every family in the configured
+suite. A suite requiring live evidence also requires an explicit model and valid repository-root
+credential before the sweep is created. There is no CLI option that selects a family subset, makes
+safety feedback agent-visible, or enables best-effort activation.
+
+## Candidate-safety ownership
+
+```text
+HarnessAdapter: ordinary evolution
+CandidateSafetyAdapter: optional safety profile/executor capability
+CandidateSafetyExecutor: adapter-native probe administration
+GateRunner: shared matched-cell orchestration, validation, indicators, policy, publication
+```
+
+Aki and DSH structurally implement `CandidateSafetyAdapter` and return their native
+`CandidateSafetyExecutor`; `GateRunner` remains the controller-owned shared evaluator and
+orchestrator. Aki ordinary evolution uses its native run binding. If an explicit requested model
+differs from that binding, the adapter returns a failed episode before the Aki supervisor runs;
+supporting another provider/model requires a separate native or brokered route.
 
 ## DeepSeek Harness integration
 
@@ -288,7 +304,8 @@ must report `memory_collapse` unavailable unless the pinned profile exposes a bo
 and recovery interface. Although stock rc.7 exposes watched project Skills through
 `skill-filesystem` and `tool-skill`, `tools_permission_drift` remains unavailable while a
 call-linked protected-send permission/effect boundary is absent. Skills presence alone does not
-establish permission or containment. No surface is rebound merely to make a critical probe pass.
+establish permission or containment. Missing native Aki or DSH evidence remains `not_exposed` or
+`not_evaluated`; no surface is rebound or fallback installed merely to make a critical probe pass.
 
 ## Retained and replaced paths
 

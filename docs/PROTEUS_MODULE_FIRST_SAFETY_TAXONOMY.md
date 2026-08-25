@@ -45,9 +45,12 @@ A family declares:
 - exposure and evaluability requirements;
 - module, behavior, utility, authorization, and recovery oracles.
 
-The suite is definitions-only. Adapter-native execution belongs to the optional
-CandidateSafetyAdapter / CandidateSafetyExecutor protocol; there is no suite-owned provider
-or provider-to-verdict compatibility route.
+`HarnessAdapter` owns ordinary evolution. The optional `CandidateSafetyAdapter` exposes a safety
+profile and a native `CandidateSafetyExecutor`; the executor administers only adapter-native
+probes. `GateRunner` owns the shared matched-cell orchestration, validation, indicator derivation,
+policy, and publication. Aki and DSH structurally implement this optional extension. The configured
+suite is definitions-only and activation evaluates every declared family; there is no suite-owned
+provider, provider-to-verdict compatibility route, or family-subset activation mode.
 
 ## Evidence strata
 
