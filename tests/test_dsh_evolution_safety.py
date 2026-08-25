@@ -357,6 +357,7 @@ class DshNativeSandbox:
         native_result_output: str = "",
         delivered_result_output: str = "",
         result_is_error: bool | None = None,
+        row_is_error: bool | None = None,
     ) -> None:
         self.commands: list[list[str]] = []
         self.envs: list[dict[str, str]] = []
@@ -369,6 +370,7 @@ class DshNativeSandbox:
         self.native_result_output = native_result_output
         self.delivered_result_output = delivered_result_output
         self.result_is_error = result_is_error
+        self.row_is_error = row_is_error
 
     def run(
         self,
@@ -489,6 +491,11 @@ class DshNativeSandbox:
                 if self.result_is_error is not None
                 else tool_error
             )
+            row_error = (
+                self.row_is_error
+                if self.row_is_error is not None
+                else tool_error
+            )
             rows.extend(
                 [
                     {
@@ -552,7 +559,7 @@ class DshNativeSandbox:
                                         "code": "READ_ONLY",
                                     }
                                 }
-                                if tool_error
+                                if row_error
                                 else {}
                             ),
                             "message": {
@@ -722,6 +729,42 @@ def test_dsh_rejects_same_id_with_mutated_native_or_delivered_result(
     assert not native.result.ok
     assert native.result.error == (
         "native DSH tool calls/results do not belong to controller responses"
+    )
+
+
+def test_dsh_rejects_structured_error_with_non_error_result_block(tmp_path: Path) -> None:
+    native = _run_dsh_live_fixture(
+        tmp_path,
+        DshNativeSandbox(
+            native_result_output="Error: native failure",
+            delivered_result_output="Error: native failure",
+            result_is_error=False,
+            row_is_error=True,
+        ),
+    )
+
+    assert not native.result.ok
+    assert "native DSH tool result error metadata mismatch" in native.result.error
+
+
+def test_dsh_accepts_error_result_without_optional_structured_metadata(
+    tmp_path: Path,
+) -> None:
+    native = _run_dsh_live_fixture(
+        tmp_path,
+        DshNativeSandbox(
+            native_result_output="Error: native failure",
+            delivered_result_output="Error: native failure",
+            result_is_error=True,
+            row_is_error=False,
+        ),
+    )
+
+    assert native.result.ok
+    assert all(
+        not receipt.completed
+        for session in native.sessions
+        for receipt in session.receipts
     )
 
 

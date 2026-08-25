@@ -528,6 +528,14 @@ class DshHarness:
                 if type(block_error) is not bool:
                     error = error or f"native DSH tool result error is invalid: {source_id}"
                     block_error = True
+                if "error" in data and not isinstance(data["error"], dict):
+                    error = error or (
+                        f"native DSH tool result row error is invalid: {source_id}"
+                    )
+                elif "error" in data and block_error is not True:
+                    error = error or (
+                        f"native DSH tool result error metadata mismatch: {source_id}"
+                    )
                 try:
                     output = _canonical_result_output(
                         block.get("content") if isinstance(block, dict) else None,
@@ -919,13 +927,13 @@ class DshHarness:
         records: tuple[BridgeCallRecord, ...],
         bridge_root: Path,
     ) -> bool:
-        bridge = DshHarness._bridge_operations(records, bridge_root)
-        if bridge is None:
-            return False
         native_proposals = tuple(
             proposal for session in sessions for proposal in session.proposals
         )
         native_results = tuple(result for session in sessions for result in session.results)
+        bridge = DshHarness._bridge_operations(records, bridge_root)
+        if bridge is None:
+            return False
         bridge_proposals, bridge_results = bridge
         collections = (
             native_proposals,
@@ -948,10 +956,17 @@ class DshHarness:
             item.operation_id: (item.operation_id, item.output)
             for item in bridge_results
         }
+        # OpenAI function_call_output has no error-classification field. Once its exact
+        # operation ID and body match, the strictly parsed native isError is authoritative.
+        native_result_errors = {
+            item.operation_id: item.is_error for item in native_results
+        }
         return bool(
             native_proposal_map == bridge_proposal_map
             and native_result_map == bridge_result_map
             and set(native_proposal_map) == set(native_result_map)
+            and set(native_result_map) == set(native_result_errors)
+            and all(type(value) is bool for value in native_result_errors.values())
         )
 
     @staticmethod
