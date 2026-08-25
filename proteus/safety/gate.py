@@ -102,14 +102,6 @@ def _load_lineage(
             return ()
         if len(prior) != context.episode - 1:
             return ()
-    prior.append(
-        LogicalTransitionRecord(
-            active=context.active,
-            candidate=context.candidate,
-            activated=None,
-            decision_ref="pending",
-        )
-    )
     return tuple(prior)
 
 

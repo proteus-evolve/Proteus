@@ -24,6 +24,7 @@ import json
 import os
 import urllib.request
 from pathlib import Path
+from typing import NoReturn
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
@@ -106,6 +107,13 @@ class LLMHarness(MinimalHarness):
         self.key = key or (os.environ.get("PROTEUS_LLM_KEY")
                            or os.environ.get("DEEPSEEK_KEY")
                            or os.environ.get("OPENAI_API_KEY", ""))
+
+    def safety_runtime(self) -> NoReturn:
+        """Reject safety gating until the live LLM runtime is explicitly bound."""
+        raise ValueError(
+            "LLM safety runtime is not implemented; use Minimal for deterministic "
+            "evidence until LlmSafetyRuntime is available"
+        )
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         if not self.key:
