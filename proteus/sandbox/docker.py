@@ -155,7 +155,7 @@ class DockerSandbox:
                 raise ValueError(f"mount must be (host, container[, options]), got {mount!r}")
             host, cont, *options = mount
             suffix = f":{options[0]}" if options else ""
-            argv += ["-v", f"{host}:{cont}{suffix}"]
+            argv += ["-v", f"{Path(host).resolve()}:{cont}{suffix}"]
         if c.mem_limit:
             argv += ["--memory", c.mem_limit]
         if c.cpus:
@@ -165,7 +165,7 @@ class DockerSandbox:
         if c.user:
             argv += ["--user", c.user]
         for host, cont in c.extra_mounts:
-            argv += ["-v", f"{host}:{cont}"]
+            argv += ["-v", f"{Path(host).resolve()}:{cont}"]
         for key in c.env_passthrough:
             if key in env:
                 # Let Docker copy the value from its own environment.  Keeping the

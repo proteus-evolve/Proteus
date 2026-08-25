@@ -30,13 +30,21 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Optional, Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
+from proteus.core.episode import private_record_dir
+from proteus.safety.live import LiveModelChannel
+from proteus.safety.live_bridge import BridgeCallRecord
+from proteus.safety.runtime import NativeReceipt
+
+if TYPE_CHECKING:
+    from proteus.adapters.dsh_safety import DshSafetyRuntime
 
 IMAGE = os.environ.get("PROTEUS_DSH_IMAGE", "proteus-env-dsh-src:0.1.0-rc.7")
 PHASE_TIMEOUT_S = 600
@@ -86,6 +94,30 @@ boundary build and viability gate after reflect.
 Each session is one phase of an episode. Harness files and the bounded Proteus handoff
 carry over; the raw conversation does not.
 """
+
+
+@dataclass(frozen=True)
+class DshSessionEvidence:
+    """Strict controller evidence from one persisted DSH session."""
+
+    terminal: bool
+    events: tuple[ActionEvent, ...]
+    receipts: tuple[NativeReceipt, ...]
+    response_ids: tuple[str, ...]
+    tool_call_ids: tuple[str, ...]
+    tool_result_ids: tuple[str, ...]
+    error: str = ""
+
+
+@dataclass(frozen=True)
+class DshNativeEpisode:
+    """Ordinary result plus controller-readable DSH and bridge evidence."""
+
+    result: EpisodeResult
+    sessions: tuple[DshSessionEvidence, ...]
+    session_paths: tuple[Path, ...]
+    bridge_records: tuple[BridgeCallRecord, ...]
+    bridge_root: Path | None
 
 
 def _zstd_partial(data: bytes) -> bytes:
@@ -216,6 +248,12 @@ class DshHarness:
     def required_edit_tools(self) -> frozenset[str]:
         return frozenset({"write"})
 
+    def safety_runtime(self) -> DshSafetyRuntime:
+        """Bind activation safety to DSH's native notes, tools, and sessions."""
+        from proteus.adapters.dsh_safety import DshSafetyRuntime
+
+        return DshSafetyRuntime(self)
+
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         harness_root.mkdir(parents=True, exist_ok=True)
         (harness_root / "AGENTS.md").write_text(SEED_INSTRUCTIONS, encoding="utf-8")
@@ -229,6 +267,7 @@ class DshHarness:
         The image bakes a `git archive` tar of the pinned checkout, so the seed's src/
         is exactly the tracked source of the build it boots. Dependencies are not
         extracted — they stay in the image, immutable, like the interpreter itself."""
+        dest = Path(dest).resolve()
         if dest.exists() and any(dest.iterdir()):
             return                        # resumed root: the seed owns its source already
         dest.mkdir(parents=True, exist_ok=True)
@@ -342,10 +381,441 @@ class DshHarness:
                     ))
         return events
 
+    def _session_evidence(
+        self,
+        session_dir: Path,
+        *,
+        phase: str,
+        expected_provider: str,
+        expected_model: str,
+        evidence_ref: str,
+    ) -> DshSessionEvidence:
+        """Require exact DSH request, response, call/result, and terminal ownership."""
+        log = session_dir / "session.jsonl.zstd"
+        if not log.is_file():
+            return DshSessionEvidence(
+                False, (), (), (), (), (), "native DSH session is missing"
+            )
+        try:
+            raw = _zstd_decompress(log.read_bytes())
+        except (OSError, RuntimeError, ValueError) as exc:
+            return DshSessionEvidence(
+                False, (), (), (), (), (), f"native DSH session is unreadable: {exc}"
+            )
+        rows: list[dict] = []
+        error = ""
+        for number, line in enumerate(raw.decode(errors="replace").splitlines(), 1):
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                error = f"native DSH session line {number} is not valid JSON"
+                break
+            if not isinstance(row, dict):
+                error = f"native DSH session line {number} is not an object"
+                break
+            rows.append(row)
+
+        headers: list[dict] = []
+        assistants: list[tuple[int, dict]] = []
+        calls: list[tuple[str, str, dict, int]] = []
+        results: dict[str, bool] = {}
+        result_order: list[str] = []
+        turn_reasons: list[object] = []
+        for row in rows:
+            kind = row.get("type")
+            if kind not in {
+                "request/header",
+                "assistant/message",
+                "tool/call",
+                "tool/result",
+                "turn/end",
+            }:
+                continue
+            data = row.get("data")
+            if not isinstance(data, dict):
+                error = error or f"native DSH {kind or 'event'} data is not an object"
+                continue
+            if kind == "request/header":
+                header = data.get("header")
+                if not isinstance(header, dict):
+                    error = error or "native DSH request header is missing"
+                else:
+                    headers.append(header)
+            elif kind == "assistant/message":
+                message = data.get("message")
+                if not isinstance(message, dict):
+                    error = error or "native DSH assistant message is missing"
+                else:
+                    assistants.append((int(data.get("turn", 0)), message))
+            elif kind == "tool/call":
+                call_id = data.get("callId")
+                name = data.get("name")
+                arguments = data.get("arguments")
+                if not isinstance(call_id, str) or not call_id:
+                    error = error or "native DSH tool call has no call ID"
+                    continue
+                if any(existing[0] == call_id for existing in calls):
+                    error = error or f"native DSH tool call is duplicated: {call_id}"
+                try:
+                    parsed = json.loads(arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    parsed = None
+                if not isinstance(parsed, dict):
+                    error = error or f"native DSH tool arguments are invalid: {call_id}"
+                    parsed = {}
+                calls.append(
+                    (call_id, str(name or ""), parsed, int(data.get("turn", 0)))
+                )
+            elif kind == "tool/result":
+                message = data.get("message")
+                source = message.get("source") if isinstance(message, dict) else None
+                content = message.get("content") if isinstance(message, dict) else None
+                block = content[0] if isinstance(content, list) and content else None
+                source_id = source.get("callId") if isinstance(source, dict) else None
+                block_id = block.get("toolCallId") if isinstance(block, dict) else None
+                if not isinstance(source_id, str) or not source_id:
+                    error = error or "native DSH tool result has no call ID"
+                    continue
+                if source_id != block_id:
+                    error = error or f"native DSH tool result ID mismatch: {source_id}"
+                if source_id in results:
+                    error = error or f"native DSH tool result is duplicated: {source_id}"
+                block_error = block.get("isError") if isinstance(block, dict) else None
+                if block_error is not None and type(block_error) is not bool:
+                    error = error or f"native DSH tool result error is invalid: {source_id}"
+                results[source_id] = bool(data.get("error")) or block_error is True
+                result_order.append(source_id)
+            elif kind == "turn/end":
+                turn_reasons.append(data.get("reason"))
+
+        if expected_model and not headers:
+            error = error or "native DSH session has no request header"
+        for header in headers:
+            config = header.get("config")
+            if not isinstance(config, dict):
+                error = error or "native DSH request config is missing"
+                continue
+            if expected_provider and config.get("provider") != expected_provider:
+                error = error or "native DSH request provider does not match bridge"
+            if expected_model and config.get("model") != expected_model:
+                error = error or "native DSH request model does not match requested model"
+
+        events: list[ActionEvent] = []
+        response_ids: list[str] = []
+        assistant_call_ids: list[str] = []
+        for turn, message in assistants:
+            source = message.get("source")
+            if not isinstance(source, dict) or source.get("kind") != "model":
+                error = error or "native DSH assistant has no model source"
+                continue
+            if expected_provider and source.get("provider") != expected_provider:
+                error = error or "native DSH assistant provider does not match bridge"
+            if expected_model and source.get("model") != expected_model:
+                error = error or "native DSH assistant model does not match requested model"
+            replay = source.get("replayState")
+            response = replay.get("response") if isinstance(replay, dict) else None
+            if not isinstance(response, dict):
+                error = error or "native DSH assistant has no response ownership"
+            else:
+                if expected_provider and response.get("provider") != expected_provider:
+                    error = error or "native DSH response provider does not match bridge"
+                response_model = response.get("responseModel")
+                if expected_model and (
+                    response.get("model") != expected_model
+                    or (
+                        response_model is not None
+                        and response_model != expected_model
+                    )
+                ):
+                    error = error or "native DSH response model does not match request"
+                response_id = response.get("responseId")
+                if not isinstance(response_id, str) or not response_id:
+                    error = error or "native DSH assistant has no response ID"
+                else:
+                    response_ids.append(response_id)
+            content = message.get("content")
+            if not isinstance(content, list):
+                error = error or "native DSH assistant content is not a list"
+                continue
+            for block in content:
+                if not isinstance(block, dict):
+                    error = error or "native DSH assistant content item is not an object"
+                    continue
+                if block.get("type") == "tool-call":
+                    call_id = block.get("id")
+                    if isinstance(call_id, str) and call_id:
+                        assistant_call_ids.append(call_id)
+                    else:
+                        error = error or "native DSH assistant tool call has no call ID"
+                elif block.get("type") == "text" and block.get("text"):
+                    events.append(
+                        ActionEvent(
+                            turn=turn,
+                            phase=phase,
+                            tool=None,
+                            surface=None,
+                            params={},
+                            text=str(block["text"])[:500],
+                        )
+                    )
+
+        call_ids = tuple(call_id for call_id, _, _, _ in calls)
+        if tuple(assistant_call_ids) != call_ids:
+            error = error or "native DSH assistant calls do not match tool-call events"
+        unknown_results = tuple(call_id for call_id in result_order if call_id not in call_ids)
+        missing_results = tuple(call_id for call_id in call_ids if call_id not in results)
+        if unknown_results:
+            error = error or f"native DSH tool result has no exact call: {unknown_results[0]}"
+        if missing_results:
+            error = error or f"native DSH tool call has no exact result: {missing_results[0]}"
+
+        receipts: list[NativeReceipt] = []
+        for call_id, tool, arguments, turn in calls:
+            delivered = call_id in results
+            result_error = results.get(call_id, True)
+            path_arg = str(arguments.get("file_path") or arguments.get("path") or "")
+            params = {key: str(value)[:200] for key, value in arguments.items()}
+            params.update(
+                {
+                    "tool_call_id": call_id,
+                    "result_delivered": str(delivered).lower(),
+                    "result_error": str(result_error).lower(),
+                }
+            )
+            events.append(
+                ActionEvent(
+                    turn=turn,
+                    phase=phase,
+                    tool=tool,
+                    surface=self._surface_for_path(path_arg),
+                    params=params,
+                    text="",
+                )
+            )
+            receipts.append(
+                NativeReceipt(
+                    operation_id=call_id,
+                    proposed=True,
+                    attempted=delivered,
+                    completed=delivered and not result_error,
+                    result_delivered=delivered,
+                    authorized=None,
+                    evidence_refs=(evidence_ref,),
+                )
+            )
+
+        final_reason = turn_reasons[-1] if turn_reasons else None
+        if not isinstance(final_reason, dict) or final_reason.get("kind") != "completed":
+            error = error or "native DSH session has no completed terminal turn"
+        return DshSessionEvidence(
+            terminal=not error,
+            events=tuple(events),
+            receipts=tuple(receipts),
+            response_ids=tuple(response_ids),
+            tool_call_ids=call_ids,
+            tool_result_ids=tuple(result_order),
+            error=error,
+        )
+
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
+        if spec.live_model_channel is not None:
+            return self.run_live_episode(spec).result
         if not self.key:
             return EpisodeResult(episode=spec.episode, ok=False, turns=0,
                                  error="no DeepSeek key: set DEEPSEEK_API_KEY")
+        result, _, _ = self._run_episode_bound(
+            spec,
+            env={
+                "DEEPSEEK_API_KEY": self.key,
+                "DSH_PERMISSION_MODE": self.permission_mode,
+            },
+            extra_mounts=(),
+            patch_container_path="",
+            expected_provider="",
+            expected_model="",
+        )
+        return result
+
+    @staticmethod
+    def _attempt_root(root: Path) -> Path:
+        root.mkdir(parents=True, exist_ok=True)
+        attempts = [
+            int(path.name.removeprefix("attempt-"))
+            for path in root.glob("attempt-*")
+            if path.is_dir() and path.name.removeprefix("attempt-").isdigit()
+        ]
+        attempt = root / f"attempt-{max(attempts, default=0) + 1:06d}"
+        attempt.mkdir()
+        return attempt
+
+    def run_live_episode(
+        self,
+        spec: EpisodeSpec,
+        *,
+        evidence_root: Path | None = None,
+    ) -> DshNativeEpisode:
+        """Run staged DSH through the bridge while the controller owns the channel."""
+        from proteus.adapters.dsh_model_bridge import DshModelBridge
+
+        channel = spec.live_model_channel
+        if not isinstance(channel, LiveModelChannel):
+            raise TypeError("DSH live episode requires a LiveModelChannel")
+        if not spec.model or channel.model != spec.model:
+            raise ValueError("DSH live channel model does not match requested model")
+        cell_root = Path(
+            evidence_root
+            or (
+                private_record_dir(Path(spec.root))
+                / "dsh-live-bridge"
+                / f"episode-{spec.episode:03d}"
+            )
+        ).resolve()
+        attempt = self._attempt_root(cell_root)
+        bridge_root = attempt / "bridge"
+        with DshModelBridge(
+            channel=channel,
+            evidence_root=bridge_root,
+            config_root=attempt / "dsh-config",
+        ) as bridge:
+            result, sessions, paths = self._run_episode_bound(
+                spec,
+                env={"DSH_PERMISSION_MODE": self.permission_mode},
+                extra_mounts=(
+                    (
+                        str(bridge.patch_path),
+                        "/proteus/bridge/cordis.patch.yml",
+                        "ro",
+                    ),
+                ),
+                patch_container_path="/proteus/bridge/cordis.patch.yml",
+                expected_provider=bridge.provider,
+                expected_model=bridge.model,
+                phase_boundary=bridge.set_phase_boundary,
+            )
+            records = bridge.records
+        native_response_ids = tuple(
+            response_id for session in sessions for response_id in session.response_ids
+        )
+        bridge_response_ids = self._bridge_agent_response_ids(records, bridge_root)
+        if result.ok and not self._owned_ids_match(
+            native_response_ids,
+            bridge_response_ids,
+            capped=bool(result.counters.get("turn_capped")),
+        ):
+            result = EpisodeResult(
+                episode=result.episode,
+                ok=False,
+                turns=result.turns,
+                error="native DSH session responses do not belong to bridge responses",
+                counters=result.counters,
+            )
+        native_calls = tuple(
+            call_id for session in sessions for call_id in session.tool_call_ids
+        )
+        native_results = tuple(
+            call_id for session in sessions for call_id in session.tool_result_ids
+        )
+        bridge_calls = tuple(
+            call_id for record in records for call_id in record.tool_call_ids
+        )
+        bridge_results = tuple(
+            call_id for record in records for call_id in record.linked_tool_result_call_ids
+        )
+        expected_native_calls = self._bridge_native_tool_call_ids(records, bridge_root)
+        if result.ok and not (
+            native_calls == native_results == expected_native_calls
+            and bridge_calls == bridge_results
+        ):
+            result = EpisodeResult(
+                episode=result.episode,
+                ok=False,
+                turns=result.turns,
+                error="native DSH tool calls/results do not belong to controller responses",
+                counters=result.counters,
+            )
+        return DshNativeEpisode(result, sessions, paths, records, bridge_root)
+
+    @staticmethod
+    def _bridge_native_tool_call_ids(
+        records: tuple[BridgeCallRecord, ...], bridge_root: Path
+    ) -> tuple[str, ...]:
+        """Translate bridge call IDs to DSH's persisted call/item ownership IDs."""
+        result: list[str] = []
+        for record in records:
+            try:
+                payload = json.loads(
+                    (bridge_root / record.response_ref).read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError):
+                return ()
+            output = payload.get("output") if isinstance(payload, dict) else None
+            if not isinstance(output, list):
+                return ()
+            record_call_ids: list[str] = []
+            record_native_ids: list[str] = []
+            for item in output:
+                if not isinstance(item, dict) or item.get("type") != "function_call":
+                    continue
+                call_id = item.get("call_id")
+                item_id = item.get("id")
+                if not isinstance(call_id, str) or not isinstance(item_id, str):
+                    return ()
+                record_call_ids.append(call_id)
+                record_native_ids.append(f"{call_id}|{item_id}")
+            if tuple(record_call_ids) != record.tool_call_ids:
+                return ()
+            result.extend(record_native_ids)
+        return tuple(result)
+
+    @staticmethod
+    def _bridge_agent_response_ids(
+        records: tuple[BridgeCallRecord, ...], bridge_root: Path
+    ) -> tuple[str, ...]:
+        """Return responses to native agent requests, excluding DSH title requests."""
+        result: list[str] = []
+        for record in records:
+            try:
+                payload = json.loads(
+                    (bridge_root / record.request_ref).read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError):
+                return ()
+            tools = payload.get("tools") if isinstance(payload, dict) else None
+            if tools is None:
+                continue
+            if not isinstance(tools, list):
+                return ()
+            if tools:
+                result.append(record.response_id)
+        return tuple(result)
+
+    @staticmethod
+    def _owned_ids_match(
+        native_ids: tuple[str, ...], bridge_ids: tuple[str, ...], *, capped: bool
+    ) -> bool:
+        native_unique = len(native_ids) == len(set(native_ids))
+        bridge_unique = len(bridge_ids) == len(set(bridge_ids))
+        if native_unique and bridge_unique and set(native_ids) == set(bridge_ids):
+            return True
+        return bool(
+            capped
+            and native_unique
+            and bridge_unique
+            and len(bridge_ids) == len(native_ids) + 1
+            and set(native_ids).issubset(bridge_ids)
+        )
+
+    def _run_episode_bound(
+        self,
+        spec: EpisodeSpec,
+        *,
+        env: dict[str, str],
+        extra_mounts: tuple[tuple[str, ...], ...],
+        patch_container_path: str,
+        expected_provider: str,
+        expected_model: str,
+        phase_boundary: Callable[[str, int, int], None] | None = None,
+    ) -> tuple[EpisodeResult, tuple[DshSessionEvidence, ...], tuple[Path, ...]]:
         run_root = Path(spec.root)
         harness = run_root / "harness"
         state = run_root / ".dsh-state"
@@ -359,6 +829,8 @@ class DshHarness:
         plan = budget_plan(spec)
         budget = plan.hard_limit
         episode_dirs: set = set()
+        native_sessions: list[DshSessionEvidence] = []
+        native_paths: list[Path] = []
         active = Path(spec.active_root) if spec.active_root is not None else harness
         # Core-managed staged episodes already execute a previously validated snapshot.
         # Keep the legacy preflight only for direct adapter use without an active_root.
@@ -391,28 +863,40 @@ class DshHarness:
             stop_at = plan.stop_at(phase, used)
             if budget and used >= stop_at:
                 continue
+            if phase_boundary is not None:
+                phase_boundary(phase, stop_at, used)
             handoff_start = handoffs.begin(spec.episode, phase)
             before = self._session_dirs(state)
             fired = [False]
 
             def stop_check(before=before, fired=fired, stop_at=stop_at):
-                if self._live_calls(state, episode_dirs,
-                                    self._session_dirs(state) - before) >= stop_at:
+                live_calls = self._live_calls(
+                    state, episode_dirs, self._session_dirs(state) - before
+                )
+                exceeded = (
+                    live_calls > stop_at
+                    if phase_boundary is not None
+                    else live_calls >= stop_at
+                )
+                if exceeded:
                     fired[0] = True
                     return True
                 return False
 
             timed_out = False
+            command = ["--profile", "headless"]
+            if patch_container_path:
+                command.extend(("--patch", patch_container_path))
+            command.append(phase_prompt(spec, phase, used))
             try:
                 proc = self.sandbox.run(
                     run_root,
-                    ["--profile", "headless", phase_prompt(spec, phase, used)],
-                    env={"DEEPSEEK_API_KEY": self.key,
-                         "DSH_PERMISSION_MODE": self.permission_mode},
+                    command,
+                    env=env,
                     timeout_s=self.phase_timeout_s,
                     mounts=workspace_mounts + ((str(state), "/state"),
                             (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root),
+                           + self._task_mount(run_root) + extra_mounts,
                     stop_check=stop_check if plan.enabled else None,
                 )
             except subprocess.TimeoutExpired:
@@ -420,13 +904,34 @@ class DshHarness:
                 proc = None
             new = self._session_dirs(state) - before
             phase_events: list[ActionEvent] = []
+            phase_sessions: list[DshSessionEvidence] = []
             if new:
                 session_dirs = sorted(new, key=str)
                 mapping[phase] = [str(d.relative_to(state)) for d in session_dirs]
                 episode_dirs |= new
                 for session_dir in session_dirs:
-                    phase_events.extend(
-                        self._session_trace(session_dir, phase, partial=True))
+                    if expected_model:
+                        log = session_dir / "session.jsonl.zstd"
+                        evidence_ref = (
+                            log.relative_to(run_root).as_posix()
+                            if log.is_relative_to(run_root)
+                            else log.name
+                        )
+                        session = self._session_evidence(
+                            session_dir,
+                            phase=phase,
+                            expected_provider=expected_provider,
+                            expected_model=expected_model,
+                            evidence_ref=evidence_ref,
+                        )
+                        native_sessions.append(session)
+                        native_paths.append(log)
+                        phase_sessions.append(session)
+                        phase_events.extend(session.events)
+                    else:
+                        phase_events.extend(
+                            self._session_trace(session_dir, phase, partial=True)
+                        )
             handoff = handoffs.finish(handoff_start, phase_events,
                                       interrupted=timed_out or fired[0])
             if spec.checkpoint_turns and handoff["source"] != "agent":
@@ -437,6 +942,12 @@ class DshHarness:
             assert proc is not None
             if proc.returncode != 0:
                 if fired[0]:
+                    if phase_boundary is not None:
+                        error = (
+                            f"phase {phase}: controller budget watchdog stopped "
+                            "an unbalanced native session"
+                        )
+                        break
                     # stopped at the phase's line: continue if it was only the reserve,
                     # end the episode only when the whole budget is spent
                     if budget and self._live_calls(state, episode_dirs, set()) >= budget:
@@ -444,6 +955,16 @@ class DshHarness:
                         break
                     continue
                 error = f"phase {phase}: exit {proc.returncode}: {proc.stderr[-400:]}"
+                break
+            if expected_model and not new:
+                error = f"phase {phase}: no native DSH session was created"
+                break
+            invalid = next(
+                (session for session in phase_sessions if not session.terminal),
+                None,
+            )
+            if expected_model and invalid is not None:
+                error = f"phase {phase}: {invalid.error}"
                 break
         (run_root / "traces" / f"ep{spec.episode:03d}.json").write_text(
             json.dumps(mapping, indent=1))
@@ -456,11 +977,12 @@ class DshHarness:
                     "checkpoint_misses": checkpoint_misses}
         counters.update({f"phase_{phase}_turns": count
                          for phase, count in phase_counts.items()})
-        return EpisodeResult(
+        result = EpisodeResult(
             episode=spec.episode, ok=not error,
             turns=sum(1 for e in trace if e.tool), error=error,
             counters=counters,
         )
+        return result, tuple(native_sessions), tuple(native_paths)
 
     def _live_calls(self, state: Path, episode_dirs: set, extra: set) -> int:
         """Tool calls made so far this episode, read live from the session logs."""

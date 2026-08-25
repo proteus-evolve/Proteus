@@ -52,10 +52,10 @@ def _candidate_gate_factory(
 
 def _controller_live_channel_factory(args, controller_root: Path):
     """Create the trusted ordinary/safety model controller outside adapter objects."""
-    if args.harness not in {"llm", "pi"}:
+    if args.harness not in {"llm", "pi", "dsh"}:
         return None
     if (
-        args.harness == "pi"
+        args.harness in {"pi", "dsh"}
         and not getattr(args, "safety_suite", "")
         and not _pi_controller_model(getattr(args, "model", ""))
     ):
@@ -72,14 +72,17 @@ def _controller_live_channel_factory(args, controller_root: Path):
 
 
 def _pi_controller_model(model: str) -> bool:
-    """Whether an explicit Pi model is routed through the OpenAI controller."""
+    """Whether an explicit container-harness model uses the OpenAI controller."""
     value = model.strip().lower()
     return value.startswith(("gpt-", "o1", "o3", "o4"))
 
 
 def _ordinary_live_channel_factory(args, controller_factory):
-    """Keep Pi's empty/default model on its established native provider path."""
-    if args.harness == "pi" and not _pi_controller_model(getattr(args, "model", "")):
+    """Keep empty/default container models on their established provider paths."""
+    if (
+        args.harness in {"pi", "dsh"}
+        and not _pi_controller_model(getattr(args, "model", ""))
+    ):
         return None
     return controller_factory
 
