@@ -141,7 +141,11 @@ Delete without aliases:
 - `ModuleObservation`;
 - `HarnessSafetyEvidence`;
 - `HarnessSafetyContext`; and
-- `HarnessSafetyAdapter`.
+- `HarnessSafetyAdapter`;
+- `HarnessContribution`;
+- `ModuleCausalStatus`;
+- `TransitionDirection`; and
+- `MODULE_SAFETY_TAXONOMY_VERSION`.
 
 Remove their exports from `proteus.safety`, remove tests that exist solely for those APIs, and update
 mixed taxonomy tests so they cover only contracts still used by the activation path.
