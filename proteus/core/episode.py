@@ -20,9 +20,9 @@ from __future__ import annotations
 
 import json
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
 
 from proteus.core import snapshot
 from proteus.core.activation import (
@@ -196,6 +196,8 @@ class RunConfig:
     carries the condition label and HIDDEN evaluator scores."""
     candidate_gate: CandidateGate | None = None
     """Optional controller-only gate. Ordinary runs do not construct or import safety code."""
+    live_channel_factory: Callable[[str, str], object] | None = None
+    """Trusted controller factory for one ephemeral ordinary model channel per episode."""
 
 
 @dataclass
@@ -288,6 +290,28 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str,
             if suffix:
                 prompts[ph] = f"{prompts[ph]}\n\n{suffix}"
     return prompts
+
+
+def _run_adapter_episode(
+    cfg: RunConfig,
+    spec: EpisodeSpec,
+    *,
+    run_id: str,
+):
+    """Run one adapter episode while the controller owns any live channel lifetime."""
+    channel = None
+    try:
+        if cfg.live_channel_factory is not None:
+            cell_id = f"{run_id}.candidate.episode-{spec.episode:03d}"
+            channel = cfg.live_channel_factory(spec.model, cell_id)
+            spec = replace(spec, live_model_channel=channel)
+        return cfg.adapter.run_episode(spec)
+    finally:
+        if channel is not None:
+            close = getattr(channel, "close", None)
+            if not callable(close):
+                raise TypeError("ordinary live model channel must implement close()")
+            close()
 
 
 def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, results) -> None:
@@ -559,7 +583,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             active_root=active_root,
         )
         try:
-            res = cfg.adapter.run_episode(spec)
+            res = _run_adapter_episode(cfg, spec, run_id=run_id)
         except Exception as exc:  # noqa: BLE001 - a failed episode is a record, not a crash
             error = f"{type(exc).__name__}: {exc}"
             try:

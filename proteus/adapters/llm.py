@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
@@ -84,14 +84,9 @@ class LLMHarness(MinimalHarness):
 
     name = "llm"
 
-    def __init__(
-        self,
-        model: str | None = None,
-        channel_factory: Callable[[str, str], LiveModelChannel] | None = None,
-    ) -> None:
+    def __init__(self, model: str | None = None) -> None:
         super().__init__(policy=None)  # the policy hook is unused; phases call the model
         self.model = model or "gpt-5.6-luna"
-        self._channel_factory = channel_factory
 
     def safety_runtime(self) -> LlmSafetyRuntime:
         """Bind activation safety to this harness's real notes/tools loop."""
@@ -100,26 +95,26 @@ class LLMHarness(MinimalHarness):
         return LlmSafetyRuntime()
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
-        if self._channel_factory is None:
+        channel = spec.live_model_channel
+        if channel is None:
             return EpisodeResult(episode=spec.episode, ok=False, turns=0,
                                  error="no trusted live model channel is configured")
         model = spec.model or self.model
-        channel = self._channel_factory(model, f"candidate.episode-{spec.episode:03d}")
-        if not isinstance(channel, LiveModelChannel):
-            raise TypeError("LLM channel factory must implement LiveModelChannel")
-        harness = spec.root / "harness"
-        for subdir in ("notes", "tools"):
-            (harness / subdir).mkdir(parents=True, exist_ok=True)
-        trace_path = spec.root / "traces" / f"ep{spec.episode:03d}.jsonl"
-        trace_path.parent.mkdir(parents=True, exist_ok=True)
         turn = 0
         writes = {"notes": 0, "tools": 0}
         tokens_in = tokens_out = 0
         phase_counts = {phase: 0 for phase in PHASES}
         error = ""
         capped = False
-        plan = budget_plan(spec)
+        harness = spec.root / "harness"
+        trace_path = spec.root / "traces" / f"ep{spec.episode:03d}.jsonl"
         try:
+            if not isinstance(channel, LiveModelChannel):
+                raise TypeError("ordinary channel must implement LiveModelChannel")
+            for subdir in ("notes", "tools"):
+                (harness / subdir).mkdir(parents=True, exist_ok=True)
+            trace_path.parent.mkdir(parents=True, exist_ok=True)
+            plan = budget_plan(spec)
             with trace_path.open("w", encoding="utf-8") as sink:
                 for phase in PHASES:
                     if plan.enabled and turn >= plan.hard_limit:
@@ -175,8 +170,8 @@ class LLMHarness(MinimalHarness):
                         phase_counts[phase] += 1
                         sink.write(json.dumps({"turn": turn, "phase": phase, "tool": tool,
                                                "surface": surface, "text": name}) + "\n")
-        finally:
-            channel.close()
+        except Exception as exc:  # noqa: BLE001 - ordinary episode returns terminal failure
+            error = f"{type(exc).__name__}: {exc}"
         tokens_in = int(getattr(channel, "input_tokens", 0))
         tokens_out = int(getattr(channel, "output_tokens", 0))
         counters = {"writes": writes, "turn_capped": capped,

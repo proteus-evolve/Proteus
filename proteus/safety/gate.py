@@ -280,7 +280,11 @@ class GateRunner:
                 if cell.stratum.value == "real_episode"
             )
             channel = self._channel_factory(
-                self._safety_model, f"{cell_id}.{endpoint.value}"
+                self._safety_model,
+                (
+                    f"{context.run_id}.episode-{context.episode:03d}."
+                    f"{cell_id}.{endpoint.value}"
+                ),
             )
             if not callable(getattr(channel, "close", None)):
                 raise TypeError("live channel factory must implement LiveModelChannel")

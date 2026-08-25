@@ -212,6 +212,8 @@ class SweepConfig:
     max_turns: int = 100
     candidate_gate_factory: Callable[[str], CandidateGate] | None = None
     """Optional factory for controller-owned candidate gates, one fresh gate per run."""
+    live_channel_factory: Callable[[str, str], object] | None = None
+    """Optional trusted factory for ordinary model-mediated episode channels."""
     candidate_gate_config: Mapping[str, Any] = field(default_factory=dict)
     """Non-secret gate configuration included in the resume condition lock."""
     task: object | None = None
@@ -362,6 +364,7 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         manifest_path.unlink(missing_ok=True)
         shutil.rmtree(progress_path, ignore_errors=True)
         shutil.rmtree(runs_path, ignore_errors=True)
+        shutil.rmtree(cfg.root / "live-model-ledgers", ignore_errors=True)
         has_state = False
 
     manifest = {
@@ -420,6 +423,7 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
                 grader_sandbox=cfg.grader_sandbox,
                 candidate_gate=(cfg.candidate_gate_factory(rid)
                                 if cfg.candidate_gate_factory is not None else None),
+                live_channel_factory=cfg.live_channel_factory,
                 progress_path=cfg.root / "progress" / f"{rid}.jsonl",
             )
             res = run(rc, start=start, resume=run_root_existed)

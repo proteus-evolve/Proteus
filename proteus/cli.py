@@ -23,7 +23,13 @@ from proteus.core.goal import GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
 
 
-def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
+def _candidate_gate_factory(
+    args,
+    *,
+    adapter_factory,
+    controller_root: Path,
+    channel_factory=None,
+):
     """Load safety only for an explicitly safety-gated run.
 
     Normal Minimal/benchmark runs must remain usable while optional safety providers are
@@ -40,7 +46,22 @@ def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
         suite_spec=args.safety_suite,
         safety_model=args.safety_model,
         controller_root=controller_root,
-        channel_factory=getattr(adapter_factory, "live_channel_factory", None),
+        channel_factory=channel_factory,
+    )
+
+
+def _controller_live_channel_factory(args, controller_root: Path):
+    """Create the trusted ordinary/safety model controller outside adapter objects."""
+    if args.harness != "llm":
+        return None
+    from proteus.safety.live import (
+        OpenAIResponsesChannelFactory,
+        common_repository_root,
+    )
+
+    return OpenAIResponsesChannelFactory.from_repository(
+        repository_root=common_repository_root(Path.cwd()),
+        evidence_root=controller_root / "live-model-ledgers",
     )
 
 
@@ -126,22 +147,6 @@ def _harness_factory(args):
     sandbox = _sandbox_factory(args)
     params = set(inspect.signature(cls).parameters)
     kw = {}
-    live_channel_factory = None
-    if args.harness == "llm":
-        from proteus.safety.live import (
-            OpenAIResponsesChannelFactory,
-            common_repository_root,
-        )
-
-        live_channel_factory = OpenAIResponsesChannelFactory.from_repository(
-            repository_root=common_repository_root(Path.cwd()),
-            evidence_root=Path(args.out).expanduser() / "live-model-ledgers",
-        )
-
-        def open_live_channel(model: str, cell_id: str):
-            return live_channel_factory(model, cell_id)
-
-        kw["channel_factory"] = open_live_channel
     if sandbox is not None and "sandbox" in params:
         kw["sandbox"] = None      # filled per call below
     if args.phase_timeout and "phase_timeout_s" in params:
@@ -156,7 +161,6 @@ def _harness_factory(args):
         if sandbox is not None:
             call["sandbox"] = sandbox()
         return cls(**call)
-    make.live_channel_factory = live_channel_factory
     return make
 
 
@@ -289,11 +293,15 @@ def cmd_run(args) -> int:
         raise SystemExit(str(exc)) from None
     if args.checkpoint_turns and not args.announce_budget:
         raise SystemExit("--checkpoint-turns requires --announce-budget")
-    factory = _harness_factory(args)
     root = Path(args.out).expanduser()
+    factory = _harness_factory(args)
     try:
+        live_channel_factory = _controller_live_channel_factory(args, root)
         candidate_gate_factory = _candidate_gate_factory(
-            args, adapter_factory=factory, controller_root=root
+            args,
+            adapter_factory=factory,
+            controller_root=root,
+            channel_factory=live_channel_factory,
         )
     except (ImportError, TypeError, ValueError) as exc:
         raise SystemExit(str(exc)) from None
@@ -329,6 +337,7 @@ def cmd_run(args) -> int:
         checkpoint_turns=args.checkpoint_turns,
         announce_budget=args.announce_budget,
         on_existing=args.on_existing,
+        live_channel_factory=live_channel_factory,
         candidate_gate_factory=candidate_gate_factory,
         candidate_gate_config=(
             {"suite": args.safety_suite, "model": args.safety_model}

@@ -318,7 +318,6 @@ class OpenAIResponsesChannelFactory:
         self._api_key = api_key
         self._evidence_root = Path(evidence_root)
         self._transport = transport or _stdlib_responses_transport
-        self._opened = 0
 
     @classmethod
     def from_repository(
@@ -335,12 +334,19 @@ class OpenAIResponsesChannelFactory:
         )
 
     def __call__(self, model: str, cell_id: str) -> OpenAIResponsesChannel:
-        self._opened += 1
         safe_cell = "".join(
             character if character.isalnum() or character in "-_." else "-"
             for character in cell_id
         ).strip(".-") or "model-cell"
-        evidence_dir = self._evidence_root / f"{self._opened:06d}-{safe_cell}"
+        cell_root = self._evidence_root / safe_cell
+        cell_root.mkdir(parents=True, exist_ok=True)
+        attempts = []
+        for path in cell_root.iterdir():
+            prefix, separator, raw_number = path.name.partition("-")
+            if path.is_dir() and prefix == "attempt" and separator and raw_number.isdigit():
+                attempts.append(int(raw_number))
+        attempt = max(attempts, default=0) + 1
+        evidence_dir = cell_root / f"attempt-{attempt:06d}"
         return OpenAIResponsesChannel(
             model=model,
             api_key=self._api_key,

@@ -3,13 +3,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
+from types import FunctionType, MethodType
 
 import pytest
 
 from proteus import cli
 from proteus.adapters.llm import LLMHarness, _render_state
 from proteus.core.activation import CandidateGateContext
-from proteus.core.adapter import EpisodeSpec
+from proteus.core.disposition import NEUTRAL
+from proteus.core.episode import RunConfig, run
+from proteus.core.goal import GoalConfig
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.live import (
     LiveCallProvenance,
@@ -83,8 +86,32 @@ def _contains(value: object, expected: object, seen: set[int]) -> bool:
         return any(_contains(item, expected, seen) for item in value.values())
     if isinstance(value, (tuple, list, set)):
         return any(_contains(item, expected, seen) for item in value)
+    if isinstance(value, MethodType):
+        return _contains(value.__self__, expected, seen)
+    if isinstance(value, FunctionType):
+        closure = value.__closure__ or ()
+        return any(_contains(cell.cell_contents, expected, seen) for cell in closure)
     attributes = getattr(value, "__dict__", None)
     return isinstance(attributes, dict) and _contains(attributes, expected, seen)
+
+
+def _run_config(
+    tmp_path: Path,
+    *,
+    adapter: LLMHarness,
+    channel_factory,
+) -> RunConfig:
+    return RunConfig(
+        name="llm-test",
+        adapter=adapter,
+        disposition=NEUTRAL,
+        goal=GoalConfig.no_goal(),
+        root=tmp_path / "run",
+        model="gpt-5.6-luna",
+        episodes=1,
+        max_turns=20,
+        live_channel_factory=channel_factory,
+    )
 
 
 def test_llm_safety_runtime_executes_native_action_with_live_provenance(
@@ -160,7 +187,7 @@ def test_llm_safety_runtime_rejects_returned_model_mismatch(tmp_path: Path) -> N
     assert "provenance does not match" in result.error
 
 
-def test_llm_candidate_uses_requested_model_channel_and_closes_it(
+def test_controller_opens_requested_model_channel_and_closes_it(
     tmp_path: Path,
 ) -> None:
     opened: list[tuple[str, str, FakeChannel]] = []
@@ -170,30 +197,69 @@ def test_llm_candidate_uses_requested_model_channel_and_closes_it(
         opened.append((model, cell_id, channel))
         return channel
 
-    harness = LLMHarness(channel_factory=open_channel)
-    harness.seed(tmp_path / "harness")
-
-    result = harness.run_episode(
-        EpisodeSpec(
-            root=tmp_path,
-            episode=1,
-            model="gpt-5.6-luna",
-            phase_prompts={
-                "observe": "inspect",
-                "propose": "plan",
-                "act": "act",
-                "reflect": "reflect",
-            },
-            max_turns=20,
+    result = run(
+        _run_config(
+            tmp_path,
+            adapter=LLMHarness(),
+            channel_factory=open_channel,
         )
     )
 
-    assert result.ok
+    assert result.error == ""
     assert [(model, cell_id) for model, cell_id, _ in opened] == [
-        ("gpt-5.6-luna", "candidate.episode-001")
+        ("gpt-5.6-luna", "run.candidate.episode-001")
     ]
     assert opened[0][2].calls == 4
     assert opened[0][2].closed
+
+
+def test_controller_closes_malformed_ordinary_channel_and_records_failure(
+    tmp_path: Path,
+) -> None:
+    class MalformedClosableChannel:
+        model = "gpt-5.6-luna"
+
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    channel = MalformedClosableChannel()
+
+    result = run(
+        _run_config(
+            tmp_path,
+            adapter=LLMHarness(),
+            channel_factory=lambda _model, _cell_id: channel,
+        )
+    )
+
+    assert "must implement LiveModelChannel" in result.error
+    assert channel.closed
+
+
+def test_controller_closes_ordinary_channel_when_adapter_setup_fails(
+    tmp_path: Path,
+) -> None:
+    class SetupFailHarness(LLMHarness):
+        def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
+            super().seed(harness_root, rng_seed)
+            (harness_root / "notes").rmdir()
+            (harness_root / "notes").write_text("blocks directory setup")
+
+    channel = FakeChannel()
+
+    result = run(
+        _run_config(
+            tmp_path,
+            adapter=SetupFailHarness(),
+            channel_factory=lambda _model, _cell_id: channel,
+        )
+    )
+
+    assert result.error
+    assert channel.closed
 
 
 def test_responses_factory_routes_luna_and_keeps_key_out_of_artifacts(
@@ -296,10 +362,14 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
         safety_model="gpt-5.6-luna",
     )
     adapter_factory = cli._harness_factory(args)
+    live_channel_factory = cli._controller_live_channel_factory(
+        args, tmp_path / "controller"
+    )
     gate = cli._candidate_gate_factory(
         args,
         adapter_factory=adapter_factory,
         controller_root=tmp_path / "controller",
+        channel_factory=live_channel_factory,
     )("llm-run")
     active_root = tmp_path / "subject" / "active"
     candidate_root = tmp_path / "subject" / "candidate"
@@ -320,6 +390,10 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
 
     assert len(opened) == 6
     assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
+    assert all(
+        cell_id.startswith("llm-run.episode-001.")
+        for _, cell_id, _ in opened
+    )
     assert all(channel.closed for _, _, channel in opened)
 
 
@@ -354,9 +428,126 @@ def test_cli_llm_adapter_does_not_retain_controller_credential(
         out=str(tmp_path / "controller"),
     )
 
+    controller_factory = cli._controller_live_channel_factory(
+        args, tmp_path / "controller"
+    )
     adapter = cli._harness_factory(args)()
 
+    assert _contains(controller_factory, "fixture-secret", set())
     assert not _contains(adapter, "fixture-secret", set())
+
+
+class FakeResponsesTransport:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls = 0
+
+    def __call__(self, url, payload, headers, timeout):
+        del url, headers, timeout
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("fixture transport failure")
+        return {
+            "id": f"response-{self.calls}",
+            "status": "completed",
+            "model": payload["model"],
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "[]"}],
+                }
+            ],
+            "usage": {"input_tokens": 7, "output_tokens": 1},
+        }
+
+
+def _llm_cli_args(output: Path) -> list[str]:
+    return [
+        "run",
+        "--harness",
+        "llm",
+        "--arm",
+        "neutral",
+        "--seeds",
+        "1",
+        "--episodes",
+        "1",
+        "--model",
+        "gpt-5.6-luna",
+        "--max-turns",
+        "20",
+        "--out",
+        str(output),
+    ]
+
+
+def test_llm_resume_preserves_failed_ledger_and_allocates_new_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "resume-output"
+    transports = [FakeResponsesTransport(fail=True), FakeResponsesTransport()]
+
+    def from_repository(**kwargs):
+        return OpenAIResponsesChannelFactory(
+            api_key="fixture-secret",
+            evidence_root=kwargs["evidence_root"],
+            transport=transports.pop(0),
+        )
+
+    from proteus.safety import live
+
+    monkeypatch.setattr(
+        live.OpenAIResponsesChannelFactory,
+        "from_repository",
+        from_repository,
+    )
+    monkeypatch.setattr(live, "common_repository_root", lambda _path: tmp_path)
+
+    assert cli.main(_llm_cli_args(output)) == 1
+    assert cli.main(_llm_cli_args(output) + ["--on-existing", "resume"]) == 0
+
+    cell_root = next((output / "live-model-ledgers").iterdir())
+    assert sorted(path.name for path in cell_root.iterdir()) == [
+        "attempt-000001",
+        "attempt-000002",
+    ]
+    assert (cell_root / "attempt-000001" / "request-001.json").is_file()
+    assert (cell_root / "attempt-000002" / "response-004.json").is_file()
+
+
+def test_llm_overwrite_removes_prior_live_ledgers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "overwrite-output"
+    transports = [FakeResponsesTransport(), FakeResponsesTransport()]
+
+    def from_repository(**kwargs):
+        return OpenAIResponsesChannelFactory(
+            api_key="fixture-secret",
+            evidence_root=kwargs["evidence_root"],
+            transport=transports.pop(0),
+        )
+
+    from proteus.safety import live
+
+    monkeypatch.setattr(
+        live.OpenAIResponsesChannelFactory,
+        "from_repository",
+        from_repository,
+    )
+    monkeypatch.setattr(live, "common_repository_root", lambda _path: tmp_path)
+
+    assert cli.main(_llm_cli_args(output)) == 0
+    stale = output / "live-model-ledgers" / "stale-controller-artifact"
+    stale.mkdir()
+    assert cli.main(_llm_cli_args(output) + ["--on-existing", "overwrite"]) == 0
+
+    assert not stale.exists()
+    cell_root = next((output / "live-model-ledgers").iterdir())
+    assert sorted(path.name for path in cell_root.iterdir()) == ["attempt-000001"]
 
 
 def test_llm_safety_runtime_does_not_retain_controller_credential(
@@ -368,9 +559,10 @@ def test_llm_safety_runtime_does_not_retain_controller_credential(
         transport=lambda *_args: {},
     )
 
-    runtime = LLMHarness(channel_factory=controller_factory).safety_runtime()
+    runtime = LLMHarness().safety_runtime()
 
     assert not _contains(runtime, "fixture-secret", set())
+    assert not _contains(runtime, controller_factory, set())
 
 
 def test_llm_state_rendering_handles_native_effect_directories(tmp_path: Path) -> None:
