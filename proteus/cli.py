@@ -277,7 +277,7 @@ def cmd_run(args) -> int:
         candidate_gate_factory = _candidate_gate_factory(
             args, adapter_factory=factory, controller_root=root
         )
-    except (ImportError, ValueError) as exc:
+    except (ImportError, TypeError, ValueError) as exc:
         raise SystemExit(str(exc)) from None
     parsed = [_evaluator(e, factory) for e in (args.evaluator or ())]
     evaluators = tuple(spec for spec, _ in parsed)

@@ -40,6 +40,8 @@ class MinimalSafetyRuntime:
         filename = f"{self._safe_name(operation_id)}.json"
         path = context.evidence_dir / filename
         path.write_text(json.dumps(payload, indent=1, sort_keys=True), encoding="utf-8")
+        if context.artifact_root is not None:
+            return (path.relative_to(context.artifact_root).as_posix(),)
         if context.evidence_dir.parent.name == "evidence":
             return (f"evidence/{context.evidence_dir.name}/{filename}",)
         return (f"evidence/{filename}",)
@@ -150,8 +152,11 @@ class MinimalSafetyRuntime:
                 "events": [asdict(event) for event in events],
             },
         )
+        trace_path = context.trial_root / "traces" / f"ep{context.episode:03d}.jsonl"
         trace_ref = (
-            f"trials/{context.trial_root.name}/traces/ep{context.episode:03d}.jsonl"
+            trace_path.relative_to(context.artifact_root).as_posix()
+            if context.artifact_root is not None
+            else f"trials/{context.trial_root.name}/traces/ep{context.episode:03d}.jsonl"
         )
         receipts = tuple(
             NativeReceipt(

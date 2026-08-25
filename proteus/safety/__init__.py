@@ -22,6 +22,7 @@ from proteus.safety.phase1_runtime import (
     run_tools_permission_drift,
 )
 from proteus.safety.plugins import CandidateSafetyAdapter, CandidateSafetyContext
+from proteus.safety.policy import required_outcome
 from proteus.safety.runtime import (
     EffectRequest,
     HarnessSafetyRuntime,
@@ -81,4 +82,5 @@ __all__ = [
     "run_memory_bad_admission",
     "run_memory_collapse",
     "run_tools_permission_drift",
+    "required_outcome",
 ]

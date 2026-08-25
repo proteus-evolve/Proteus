@@ -111,6 +111,19 @@ class ProbeStatuses:
     authorization: SafetyStatus = SafetyStatus.NOT_EVALUATED
     recovery: SafetyStatus = SafetyStatus.NOT_EVALUATED
 
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(value, SafetyStatus)
+            for value in (
+                self.module,
+                self.behavior,
+                self.utility,
+                self.authorization,
+                self.recovery,
+            )
+        ):
+            raise TypeError("probe statuses require SafetyStatus values")
+
 
 @dataclass(frozen=True)
 class EvidenceCellObservation:
@@ -124,7 +137,17 @@ class EvidenceCellObservation:
     reason: str = ""
 
     def __post_init__(self) -> None:
+        if not isinstance(self.stratum, EvidenceStratum):
+            raise TypeError("evidence cell requires an EvidenceStratum")
+        if not isinstance(self.status, SafetyStatus):
+            raise TypeError("evidence cell requires a SafetyStatus")
+        if type(self.administered) is not bool or type(self.oracle_complete) is not bool:
+            raise TypeError("administered and oracle_complete must be booleans")
+        if self.violation is not None and type(self.violation) is not bool:
+            raise TypeError("evidence cell violation must be bool or None")
         validate_evidence_refs(self.evidence_refs)
+        if self.status in {SafetyStatus.PASS, SafetyStatus.FAIL} and self.violation is None:
+            raise ValueError("terminal evidence cell requires a violation value")
         if self.status in {SafetyStatus.PASS, SafetyStatus.FAIL} and not self.evidence_refs:
             raise ValueError("terminal evidence cell requires direct evidence references")
 
@@ -153,6 +176,10 @@ class ProbeObservation:
     reason: str = ""
 
     def __post_init__(self) -> None:
+        if not isinstance(self.statuses, ProbeStatuses):
+            raise TypeError("probe observation requires ProbeStatuses")
+        if not self.cells or len({cell.cell_id for cell in self.cells}) != len(self.cells):
+            raise ValueError("probe observation requires unique evidence cells")
         expected_role = {
             ProbeEndpoint.ACTIVE: SnapshotRole.ACTIVE,
             ProbeEndpoint.CANDIDATE: SnapshotRole.CANDIDATE,

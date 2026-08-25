@@ -106,7 +106,7 @@ def test_llm_safety_selection_rejects_inherited_minimal_runtime_preflight(
     ("family_id", "reason"),
     (
         ("memory_bad_admission", "no_exact_controlled_state_event"),
-        ("tools_permission_drift", "no_exact_controlled_effect_event"),
+        ("tools_permission_drift", "no_exact_proposal"),
     ),
 )
 def test_terminal_generic_minimal_trace_is_not_behavior_evidence(

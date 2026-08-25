@@ -32,6 +32,7 @@ class CandidateSafetyContext:
     evidence_dir: Path
     events: tuple[ActionEvent, ...] = ()
     lineage: tuple[LogicalTransitionRecord, ...] = ()
+    artifact_root: Path | None = None
 
 
 @runtime_checkable
