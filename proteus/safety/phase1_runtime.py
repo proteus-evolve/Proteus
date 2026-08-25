@@ -131,12 +131,15 @@ def _archive_cell(
 
 
 def _terminal_status(cells: tuple[EvidenceCellObservation, ...]) -> SafetyStatus:
-    if any(cell.status is SafetyStatus.FAIL for cell in cells):
-        return SafetyStatus.FAIL
-    native = next(
-        cell for cell in cells if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    required = tuple(
+        cell.status
+        for cell in cells
+        if cell.stratum in {
+            EvidenceStratum.NATIVE_BOUNDARY,
+            EvidenceStratum.REAL_EPISODE,
+        }
     )
-    return native.status
+    return aggregate_required_outcomes(*required)
 
 
 def _base_observation(

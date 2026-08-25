@@ -52,7 +52,7 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
     )
 
 
-def test_restored_state_is_a_direct_pass_without_manufacturing_behavior_evidence(
+def test_restored_state_without_required_behavior_evidence_is_not_evaluated(
     tmp_path: Path,
 ) -> None:
     class RestoringRuntime(MinimalSafetyRuntime):
@@ -82,7 +82,7 @@ def test_restored_state_is_a_direct_pass_without_manufacturing_behavior_evidence
         if cell.stratum is EvidenceStratum.REAL_EPISODE
     )
 
-    assert observation.status is SafetyStatus.PASS
+    assert observation.status is SafetyStatus.NOT_EVALUATED
     assert observation.statuses.recovery is SafetyStatus.PASS
     assert observation.statuses.behavior is SafetyStatus.NOT_EVALUATED
     assert real_episode.status is SafetyStatus.NOT_EVALUATED

@@ -12,9 +12,11 @@ from proteus.core.adapter import ActionEvent
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation
 from proteus.safety.gate import _load_lineage
+from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
+from proteus.safety.policy import evaluate_safety_policy
 from proteus.safety.runtime import LogicalTransitionRecord, RuntimeKind
 from proteus.safety.taxonomy import EvidenceStratum, EvaluationArm, SafetyStatus
 
@@ -83,7 +85,7 @@ def test_phase1_dispatches_all_family_semantics_from_core(tmp_path: Path) -> Non
     assert statuses == {
         "memory_bad_admission": SafetyStatus.FAIL,
         "memory_collapse": SafetyStatus.FAIL,
-        "tools_permission_drift": SafetyStatus.PASS,
+        "tools_permission_drift": SafetyStatus.NOT_EVALUATED,
     }
 
 
@@ -143,6 +145,93 @@ def test_pending_transition_is_not_completed_archive_lineage(tmp_path: Path) -> 
     assert observation.archive_lineage
     assert all(not item.available and not item.records
                for item in observation.archive_lineage)
+
+
+def test_required_real_episode_gap_propagates_to_family_and_policy(
+    tmp_path: Path,
+) -> None:
+    class NonterminalRuntime(MinimalSafetyRuntime):
+        def run_safety_episode(self, prompts, context, channel):
+            return replace(
+                super().run_safety_episode(prompts, context, channel),
+                terminal=False,
+                error="missing required phase",
+            )
+
+    definition = next(
+        item for item in SUITE.definitions()
+        if item.family_id == "tools_permission_drift"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=NonterminalRuntime(MinimalHarness()),
+            context=_context(tmp_path, "required-real-episode"),
+            channel=None,
+        )
+    )
+    decision = evaluate_safety_policy(
+        EvolutionSafetyIndicators(
+            (
+                FamilyIndicatorProjection(
+                    family_id=definition.family_id,
+                    active_status=SafetyStatus.PASS,
+                    candidate_status=observation.status,
+                    active_components=observation.statuses,
+                    candidate_components=observation.statuses,
+                ),
+            )
+        )
+    )
+
+    assert observation.status is SafetyStatus.NOT_EVALUATED
+    assert decision.status is SafetyStatus.NOT_EVALUATED
+    assert not decision.allowed
+
+
+def test_archive_lineage_unavailability_does_not_poison_complete_required_cells(
+    tmp_path: Path,
+) -> None:
+    class ExactEffectRuntime(MinimalSafetyRuntime):
+        def run_safety_episode(self, prompts, context, channel):
+            result = super().run_safety_episode(prompts, context, channel)
+            events = (
+                ActionEvent(
+                    turn=100,
+                    phase="act",
+                    tool="write_file",
+                    surface="tools",
+                    params={"effect_id": "phase1-protected-effect"},
+                ),
+                ActionEvent(
+                    turn=101,
+                    phase="act",
+                    tool="write_file",
+                    surface="tools",
+                    params={"effect_id": "phase1-allowed-effect"},
+                ),
+            )
+            return replace(result, events=result.events + events)
+
+    definition = next(
+        item for item in SUITE.definitions()
+        if item.family_id == "tools_permission_drift"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=ExactEffectRuntime(MinimalHarness()),
+            context=_context(tmp_path, "archive-nonpoisoning"),
+            channel=None,
+        )
+    )
+    archive = next(
+        cell for cell in observation.cells
+        if cell.stratum is EvidenceStratum.ARCHIVE_LINEAGE
+    )
+
+    assert archive.status is SafetyStatus.NOT_EVALUATED
+    assert observation.status is SafetyStatus.PASS
 
 
 def test_episode_one_gate_context_has_no_completed_archive_history(tmp_path: Path) -> None:

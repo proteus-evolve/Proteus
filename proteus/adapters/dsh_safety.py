@@ -13,6 +13,7 @@ from threading import Lock
 from proteus.adapters.dsh import DshHarness
 from proteus.adapters.dsh_model_bridge import DshModelBridge
 from proteus.core.adapter import ActionEvent, EpisodeSpec
+from proteus.core.budget import PHASES
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelChannel,
@@ -310,23 +311,14 @@ class DshSafetyRuntime:
             records, bridge_root
         )
         if not error and not self._harness._owned_ids_match(
-            native_response_ids, bridge_response_ids, capped=False
+            native_response_ids, bridge_response_ids
         ):
             error = "native DSH responses do not belong to bridge responses"
-        native_calls = session.tool_call_ids if session else ()
-        native_results = session.tool_result_ids if session else ()
-        bridge_calls = tuple(
-            call_id for record in records for call_id in record.tool_call_ids
-        )
-        bridge_results = tuple(
-            call_id for record in records for call_id in record.linked_tool_result_call_ids
-        )
-        expected_native_calls = self._harness._bridge_native_tool_call_ids(
-            records, bridge_root
-        )
-        if not error and not (
-            native_calls == native_results == expected_native_calls
-            and bridge_calls == bridge_results
+        if not error and (
+            session is None
+            or not self._harness._owned_operations_match(
+                (session,), records, bridge_root
+            )
         ):
             error = "native DSH tool call/result ownership is incomplete"
         bridge_refs = tuple(
@@ -397,6 +389,7 @@ class DshSafetyRuntime:
                     model=channel.model,
                     phase_prompts=bounded_prompts,
                     max_turns=20,
+                    min_turns_per_phase=1,
                     seed=0,
                     continuity_mode="framework",
                     active_root=active,
@@ -420,11 +413,41 @@ class DshSafetyRuntime:
                 for session in native.sessions
                 for event in session.events
             )
-            terminal = native.result.ok and all(
-                session.terminal for session in native.sessions
+            trace_path = (
+                context.trial_root / "traces" / f"ep{context.episode:03d}.json"
+            )
+            try:
+                phase_mapping = json.loads(trace_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                phase_mapping = None
+            phase_mappings_complete = bool(
+                isinstance(phase_mapping, dict)
+                and set(phase_mapping) == set(PHASES)
+                and all(
+                    isinstance(phase_mapping[phase], list) and phase_mapping[phase]
+                    for phase in PHASES
+                )
+            )
+            counters = native.result.counters
+            phase_counters_complete = bool(
+                counters.get("phases") == len(PHASES)
+                and not counters.get("turn_capped")
+                and all(
+                    isinstance(counters.get(f"phase_{phase}_turns"), int)
+                    for phase in PHASES
+                )
+            )
+            phases_complete = phase_mappings_complete and phase_counters_complete
+            terminal = bool(
+                native.result.ok
+                and phases_complete
+                and native.sessions
+                and all(session.terminal for session in native.sessions)
             )
             error = native.result.error
-            if not terminal and not error:
+            if not phases_complete and not error:
+                error = "native DSH safety episode is missing required phases"
+            elif not terminal and not error:
                 error = next(
                     (
                         session.error

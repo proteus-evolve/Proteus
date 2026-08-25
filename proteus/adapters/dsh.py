@@ -97,6 +97,24 @@ carry over; the raw conversation does not.
 
 
 @dataclass(frozen=True)
+class DshToolProposal:
+    """One canonically represented native tool proposal."""
+
+    operation_id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True)
+class DshToolResult:
+    """One native result body delivered for an exact operation."""
+
+    operation_id: str
+    output: str
+    is_error: bool | None
+
+
+@dataclass(frozen=True)
 class DshSessionEvidence:
     """Strict controller evidence from one persisted DSH session."""
 
@@ -107,6 +125,8 @@ class DshSessionEvidence:
     tool_call_ids: tuple[str, ...]
     tool_result_ids: tuple[str, ...]
     error: str = ""
+    proposals: tuple[DshToolProposal, ...] = ()
+    results: tuple[DshToolResult, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -192,6 +212,30 @@ def _zstd_decompress(data: bytes) -> bytes:
             if not chunk:
                 return bytes(out)
             out += chunk
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _canonical_result_output(value: object, *, native_content: bool = False) -> str:
+    """Normalize the exact model-visible result body on each side of the DSH bridge."""
+    if native_content:
+        if not isinstance(value, list):
+            raise ValueError("native DSH tool result content is not a list")
+        if all(
+            isinstance(item, dict)
+            and item.get("type") == "text"
+            and isinstance(item.get("text"), str)
+            for item in value
+        ):
+            return "text:" + "".join(str(item["text"]) for item in value)
+    if isinstance(value, str):
+        return "text:" + value
+    try:
+        return "json:" + _canonical_json(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("DSH tool result output is not JSON-serializable") from exc
 
 
 class DshHarness:
@@ -418,7 +462,7 @@ class DshHarness:
         headers: list[dict] = []
         assistants: list[tuple[int, dict]] = []
         calls: list[tuple[str, str, dict, int]] = []
-        results: dict[str, bool] = {}
+        results: dict[str, DshToolResult] = {}
         result_order: list[str] = []
         turn_reasons: list[object] = []
         for row in rows:
@@ -481,9 +525,22 @@ class DshHarness:
                 if source_id in results:
                     error = error or f"native DSH tool result is duplicated: {source_id}"
                 block_error = block.get("isError") if isinstance(block, dict) else None
-                if block_error is not None and type(block_error) is not bool:
+                if type(block_error) is not bool:
                     error = error or f"native DSH tool result error is invalid: {source_id}"
-                results[source_id] = bool(data.get("error")) or block_error is True
+                    block_error = True
+                try:
+                    output = _canonical_result_output(
+                        block.get("content") if isinstance(block, dict) else None,
+                        native_content=True,
+                    )
+                except ValueError as exc:
+                    error = error or f"{exc}: {source_id}"
+                    output = ""
+                results[source_id] = DshToolResult(
+                    operation_id=source_id,
+                    output=output,
+                    is_error=block_error,
+                )
                 result_order.append(source_id)
             elif kind == "turn/end":
                 turn_reasons.append(data.get("reason"))
@@ -502,7 +559,7 @@ class DshHarness:
 
         events: list[ActionEvent] = []
         response_ids: list[str] = []
-        assistant_call_ids: list[str] = []
+        assistant_calls: list[DshToolProposal] = []
         for turn, message in assistants:
             source = message.get("source")
             if not isinstance(source, dict) or source.get("kind") != "model":
@@ -543,10 +600,26 @@ class DshHarness:
                     continue
                 if block.get("type") == "tool-call":
                     call_id = block.get("id")
-                    if isinstance(call_id, str) and call_id:
-                        assistant_call_ids.append(call_id)
-                    else:
+                    name = block.get("name")
+                    arguments = block.get("arguments")
+                    if not isinstance(call_id, str) or not call_id:
                         error = error or "native DSH assistant tool call has no call ID"
+                        continue
+                    if not isinstance(name, str) or not name:
+                        error = error or f"native DSH assistant tool call has no name: {call_id}"
+                        continue
+                    try:
+                        parsed = json.loads(arguments or "{}")
+                    except (json.JSONDecodeError, TypeError):
+                        parsed = None
+                    if not isinstance(parsed, dict):
+                        error = error or (
+                            f"native DSH assistant tool arguments are invalid: {call_id}"
+                        )
+                        parsed = {}
+                    assistant_calls.append(
+                        DshToolProposal(call_id, name, _canonical_json(parsed))
+                    )
                 elif block.get("type") == "text" and block.get("text"):
                     events.append(
                         ActionEvent(
@@ -559,8 +632,16 @@ class DshHarness:
                         )
                     )
 
-        call_ids = tuple(call_id for call_id, _, _, _ in calls)
-        if tuple(assistant_call_ids) != call_ids:
+        proposals = tuple(
+            DshToolProposal(call_id, tool, _canonical_json(arguments))
+            for call_id, tool, arguments, _ in calls
+        )
+        call_ids = tuple(proposal.operation_id for proposal in proposals)
+        if (
+            len(assistant_calls) != len({item.operation_id for item in assistant_calls})
+            or {item.operation_id: item for item in assistant_calls}
+            != {item.operation_id: item for item in proposals}
+        ):
             error = error or "native DSH assistant calls do not match tool-call events"
         unknown_results = tuple(call_id for call_id in result_order if call_id not in call_ids)
         missing_results = tuple(call_id for call_id in call_ids if call_id not in results)
@@ -572,7 +653,8 @@ class DshHarness:
         receipts: list[NativeReceipt] = []
         for call_id, tool, arguments, turn in calls:
             delivered = call_id in results
-            result_error = results.get(call_id, True)
+            result = results.get(call_id)
+            result_error = result.is_error if result is not None else True
             path_arg = str(arguments.get("file_path") or arguments.get("path") or "")
             params = {key: str(value)[:200] for key, value in arguments.items()}
             params.update(
@@ -615,6 +697,8 @@ class DshHarness:
             tool_call_ids=call_ids,
             tool_result_ids=tuple(result_order),
             error=error,
+            proposals=proposals,
+            results=tuple(results[call_id] for call_id in result_order if call_id in results),
         )
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
@@ -700,7 +784,6 @@ class DshHarness:
         if result.ok and not self._owned_ids_match(
             native_response_ids,
             bridge_response_ids,
-            capped=bool(result.counters.get("turn_capped")),
         ):
             result = EpisodeResult(
                 episode=result.episode,
@@ -709,22 +792,8 @@ class DshHarness:
                 error="native DSH session responses do not belong to bridge responses",
                 counters=result.counters,
             )
-        native_calls = tuple(
-            call_id for session in sessions for call_id in session.tool_call_ids
-        )
-        native_results = tuple(
-            call_id for session in sessions for call_id in session.tool_result_ids
-        )
-        bridge_calls = tuple(
-            call_id for record in records for call_id in record.tool_call_ids
-        )
-        bridge_results = tuple(
-            call_id for record in records for call_id in record.linked_tool_result_call_ids
-        )
-        expected_native_calls = self._bridge_native_tool_call_ids(records, bridge_root)
-        if result.ok and not (
-            native_calls == native_results == expected_native_calls
-            and bridge_calls == bridge_results
+        if result.ok and not self._owned_operations_match(
+            sessions, records, bridge_root
         ):
             result = EpisodeResult(
                 episode=result.episode,
@@ -740,32 +809,150 @@ class DshHarness:
         records: tuple[BridgeCallRecord, ...], bridge_root: Path
     ) -> tuple[str, ...]:
         """Translate bridge call IDs to DSH's persisted call/item ownership IDs."""
-        result: list[str] = []
+        operations = DshHarness._bridge_operations(records, bridge_root)
+        if operations is None:
+            return ()
+        proposals, _ = operations
+        return tuple(item.operation_id for item in proposals)
+
+    @staticmethod
+    def _bridge_operations(
+        records: tuple[BridgeCallRecord, ...], bridge_root: Path
+    ) -> tuple[tuple[DshToolProposal, ...], tuple[DshToolResult, ...]] | None:
+        """Read exact proposal and delivery values from controller bridge artifacts."""
+        proposals: list[DshToolProposal] = []
+        results: list[DshToolResult] = []
+        native_id_by_call_id: dict[str, str] = {}
         for record in records:
             try:
-                payload = json.loads(
+                request = json.loads(
+                    (bridge_root / record.request_ref).read_text(encoding="utf-8")
+                )
+                response = json.loads(
                     (bridge_root / record.response_ref).read_text(encoding="utf-8")
                 )
             except (OSError, json.JSONDecodeError):
-                return ()
-            output = payload.get("output") if isinstance(payload, dict) else None
+                return None
+
+            input_value = request.get("input") if isinstance(request, dict) else None
+            request_results: list[str] = []
+            if isinstance(input_value, list):
+                for item in input_value:
+                    if not isinstance(item, dict) or item.get("type") not in {
+                        "function_call_output",
+                        "custom_tool_call_output",
+                    }:
+                        continue
+                    call_id = item.get("call_id")
+                    if (
+                        not isinstance(call_id, str)
+                        or not call_id
+                        or "output" not in item
+                        or call_id not in native_id_by_call_id
+                    ):
+                        return None
+                    try:
+                        output_value = _canonical_result_output(item["output"])
+                    except ValueError:
+                        return None
+                    request_results.append(call_id)
+                    results.append(
+                        DshToolResult(
+                            operation_id=native_id_by_call_id[call_id],
+                            output=output_value,
+                            is_error=None,
+                        )
+                    )
+            elif not isinstance(input_value, str):
+                return None
+            if (
+                tuple(request_results) != record.tool_result_call_ids
+                or tuple(request_results) != record.linked_tool_result_call_ids
+            ):
+                return None
+
+            output = response.get("output") if isinstance(response, dict) else None
             if not isinstance(output, list):
-                return ()
+                return None
             record_call_ids: list[str] = []
-            record_native_ids: list[str] = []
             for item in output:
                 if not isinstance(item, dict) or item.get("type") != "function_call":
                     continue
                 call_id = item.get("call_id")
                 item_id = item.get("id")
-                if not isinstance(call_id, str) or not isinstance(item_id, str):
-                    return ()
+                name = item.get("name")
+                raw_arguments = item.get("arguments")
+                if (
+                    not isinstance(call_id, str)
+                    or not call_id
+                    or not isinstance(item_id, str)
+                    or not item_id
+                    or not isinstance(name, str)
+                    or not name
+                    or call_id in native_id_by_call_id
+                ):
+                    return None
+                try:
+                    arguments = json.loads(raw_arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    return None
+                if not isinstance(arguments, dict):
+                    return None
+                native_id = f"{call_id}|{item_id}"
                 record_call_ids.append(call_id)
-                record_native_ids.append(f"{call_id}|{item_id}")
+                native_id_by_call_id[call_id] = native_id
+                proposals.append(
+                    DshToolProposal(native_id, name, _canonical_json(arguments))
+                )
             if tuple(record_call_ids) != record.tool_call_ids:
-                return ()
-            result.extend(record_native_ids)
-        return tuple(result)
+                return None
+        if (
+            len(proposals) != len({item.operation_id for item in proposals})
+            or len(results) != len({item.operation_id for item in results})
+        ):
+            return None
+        return tuple(proposals), tuple(results)
+
+    @staticmethod
+    def _owned_operations_match(
+        sessions: tuple[DshSessionEvidence, ...],
+        records: tuple[BridgeCallRecord, ...],
+        bridge_root: Path,
+    ) -> bool:
+        bridge = DshHarness._bridge_operations(records, bridge_root)
+        if bridge is None:
+            return False
+        native_proposals = tuple(
+            proposal for session in sessions for proposal in session.proposals
+        )
+        native_results = tuple(result for session in sessions for result in session.results)
+        bridge_proposals, bridge_results = bridge
+        collections = (
+            native_proposals,
+            native_results,
+            bridge_proposals,
+            bridge_results,
+        )
+        if any(
+            len(items) != len({item.operation_id for item in items})
+            for items in collections
+        ):
+            return False
+        native_proposal_map = {item.operation_id: item for item in native_proposals}
+        bridge_proposal_map = {item.operation_id: item for item in bridge_proposals}
+        native_result_map = {
+            item.operation_id: (item.operation_id, item.output)
+            for item in native_results
+        }
+        bridge_result_map = {
+            item.operation_id: (item.operation_id, item.output)
+            for item in bridge_results
+        }
+        return bool(
+            native_proposal_map == bridge_proposal_map
+            and native_result_map == bridge_result_map
+            and set(native_proposal_map) == set(native_result_map)
+        )
 
     @staticmethod
     def _bridge_agent_response_ids(
@@ -791,19 +978,15 @@ class DshHarness:
 
     @staticmethod
     def _owned_ids_match(
-        native_ids: tuple[str, ...], bridge_ids: tuple[str, ...], *, capped: bool
+        native_ids: tuple[str, ...],
+        bridge_ids: tuple[str, ...],
+        *,
+        capped: bool = False,
     ) -> bool:
+        del capped
         native_unique = len(native_ids) == len(set(native_ids))
         bridge_unique = len(bridge_ids) == len(set(bridge_ids))
-        if native_unique and bridge_unique and set(native_ids) == set(bridge_ids):
-            return True
-        return bool(
-            capped
-            and native_unique
-            and bridge_unique
-            and len(bridge_ids) == len(native_ids) + 1
-            and set(native_ids).issubset(bridge_ids)
-        )
+        return native_unique and bridge_unique and set(native_ids) == set(bridge_ids)
 
     def _run_episode_bound(
         self,

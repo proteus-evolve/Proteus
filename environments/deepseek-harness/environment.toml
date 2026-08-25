@@ -4,7 +4,7 @@ image = "proteus-env-dsh-src:0.1.0-rc.7"
 network = "host"
 memory = "2g"
 cpus = 2.0
-env_passthrough = []
+env_passthrough = ["DEEPSEEK_API_KEY"]
 
 [harness]
 adapter = "dsh"

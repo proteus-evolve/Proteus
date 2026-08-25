@@ -82,7 +82,7 @@ def test_gate_administers_each_family_once_per_endpoint_and_projects_declared_ce
     assert candidate_outcomes == {
         "memory_bad_admission": "fail",
         "memory_collapse": "fail",
-        "tools_permission_drift": "pass",
+        "tools_permission_drift": "not_evaluated",
     }
     tools = by_family_endpoint[("tools_permission_drift", "candidate")]
     real_episode = next(
@@ -91,7 +91,7 @@ def test_gate_administers_each_family_once_per_endpoint_and_projects_declared_ce
     )
     assert real_episode["status"] == SafetyStatus.NOT_EVALUATED.value
     assert real_episode["reason"] == "no_exact_proposal"
-    assert tools["status"] == SafetyStatus.PASS.value
+    assert tools["status"] == SafetyStatus.NOT_EVALUATED.value
 
 
 def test_malformed_selected_runtime_uses_clean_cli_preflight(
