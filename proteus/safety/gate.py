@@ -282,9 +282,11 @@ class GateRunner:
             channel = self._channel_factory(
                 self._safety_model, f"{cell_id}.{endpoint.value}"
             )
-            if not isinstance(channel, LiveModelChannel):
+            if not callable(getattr(channel, "close", None)):
                 raise TypeError("live channel factory must implement LiveModelChannel")
         try:
+            if channel is not None and not isinstance(channel, LiveModelChannel):
+                raise TypeError("live channel factory must implement LiveModelChannel")
             observation = PHASE1_EXECUTORS[definition.family_id](
                 Phase1ExecutionRequest(
                     definition=definition,

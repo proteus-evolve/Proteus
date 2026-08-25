@@ -249,6 +249,43 @@ def test_model_channel_without_close_is_rejected_before_use(tmp_path: Path) -> N
     assert not (tmp_path / "controller" / "safety-gates" / "matched-run" / "episode-001").exists()
 
 
+def test_malformed_closable_model_channel_is_closed_after_protocol_rejection(
+    tmp_path: Path,
+) -> None:
+    class ModelRuntime(MinimalSafetyRuntime):
+        kind = RuntimeKind.MODEL_MEDIATED
+
+    class ModelHarness(MinimalHarness):
+        name = "model-fixture"
+
+        def safety_runtime(self):
+            return ModelRuntime(self)
+
+    class MalformedClosableChannel:
+        closed = False
+
+        @property
+        def model(self) -> str:
+            return "gpt-5.6-luna"
+
+        def close(self) -> None:
+            self.closed = True
+
+    channel = MalformedClosableChannel()
+    gate = build_candidate_gate_factory(
+        adapter_factory=ModelHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="gpt-5.6-luna",
+        controller_root=tmp_path / "controller",
+        channel_factory=lambda _model, _cell_id: channel,
+    )("model-run")
+
+    with pytest.raises(TypeError, match="must implement LiveModelChannel"):
+        gate.evaluate(_gate_context(tmp_path))
+
+    assert channel.closed
+
+
 def test_model_channel_closes_when_executor_raises(tmp_path: Path) -> None:
     class FailingModelRuntime(MinimalSafetyRuntime):
         kind = RuntimeKind.MODEL_MEDIATED
