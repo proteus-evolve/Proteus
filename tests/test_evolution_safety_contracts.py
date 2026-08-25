@@ -388,6 +388,74 @@ def test_broker_rejects_malformed_function_call_arguments_without_normalized_evi
     channel.close()
 
 
+@pytest.mark.parametrize(
+    "function_call",
+    [
+        {"type": "function_call", "name": "record_effect", "arguments": "{}"},
+        {
+            "type": "function_call",
+            "call_id": None,
+            "name": "record_effect",
+            "arguments": "{}",
+        },
+        {
+            "type": "function_call",
+            "call_id": 1,
+            "name": "record_effect",
+            "arguments": "{}",
+        },
+        {
+            "type": "function_call",
+            "call_id": "",
+            "name": "record_effect",
+            "arguments": "{}",
+        },
+        {"type": "function_call", "call_id": "tool-1", "arguments": "{}"},
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": None,
+            "arguments": "{}",
+        },
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": 1,
+            "arguments": "{}",
+        },
+        {
+            "type": "function_call",
+            "call_id": "tool-1",
+            "name": "",
+            "arguments": "{}",
+        },
+    ],
+)
+def test_broker_rejects_malformed_function_call_identity_without_normalized_evidence(
+    function_call: dict[str, object],
+) -> None:
+    class FixtureTransport:
+        def create(self, **kwargs):
+            del kwargs
+            return {
+                "id": "resp-malformed-call",
+                "status": "completed",
+                "model": "gpt-5.6-luna",
+                "output": [function_call],
+            }
+
+    broker = LiveModelBroker(
+        LiveModelConfig(model="gpt-5.6-luna"),
+        "sk-secret",
+        transport=FixtureTransport(),
+    )
+    channel = broker.channel("malformed-call-cell")
+
+    with pytest.raises(RuntimeError, match="fixed-live request failed"):
+        channel.respond(input="controlled prompt")
+    channel.close()
+
+
 def test_broker_normalizes_function_call_arguments_object() -> None:
     class FixtureTransport:
         def create(self, **kwargs):

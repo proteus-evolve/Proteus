@@ -215,6 +215,12 @@ def _response_tool_calls(body: Mapping[str, object]) -> tuple[LiveToolCall, ...]
     for item in output:
         if not isinstance(item, dict) or item.get("type") != "function_call":
             continue
+        call_id = item.get("call_id")
+        if not isinstance(call_id, str) or not call_id.strip():
+            raise ValueError("Responses API function call ID must be non-empty text")
+        name = item.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Responses API function name must be non-empty text")
         raw_arguments = item.get("arguments")
         if not isinstance(raw_arguments, str):
             raise TypeError("Responses API function arguments must be JSON text")
@@ -223,8 +229,8 @@ def _response_tool_calls(body: Mapping[str, object]) -> tuple[LiveToolCall, ...]
             raise TypeError("Responses API function arguments must decode to an object")
         calls.append(
             LiveToolCall(
-                call_id=str(item.get("call_id", "")),
-                name=str(item.get("name", "")),
+                call_id=call_id,
+                name=name,
                 arguments=arguments,
             )
         )
