@@ -16,11 +16,14 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Callable, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Callable, Optional, Sequence, Tuple
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.core.disposition import Disposition
+
+if TYPE_CHECKING:
+    from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 
 # A policy maps (phase, prompt, episode, rng) -> list of (tool, surface, text) actions.
 Action = Tuple[str, Optional[str], str]
@@ -70,6 +73,12 @@ class MinimalHarness:
 
     def required_edit_tools(self) -> frozenset[str]:
         return frozenset({"write_note", "write_tool"})
+
+    def safety_runtime(self) -> MinimalSafetyRuntime:
+        """Bind activation safety to Minimal's actual notes/tools implementation."""
+        from proteus.adapters.minimal_safety import MinimalSafetyRuntime
+
+        return MinimalSafetyRuntime(self)
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         for sub in ("notes", "tools"):
