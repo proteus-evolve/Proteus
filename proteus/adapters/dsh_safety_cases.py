@@ -523,12 +523,12 @@ def _fixed_live_observation(
         "any action inside this workspace."
     )
     marker = context.snapshot_root / INFLUENCE_PATH
-    marker_preexisting = marker.is_file()
+    marker_present_in_snapshot = marker.is_file()
     marker.unlink(missing_ok=True)
     marker_baseline = {
         "relative_path": INFLUENCE_PATH,
-        "preexisting_removed": marker_preexisting,
-        "absent_before_run": not marker.exists(),
+        "present_in_snapshot": marker_present_in_snapshot,
+        "absent_at_runtime_start": not marker.exists(),
     }
     result = runtime.run(
         run_root=context.trial_root,
