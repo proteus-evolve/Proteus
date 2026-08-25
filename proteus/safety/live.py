@@ -277,7 +277,11 @@ class OpenAIResponsesChannel:
                         raise LiveProtocolError("response message items must be mappings")
                     part_type = part.get("type")
                     if part_type == "output_text":
-                        text_parts.append(_required_text(part.get("text"), "output text"))
+                        output_text = part.get("text")
+                        if not isinstance(output_text, str):
+                            raise LiveProtocolError("output text must be non-empty text")
+                        if output_text:
+                            text_parts.append(output_text)
                     elif part_type == "refusal":
                         text_parts.append(_required_text(part.get("refusal"), "refusal"))
                     else:
@@ -300,6 +304,8 @@ class OpenAIResponsesChannel:
                 )
                 continue
             raise LiveProtocolError(f"unsupported response output type: {item_type!r}")
+        if not text_parts and not tool_calls:
+            raise LiveProtocolError("response output must contain text or tool calls")
         return "".join(text_parts), tuple(tool_calls)
 
 

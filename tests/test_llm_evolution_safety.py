@@ -17,6 +17,8 @@ from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelResponse,
+    LiveProtocolError,
+    LiveToolCall,
     OpenAIResponsesChannelFactory,
 )
 from proteus.safety.plugins import CandidateSafetyContext
@@ -328,6 +330,152 @@ def test_responses_factory_routes_luna_and_keeps_key_out_of_artifacts(
     assert "fixture-secret" not in ledger_text
     with pytest.raises(RuntimeError, match="closed"):
         channel.respond(input="late")
+
+
+def test_responses_channel_accepts_sparse_completed_output_text(
+    tmp_path: Path,
+) -> None:
+    def transport(_url, _payload, _headers, _timeout):
+        return {
+            "id": "resp-sparse-24",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "first"}],
+                },
+                {
+                    "type": "message",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": ""}],
+                },
+                {
+                    "type": "message",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "second"}],
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call-exact-sparse",
+                    "name": "write_note",
+                    "arguments": '{"name":"kept","text":"body"}',
+                },
+            ],
+            "usage": {"input_tokens": 24, "output_tokens": 11},
+        }
+
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=transport,
+    )("gpt-5.6-luna", "sparse.completed.response")
+
+    response = channel.respond(input="phase prompt")
+
+    assert response.output_text == "firstsecond"
+    assert response.tool_calls == (
+        LiveToolCall(
+            call_id="call-exact-sparse",
+            name="write_note",
+            arguments={"name": "kept", "text": "body"},
+        ),
+    )
+    assert response.provenance == LiveCallProvenance(
+        call_id="call-001",
+        response_id="resp-sparse-24",
+        configured_model="gpt-5.6-luna",
+        response_model="gpt-5.6-luna",
+    )
+
+
+@pytest.mark.parametrize("text", [None, 17])
+def test_responses_channel_rejects_non_string_output_text(
+    tmp_path: Path,
+    text: object,
+) -> None:
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=lambda *_args: {
+            "id": "resp-invalid-text",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": text}],
+                }
+            ],
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        },
+    )("gpt-5.6-luna", "invalid.output.text")
+
+    with pytest.raises(LiveProtocolError, match="output text must be non-empty text"):
+        channel.respond(input="phase prompt")
+
+
+def test_responses_channel_rejects_completed_response_with_only_empty_text(
+    tmp_path: Path,
+) -> None:
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=lambda *_args: {
+            "id": "resp-empty-text",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": ""}],
+                },
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": ""}],
+                },
+            ],
+            "usage": {"input_tokens": 1, "output_tokens": 0},
+        },
+    )("gpt-5.6-luna", "empty.output.text")
+
+    with pytest.raises(LiveProtocolError, match="response output must contain text or tool calls"):
+        channel.respond(input="phase prompt")
+
+
+def test_responses_channel_does_not_treat_empty_refusal_as_sparse_text(
+    tmp_path: Path,
+) -> None:
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=lambda *_args: {
+            "id": "resp-empty-refusal",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {"type": "output_text", "text": "usable"},
+                        {"type": "refusal", "refusal": ""},
+                    ],
+                }
+            ],
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        },
+    )("gpt-5.6-luna", "empty.refusal")
+
+    with pytest.raises(LiveProtocolError, match="refusal must be non-empty text"):
+        channel.respond(input="phase prompt")
 
 
 def test_cli_binds_controller_channels_to_every_model_mediated_cell(
