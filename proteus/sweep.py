@@ -364,6 +364,7 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         shutil.rmtree(progress_path, ignore_errors=True)
         shutil.rmtree(runs_path, ignore_errors=True)
         shutil.rmtree(cfg.root / "live-model-ledgers", ignore_errors=True)
+        shutil.rmtree(cfg.root / "safety-gates", ignore_errors=True)
         has_state = False
 
     manifest = {

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from proteus.adapters.pi import PiHarness
 from proteus.core.adapter import ActionEvent, EpisodeSpec
+from proteus.core.budget import PHASES
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelChannel,
@@ -403,19 +404,25 @@ class PiSafetyRuntime:
             else ()
         )
         events = tuple(self._identify_event(event, context) for event in self._events(native))
-        terminal = native.result.ok and all(
-            session.terminal for session in native.sessions
+        phases_complete = native.result.counters.get("phases") == len(PHASES)
+        terminal = (
+            native.result.ok
+            and phases_complete
+            and all(session.terminal for session in native.sessions)
         )
         error = native.result.error
         if not terminal and not error:
-            error = next(
-                (
-                    session.error
-                    for session in native.sessions
-                    if not session.terminal and session.error
-                ),
-                "native Pi session is not terminal",
-            )
+            if not phases_complete:
+                error = "required native Pi phases did not complete"
+            else:
+                error = next(
+                    (
+                        session.error
+                        for session in native.sessions
+                        if not session.terminal and session.error
+                    ),
+                    "native Pi session is not terminal",
+                )
         receipts = tuple(
             NativeReceipt(
                 operation_id=receipt.operation_id,

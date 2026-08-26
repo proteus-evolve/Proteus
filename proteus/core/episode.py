@@ -340,6 +340,8 @@ def _select_task_candidate(
     goal: GoalConfig, results, active_best_score: float | None
 ) -> tuple[bool, float | None]:
     """Apply the current-main task selection rule without mutating its incumbent."""
+    if any(result.error for result in results):
+        return False, active_best_score
     if goal.selection != "accept_reject" or not results:
         return True, active_best_score
     candidate_score = sum(result.score for result in results) / len(results)
@@ -650,7 +652,8 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                 except Exception as exc:  # noqa: BLE001
                     from proteus.core.goal import EvalResult
                     results = [EvalResult(name="evaluator-error", score=0.0,
-                                          detail=f"{type(exc).__name__}: {exc}"[:200])]
+                                          detail=f"{type(exc).__name__}: {exc}"[:200],
+                                          error=True)]
             else:
                 frozen_candidate = snapshot.freeze_candidate(
                     harness, run_id=run_id, episode=ep, label=cfg.name
@@ -671,7 +674,8 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     except Exception as exc:  # noqa: BLE001
                         from proteus.core.goal import EvalResult
                         results = [EvalResult(name="evaluator-error", score=0.0,
-                                              detail=f"{type(exc).__name__}: {exc}"[:200])]
+                                              detail=f"{type(exc).__name__}: {exc}"[:200],
+                                              error=True)]
                     task_selected, candidate_score = _select_task_candidate(
                         cfg.goal, results, best_score
                     )

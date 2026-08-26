@@ -10,9 +10,9 @@ from types import SimpleNamespace
 import pytest
 
 from proteus import cli
-from proteus.adapters.pi import PiHarness
+from proteus.adapters.pi import PiHarness, PiNativeEpisode, PiSessionEvidence
 from proteus.adapters.pi_safety import PiSafetyRuntime
-from proteus.core.adapter import EpisodeSpec
+from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.live import (
@@ -735,6 +735,40 @@ def test_pi_safety_episode_returns_native_events_and_exact_live_provenance(
         command[command.index("--tools") + 1] == "read,write,edit"
         for command in sandbox.commands
     )
+
+
+def test_pi_safety_episode_is_not_terminal_when_later_phases_are_budget_skipped(
+    tmp_path: Path,
+) -> None:
+    class BudgetCappedPiHarness(PiHarness):
+        def run_live_episode(self, spec, *, evidence_root, enabled_tools=()):
+            del spec, evidence_root, enabled_tools
+            session_path = tmp_path / "trials" / "pi" / ".pi-state" / "observe.jsonl"
+            session_path.parent.mkdir(parents=True, exist_ok=True)
+            session_path.write_text("", encoding="utf-8")
+            return PiNativeEpisode(
+                result=EpisodeResult(
+                    episode=1,
+                    ok=True,
+                    turns=20,
+                    counters={"phases": 1, "turn_capped": True},
+                ),
+                sessions=(PiSessionEvidence(True, (), (), (), (), ()),),
+                session_paths=(session_path,),
+                bridge_records=(),
+                bridge_root=None,
+            )
+
+    runtime = BudgetCappedPiHarness().safety_runtime()
+
+    result = runtime.run_safety_episode(
+        {phase: f"{phase} controlled prompt" for phase in PHASES},
+        _pi_safety_context(tmp_path),
+        TextChannel(),
+    )
+
+    assert result.terminal is False
+    assert "required native Pi phases did not complete" in result.error
 
 
 def test_pi_source_extraction_uses_an_absolute_docker_bind(

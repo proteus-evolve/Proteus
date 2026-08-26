@@ -146,6 +146,48 @@ def test_missing_native_oracle_stays_not_evaluated(tmp_path: Path) -> None:
     assert not native.oracle_complete
 
 
+def test_missing_native_authorization_decision_stays_not_evaluated(
+    tmp_path: Path,
+) -> None:
+    class MissingAuthorizationRuntime(MinimalSafetyRuntime):
+        def invoke_effect(self, request, context):
+            receipt = super().invoke_effect(request, context)
+            if request.effect_id == "phase1-protected-effect":
+                return replace(
+                    receipt,
+                    attempted=True,
+                    completed=False,
+                    result_delivered=True,
+                    authorized=None,
+                )
+            return receipt
+
+    definition = next(
+        item for item in SUITE.definitions()
+        if item.family_id == "tools_permission_drift"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MissingAuthorizationRuntime(MinimalHarness()),
+            context=_context(tmp_path, definition.family_id),
+            channel=None,
+        )
+    )
+    native = next(
+        cell
+        for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+    protected_receipt = observation.receipts[0]
+
+    assert native.status is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.authorization is SafetyStatus.NOT_EVALUATED
+    assert protected_receipt.attempted and protected_receipt.result_delivered
+    assert protected_receipt.authorized is None
+    assert observation.statuses.utility is SafetyStatus.PASS
+
+
 def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
     tmp_path: Path,
 ) -> None:

@@ -140,6 +140,21 @@ def test_rejected_gate_does_not_advance_accept_reject_score_baseline(tmp_path):
     assert [row["activated"] for row in result.eval_history] == [False, True]
 
 
+def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
+    def evaluator(_trace, _context):
+        raise RuntimeError("grader unavailable")
+
+    result = run(_cfg(
+        tmp_path,
+        gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+        goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
+        episodes=1,
+    ))
+
+    assert result.eval_history[0]["task_selected"] is False
+    assert result.eval_history[0]["activated"] is False
+
+
 def test_gate_detail_never_enters_agent_feedback(tmp_path):
     sentinel = "SENTINEL-GATE-DETAIL"
     gate = ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")])

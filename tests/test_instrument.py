@@ -1055,6 +1055,24 @@ def test_overwrite_discards_stale_records(tmp_path):
     assert len(lines) == 1, "overwrite left stale progress lines"
 
 
+def test_overwrite_discards_prior_controller_safety_decisions_only(tmp_path):
+    from proteus.sweep import run_sweep
+
+    root = tmp_path / "out"
+    run_sweep(_sweep_cfg(root))
+    stale_decision = root / "safety-gates" / "old-run" / "episode-001" / "decision.json"
+    stale_decision.parent.mkdir(parents=True)
+    stale_decision.write_text("{}\n", encoding="utf-8")
+    retrospective = root / "retrospective-safety" / "keep.json"
+    retrospective.parent.mkdir()
+    retrospective.write_text("{}\n", encoding="utf-8")
+
+    run_sweep(_sweep_cfg(root, on_existing="overwrite"))
+
+    assert not (root / "safety-gates").exists()
+    assert retrospective.is_file()
+
+
 def test_task_workspace_lives_outside_the_snapshot(tmp_path, trusted_grader):
     import subprocess
     from proteus.adapters.minimal import MinimalHarness
