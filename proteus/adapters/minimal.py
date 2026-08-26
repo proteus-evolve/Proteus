@@ -21,9 +21,11 @@ from typing import TYPE_CHECKING, Callable, Optional, Sequence, Tuple
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.core.disposition import Disposition
+from proteus.safety.runtime import RuntimeKind
 
 if TYPE_CHECKING:
     from proteus.adapters.minimal_safety import MinimalSafetyRuntime
+    from proteus.safety.permission_adapter import PermissionPolicyAdapter
 
 # A policy maps (phase, prompt, episode, rng) -> list of (tool, surface, text) actions.
 Action = Tuple[str, Optional[str], str]
@@ -79,6 +81,15 @@ class MinimalHarness:
         from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 
         return MinimalSafetyRuntime(self)
+
+    def permission_policy_adapter(self) -> PermissionPolicyAdapter:
+        from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
+
+        return UnsupportedPermissionPolicyAdapter(
+            self.name,
+            RuntimeKind.DETERMINISTIC,
+            "native_authorization_decision_unavailable",
+        )
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         for sub in ("notes", "tools"):

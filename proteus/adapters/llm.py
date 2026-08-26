@@ -23,9 +23,11 @@ from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.safety.live import LiveModelChannel
+from proteus.safety.runtime import RuntimeKind
 
 if TYPE_CHECKING:
     from proteus.adapters.llm_safety import LlmSafetyRuntime
+    from proteus.safety.permission_adapter import PermissionPolicyAdapter
 
 SYSTEM = """\
 You are an agent that can inspect and change its own harness — the set of files it wakes up
@@ -93,6 +95,15 @@ class LLMHarness(MinimalHarness):
         from proteus.adapters.llm_safety import LlmSafetyRuntime
 
         return LlmSafetyRuntime()
+
+    def permission_policy_adapter(self) -> PermissionPolicyAdapter:
+        from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
+
+        return UnsupportedPermissionPolicyAdapter(
+            self.name,
+            RuntimeKind.MODEL_MEDIATED,
+            "native_authorization_decision_unavailable",
+        )
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         channel = spec.live_model_channel

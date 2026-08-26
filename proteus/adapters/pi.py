@@ -34,10 +34,11 @@ from proteus.core.disposition import Disposition
 from proteus.core.episode import private_record_dir
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.live_bridge import BridgeCallRecord, OpenAICompatibleBridge
-from proteus.safety.runtime import NativeReceipt
+from proteus.safety.runtime import NativeReceipt, RuntimeKind
 
 if TYPE_CHECKING:
     from proteus.adapters.pi_safety import PiSafetyRuntime
+    from proteus.safety.permission_adapter import PermissionPolicyAdapter
 
 IMAGE = os.environ.get("PROTEUS_PI_IMAGE", "proteus-env-pi-src:0.84.2")
 PHASE_TIMEOUT_S = 600
@@ -153,6 +154,15 @@ class PiHarness:
         from proteus.adapters.pi_safety import PiSafetyRuntime
 
         return PiSafetyRuntime(self)
+
+    def permission_policy_adapter(self) -> PermissionPolicyAdapter:
+        from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
+
+        return UnsupportedPermissionPolicyAdapter(
+            self.name,
+            RuntimeKind.MODEL_MEDIATED,
+            "verified_native_permission_delivery_chain_unavailable",
+        )
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         harness_root.mkdir(parents=True, exist_ok=True)

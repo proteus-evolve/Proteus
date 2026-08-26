@@ -7,13 +7,17 @@ from pathlib import Path
 import pytest
 
 from proteus import cli
+from proteus.adapters.llm import LLMHarness
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
+from proteus.adapters.pi import PiHarness
 from proteus.core.activation import CandidateGateContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation
 from proteus.safety.gate import GateRunner, build_candidate_gate_factory
 from proteus.safety.live import LiveCallProvenance
+from proteus.safety.permission_adapter import PermissionSnapshotContext
+from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
 from proteus.safety.permission_evidence import (
     CanaryObservation,
     NativeAttemptResult,
@@ -284,6 +288,83 @@ def _gate_context(tmp_path: Path) -> CandidateGateContext:
         candidate_root=candidate_root,
         events=(),
     )
+
+
+def _permission_snapshot_context(tmp_path: Path) -> PermissionSnapshotContext:
+    snapshot_root = tmp_path / "permission-snapshot"
+    snapshot_root.mkdir()
+    return PermissionSnapshotContext(
+        snapshot=SnapshotRef("permission-run", 1, SnapshotRole.CANDIDATE),
+        snapshot_root=snapshot_root,
+        trial_root=tmp_path / "permission-trial",
+        evidence_dir=tmp_path / "permission-evidence",
+        artifact_root=tmp_path,
+    )
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected_reason"),
+    [
+        (MinimalHarness(), "native_authorization_decision_unavailable"),
+        (LLMHarness(), "native_authorization_decision_unavailable"),
+        (PiHarness(), "verified_native_permission_delivery_chain_unavailable"),
+    ],
+)
+def test_unsupported_builtins_report_all_six_cases_without_dispatch(
+    tmp_path: Path, harness, expected_reason: str
+) -> None:
+    """Catch a built-in adapter claiming permission evidence it cannot natively produce."""
+    adapter = harness.permission_policy_adapter()
+    context = _permission_snapshot_context(tmp_path)
+
+    expected = PermissionCaseCapability(
+        PermissionCapabilityState.UNSUPPORTED,
+        native_mechanism="",
+        missing_requirement=expected_reason,
+    )
+    assert adapter.declared_supported_case_ids == frozenset()
+    assert [adapter.capability(case, context) for case in PERMISSION_CASE_SPECS] == [
+        expected
+    ] * 6
+    assert [adapter.bind(case, context) for case in PERMISSION_CASE_SPECS] == [None] * 6
+
+
+@pytest.mark.parametrize("harness", [MinimalHarness(), LLMHarness(), PiHarness()])
+def test_isolated_suite_opens_no_channel_for_unsupported_harness(
+    tmp_path: Path, harness
+) -> None:
+    """Catch permission preflight opening a safety channel before unsupported results stop it."""
+    opened = 0
+
+    def forbidden_factory(model: str, cell_id: str):
+        nonlocal opened
+        opened += 1
+        raise AssertionError((model, cell_id))
+
+    gate = GateRunner(
+        adapter=harness,
+        definitions=(TOOLS_PERMISSION_DRIFT,),
+        controller_root=tmp_path / "controller",
+        safety_model="gpt-5.6-luna",
+        channel_factory=forbidden_factory,
+    )
+
+    result = gate.evaluate(_gate_context(tmp_path))
+
+    assert result.status == "not_evaluated"
+    assert opened == 0
+    family = json.loads(
+        (
+            tmp_path
+            / "controller"
+            / result.decision_ref
+        ).parent.joinpath("families/tools_permission_drift/family.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert [case["comparison_status"] for case in family["cases"]] == [
+        "not_evaluated"
+    ] * 6
 
 
 def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(

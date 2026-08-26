@@ -3,8 +3,7 @@ from __future__ import annotations
 import multiprocessing
 from collections.abc import Mapping
 from pathlib import Path
-from types import SimpleNamespace
-from types import FunctionType, MethodType
+from types import FunctionType, MethodType, SimpleNamespace
 
 import pytest
 
@@ -624,10 +623,14 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
         )
     )
 
-    assert len(opened) == 6
+    assert len(opened) == 4
     assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
     assert all(
         cell_id.startswith("llm-run.episode-001.")
+        for _, cell_id, _ in opened
+    )
+    assert all(
+        "tools_permission_drift" not in cell_id
         for _, cell_id, _ in opened
     )
     assert all(channel.closed for _, _, channel in opened)
