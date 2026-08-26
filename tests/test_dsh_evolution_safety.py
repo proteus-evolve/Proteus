@@ -1157,7 +1157,7 @@ def test_dsh_live_episode_preserves_staged_runtime_and_keeps_worker_keyless(
     assert channel.calls == 8
     assert not channel.closed
     assert len(sandbox.commands) == 4
-    assert all(command[:4] == ["--profile", "headless", "--patch", 
+    assert all(command[:4] == ["--profile", "headless", "--patch",
                                "/proteus/bridge/cordis.patch.yml"]
                for command in sandbox.commands)
     assert sandbox.envs == [
