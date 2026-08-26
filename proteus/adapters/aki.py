@@ -48,7 +48,7 @@ from proteus.core.episode import private_record_dir
 from proteus.sandbox import DockerSandbox, SandboxConfig
 
 if TYPE_CHECKING:
-    from proteus.adapters.aki_safety import AkiSafetyRuntime
+    from proteus.adapters.aki_safety import AkiPermissionPolicyAdapter, AkiSafetyRuntime
 
 #: Aki phase names -> Proteus phase names.
 _PHASE = {"observe": "observe", "propose": "propose",
@@ -103,6 +103,22 @@ class AkiHarness:
                 is_code=True),
         Surface("loop", "loop.py", unit="top_level_def", is_code=True, free_named=False,
                 write_tools=frozenset({"file_write", "file_edit"})),
+        Surface(
+            "permission_policy",
+            "permission_policy.py",
+            unit="file",
+            is_code=True,
+            free_named=False,
+            write_tools=frozenset({"file_write"}),
+        ),
+        Surface(
+            "permission_policy_control",
+            "permission_policy_control.py",
+            unit="file",
+            is_code=True,
+            free_named=False,
+            write_tools=frozenset({"file_write"}),
+        ),
     )
 
     def __init__(
@@ -169,6 +185,12 @@ class AkiHarness:
         from proteus.adapters.aki_safety import AkiSafetyRuntime
 
         return AkiSafetyRuntime(self)
+
+    def permission_policy_adapter(self) -> AkiPermissionPolicyAdapter:
+        """Bind snapshot-owned native permission evidence for canonical Aki routes."""
+        from proteus.adapters.aki_safety import AkiPermissionPolicyAdapter
+
+        return AkiPermissionPolicyAdapter(self)
 
     # ---------------------------------------------------------------- run path (contained Aki)
 

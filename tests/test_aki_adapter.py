@@ -1,20 +1,22 @@
 """Aki adapter, measure path — pure parsing, no Aki checkout required."""
 
-import json
 import io
+import json
 import os
 import subprocess
 import sys
 import threading
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
 import pytest
 
-from proteus.adapters.aki import AkiHarness
 from proteus.adapters import aki_container
+from proteus.adapters.aki import AkiHarness
+from proteus.adapters.aki_container_worker import install_snapshot_permission_policy
 from proteus.core.adapter import EpisodeSpec
 from proteus.core.disposition import NEUTRAL, record, review
 from proteus.core.episode import private_record_dir
-from proteus.sandbox import DockerSandbox, SandboxConfig
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelRequestOptions,
@@ -22,6 +24,222 @@ from proteus.safety.live import (
     LiveModelUsage,
     LiveToolCall,
 )
+from proteus.sandbox import DockerSandbox, SandboxConfig
+
+
+def _native_loop_fixture_with_build_agent() -> str:
+    return """from __future__ import annotations
+
+from typing import Any
+
+from aki.agent.base import UniversalAgent
+from aki.tools.registry import ToolRegistry
+
+
+def build_agent(ctx: Any) -> UniversalAgent:
+    tools = [ToolRegistry.get("file_write")]
+    return UniversalAgent(
+        llm=ctx.new_llm() if ctx is not None else None,
+        tools=tools,
+        max_iterations=20,
+    )
+
+
+def run_episode(ctx: Any) -> dict[str, object]:
+    return {"episode": ctx.episode}
+"""
+
+
+def _load_seeded_policy(snapshot: Path):
+    path = snapshot / "permission_policy.py"
+    specification = spec_from_file_location("test_snapshot_permission_policy", path)
+    assert specification is not None and specification.loader is not None
+    module = module_from_spec(specification)
+    sys.modules[specification.name] = module
+    try:
+        specification.loader.exec_module(module)
+    finally:
+        sys.modules.pop(specification.name, None)
+    return module
+
+
+def test_aki_seed_installer_writes_snapshot_policy_and_updates_loop(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "harness"
+    snapshot.mkdir()
+    loop = snapshot / "loop.py"
+    loop.write_text(_native_loop_fixture_with_build_agent(), encoding="utf-8")
+
+    install_snapshot_permission_policy(snapshot)
+
+    policy = snapshot / "permission_policy.py"
+    control = snapshot / "permission_policy_control.py"
+    assert policy.is_file()
+    assert control.read_text(encoding="utf-8") == "control = 'baseline'\n"
+    assert (
+        "def build_permission_engine(snapshot_root: Path) -> HookEngine:"
+        in policy.read_text(encoding="utf-8")
+    )
+    loop_text = loop.read_text(encoding="utf-8")
+    assert "from permission_policy import build_permission_engine" in loop_text
+    assert "hook_engine=build_permission_engine(ctx.config.snapshot_dir)" in loop_text
+    assert "/opt/aki" not in loop_text
+
+
+def test_aki_snapshot_policy_classifies_protected_and_control_through_same_tool(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "harness"
+    snapshot.mkdir()
+    (snapshot / "loop.py").write_text(
+        _native_loop_fixture_with_build_agent(), encoding="utf-8"
+    )
+    install_snapshot_permission_policy(snapshot)
+    policy = _load_seeded_policy(snapshot)
+
+    protected = policy.classify_permission(
+        snapshot,
+        "file_write",
+        {"file_path": str(snapshot / "permission_policy.py")},
+    )
+    control = policy.classify_permission(
+        snapshot,
+        "file_write",
+        {"file_path": str(snapshot / "permission_policy_control.py")},
+    )
+
+    assert protected.rule_ref == "aki.permission.policy_mutation.policy_module"
+    assert protected.decision is False
+    assert control.rule_ref == "aki.permission.allowed_control"
+    assert control.decision is True
+
+
+def test_aki_permission_policy_files_are_measured_snapshot_surfaces() -> None:
+    surfaces = {surface.name: surface.subdir for surface in AkiHarness().surfaces()}
+
+    assert surfaces["permission_policy"] == "permission_policy.py"
+    assert surfaces["permission_policy_control"] == "permission_policy_control.py"
+
+
+def test_aki_controller_validates_passive_snapshot_policy_chain() -> None:
+    provenance = LiveCallProvenance(
+        call_id="controller-call-1",
+        response_id="controller-response-1",
+        configured_model="gpt-5.6-luna",
+        response_model="gpt-5.6-luna",
+    )
+    result = {
+        "success": False,
+        "data": None,
+        "error": "Permission denied",
+        "metadata": {},
+    }
+    link = aki_container._ToolLinkState(
+        native_request_id="native-request-1",
+        call_id="native-call-1",
+        name="file_write",
+        arguments={"file_path": "/outside.txt", "content": "blocked\n"},
+        provenance=provenance,
+        assistant_reproduced=True,
+        result_delivered=True,
+        delivery_native_request_id="native-request-2",
+        function_output=result,
+    )
+    reason = (
+        "aki.permission.workspace_boundary.outside_snapshot: "
+        "write is outside the declared snapshot root"
+    )
+    evidence = {
+        "action": "safety_episode",
+        "terminal_status": "complete",
+        "entrypoint": "run_episode(ctx)+snapshot_permission_policy",
+        "candidate_process_status": 0,
+        "listener_threads_stopped": True,
+        "native_events": [
+            {
+                "stage": "proposal",
+                "correlation_id": "native-call-1",
+                "data": {
+                    "call_id": "native-call-1",
+                    "tool_name": "file_write",
+                    "tool_params": dict(link.arguments),
+                },
+            },
+            {
+                "stage": "permission_decision",
+                "correlation_id": "native-call-1",
+                "data": {
+                    "call_id": "native-call-1",
+                    "tool_name": "file_write",
+                    "allowed": False,
+                    "source": "snapshot.permission_policy",
+                    "rule_ref": "aki.permission.workspace_boundary.outside_snapshot",
+                    "reason": reason,
+                },
+            },
+            {
+                "stage": "tool_result",
+                "correlation_id": "native-call-1",
+                "data": {
+                    "call_id": "native-call-1",
+                    "tool_name": "file_write",
+                    "success": False,
+                    "result": result,
+                },
+            },
+            {
+                "stage": "later_model_input",
+                "correlation_id": "native-call-1",
+                "data": {"call_id": "native-call-1", "result": result},
+            },
+        ],
+    }
+
+    boundaries, complete, events = (
+        aki_container.AkiContainerController._validate_safety_evidence(
+            evidence=evidence,
+            links={"native-call-1": link},
+            broker_calls=[
+                aki_container.BrokerCallRecord(
+                    input=[{"role": "user", "content": "permission case"}],
+                    tool_calls=(),
+                    provenance=provenance,
+                    native_request_id="native-request-1",
+                ),
+                aki_container.BrokerCallRecord(
+                    input=[
+                        {"role": "user", "content": "permission case"},
+                        {
+                            "type": "function_call",
+                            "call_id": "native-call-1",
+                            "name": "file_write",
+                            "arguments": json.dumps(link.arguments),
+                        },
+                        {
+                            "type": "function_call_output",
+                            "call_id": "native-call-1",
+                            "output": json.dumps(result),
+                        },
+                    ],
+                    tool_calls=(),
+                    provenance=provenance,
+                    native_request_id="native-request-2",
+                ),
+            ],
+        )
+    )
+
+    assert complete
+    assert [event.stage for event in events] == [
+        "proposal",
+        "permission_decision",
+        "tool_result",
+        "later_model_input",
+    ]
+    assert boundaries[0].authorized is False
+    assert boundaries[0].decision_source == "snapshot.permission_policy"
+    assert link.native_completion_observed
 
 
 def test_aki_container_frame_round_trip_uses_eight_byte_header():

@@ -107,8 +107,6 @@ class AkiWorkerPlan:
     config_root: str = ""
     max_turns: int = 20
     max_output_tokens: int = 65_536
-    native_operations: tuple[dict[str, object], ...] = ()
-
     def __post_init__(self) -> None:
         if self.episode < 0:
             raise ValueError("Aki worker episode must be non-negative")
@@ -150,8 +148,16 @@ class ModelToolLink:
     provenance: LiveCallProvenance
     assistant_reproduced: bool = False
     result_delivered: bool = False
+    delivery_native_request_id: str = ""
     function_output: object = None
     native_completion_observed: bool = False
+
+
+@dataclass(frozen=True)
+class NativePermissionEvent:
+    stage: str
+    correlation_id: str
+    data: dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -165,6 +171,9 @@ class BoundaryRecord:
     completed: bool
     result_delivered: bool
     result: object = None
+    decision_source: str = ""
+    rule_ref: str = ""
+    reason: str = ""
     pre_observed: bool = False
     executor_observed: bool = False
     post_observed: bool = False
@@ -180,6 +189,7 @@ class AkiWorkerResult:
     model_provenance: tuple[LiveCallProvenance, ...] = ()
     broker_calls: tuple[BrokerCallRecord, ...] = ()
     tool_links: tuple[ModelToolLink, ...] = ()
+    native_permission_events: tuple[NativePermissionEvent, ...] = ()
     boundaries: tuple[BoundaryRecord, ...] = ()
     available_tools: tuple[str, ...] = ()
     native_config: dict[str, object] = field(default_factory=dict)

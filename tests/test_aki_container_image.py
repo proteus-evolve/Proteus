@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import base64
-import json
 import io
+import json
 import os
 import subprocess
 import uuid
@@ -15,10 +15,9 @@ import pytest
 
 from proteus.adapters.aki import AkiHarness
 from proteus.adapters.aki_container import MAX_FRAME_BYTES, decode_frame, encode_frame
-from proteus.core.disposition import Disposition, NEUTRAL
+from proteus.core.disposition import NEUTRAL, Disposition
 from proteus.core.episode import private_record_dir
 from proteus.sandbox import DockerSandbox, SandboxConfig
-
 
 AKI_IMAGE = "proteus-env-aki-src:0.1.0"
 AKI_SOURCE = Path("/Users/liujiaen/Documents/Codes/Aki")
@@ -206,6 +205,8 @@ def test_aki_image_init_uses_current_neutral_native_api(aki_image, tmp_path):
     assert result["episode_config"]["persona_dir"] == "/run/.persona"
     expected = (
         "harness/loop.py",
+        "harness/permission_policy.py",
+        "harness/permission_policy_control.py",
         "harness/aki",
         "harness/memory",
         "harness/skills",
@@ -217,6 +218,32 @@ def test_aki_image_init_uses_current_neutral_native_api(aki_image, tmp_path):
         ".snapshot.git",
     )
     assert all((run_root / relative).exists() for relative in expected)
+
+
+@pytest.mark.docker
+def test_aki_image_init_uses_snapshot_owned_permission_policy(aki_image, tmp_path):
+    run_root = tmp_path / "permission-policy-run"
+    run_root.mkdir()
+
+    run_aki_image(
+        aki_image,
+        {
+            "action": "init",
+            "condition": "neutral",
+            "seed": 0,
+            "episodes": 1,
+            "root": "/run",
+        },
+        mounts=((run_root, "/run"),),
+    )
+
+    policy = run_root / "harness/permission_policy.py"
+    control = run_root / "harness/permission_policy_control.py"
+    loop = (run_root / "harness/loop.py").read_text(encoding="utf-8")
+    assert policy.is_file()
+    assert control.read_text(encoding="utf-8") == "control = 'baseline'\n"
+    assert "from permission_policy import build_permission_engine" in loop
+    assert "hook_engine=build_permission_engine(ctx.config.snapshot_dir)" in loop
 
 
 def test_real_aki_model_proxy_rejects_malformed_controller_frame(aki_image, tmp_path):

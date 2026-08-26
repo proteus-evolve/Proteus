@@ -17,8 +17,8 @@ from proteus.adapters.aki_live_worker import (
     BoundaryRecord,
     BrokerCallRecord,
     ModelToolLink,
+    NativePermissionEvent,
 )
-from proteus.sandbox import DockerSandbox
 from proteus.safety.live import (
     BoundedLiveModelChannel,
     LiveCallProvenance,
@@ -26,7 +26,7 @@ from proteus.safety.live import (
     LiveModelRequestOptions,
     LiveModelResponse,
 )
-
+from proteus.sandbox import DockerSandbox
 
 FRAME_HEADER_BYTES = 8
 PROTOCOL_VERSION = 1
@@ -66,7 +66,9 @@ class _ToolLinkState:
     provenance: LiveCallProvenance
     assistant_reproduced: bool = False
     result_delivered: bool = False
+    delivery_native_request_id: str = ""
     function_output: object = None
+    native_completion_observed: bool = False
 
     def freeze(self) -> ModelToolLink:
         return ModelToolLink(
@@ -77,8 +79,9 @@ class _ToolLinkState:
             provenance=self.provenance,
             assistant_reproduced=self.assistant_reproduced,
             result_delivered=self.result_delivered,
+            delivery_native_request_id=self.delivery_native_request_id,
             function_output=self.function_output,
-            native_completion_observed=False,
+            native_completion_observed=self.native_completion_observed,
         )
 
 
@@ -337,6 +340,8 @@ class AkiContainerController:
         cls,
         messages: object,
         links: dict[str, _ToolLinkState],
+        *,
+        native_request_id: str,
     ) -> None:
         assistant_calls, outputs = cls._native_history(messages)
         for call_id, (name, arguments) in assistant_calls.items():
@@ -358,6 +363,7 @@ class AkiContainerController:
                 raise ValueError("Aki candidate-delivered function output changed")
             link.function_output = output
             link.result_delivered = True
+            link.delivery_native_request_id = native_request_id
 
     @staticmethod
     def _trace_path(run_root: Path, episode: int) -> Path:
@@ -580,137 +586,141 @@ class AkiContainerController:
         *,
         evidence: Mapping[str, object],
         links: dict[str, _ToolLinkState],
-        plan: AkiContainerPlan,
-    ) -> tuple[tuple[BoundaryRecord, ...], bool]:
+        broker_calls: list[BrokerCallRecord],
+    ) -> tuple[
+        tuple[BoundaryRecord, ...],
+        bool,
+        tuple[NativePermissionEvent, ...],
+    ]:
         if evidence.get("action") != "safety_episode":
             raise ValueError("Aki safety evidence action is invalid")
         if evidence.get("terminal_status") != "complete":
             raise ValueError("Aki safety evidence is incomplete")
-        if evidence.get("entrypoint") != "run_episode(ctx)+frozen_native_worker":
+        if evidence.get("entrypoint") != "run_episode(ctx)+snapshot_permission_policy":
             raise ValueError("Aki safety evidence entrypoint is invalid")
         if type(evidence.get("candidate_process_status")) is not int:
             raise ValueError("Aki safety candidate status is missing")
-        raw_boundaries = evidence.get("native_boundaries")
-        if not isinstance(raw_boundaries, list):
-            raise TypeError("Aki safety boundaries must be a list")
-        boundaries: list[BoundaryRecord] = []
+        raw_events = evidence.get("native_events")
+        if not isinstance(raw_events, list):
+            raise TypeError("Aki safety permission events must be a list")
         structurally_complete = (
             evidence.get("candidate_process_status") == 0
             and evidence.get("listener_threads_stopped") is True
         )
-        operations = plan.payload.get("native_operations")
-        if not isinstance(operations, list):
-            raise TypeError("Aki safety plan operations must be a list")
-
-        def identity(call_id: str, name: str, arguments: Mapping[str, object]):
-            return call_id, name, cls._normalized_json(arguments)
-
-        link_identities = {
-            identity(call_id, link.name, link.arguments)
-            for call_id, link in links.items()
-            if link.name in {"memory_read", "memory_write", "file_write"}
+        expected_stages = (
+            "proposal",
+            "permission_decision",
+            "tool_result",
+            "later_model_input",
+        )
+        events: list[NativePermissionEvent] = []
+        by_call: dict[str, list[tuple[int, NativePermissionEvent]]] = {}
+        request_positions = {
+            call.native_request_id: index for index, call in enumerate(broker_calls)
         }
-        if operations:
-            planned_identities = set()
-            for operation in operations:
-                if not isinstance(operation, dict):
-                    raise TypeError("Aki planned safety operation must be an object")
-                call_id = operation.get("operation_id")
-                name = operation.get("tool_name")
-                arguments = operation.get("arguments")
-                if (
-                    not isinstance(call_id, str)
-                    or not isinstance(name, str)
-                    or not isinstance(arguments, dict)
-                ):
-                    raise ValueError("Aki planned safety operation is malformed")
-                planned_identities.add(identity(call_id, name, arguments))
-            expected_identities = planned_identities
-            structurally_complete = (
-                structurally_complete and link_identities == planned_identities
-            )
-        else:
-            expected_identities = link_identities
-        boundary_identities: set[tuple[str, str, str]] = set()
-        seen: set[str] = set()
-        for item in raw_boundaries:
-            if not isinstance(item, dict):
-                raise TypeError("Aki safety boundary must be an object")
-            call_id = item.get("call_id")
-            tool_name = item.get("tool_name")
-            arguments = item.get("arguments")
+        request_sessions = {
+            call.native_request_id: cls._broker_native_session_key(call.input)
+            for call in broker_calls
+        }
+        for index, item in enumerate(raw_events):
+            if not isinstance(item, dict) or set(item) != {
+                "stage",
+                "correlation_id",
+                "data",
+            }:
+                raise TypeError("Aki safety permission event is malformed")
+            stage = item["stage"]
+            call_id = item["correlation_id"]
+            data = item["data"]
             if (
-                not isinstance(call_id, str)
+                stage not in expected_stages
+                or not isinstance(call_id, str)
                 or not call_id
-                or call_id in seen
-                or not isinstance(tool_name, str)
-                or not tool_name
-                or not isinstance(arguments, dict)
+                or not isinstance(data, dict)
+                or data.get("call_id") != call_id
             ):
-                raise ValueError("Aki safety boundary identity is malformed")
-            seen.add(call_id)
-            for field in (
-                "proposed",
-                "authorized",
-                "attempted",
-                "completed",
-                "pre_observed",
-                "executor_observed",
-                "post_observed",
-            ):
-                if type(item.get(field)) is not bool:
-                    raise ValueError(f"Aki safety boundary {field} must be Boolean")
-            boundary_identities.add(identity(call_id, tool_name, arguments))
-            link = links.get(call_id)
-            linked_proposal = (
-                link is not None
-                and link.name == tool_name
-                and cls._normalized_json(link.arguments)
-                == cls._normalized_json(arguments)
+                raise ValueError("Aki safety permission event identity is malformed")
+            event = NativePermissionEvent(stage, call_id, dict(data))
+            events.append(event)
+            by_call.setdefault(call_id, []).append((index, event))
+
+        boundaries: list[BoundaryRecord] = []
+        for call_id, link in links.items():
+            rows = by_call.get(call_id, [])
+            if tuple(event.stage for _, event in rows) != expected_stages:
+                structurally_complete = False
+                continue
+            proposal = rows[0][1].data
+            decision = rows[1][1].data
+            result_event = rows[2][1].data
+            later = rows[3][1].data
+            params = proposal.get("tool_params")
+            source = decision.get("source")
+            rule_ref = decision.get("rule_ref")
+            reason = decision.get("reason")
+            allowed = decision.get("allowed")
+            result = result_event.get("result")
+            proposal_position = request_positions.get(link.native_request_id)
+            delivery_position = request_positions.get(link.delivery_native_request_id)
+            same_session_delivery = (
+                proposal_position is not None
+                and delivery_position is not None
+                and delivery_position > proposal_position
+                and request_sessions.get(link.native_request_id) is not None
+                and request_sessions.get(link.native_request_id)
+                == request_sessions.get(link.delivery_native_request_id)
             )
-            if item["proposed"] is not linked_proposal:
-                raise ValueError("Aki safety boundary proposal does not match controller input")
-            result = item.get("result")
-            result_delivered = bool(
-                linked_proposal
-                and link is not None
+            linked = (
+                proposal.get("tool_name") == link.name
+                and isinstance(params, dict)
+                and cls._normalized_json(params)
+                == cls._normalized_json(link.arguments)
+                and decision.get("tool_name") == link.name
+                and result_event.get("tool_name") == link.name
+                and type(allowed) is bool
+                and source == "snapshot.permission_policy"
+                and isinstance(rule_ref, str)
+                and rule_ref.startswith("aki.permission.")
+                and isinstance(reason, str)
+                and rule_ref in reason
+                and link.assistant_reproduced
                 and link.result_delivered
+                and same_session_delivery
                 and cls._normalized_json(link.function_output)
                 == cls._normalized_json(result)
+                and cls._normalized_json(later.get("result"))
+                == cls._normalized_json(result)
             )
-            if item["completed"] and not item["attempted"]:
-                raise ValueError("Aki frozen safety worker completed an unattempted operation")
-            structurally_complete = (
-                structurally_complete
-                and linked_proposal
-                and result is not None
-                and result_delivered
-                and item["pre_observed"] is True
-                and item["executor_observed"] is True
-                and item["post_observed"] is True
+            native_success = bool(
+                isinstance(result, dict) and result.get("success") is True
             )
+            link.native_completion_observed = linked
+            structurally_complete = structurally_complete and linked
             boundaries.append(
                 BoundaryRecord(
                     call_id=call_id,
-                    tool_name=tool_name,
-                    arguments=dict(arguments),
-                    proposed=linked_proposal,
-                    authorized=bool(item["authorized"]),
-                    attempted=bool(item["attempted"]),
-                    completed=bool(item["completed"]),
-                    result_delivered=result_delivered,
+                    tool_name=link.name,
+                    arguments=dict(link.arguments),
+                    proposed=linked,
+                    authorized=allowed is True,
+                    attempted=allowed is True,
+                    completed=allowed is True and native_success,
+                    result_delivered=linked,
                     result=result,
-                    pre_observed=bool(item["pre_observed"]),
-                    executor_observed=bool(item["executor_observed"]),
-                    post_observed=bool(item["post_observed"]),
+                    decision_source=source if isinstance(source, str) else "",
+                    rule_ref=rule_ref if isinstance(rule_ref, str) else "",
+                    reason=reason if isinstance(reason, str) else "",
+                    pre_observed=True,
+                    executor_observed=True,
+                    post_observed=True,
                 )
             )
         structurally_complete = (
             structurally_complete
-            and boundary_identities == expected_identities
-            and len(boundaries) == len(expected_identities)
+            and set(by_call) == set(links)
+            and len(boundaries) == len(links)
         )
-        return tuple(boundaries), structurally_complete
+        return tuple(boundaries), structurally_complete, tuple(events)
 
     @classmethod
     def _validate_terminal_evidence(
@@ -728,6 +738,7 @@ class AkiContainerController:
         dict[str, object],
         tuple[BoundaryRecord, ...],
         bool,
+        tuple[NativePermissionEvent, ...],
     ]:
         if terminal.get("action") != plan.action:
             raise ValueError("Aki terminal action does not match the plan")
@@ -770,12 +781,19 @@ class AkiContainerController:
         if plan.action == "safety_episode":
             if safety_evidence is None:
                 raise ValueError("Aki safety controller evidence is missing")
-            boundaries, structurally_complete = cls._validate_safety_evidence(
+            boundaries, structurally_complete, native_events = cls._validate_safety_evidence(
                 evidence=safety_evidence,
                 links=links,
-                plan=plan,
+                broker_calls=broker_calls,
             )
-            return [], {}, dict(native_config), boundaries, structurally_complete
+            return (
+                [],
+                {},
+                dict(native_config),
+                boundaries,
+                structurally_complete,
+                native_events,
+            )
 
         episode = plan.payload.get("episode")
         if type(episode) is not int or episode <= 0:
@@ -868,7 +886,7 @@ class AkiContainerController:
                 ),
             ):
                 raise ValueError("Aki controller tool call has no exact later candidate delivery")
-        return trace, dict(supervisor), dict(native_config), (), True
+        return trace, dict(supervisor), dict(native_config), (), True, ()
 
     def run_model_episode(
         self,
@@ -979,6 +997,7 @@ class AkiContainerController:
                     self._validate_native_history(
                         messages,
                         links,
+                        native_request_id=frame_request_id,
                     )
                     instructions, input_value = self._responses_input(messages)
                     tools = self._responses_tools(payload.get("tools"))
@@ -1048,6 +1067,7 @@ class AkiContainerController:
                     native_config,
                     boundaries,
                     structurally_complete,
+                    native_permission_events,
                 ) = self._validate_terminal_evidence(
                     run_root=run_root,
                     plan=plan,
@@ -1074,6 +1094,7 @@ class AkiContainerController:
                     broker_calls=tuple(broker_calls),
                     tool_links=tuple(link.freeze() for link in links.values()),
                     boundaries=boundaries,
+                    native_permission_events=native_permission_events,
                     native_config=native_config,
                     supervisor_result=supervisor_result,
                     credential_environment_names=tuple(
