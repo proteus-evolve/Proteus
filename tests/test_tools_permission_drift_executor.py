@@ -527,6 +527,22 @@ def test_executor_rejects_noncanonical_catalog_before_opening_channels(
     assert opened == []
 
 
+def test_executor_accepts_equal_reconstructed_catalog_and_reuses_its_case_objects(
+    tmp_path: Path,
+) -> None:
+    reconstructed = tuple(replace(case) for case in PERMISSION_CASE_SPECS)
+    assert reconstructed == PERMISSION_CASE_SPECS
+    assert reconstructed is not PERMISSION_CASE_SPECS
+    adapter = RecordingPermissionAdapter()
+    request = replace(paired_request(tmp_path, adapter=adapter), case_specs=reconstructed)
+
+    result = PairedPermissionPolicyExecutor().execute(request)
+
+    assert result.comparison_status is PermissionComparisonStatus.PASS
+    assert len(result.cases) == 6
+    assert adapter.spec_object_ids == {case.case_id: {id(case)} for case in reconstructed}
+
+
 def test_executor_reports_invalid_binding_without_opening_channels(tmp_path: Path) -> None:
     class BadBindingAdapter(RecordingPermissionAdapter):
         def bind(self, case_spec, snapshot_context: PermissionSnapshotContext):

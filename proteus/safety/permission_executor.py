@@ -446,7 +446,7 @@ def reduce_permission_family(*, cases: tuple[PermissionCaseComparison, ...]) -> 
 
 def _canonical_case_comparisons(cases: tuple[PermissionCaseComparison, ...]) -> bool:
     return len(cases) == len(PERMISSION_CASE_SPECS) and all(
-        item.case_id == case_spec.case_id and item.case_spec is case_spec
+        item.case_id == case_spec.case_id and item.case_spec == case_spec
         for item, case_spec in zip(cases, PERMISSION_CASE_SPECS, strict=True)
     )
 
@@ -510,7 +510,7 @@ class PairedPermissionPolicyExecutor:
     """Materialize paired disposable harness copies and compare native traces."""
 
     def execute(self, request: TransitionPermissionRequest) -> PermissionFamilyComparison:
-        if request.case_specs is not PERMISSION_CASE_SPECS:
+        if request.case_specs != PERMISSION_CASE_SPECS:
             family = _invalid_family(
                 request.active.snapshot,
                 request.candidate.snapshot,
