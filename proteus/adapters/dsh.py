@@ -34,6 +34,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional, Sequence
 
+from proteus.adapters.dsh_model_bridge import DSH_PERMISSION_CASE_ENV
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
@@ -115,8 +116,10 @@ class DshToolResult:
     output: str
     is_error: bool | None
     raw_event_ref: str = ""
+    result_turn_id: str = ""
     later_response_id: str = ""
     later_response_ref: str = ""
+    later_turn_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -268,17 +271,42 @@ def _dsh_policy_decision(
     call_id: str,
     tool: str,
     data: dict,
+    native: dict | None,
+    session_mode: str,
     raw_event_ref: str,
 ) -> DshPolicyDecision | None:
     """Parse only an observer-preserved native sandbox fact from one result row."""
-    meta = data.get("meta")
-    native = meta.get("proteusNativeResult") if isinstance(meta, dict) else None
-    sandbox = native.get("sandbox") if isinstance(native, dict) else None
-    if not isinstance(sandbox, dict) or set(sandbox) != {
+    if tool == "write":
+        error = data.get("error")
+        if not isinstance(error, dict):
+            return None
+        name = error.get("name")
+        code = error.get("code")
+        reason = error.get("message")
+        if (
+            name != "FsError"
+            or code != "FS_SANDBOX_DENIED"
+            or session_mode not in _DSH_SANDBOX_MODES
+            or (reason is not None and not isinstance(reason, str))
+        ):
+            return None
+        return DshPolicyDecision(
+            call_id=call_id,
+            value=NativePermissionDecisionValue.DENY,
+            source="dsh.fs-sandbox.tool-result",
+            mode=session_mode,
+            rule_ref=code,
+            reason=reason.strip() if isinstance(reason, str) else "",
+            raw_event_ref=raw_event_ref,
+        )
+    if tool != "bash" or native is None:
+        return None
+    sandbox = native.get("sandbox")
+    if not isinstance(sandbox, dict) or not {
         "mode",
         "denied",
         "enforcement",
-    }:
+    }.issubset(sandbox):
         return None
     mode = sandbox.get("mode")
     denied = sandbox.get("denied")
@@ -291,62 +319,33 @@ def _dsh_policy_decision(
         or enforcement not in _DSH_SANDBOX_ENFORCEMENT
     ):
         return None
-    sandbox_rule = f"sandbox:{mode}:{enforcement}"
-    if tool == "bash":
-        stderr = native.get("stderr")
-        reason = stderr.get("text") if isinstance(stderr, dict) else ""
-        if denied and (not isinstance(reason, str) or not reason.strip()):
-            return None
-        return DshPolicyDecision(
-            call_id=call_id,
-            value=(
-                NativePermissionDecisionValue.DENY
-                if denied
-                else NativePermissionDecisionValue.ALLOW
-            ),
-            source="dsh.bash-sandbox.tool-result",
-            mode=mode,
-            rule_ref=sandbox_rule,
-            reason=reason.strip() if isinstance(reason, str) else "",
-            raw_event_ref=raw_event_ref,
-        )
-    if tool != "write":
+    runner_failed = sandbox.get("runnerFailed", False)
+    if type(runner_failed) is not bool or runner_failed:
         return None
-    if denied:
-        error = data.get("error")
-        if not isinstance(error, dict):
-            return None
-        name = error.get("name")
-        code = error.get("code")
-        reason = error.get("message")
-        if (
-            name != "FsError"
-            or code != "FS_SANDBOX_DENIED"
-            or not isinstance(reason, str)
-            or not reason.strip()
-        ):
-            return None
-        return DshPolicyDecision(
-            call_id=call_id,
-            value=NativePermissionDecisionValue.DENY,
-            source="dsh.fs-sandbox.tool-result",
-            mode=mode,
-            rule_ref=code,
-            reason=reason.strip(),
-            raw_event_ref=raw_event_ref,
-        )
+    sandbox_rule = f"sandbox:{mode}:{enforcement}"
+    stderr = native.get("stderr")
+    reason = stderr.get("text") if isinstance(stderr, dict) else ""
+    if denied and (not isinstance(reason, str) or not reason.strip()):
+        return None
     return DshPolicyDecision(
         call_id=call_id,
-        value=NativePermissionDecisionValue.ALLOW,
-        source="dsh.fs-sandbox.tool-result",
+        value=(
+            NativePermissionDecisionValue.DENY
+            if denied
+            else NativePermissionDecisionValue.ALLOW
+        ),
+        source="dsh.bash-sandbox.tool-result",
         mode=mode,
         rule_ref=sandbox_rule,
-        reason="",
+        reason=reason.strip() if isinstance(reason, str) else "",
         raw_event_ref=raw_event_ref,
     )
 
 
-def _dsh_native_result_records(path: Path | None) -> dict[str, tuple[str, dict]]:
+def _dsh_native_result_records(
+    path: Path | None,
+    evidence_ref: str,
+) -> dict[str, tuple[str, dict, str]]:
     """Read passive observer rows; malformed or duplicated facts remain unavailable."""
     if path is None or not path.is_file():
         return {}
@@ -354,9 +353,9 @@ def _dsh_native_result_records(path: Path | None) -> dict[str, tuple[str, dict]]
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return {}
-    records: dict[str, tuple[str, dict]] = {}
+    records: dict[str, tuple[str, dict, str]] = {}
     invalid_ids: set[str] = set()
-    for line in lines:
+    for line_number, line in enumerate(lines, 1):
         try:
             record = json.loads(line)
         except json.JSONDecodeError:
@@ -381,7 +380,11 @@ def _dsh_native_result_records(path: Path | None) -> dict[str, tuple[str, dict]]
         if call_id in records:
             invalid_ids.add(call_id)
         else:
-            records[call_id] = (tool, native)
+            records[call_id] = (
+                tool,
+                native,
+                f"{evidence_ref}#line-{line_number}" if evidence_ref else "",
+            )
     for call_id in invalid_ids:
         records.pop(call_id, None)
     return records
@@ -431,7 +434,11 @@ class DshHarness:
         # prepared image and the passthrough dsh needs.
         self.sandbox = sandbox or DockerSandbox(SandboxConfig(
             network=network, image=image,
-            env_passthrough=("DEEPSEEK_API_KEY", "DSH_PERMISSION_MODE"),
+            env_passthrough=(
+                "DEEPSEEK_API_KEY",
+                "DSH_PERMISSION_MODE",
+                *DSH_PERMISSION_CASE_ENV,
+            ),
             user=host_user,
         ))
 
@@ -589,6 +596,7 @@ class DshHarness:
         expected_model: str,
         evidence_ref: str,
         native_results_path: Path | None = None,
+        native_results_ref: str = "",
     ) -> DshSessionEvidence:
         """Require exact DSH request, response, call/result, and terminal ownership."""
         log = session_dir / "session.jsonl.zstd"
@@ -616,10 +624,11 @@ class DshHarness:
             rows.append(row)
 
         headers: list[dict] = []
-        assistants: list[tuple[int, int, dict, str]] = []
+        assistants: list[tuple[int, int, dict, str, int]] = []
         calls: list[tuple[str, str, dict, int, int, str]] = []
         results: dict[str, DshToolResult] = {}
         result_rows: dict[str, tuple[int, dict, str]] = {}
+        sandbox_modes: list[tuple[int, str]] = []
         result_order: list[str] = []
         turn_reasons: list[object] = []
         for row_index, row in enumerate(rows):
@@ -655,7 +664,13 @@ class DshHarness:
                     error = error or "native DSH assistant message is missing"
                 else:
                     assistants.append(
-                        (row_index, int(data.get("turn", 0)), message, raw_event_ref)
+                        (
+                            row_index,
+                            int(data.get("turn", 0)),
+                            message,
+                            raw_event_ref,
+                            seq if type(seq) is int and seq >= 0 else -1,
+                        )
                     )
             elif kind == "tool/call":
                 call_id = data.get("callId")
@@ -687,6 +702,8 @@ class DshHarness:
                 mode = data.get("mode")
                 if not isinstance(mode, str) or mode not in _DSH_SANDBOX_MODES:
                     error = error or "native DSH sandbox mode is invalid"
+                else:
+                    sandbox_modes.append((row_index, mode))
             elif kind == "tool/result":
                 message = data.get("message")
                 source = message.get("source") if isinstance(message, dict) else None
@@ -726,6 +743,9 @@ class DshHarness:
                     output=output,
                     is_error=block_error,
                     raw_event_ref=raw_event_ref,
+                    result_turn_id=(
+                        f"turn-{seq}" if type(seq) is int and seq >= 0 else ""
+                    ),
                 )
                 result_rows[source_id] = (row_index, data, raw_event_ref)
                 result_order.append(source_id)
@@ -746,9 +766,9 @@ class DshHarness:
 
         events: list[ActionEvent] = []
         response_ids: list[str] = []
-        assistant_responses: list[tuple[int, str, str]] = []
+        assistant_responses: list[tuple[int, str, str, int]] = []
         assistant_calls: list[DshToolProposal] = []
-        for row_index, turn, message, assistant_ref in assistants:
+        for row_index, turn, message, assistant_ref, assistant_order in assistants:
             source = message.get("source")
             if not isinstance(source, dict) or source.get("kind") != "model":
                 error = error or "native DSH assistant has no model source"
@@ -779,7 +799,7 @@ class DshHarness:
                 else:
                     response_ids.append(response_id)
                     assistant_responses.append(
-                        (row_index, response_id, assistant_ref)
+                        (row_index, response_id, assistant_ref, assistant_order)
                     )
             content = message.get("content")
             if not isinstance(content, list):
@@ -860,7 +880,10 @@ class DshHarness:
             error = error or f"native DSH tool call has no exact result: {missing_results[0]}"
 
         policy_decisions: list[DshPolicyDecision] = []
-        observed_native_results = _dsh_native_result_records(native_results_path)
+        observed_native_results = _dsh_native_result_records(
+            native_results_path,
+            native_results_ref,
+        )
         call_by_id = {
             call_id: (tool, row_index)
             for call_id, tool, _, _, row_index, _ in calls
@@ -875,8 +898,13 @@ class DshHarness:
             tool, call_index = call_info
             later = next(
                 (
-                    (response_id, response_ref)
-                    for assistant_index, response_id, response_ref in assistant_responses
+                    (response_id, response_ref, response_order)
+                    for (
+                        assistant_index,
+                        response_id,
+                        response_ref,
+                        response_order,
+                    ) in assistant_responses
                     if assistant_index > result_index
                 ),
                 None,
@@ -887,23 +915,35 @@ class DshHarness:
                 result,
                 later_response_id=later[0],
                 later_response_ref=later[1],
+                later_turn_id=f"turn-{later[2]}" if later[2] >= 0 else "",
             )
             observed = observed_native_results.get(call_id)
-            meta = result_data.get("meta")
-            inline_native = (
-                meta.get("proteusNativeResult") if isinstance(meta, dict) else None
+            session_mode = next(
+                (
+                    mode
+                    for mode_index, mode in reversed(sandbox_modes)
+                    if mode_index < result_index
+                ),
+                "",
             )
-            decision_data = result_data
-            if inline_native is None and observed is not None and observed[0] == tool:
-                decision_data = {
-                    **result_data,
-                    "meta": {"proteusNativeResult": observed[1]},
-                }
-            decision = _dsh_policy_decision(
-                call_id=call_id,
-                tool=tool,
-                data=decision_data,
-                raw_event_ref=result_ref,
+            decision = (
+                _dsh_policy_decision(
+                    call_id=call_id,
+                    tool=tool,
+                    data=result_data,
+                    native=observed[1] if observed is not None else None,
+                    session_mode=session_mode,
+                    raw_event_ref=(
+                        result_ref if tool == "write" else observed[2]
+                    ),
+                )
+                if tool == "write"
+                or (
+                    observed is not None
+                    and observed[0] == tool
+                    and observed[2]
+                )
+                else None
             )
             if decision is not None:
                 policy_decisions.append(decision)

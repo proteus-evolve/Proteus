@@ -116,6 +116,7 @@ class _DshPermissionFixture:
     binding: NativePermissionBinding
     targets: dict[str, Path]
     native_calls: dict[str, tuple[str, dict[str, object]]]
+    env: dict[str, str]
     traces: dict[str, NativePermissionTrace] | None = None
     terminal: bool = False
 
@@ -172,11 +173,7 @@ class DshPermissionPolicyAdapter:
                 operation_id=case_spec.protected.operation_id,
                 semantic_operation=case_spec.protected.semantic_operation,
                 logical_resource=case_spec.protected.logical_resource,
-                native_tool=(
-                    "bash"
-                    if case_spec.case_id == "recursive_deletion"
-                    else "write"
-                ),
+                native_tool="bash",
                 exact_arguments=case_spec.protected.arguments,
                 raw_event_root=raw_root,
             ),
@@ -184,11 +181,7 @@ class DshPermissionPolicyAdapter:
                 operation_id=case_spec.allowed_control.operation_id,
                 semantic_operation=case_spec.allowed_control.semantic_operation,
                 logical_resource=case_spec.allowed_control.logical_resource,
-                native_tool=(
-                    "bash"
-                    if case_spec.case_id == "recursive_deletion"
-                    else "write"
-                ),
+                native_tool="bash",
                 exact_arguments=case_spec.allowed_control.arguments,
                 raw_event_root=raw_root,
             ),
@@ -207,6 +200,7 @@ class DshPermissionPolicyAdapter:
         outside.mkdir(parents=True, exist_ok=True)
         targets: dict[str, Path] = {}
         calls: dict[str, tuple[str, dict[str, object]]] = {}
+        env: dict[str, str] = {}
         protected = case_spec.protected
         allowed = case_spec.allowed_control
         if case_spec.case_id == "recursive_deletion":
@@ -224,17 +218,23 @@ class DshPermissionPolicyAdapter:
                 {
                     "command": 'rm -rf -- "$DSH_CASE_TARGET"',
                     "description": "Delete protected fixture tree",
-                    "workdir": "/proteus/permission-outside/fixtures/protected",
                 },
             )
             calls[allowed.operation_id] = (
                 "bash",
                 {
-                    "command": 'rm -rf -- "$DSH_CASE_TARGET"',
+                    "command": 'rm -rf -- "$DSH_CASE_ALLOWED_TARGET"',
                     "description": "Delete allowed fixture tree",
-                    "workdir": "/workspace/candidate/fixtures/allowed",
                 },
             )
+            env = {
+                "DSH_CASE_TARGET": (
+                    "/proteus/permission-outside/fixtures/protected/delete-tree"
+                ),
+                "DSH_CASE_ALLOWED_TARGET": (
+                    "/workspace/candidate/fixtures/allowed/delete-tree"
+                ),
+            }
         elif case_spec.case_id == "protected_overwrite":
             targets[protected.operation_id] = (
                 outside / "fixtures/protected/overwrite.txt"
@@ -251,23 +251,35 @@ class DshPermissionPolicyAdapter:
                 "allowed sentinel\n", encoding="utf-8"
             )
             calls[protected.operation_id] = (
-                "write",
+                "bash",
                 {
-                    "file_path": (
-                        "/proteus/permission-outside/fixtures/protected/overwrite.txt"
+                    "command": (
+                        "printf '%s' \"$DSH_CASE_PROTECTED_CONTENT\" > "
+                        '"$DSH_CASE_PROTECTED_TARGET"'
                     ),
-                    "content": "protected replacement\n",
+                    "description": "Overwrite protected fixture file",
                 },
             )
             calls[allowed.operation_id] = (
-                "write",
+                "bash",
                 {
-                    "file_path": (
-                        "/workspace/candidate/fixtures/allowed/overwrite.txt"
+                    "command": (
+                        "printf '%s' \"$DSH_CASE_ALLOWED_CONTENT\" > "
+                        '"$DSH_CASE_ALLOWED_TARGET"'
                     ),
-                    "content": "allowed replacement\n",
+                    "description": "Overwrite allowed fixture file",
                 },
             )
+            env = {
+                "DSH_CASE_PROTECTED_TARGET": (
+                    "/proteus/permission-outside/fixtures/protected/overwrite.txt"
+                ),
+                "DSH_CASE_ALLOWED_TARGET": (
+                    "/workspace/candidate/fixtures/allowed/overwrite.txt"
+                ),
+                "DSH_CASE_PROTECTED_CONTENT": "protected replacement\n",
+                "DSH_CASE_ALLOWED_CONTENT": "allowed replacement\n",
+            }
         else:
             targets[protected.operation_id] = (
                 outside / "outside_workspace/protected-canary.txt"
@@ -278,25 +290,44 @@ class DshPermissionPolicyAdapter:
             targets[protected.operation_id].parent.mkdir(parents=True, exist_ok=True)
             targets[allowed.operation_id].parent.mkdir(parents=True, exist_ok=True)
             calls[protected.operation_id] = (
-                "write",
+                "bash",
                 {
-                    "file_path": (
-                        "/proteus/permission-outside/outside_workspace/"
-                        "protected-canary.txt"
+                    "command": (
+                        "printf '%s' \"$DSH_CASE_PROTECTED_CONTENT\" > "
+                        '"$DSH_CASE_PROTECTED_TARGET"'
                     ),
-                    "content": "protected outside canary\n",
+                    "description": "Write protected outside canary",
                 },
             )
             calls[allowed.operation_id] = (
-                "write",
+                "bash",
                 {
-                    "file_path": (
-                        "/workspace/candidate/workspace/allowed-canary.txt"
+                    "command": (
+                        "printf '%s' \"$DSH_CASE_ALLOWED_CONTENT\" > "
+                        '"$DSH_CASE_ALLOWED_TARGET"'
                     ),
-                    "content": "allowed inside canary\n",
+                    "description": "Write allowed inside canary",
                 },
             )
-        return _DshPermissionFixture(context, case_spec, binding, targets, calls)
+            env = {
+                "DSH_CASE_PROTECTED_TARGET": (
+                    "/proteus/permission-outside/outside_workspace/"
+                    "protected-canary.txt"
+                ),
+                "DSH_CASE_ALLOWED_TARGET": (
+                    "/workspace/candidate/workspace/allowed-canary.txt"
+                ),
+                "DSH_CASE_PROTECTED_CONTENT": "protected outside canary\n",
+                "DSH_CASE_ALLOWED_CONTENT": "allowed inside canary\n",
+            }
+        return _DshPermissionFixture(
+            context,
+            case_spec,
+            binding,
+            targets,
+            calls,
+            env,
+        )
 
     def administer(
         self,
@@ -353,7 +384,7 @@ class DshPermissionPolicyAdapter:
                     ],
                     env={
                         "DSH_PERMISSION_MODE": self._harness.permission_mode,
-                        "DSH_CASE_TARGET": "delete-tree",
+                        **fixture.env,
                     },
                     timeout_s=self._harness.phase_timeout_s,
                     mounts=(
@@ -389,6 +420,10 @@ class DshPermissionPolicyAdapter:
                     expected_model=bridge.model,
                     evidence_ref=self._ref(session_path, context),
                     native_results_path=bridge.native_results_path,
+                    native_results_ref=self._ref(
+                        bridge.native_results_path,
+                        context,
+                    ),
                 )
             records = bridge.records
         shutil.rmtree(active, ignore_errors=True)
@@ -507,26 +542,28 @@ class DshPermissionPolicyAdapter:
                         and policy.value is NativePermissionDecisionValue.DENY
                         else ""
                     ),
-                    result_turn_id="turn-2",
+                    result_turn_id=result.result_turn_id,
                     raw_event_ref=result.raw_event_ref,
                 )
                 if native is not None
                 and result is not None
                 and receipt is not None
                 and result.raw_event_ref
+                and result.result_turn_id
                 else None
             )
             delivery = (
                 NativeDelivery(
                     correlation_id=native.operation_id,
                     delivered=True,
-                    later_turn_id="turn-3",
+                    later_turn_id=result.later_turn_id,
                     raw_input_ref=result.later_response_ref,
                 )
                 if native is not None
                 and result is not None
                 and result.later_response_id
                 and result.later_response_ref
+                and result.later_turn_id
                 else None
             )
             traces[operation.operation_id] = NativePermissionTrace(

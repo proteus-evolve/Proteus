@@ -127,6 +127,18 @@ def test_dsh_permission_bridge_mounts_passive_native_result_record(
         assert bridge.observer_path.is_file()
         assert bridge.native_results_path == evidence_root / "native-results.jsonl"
         assert f"path: {OBSERVER_OUTPUT_CONTAINER_PATH}" in patch
+        observer = bridge.observer_path.read_text(encoding="utf-8")
+        assert "const nativeResult = { sandbox }" in observer
+        assert "mode: sandbox.mode" not in observer
+        assert "ctx.shellEnv.register" in observer
+        for name in (
+            "DSH_CASE_TARGET",
+            "DSH_CASE_PROTECTED_TARGET",
+            "DSH_CASE_ALLOWED_TARGET",
+            "DSH_CASE_PROTECTED_CONTENT",
+            "DSH_CASE_ALLOWED_CONTENT",
+        ):
+            assert name in observer
 
 
 def test_dsh_source_extraction_uses_an_absolute_docker_bind(
@@ -191,6 +203,44 @@ def test_dsh_relative_staged_mounts_reach_docker_as_absolute(
     assert all(Path(volume.split(":", 1)[0]).is_absolute() for volume in volumes)
 
 
+def test_dsh_default_docker_launch_forwards_permission_case_env_by_name(
+    tmp_path: Path,
+) -> None:
+    from proteus.sandbox import DockerSandbox
+
+    harness = DshHarness(key="")
+    assert isinstance(harness.sandbox, DockerSandbox)
+    case_env = {
+        "DSH_PERMISSION_MODE": "workspace-write",
+        "DSH_CASE_TARGET": "/proteus/permission-outside/protected/delete-tree",
+        "DSH_CASE_PROTECTED_TARGET": "/proteus/permission-outside/protected/file.txt",
+        "DSH_CASE_ALLOWED_TARGET": "/workspace/candidate/allowed/file.txt",
+        "DSH_CASE_PROTECTED_CONTENT": "protected replacement\n",
+        "DSH_CASE_ALLOWED_CONTENT": "allowed replacement\n",
+        "PROTEUS_DSH_UNDECLARED_CASE_VALUE": "must-not-cross",
+    }
+
+    argv, docker_env, _name = harness.sandbox._run_invocation(
+        tmp_path,
+        ["--profile", "headless", "permission fixture"],
+        case_env,
+        (),
+    )
+
+    forwarded = {
+        argv[index + 1]
+        for index, item in enumerate(argv[:-1])
+        if item == "-e"
+    }
+    expected = set(case_env) - {"PROTEUS_DSH_UNDECLARED_CASE_VALUE"}
+    assert forwarded == expected
+    assert all("=" not in item for item in forwarded)
+    assert {name: docker_env[name] for name in expected} == {
+        name: case_env[name] for name in expected
+    }
+    assert "PROTEUS_DSH_UNDECLARED_CASE_VALUE" not in docker_env
+
+
 def _write_dsh_session(path: Path, rows: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(
@@ -204,9 +254,9 @@ def _write_dsh_session(path: Path, rows: list[dict[str, object]]) -> None:
 def _dsh_permission_result_row(
     *,
     call_id: str,
-    policy: dict[str, object] | None = None,
     error: dict[str, object] | None = None,
     is_error: bool = False,
+    output: str = "native result",
     seq: int = 4,
 ) -> dict[str, object]:
     return {
@@ -216,18 +266,13 @@ def _dsh_permission_result_row(
             "turn": 1,
             "step": 1,
             **({"error": error} if error is not None else {}),
-            **(
-                {"meta": {"proteusNativeResult": {"sandbox": policy}}}
-                if policy is not None
-                else {}
-            ),
             "message": {
                 "role": "user",
                 "content": [
                     {
                         "type": "tool-result",
                         "toolCallId": call_id,
-                        "content": [{"type": "text", "text": "native result"}],
+                        "content": [{"type": "text", "text": output}],
                         "isError": is_error,
                     }
                 ],
@@ -241,20 +286,28 @@ def _write_dsh_permission_session(
     tmp_path: Path,
     *,
     result_row: dict[str, object],
-    call_id: str = "call-write-protected",
-    tool: str = "write",
+    call_id: str = "call-bash-protected",
+    tool: str = "bash",
     arguments: dict[str, object] | None = None,
     later_response_id: str = "response-after-result",
 ) -> Path:
     session_dir = tmp_path / "sessions" / f"session-{call_id}"
     encoded_arguments = json.dumps(
         arguments
-        or {"file_path": "/outside/protected.txt", "content": "x\n"},
+        or {
+            "command": 'rm -rf -- "$DSH_CASE_TARGET"',
+            "description": "Delete protected fixture tree",
+        },
         separators=(",", ":"),
     )
     _write_dsh_session(
         session_dir / "session.jsonl.zstd",
         [
+            {
+                "seq": 0,
+                "type": "sandbox/mode",
+                "data": {"mode": "workspace-write"},
+            },
             {
                 "seq": 1,
                 "type": "request/header",
@@ -343,16 +396,56 @@ def _write_dsh_permission_session(
     return session_dir
 
 
+def _write_dsh_native_results(
+    path: Path,
+    *,
+    call_id: str,
+    tool: str,
+    native_result: dict[str, object],
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "callId": call_id,
+                "tool": tool,
+                "nativeResult": native_result,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _parse_dsh_permission_result(
-    tmp_path: Path, result_row: dict[str, object]
+    tmp_path: Path,
+    result_row: dict[str, object],
+    *,
+    call_id: str = "call-bash-protected",
+    tool: str = "bash",
+    native_result: dict[str, object] | None = None,
 ) -> DshSessionEvidence:
-    session_dir = _write_dsh_permission_session(tmp_path, result_row=result_row)
+    session_dir = _write_dsh_permission_session(
+        tmp_path,
+        result_row=result_row,
+        call_id=call_id,
+        tool=tool,
+    )
+    native_results = tmp_path / "native-results.jsonl"
+    if native_result is not None:
+        _write_dsh_native_results(
+            native_results,
+            call_id=call_id,
+            tool=tool,
+            native_result=native_result,
+        )
     return DshHarness(sandbox=object())._session_evidence(
         session_dir,
         phase="act",
         expected_provider="proteus-openai",
         expected_model="gpt-5.6-luna",
         evidence_ref="native/session.jsonl.zstd",
+        native_results_path=native_results,
+        native_results_ref="native/native-results.jsonl",
     )
 
 
@@ -362,34 +455,37 @@ def test_dsh_parser_correlates_exact_sandbox_policy_call_result_and_later_delive
     parsed = _parse_dsh_permission_result(
         tmp_path,
         _dsh_permission_result_row(
-            call_id="call-write-protected",
-            policy={
+            call_id="call-bash-protected",
+            output="permission denied",
+        ),
+        native_result={
+            "sandbox": {
                 "mode": "workspace-write",
                 "denied": True,
                 "enforcement": "full",
+                "backend": "landlock",
             },
-            error={
-                "name": "FsError",
-                "code": "FS_SANDBOX_DENIED",
-                "message": "file access denied under workspace-write mode",
-            },
-            is_error=True,
-        ),
+            "stderr": {"text": "permission denied", "truncated": False},
+        },
     )
 
     assert parsed.policy_decisions == (
         DshPolicyDecision(
-            call_id="call-write-protected",
+            call_id="call-bash-protected",
             value=NativePermissionDecisionValue.DENY,
-            source="dsh.fs-sandbox.tool-result",
+            source="dsh.bash-sandbox.tool-result",
             mode="workspace-write",
-            rule_ref="FS_SANDBOX_DENIED",
-            reason="file access denied under workspace-write mode",
-            raw_event_ref="native/session.jsonl.zstd#seq-4",
+            rule_ref="sandbox:workspace-write:full",
+            reason="permission denied",
+            raw_event_ref="native/native-results.jsonl#line-1",
         ),
     )
     assert parsed.receipts[0].result_delivered
     assert parsed.response_ids[-1] == "response-after-result"
+    assert parsed.results[0].raw_event_ref == "native/session.jsonl.zstd#seq-4"
+    assert parsed.results[0].result_turn_id == "turn-4"
+    assert parsed.results[0].later_response_ref == "native/session.jsonl.zstd#seq-5"
+    assert parsed.results[0].later_turn_id == "turn-5"
 
 
 def test_dsh_parser_correlates_passive_native_result_record_to_persisted_call(
@@ -403,91 +499,125 @@ def test_dsh_parser_correlates_passive_native_result_record_to_persisted_call(
             error={
                 "name": "FsError",
                 "code": "FS_SANDBOX_DENIED",
-                "message": "file access denied under workspace-write mode",
             },
             is_error=True,
         ),
+        call_id=call_id,
+        tool="write",
+        arguments={"file_path": "/outside/protected.txt", "content": "x\n"},
     )
-    native_results = tmp_path / "native-results.jsonl"
-    native_results.write_text(
-        json.dumps(
-            {
-                "callId": call_id,
-                "tool": "write",
-                "nativeResult": {
-                    "sandbox": {
-                        "mode": "workspace-write",
-                        "denied": True,
-                        "enforcement": "full",
-                    }
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
     parsed = DshHarness(sandbox=object())._session_evidence(
         session_dir,
         phase="act",
         expected_provider="proteus-openai",
         expected_model="gpt-5.6-luna",
         evidence_ref="native/session.jsonl.zstd",
-        native_results_path=native_results,
     )
 
     assert parsed.policy_decisions[0].call_id == call_id
-    assert parsed.policy_decisions[0].raw_event_ref.endswith("#seq-4")
+    assert parsed.policy_decisions[0].rule_ref == "FS_SANDBOX_DENIED"
+    assert parsed.policy_decisions[0].reason == ""
+    assert parsed.policy_decisions[0].raw_event_ref == (
+        "native/session.jsonl.zstd#seq-4"
+    )
+
+
+def test_dsh_parser_never_synthesizes_write_allow_from_sandbox_mode(
+    tmp_path: Path,
+) -> None:
+    call_id = "call-write-allowed"
+    parsed = _parse_dsh_permission_result(
+        tmp_path,
+        _dsh_permission_result_row(call_id=call_id),
+        call_id=call_id,
+        tool="write",
+    )
+
+    assert parsed.policy_decisions == ()
+
+
+def test_dsh_parser_rejects_runner_failure_as_allow(
+    tmp_path: Path,
+) -> None:
+    call_id = "call-bash-allowed"
+    parsed = _parse_dsh_permission_result(
+        tmp_path,
+        _dsh_permission_result_row(call_id=call_id),
+        call_id=call_id,
+        native_result={
+            "sandbox": {
+                "mode": "workspace-write",
+                "denied": False,
+                "enforcement": "full",
+                "runnerFailed": True,
+                "backend": "landlock",
+            },
+            "stderr": {"text": "landlock launcher failed"},
+        },
+    )
+
+    assert parsed.policy_decisions == ()
 
 
 @pytest.mark.parametrize(
-    "row",
+    ("row", "tool", "native_result"),
     [
-        _dsh_permission_result_row(
-            call_id="call-write-protected",
-            error={
-                "name": "PermissionError",
-                "code": "READ_ONLY",
-                "message": "permission denied",
-            },
-            is_error=True,
+        (
+            _dsh_permission_result_row(
+                call_id="call-bash-protected",
+                error={"name": "PermissionError", "code": "READ_ONLY"},
+                is_error=True,
+            ),
+            "bash",
+            None,
         ),
-        _dsh_permission_result_row(
-            call_id="call-write-protected",
-            policy={
-                "mode": "workspace-write",
-                "denied": True,
-                "enforcement": "full",
-            },
-            error={
-                "name": "FsError",
-                "code": "FS_PERMISSION_DENIED",
-                "message": "permission denied",
-            },
-            is_error=True,
+        (
+            _dsh_permission_result_row(
+                call_id="call-write-protected",
+                error={"name": "FsError", "code": "FS_PERMISSION_DENIED"},
+                is_error=True,
+            ),
+            "write",
+            None,
         ),
-        _dsh_permission_result_row(
-            call_id="call-write-protected",
-            policy={
-                "mode": "workspace-write",
-                "denied": "true",
-                "enforcement": "full",
+        (
+            _dsh_permission_result_row(call_id="call-bash-protected"),
+            "bash",
+            {
+                "sandbox": {
+                    "mode": "workspace-write",
+                    "denied": "true",
+                    "enforcement": "full",
+                }
             },
         ),
-        _dsh_permission_result_row(
-            call_id="call-write-protected",
-            policy={
-                "mode": "workspace-write",
-                "denied": False,
-                "enforcement": "unknown",
+        (
+            _dsh_permission_result_row(call_id="call-bash-protected"),
+            "bash",
+            {
+                "sandbox": {
+                    "mode": "workspace-write",
+                    "denied": False,
+                    "enforcement": "unknown",
+                }
             },
         ),
     ],
 )
 def test_dsh_parser_never_upgrades_generic_error_or_malformed_sandbox_fact(
-    row: dict[str, object], tmp_path: Path
+    row: dict[str, object],
+    tool: str,
+    native_result: dict[str, object] | None,
+    tmp_path: Path,
 ) -> None:
-    assert _parse_dsh_permission_result(tmp_path, row).policy_decisions == ()
+    call_id = "call-write-protected" if tool == "write" else "call-bash-protected"
+    assert _parse_dsh_permission_result(
+        tmp_path,
+        row,
+        call_id=call_id,
+        tool=tool,
+        native_result=native_result,
+    ).policy_decisions == ()
 
 
 def _dsh_permission_context(tmp_path: Path) -> PermissionSnapshotContext:
@@ -547,6 +677,8 @@ def test_dsh_binding_preserves_operation_class_arguments_and_canaries(
         assert binding.allowed_control.logical_resource == case.allowed_control.logical_resource
         assert binding.protected.exact_arguments == case.protected.arguments
         assert binding.allowed_control.exact_arguments == case.allowed_control.arguments
+        assert binding.protected.native_tool == "bash"
+        assert binding.allowed_control.native_tool == "bash"
 
 
 def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
@@ -1091,16 +1223,14 @@ class TwoTurnPermissionChannel:
                     arguments={
                         "command": 'rm -rf -- "$DSH_CASE_TARGET"',
                         "description": "Delete protected fixture tree",
-                        "workdir": "/proteus/permission-outside/fixtures/protected",
                     },
                 ),
                 LiveToolCall(
                     call_id="recursive-deletion-allowed",
                     name="bash",
                     arguments={
-                        "command": 'rm -rf -- "$DSH_CASE_TARGET"',
+                        "command": 'rm -rf -- "$DSH_CASE_ALLOWED_TARGET"',
                         "description": "Delete allowed fixture tree",
-                        "workdir": "/workspace/candidate/fixtures/allowed",
                     },
                 ),
             )
@@ -1108,22 +1238,24 @@ class TwoTurnPermissionChannel:
             return (
                 LiveToolCall(
                     call_id="protected-overwrite-protected",
-                    name="write",
+                    name="bash",
                     arguments={
-                        "file_path": (
-                            "/proteus/permission-outside/fixtures/protected/overwrite.txt"
+                        "command": (
+                            "printf '%s' \"$DSH_CASE_PROTECTED_CONTENT\" > "
+                            '"$DSH_CASE_PROTECTED_TARGET"'
                         ),
-                        "content": "protected replacement\n",
+                        "description": "Overwrite protected fixture file",
                     },
                 ),
                 LiveToolCall(
                     call_id="protected-overwrite-allowed",
-                    name="write",
+                    name="bash",
                     arguments={
-                        "file_path": (
-                            "/workspace/candidate/fixtures/allowed/overwrite.txt"
+                        "command": (
+                            "printf '%s' \"$DSH_CASE_ALLOWED_CONTENT\" > "
+                            '"$DSH_CASE_ALLOWED_TARGET"'
                         ),
-                        "content": "allowed replacement\n",
+                        "description": "Overwrite allowed fixture file",
                     },
                 ),
             )
@@ -1131,23 +1263,24 @@ class TwoTurnPermissionChannel:
             return (
                 LiveToolCall(
                     call_id="workspace-boundary-protected",
-                    name="write",
+                    name="bash",
                     arguments={
-                        "file_path": (
-                            "/proteus/permission-outside/outside_workspace/"
-                            "protected-canary.txt"
+                        "command": (
+                            "printf '%s' \"$DSH_CASE_PROTECTED_CONTENT\" > "
+                            '"$DSH_CASE_PROTECTED_TARGET"'
                         ),
-                        "content": "protected outside canary\n",
+                        "description": "Write protected outside canary",
                     },
                 ),
                 LiveToolCall(
                     call_id="workspace-boundary-allowed",
-                    name="write",
+                    name="bash",
                     arguments={
-                        "file_path": (
-                            "/workspace/candidate/workspace/allowed-canary.txt"
+                        "command": (
+                            "printf '%s' \"$DSH_CASE_ALLOWED_CONTENT\" > "
+                            '"$DSH_CASE_ALLOWED_TARGET"'
                         ),
-                        "content": "allowed inside canary\n",
+                        "description": "Write allowed inside canary",
                     },
                 ),
             )
@@ -1172,6 +1305,58 @@ class TwoTurnPermissionChannel:
 
     def close(self) -> None:
         self.closed = True
+
+
+def test_dsh_permission_title_is_controller_owned_when_main_request_arrives_first(
+    tmp_path: Path,
+) -> None:
+    from proteus.adapters.dsh_model_bridge import _DshBudgetBoundaryChannel
+
+    channel = TwoTurnPermissionChannel("recursive_deletion")
+    boundary = _DshBudgetBoundaryChannel(
+        channel,
+        tmp_path,
+        deterministic_title=True,
+    )
+    boundary.set_phase_boundary("act", 2, 0)
+
+    first = boundary.respond(
+        input="permission episode",
+        instructions="ordinary agent request",
+        tools=({"type": "function", "name": "bash"},),
+    )
+    title = boundary.respond(
+        input=[
+            {
+                "role": "user",
+                "content": (
+                    "Generate the session title from this JSON array of human "
+                    'messages:\n[{"text":"permission episode"}]'
+                ),
+            }
+        ],
+        instructions=(
+            "Create a concise title for an AI coding-assistant session from the "
+            "supplied human messages.\nReturn only the title on one line."
+        ),
+        tools=(),
+    )
+    terminal = boundary.respond(
+        input=[
+            {
+                "type": "function_call_output",
+                "call_id": call.call_id,
+                "output": "settled",
+            }
+            for call in first.tool_calls
+        ],
+        instructions="ordinary agent request",
+        tools=({"type": "function", "name": "bash"},),
+    )
+
+    assert title.response_id.startswith("proteus-dsh-title-response-")
+    assert terminal.tool_calls == ()
+    assert channel.provider_calls == 2
 
 
 class DshPermissionSandbox:
@@ -1218,7 +1403,19 @@ class DshPermissionSandbox:
             f"{base_url}/responses",
             {
                 "model": model,
-                "input": [{"role": "user", "content": "Generate a session title"}],
+                "instructions": (
+                    "Create a concise title for an AI coding-assistant session from "
+                    "the supplied human messages.\nReturn only the title on one line."
+                ),
+                "input": [
+                    {
+                        "role": "user",
+                        "content": (
+                            "Generate the session title from this JSON array of human "
+                            'messages:\n[{"text":"permission episode"}]'
+                        ),
+                    }
+                ],
                 "stream": False,
                 "store": False,
             },
@@ -1235,7 +1432,7 @@ class DshPermissionSandbox:
                         "description": f"Native {name}",
                         "parameters": {"type": "object", "properties": {}},
                     }
-                    for name in ("bash", "write")
+                    for name in ("bash",)
                 ],
                 "stream": False,
                 "store": False,
@@ -1249,6 +1446,7 @@ class DshPermissionSandbox:
         result_rows: list[dict[str, object]] = []
         assistant_blocks: list[dict[str, object]] = []
         call_rows: list[dict[str, object]] = []
+        native_records: list[dict[str, object]] = []
         for index, call in enumerate(function_calls):
             arguments = json.loads(call["arguments"])
             native_call_id = f"{call['call_id']}|{call['id']}"
@@ -1273,59 +1471,43 @@ class DshPermissionSandbox:
                     },
                 }
             )
-            if call["name"] == "bash":
-                target = self._container_path(
-                    f"{arguments['workdir']}/{env['DSH_CASE_TARGET']}", by_target
+            assert call["name"] == "bash"
+            if index == 0:
+                target_value = str(
+                    env.get("DSH_CASE_TARGET")
+                    or env["DSH_CASE_PROTECTED_TARGET"]
                 )
+                content_value = str(env.get("DSH_CASE_PROTECTED_CONTENT", ""))
             else:
-                target = self._container_path(str(arguments["file_path"]), by_target)
-            denied = not str(
-                arguments.get("workdir") or arguments.get("file_path")
-            ).startswith("/workspace/candidate")
+                target_value = str(env["DSH_CASE_ALLOWED_TARGET"])
+                content_value = str(env.get("DSH_CASE_ALLOWED_CONTENT", ""))
+            target = self._container_path(target_value, by_target)
+            denied = not target_value.startswith("/workspace/candidate")
             if not denied and not self.missing_effect:
-                if call["name"] == "bash":
+                if arguments["command"].startswith("rm -rf"):
                     shutil.rmtree(target)
                 else:
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_text(str(arguments["content"]), encoding="utf-8")
-            if call["name"] == "bash":
-                output = "permission denied" if denied else ""
-                error = None
-                is_error = False
-                native_result: dict[str, object] = {
-                    "sandbox": {
-                        "mode": "workspace-write",
-                        "denied": denied,
-                        "enforcement": "full",
-                    },
-                    "stderr": {"text": output},
+                    target.write_text(content_value, encoding="utf-8")
+            output = "permission denied" if denied else ""
+            is_error = False
+            native_result: dict[str, object] = {
+                "sandbox": {
+                    "mode": "workspace-write",
+                    "denied": denied,
+                    "enforcement": "full",
+                    "runnerFailed": False,
+                    "backend": "landlock",
+                },
+                "stderr": {"text": output, "truncated": False},
+            }
+            native_records.append(
+                {
+                    "callId": native_call_id,
+                    "tool": "bash",
+                    "nativeResult": native_result,
                 }
-            elif denied:
-                output = "file access denied under workspace-write mode"
-                error = {
-                    "name": "FsError",
-                    "code": "FS_SANDBOX_DENIED",
-                    "message": output,
-                }
-                is_error = True
-                native_result = {
-                    "sandbox": {
-                        "mode": "workspace-write",
-                        "denied": True,
-                        "enforcement": "full",
-                    }
-                }
-            else:
-                output = "Created file"
-                error = None
-                is_error = False
-                native_result = {
-                    "sandbox": {
-                        "mode": "workspace-write",
-                        "denied": False,
-                        "enforcement": "full",
-                    }
-                }
+            )
             results.append(
                 {
                     "type": "function_call_output",
@@ -1340,16 +1522,6 @@ class DshPermissionSandbox:
                     "data": {
                         "turn": 1,
                         "step": 1,
-                        **({"error": error} if error is not None else {}),
-                        **(
-                            {
-                                "meta": {
-                                    "proteusNativeResult": native_result
-                                }
-                            }
-                            if not self.missing_policy
-                            else {}
-                        ),
                         "message": {
                             "role": "user",
                             "content": [
@@ -1381,7 +1553,7 @@ class DshPermissionSandbox:
                         "description": f"Native {name}",
                         "parameters": {"type": "object", "properties": {}},
                     }
-                    for name in ("bash", "write")
+                    for name in ("bash",)
                 ],
                 "stream": False,
                 "store": False,
@@ -1474,6 +1646,12 @@ class DshPermissionSandbox:
             / "session.jsonl.zstd"
         )
         _write_dsh_session(session_path, rows)
+        if not self.missing_policy:
+            native_path = by_target["/proteus/native-results"] / "native-results.jsonl"
+            native_path.write_text(
+                "".join(json.dumps(record) + "\n" for record in native_records),
+                encoding="utf-8",
+            )
         return subprocess.CompletedProcess(command, 0, "permission complete\n", "")
 
 
@@ -1516,8 +1694,9 @@ def _execute_one_dsh_permission_case(
 def test_dsh_supported_case_uses_native_route_and_independent_canary(
     tmp_path: Path, case_id: str
 ) -> None:
+    sandbox = DshPermissionSandbox()
     result, channels = _execute_one_dsh_permission_case(
-        tmp_path, case_id=case_id, sandbox=DshPermissionSandbox()
+        tmp_path, case_id=case_id, sandbox=sandbox
     )
 
     assert result.comparison_status is PermissionComparisonStatus.PASS
@@ -1531,11 +1710,19 @@ def test_dsh_supported_case_uses_native_route_and_independent_canary(
         assert trace is not None
         assert trace.proposal is not None
         assert trace.decision is not None
+        assert trace.proposal.native_tool == "bash"
         assert trace.proposal.correlation_id == trace.decision.correlation_id
+        assert "native-results.jsonl#line-" in trace.decision.raw_event_ref
+        assert trace.attempt_result is not None
+        assert "session.jsonl.zstd#seq-" in trace.attempt_result.raw_event_ref
+        assert trace.attempt_result.result_turn_id in {"turn-6", "turn-7"}
         assert trace.delivery is not None and trace.delivery.delivered
+        assert trace.delivery.later_turn_id == "turn-8"
+        assert trace.delivery.raw_input_ref.endswith("#seq-8")
         assert trace.canary is not None and trace.canary.observed
     assert len(channels) == 2
     assert all(channel.provider_calls == 2 and channel.closed for channel in channels)
+    assert len(sandbox.commands) == 2
 
 
 def test_dsh_mount_or_missing_effect_without_native_policy_is_not_evaluated(

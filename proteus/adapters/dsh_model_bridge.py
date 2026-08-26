@@ -19,11 +19,49 @@ BRIDGE_PROVIDER = "proteus-openai"
 BRIDGE_PLACEHOLDER = "proteus-local-bridge"
 OBSERVER_CONTAINER_PATH = "/proteus/bridge/proteus-native-result-observer.mjs"
 OBSERVER_OUTPUT_CONTAINER_PATH = "/proteus/native-results/native-results.jsonl"
+DSH_PERMISSION_CASE_ENV = (
+    "DSH_CASE_TARGET",
+    "DSH_CASE_PROTECTED_TARGET",
+    "DSH_CASE_ALLOWED_TARGET",
+    "DSH_CASE_PROTECTED_CONTENT",
+    "DSH_CASE_ALLOWED_CONTENT",
+)
+_DSH_TITLE_SYSTEM_PREFIX = (
+    "Create a concise title for an AI coding-assistant session from the supplied "
+    "human messages."
+)
+_DSH_TITLE_INPUT_PREFIX = (
+    "Generate the session title from this JSON array of human messages:\n"
+)
 
 _NATIVE_RESULT_OBSERVER = """\
 import { appendFileSync } from 'node:fs'
 
+export const inject = ['shellEnv']
+const CASE_ENV_KEYS = [
+  'DSH_CASE_TARGET',
+  'DSH_CASE_PROTECTED_TARGET',
+  'DSH_CASE_ALLOWED_TARGET',
+  'DSH_CASE_PROTECTED_CONTENT',
+  'DSH_CASE_ALLOWED_CONTENT',
+]
+
 export function apply(ctx, config) {
+  const values = {}
+  const variables = {}
+  for (const key of CASE_ENV_KEYS) {
+    const value = process.env[key]
+    if (typeof value !== 'string') continue
+    values[key] = value
+    variables[key] = { description: 'Proteus controller-owned permission case value.' }
+  }
+  if (Object.keys(values).length > 0) {
+    ctx.shellEnv.register({
+      name: 'proteus-permission-case',
+      variables,
+      resolve: () => values,
+    })
+  }
   ctx.on('tools/result', (exec, result) => {
     if (result.isError || typeof result.value !== 'object' || result.value === null
       || Array.isArray(result.value)) return
@@ -31,20 +69,14 @@ export function apply(ctx, config) {
     if (typeof sandbox !== 'object' || sandbox === null || Array.isArray(sandbox)) {
       return
     }
-    const native = {
-      sandbox: {
-        mode: sandbox.mode,
-        denied: sandbox.denied,
-        enforcement: sandbox.enforcement,
-      },
-    }
+    const nativeResult = { sandbox }
     const stderr = result.value.stderr
     if (typeof stderr === 'object' && stderr !== null && !Array.isArray(stderr)
-      && typeof stderr.text === 'string') native.stderr = { text: stderr.text }
+      && typeof stderr.text === 'string') nativeResult.stderr = stderr
     appendFileSync(config.path, JSON.stringify({
       callId: exec.callId,
       tool: exec.name,
-      nativeResult: native,
+      nativeResult,
     }) + '\\n', { encoding: 'utf8' })
   })
 }
@@ -62,6 +94,35 @@ def _result_call_ids(
         if item.get("type") in {"function_call_output", "custom_tool_call_output"}
         and isinstance(item.get("call_id"), str)
         and item["call_id"]
+    )
+
+
+def _dsh_title_request(
+    *,
+    input_value: str | Sequence[Mapping[str, object]],
+    instructions: str,
+    tools: Sequence[Mapping[str, object]],
+) -> bool:
+    if tools or not instructions.startswith(_DSH_TITLE_SYSTEM_PREFIX):
+        return False
+    texts: list[str] = []
+    if isinstance(input_value, str):
+        texts.append(input_value)
+    else:
+        for item in input_value:
+            content = item.get("content")
+            if isinstance(content, str):
+                texts.append(content)
+            elif isinstance(content, Sequence):
+                texts.extend(
+                    str(block["text"])
+                    for block in content
+                    if isinstance(block, Mapping)
+                    and isinstance(block.get("text"), str)
+                )
+    return bool(
+        not _result_call_ids(input_value)
+        and any(text.startswith(_DSH_TITLE_INPUT_PREFIX) for text in texts)
     )
 
 
@@ -108,9 +169,11 @@ class _DshBudgetBoundaryChannel:
     ) -> LiveModelResponse:
         if (
             self._deterministic_title
-            and not tools
-            and self._issued_calls == 0
-            and not self._pending_boundary_calls
+            and _dsh_title_request(
+                input_value=input,
+                instructions=instructions,
+                tools=tools,
+            )
         ):
             self._title_records += 1
             provenance = LiveCallProvenance(
