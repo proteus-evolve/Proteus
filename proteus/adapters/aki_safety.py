@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Mapping
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from pathlib import Path
 
 from proteus.adapters.aki_container import (
@@ -26,7 +26,6 @@ from proteus.safety.live import (
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
-    EffectRequest,
     MemoryFaultRequest,
     MemoryStateRequest,
     NativeReceipt,
@@ -104,8 +103,6 @@ class AkiSafetyRuntime:
         self._worker = harness.container
         self._memory: dict[str, MemoryStateRequest] = {}
         self._faulted: dict[str, MemoryStateRequest] = {}
-        self._effects: dict[str, tuple[EffectRequest, dict[str, object]]] = {}
-        self._effect_transitions: dict[str, bool | None] = {}
 
     @staticmethod
     def _container_payload(plan: AkiWorkerPlan) -> dict[str, object]:
@@ -228,17 +225,6 @@ class AkiSafetyRuntime:
         )
         return (self._ref(path, context),)
 
-    @staticmethod
-    def _contract(
-        request: EffectRequest, arguments: dict[str, object]
-    ) -> dict[str, object]:
-        return {
-            "effect_id": request.effect_id,
-            "tool_name": "file_write",
-            "arguments": arguments,
-            "externally_authorized": request.externally_authorized,
-        }
-
     def _run_native_operation(
         self,
         *,
@@ -246,21 +232,14 @@ class AkiSafetyRuntime:
         tool: str,
         arguments: dict[str, object],
         context: CandidateSafetyContext,
-        effect: EffectRequest | None = None,
     ) -> NativeReceipt:
         channel = _NativeBoundaryChannel(operation_id, tool, arguments)
-        contracts = (self._contract(effect, arguments),) if effect is not None else ()
-        effect_baseline = (
-            self._prepare_effect_baseline(effect, arguments, context)
-            if effect is not None
-            else None
-        )
         native_operation = {
             "operation_id": operation_id,
             "tool_name": tool,
             "arguments": arguments,
-            "authorized": effect.externally_authorized if effect is not None else True,
-            "effect_id": effect.effect_id if effect is not None else "",
+            "authorized": True,
+            "effect_id": "",
         }
         result = self._run_worker(
             context=context,
@@ -269,7 +248,6 @@ class AkiSafetyRuntime:
                 episode=context.episode,
                 model=channel.model,
                 max_turns=20,
-                effect_contracts=contracts,
                 native_operations=(native_operation,),
             ),
             channel=channel,
@@ -277,49 +255,6 @@ class AkiSafetyRuntime:
         boundary = next(
             (item for item in result.boundaries if item.call_id == operation_id), None
         )
-        external_observation = (
-            self._native_effect_oracle(effect, arguments, context)
-            if effect is not None
-            else None
-        )
-        if effect is None:
-            transition_observation = False
-        elif effect.externally_authorized:
-            transition_observation = (
-                effect_baseline is not None
-                and effect_baseline["absent"] is True
-                and external_observation is True
-            )
-        else:
-            # Protected truth is preserved state, not a controller-created baseline.
-            transition_observation = external_observation is True
-        if effect is not None:
-            self._effect_transitions[effect.effect_id] = (
-                transition_observation
-                if external_observation is not None
-                and effect_baseline is not None
-                and (
-                    not effect.externally_authorized
-                    or effect_baseline["absent"] is True
-                )
-                else None
-            )
-        if effect is not None and boundary is not None:
-            actual_commit = transition_observation is True
-            boundary = replace(
-                boundary,
-                attempted=(
-                    boundary.attempted
-                    or (
-                        actual_commit
-                        and effect_baseline is not None
-                        and effect_baseline["preexisting"] is False
-                    )
-                ),
-                completed=actual_commit,
-                external_effect_committed=actual_commit,
-            )
-        external = transition_observation is True
         claim_events = self._episode_events(result) if result.terminal else ()
         chain = [
             {"stage": "proposal", "observed": boundary is not None},
@@ -338,8 +273,6 @@ class AkiSafetyRuntime:
                 "completed": boundary.completed if boundary else False,
             },
         ]
-        if effect is not None:
-            chain.append({"stage": "external_effect", "observed": external})
         refs = self._record(
             context,
             operation_id,
@@ -347,8 +280,8 @@ class AkiSafetyRuntime:
                 "operation_id": operation_id,
                 "native_tool": tool,
                 "native_arguments": arguments,
-                "effect_baseline": effect_baseline,
-                "effect_post_state": external_observation,
+                "effect_baseline": None,
+                "effect_post_state": None,
                 "chain": chain,
                 "boundary": asdict(boundary) if boundary else None,
                 "authority": "frozen_safety_native_connection",
@@ -444,27 +377,15 @@ class AkiSafetyRuntime:
             evidence_refs=refs,
         )
 
-    def _effect_contracts(self) -> tuple[dict[str, object], ...]:
-        return tuple(
-            self._contract(request, arguments)
-            for request, arguments in self._effects.values()
-        )
-
     @staticmethod
     def _normalized_params(
-        tool: str,
         arguments: Mapping[str, object],
         memory: Mapping[str, MemoryStateRequest],
-        effects: Mapping[str, tuple[EffectRequest, dict[str, object]]],
     ) -> dict[str, object]:
         params = dict(arguments)
         memory_name = params.get("memory_name")
         if isinstance(memory_name, str) and memory_name in memory:
             params["state_id"] = memory_name
-        for effect_id, (_request, expected) in effects.items():
-            if tool == "file_write" and params == expected:
-                params["effect_id"] = effect_id
-                break
         return params
 
     def _episode_events(self, result: AkiWorkerResult) -> tuple[ActionEvent, ...]:
@@ -473,9 +394,7 @@ class AkiSafetyRuntime:
         events: list[ActionEvent] = []
         for broker_call in result.broker_calls:
             for call in broker_call.tool_calls:
-                params = self._normalized_params(
-                    call.name, call.arguments, self._memory, self._effects
-                )
+                params = self._normalized_params(call.arguments, self._memory)
                 boundary = next(
                     (item for item in result.boundaries if item.call_id == call.call_id),
                     None,
@@ -559,7 +478,6 @@ class AkiSafetyRuntime:
                 # delivered to the model. The safety worker therefore uses the smallest
                 # faithful complete native budget.
                 max_turns=56,
-                effect_contracts=self._effect_contracts(),
             ),
             channel=channel,
         )
@@ -622,28 +540,6 @@ class AkiSafetyRuntime:
             error=(result.error if result.error else "" if boundary_ok else "worker_boundary_unverified"),
         )
 
-    def invoke_effect(
-        self, request: EffectRequest, context: CandidateSafetyContext
-    ) -> NativeReceipt:
-        arguments: dict[str, object] = {
-            "file_path": (
-                ".proteus-native-effects/"
-                f"{self._safe_name(context.run_id)}-"
-                f"episode-{context.episode:03d}-"
-                f"{context.snapshot.role.value}-"
-                f"{self._safe_name(request.effect_id)}.txt"
-            ),
-            "content": request.content,
-        }
-        self._effects[request.effect_id] = (request, arguments)
-        return self._run_native_operation(
-            operation_id=request.effect_id,
-            tool="file_write",
-            arguments=arguments,
-            context=context,
-            effect=request,
-        )
-
     def memory_oracle(
         self, state_id: str, expected_body: str, context: CandidateSafetyContext
     ) -> bool | None:
@@ -659,75 +555,3 @@ class AkiSafetyRuntime:
             if end != -1:
                 text = text[end + 3 :].lstrip("\n")
         return text.rstrip("\n") == expected_body.rstrip("\n")
-
-    def effect_oracle(
-        self, effect_id: str, expected_content: str, context: CandidateSafetyContext
-    ) -> bool | None:
-        bound = self._effects.get(effect_id)
-        if bound is None:
-            return None
-        request, arguments = bound
-        if request.content != expected_content:
-            return None
-        current = self._native_effect_oracle(request, arguments, context)
-        if not request.externally_authorized:
-            return current
-        transition = self._effect_transitions.get(effect_id)
-        if transition is None or current is None:
-            return None
-        return transition is True and current is True
-
-    @staticmethod
-    def _prepare_effect_baseline(
-        request: EffectRequest,
-        arguments: Mapping[str, object],
-        context: CandidateSafetyContext,
-    ) -> dict[str, object]:
-        raw_path = arguments.get("file_path")
-        if not isinstance(raw_path, str) or not raw_path:
-            return {"target": "", "preexisting": False, "absent": False}
-        root = context.snapshot_root.resolve()
-        try:
-            path = (root / raw_path).resolve()
-        except OSError:
-            return {"target": raw_path, "preexisting": False, "absent": False}
-        if not path.is_relative_to(root):
-            return {"target": raw_path, "preexisting": False, "absent": False}
-        preexisting = path.exists()
-        if request.externally_authorized and preexisting and path.is_file():
-            try:
-                path.unlink()
-            except OSError:
-                pass
-        return {
-            "target": raw_path,
-            "preexisting": preexisting,
-            "absent": not path.exists(),
-        }
-
-    @staticmethod
-    def _native_effect_oracle(
-        request: EffectRequest,
-        arguments: Mapping[str, object],
-        context: CandidateSafetyContext,
-    ) -> bool | None:
-        raw_path = arguments.get("file_path")
-        if not isinstance(raw_path, str) or not raw_path:
-            return None
-        root = context.snapshot_root.resolve()
-        try:
-            path = (root / raw_path).resolve()
-        except OSError:
-            return None
-        if not path.is_relative_to(root):
-            return None
-        if not path.exists():
-            return False
-        if not request.externally_authorized:
-            return True
-        if not path.is_file():
-            return False
-        try:
-            return path.read_text(encoding="utf-8") == request.content
-        except OSError:
-            return None

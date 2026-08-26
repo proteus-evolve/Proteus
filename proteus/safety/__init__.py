@@ -5,7 +5,6 @@ from proteus.safety.evidence import (
     EvidenceCellObservation,
     IncidentObservation,
     InvariantObservation,
-    PermissionObservation,
     ProbeEndpoint,
     ProbeObservation,
     ProbeStatuses,
@@ -13,18 +12,50 @@ from proteus.safety.evidence import (
     UnsafeStateObservation,
     UtilityObservation,
 )
-from proteus.safety.phase1 import SUITE, Phase1SafetyCaseSuite, phase1_case_families
+from proteus.safety.permission_adapter import (
+    PermissionPolicyAdapter,
+    PermissionSnapshotContext,
+)
+from proteus.safety.permission_cases import (
+    PERMISSION_CASE_SPECS,
+    PermissionArgument,
+    PermissionCanarySpec,
+    PermissionOperationSpec,
+    PermissionPolicyCaseSpec,
+    PermissionSemanticOperation,
+)
+from proteus.safety.permission_evidence import (
+    CanaryObservation,
+    NativeAttemptResult,
+    NativeDecision,
+    NativeDelivery,
+    NativeOperationBinding,
+    NativePermissionBinding,
+    NativePermissionDecisionValue,
+    NativePermissionTrace,
+    NativeProposal,
+    PermissionCapabilityState,
+    PermissionCaseCapability,
+    PermissionCaseComparison,
+    PermissionComparisonStatus,
+    PermissionEvidenceValidity,
+    PermissionFamilyComparison,
+)
+from proteus.safety.phase1 import (
+    SUITE,
+    TOOLS_PERMISSION_DRIFT,
+    Phase1SafetyCaseSuite,
+    phase1_case_families,
+)
 from proteus.safety.phase1_runtime import (
     PHASE1_EXECUTORS,
     Phase1ExecutionRequest,
     run_memory_bad_admission,
     run_memory_collapse,
-    run_tools_permission_drift,
 )
 from proteus.safety.plugins import CandidateSafetyAdapter, CandidateSafetyContext
 from proteus.safety.policy import required_outcome
 from proteus.safety.runtime import (
-    EffectRequest,
     HarnessSafetyRuntime,
     LogicalTransitionRecord,
     MemoryFaultRequest,
@@ -46,13 +77,15 @@ from proteus.safety.taxonomy import (
 PHASE1_SUITE = SUITE
 
 __all__ = [
+    "PERMISSION_CASE_SPECS",
     "PHASE1_EXECUTORS",
     "PHASE1_SUITE",
+    "TOOLS_PERMISSION_DRIFT",
     "ArchiveLineageObservation",
+    "CanaryObservation",
     "CandidateSafetyAdapter",
     "CandidateSafetyContext",
     "CaseScope",
-    "EffectRequest",
     "EvaluationArm",
     "EvaluationCell",
     "EvidenceCellObservation",
@@ -64,8 +97,28 @@ __all__ = [
     "LogicalTransitionRecord",
     "MemoryFaultRequest",
     "MemoryStateRequest",
+    "NativeAttemptResult",
+    "NativeDecision",
+    "NativeDelivery",
+    "NativeOperationBinding",
+    "NativePermissionBinding",
+    "NativePermissionDecisionValue",
+    "NativePermissionTrace",
+    "NativeProposal",
     "NativeReceipt",
-    "PermissionObservation",
+    "PermissionArgument",
+    "PermissionCanarySpec",
+    "PermissionCapabilityState",
+    "PermissionCaseCapability",
+    "PermissionCaseComparison",
+    "PermissionComparisonStatus",
+    "PermissionEvidenceValidity",
+    "PermissionFamilyComparison",
+    "PermissionOperationSpec",
+    "PermissionPolicyAdapter",
+    "PermissionPolicyCaseSpec",
+    "PermissionSemanticOperation",
+    "PermissionSnapshotContext",
     "Phase1ExecutionRequest",
     "Phase1SafetyCaseSuite",
     "ProbeEndpoint",
@@ -82,5 +135,4 @@ __all__ = [
     "required_outcome",
     "run_memory_bad_admission",
     "run_memory_collapse",
-    "run_tools_permission_drift",
 ]

@@ -47,20 +47,6 @@ class MemoryFaultRequest:
 
 
 @dataclass(frozen=True)
-class EffectRequest:
-    effect_id: str
-    operation: str
-    resource: str
-    content: str
-    externally_authorized: bool
-
-    def __post_init__(self) -> None:
-        _validate_id("effect ID", self.effect_id)
-        if not self.operation.strip() or not self.resource.strip():
-            raise ValueError("effect operation and resource must be non-empty")
-
-
-@dataclass(frozen=True)
 class NativeReceipt:
     operation_id: str
     proposed: bool
@@ -125,14 +111,6 @@ class HarnessSafetyRuntime(Protocol):
         channel: LiveModelChannel | None,
     ) -> SafetyEpisodeResult: ...
 
-    def invoke_effect(
-        self, request: EffectRequest, context: CandidateSafetyContext
-    ) -> NativeReceipt: ...
-
     def memory_oracle(
         self, state_id: str, expected_body: str, context: CandidateSafetyContext
-    ) -> bool | None: ...
-
-    def effect_oracle(
-        self, effect_id: str, expected_content: str, context: CandidateSafetyContext
     ) -> bool | None: ...

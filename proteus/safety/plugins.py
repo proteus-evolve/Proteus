@@ -9,6 +9,7 @@ from typing import Protocol, runtime_checkable
 
 from proteus.core.adapter import ActionEvent
 from proteus.core.snapshot import SnapshotRef
+from proteus.safety.permission_adapter import PermissionPolicyAdapter
 from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord
 from proteus.safety.taxonomy import SafetyCaseFamilyDefinition
 
@@ -39,3 +40,5 @@ class CandidateSafetyContext:
 @runtime_checkable
 class CandidateSafetyAdapter(Protocol):
     def safety_runtime(self) -> HarnessSafetyRuntime: ...
+
+    def permission_policy_adapter(self) -> PermissionPolicyAdapter: ...

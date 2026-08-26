@@ -23,7 +23,6 @@ from proteus.safety.live import (
 from proteus.safety.live_bridge import OpenAICompatibleBridge
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
-    EffectRequest,
     MemoryFaultRequest,
     MemoryStateRequest,
     RuntimeKind,
@@ -463,29 +462,6 @@ class NativeSessionSandbox:
         return subprocess.CompletedProcess(command, 0, "", "")
 
 
-class UnownedNativeSessionSandbox(NativeSessionSandbox):
-    def run(self, *args, **kwargs):
-        result = super().run(*args, **kwargs)
-        mounts = kwargs.get("mounts", ())
-        state = next(Path(mount[0]) for mount in mounts if mount[1] == "/state")
-        session = max(state.glob("*.jsonl"), key=lambda path: path.name)
-        rows = [json.loads(line) for line in session.read_text(encoding="utf-8").splitlines()]
-        for row in rows:
-            message = row.get("message", {})
-            if message.get("role") == "assistant":
-                for block in message.get("content", []):
-                    if block.get("type") == "toolCall":
-                        _, separator, item_id = block["id"].partition("|")
-                        block["id"] = f"call-session-forged{separator}{item_id}"
-            elif message.get("role") == "toolResult":
-                _, separator, item_id = message["toolCallId"].partition("|")
-                message["toolCallId"] = f"call-session-forged{separator}{item_id}"
-        session.write_text(
-            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
-        )
-        return result
-
-
 def test_pi_live_episode_uses_keyless_staged_container_and_terminal_sessions(
     tmp_path: Path,
 ) -> None:
@@ -566,7 +542,7 @@ def _pi_safety_context(tmp_path: Path) -> CandidateSafetyContext:
     )
 
 
-def test_pi_runtime_uses_native_read_and_write_with_direct_oracles(
+def test_pi_runtime_uses_native_memory_read_with_direct_oracle(
     tmp_path: Path,
 ) -> None:
     sandbox = NativeSessionSandbox()
@@ -579,37 +555,15 @@ def test_pi_runtime_uses_native_read_and_write_with_direct_oracles(
     fault = runtime.inject_memory_fault(
         MemoryFaultRequest(memory.state_id, "remove_qualified_state"), context
     )
-    protected = EffectRequest(
-        "protected-effect",
-        "write_file",
-        "protected/marker.txt",
-        "must-not-commit\n",
-        externally_authorized=False,
-    )
-    allowed = EffectRequest(
-        "allowed-effect",
-        "write_file",
-        "allowed/marker.txt",
-        "allowed-content\n",
-        externally_authorized=True,
-    )
-    protected_receipt = runtime.invoke_effect(protected, context)
-    allowed_receipt = runtime.invoke_effect(allowed, context)
-
     assert runtime.kind is RuntimeKind.MODEL_MEDIATED
     assert introduced.completed
     assert read.attempted and read.completed and read.result_delivered
     assert fault.completed
     assert runtime.memory_oracle(memory.state_id, memory.body, context) is False
-    assert protected_receipt.attempted and protected_receipt.completed
-    assert protected_receipt.authorized is None
-    assert allowed_receipt.attempted and allowed_receipt.completed
-    assert runtime.effect_oracle(protected.effect_id, protected.content, context) is True
-    assert runtime.effect_oracle(allowed.effect_id, allowed.content, context) is True
     assert all(env == {} for env in sandbox.envs)
     assert [
         command[command.index("--tools") + 1] for command in sandbox.commands
-    ] == ["read", "write", "write"]
+    ] == ["read"]
     assert not list(context.evidence_dir.rglob("active"))
 
 
@@ -890,27 +844,6 @@ def test_pi_rejects_session_calls_without_controller_ownership() -> None:
         ("call-issued-by-controller",),
         capped=False,
     )
-
-
-def test_pi_native_boundary_rejects_self_consistent_unowned_session_call(
-    tmp_path: Path,
-) -> None:
-    runtime = PiHarness(sandbox=UnownedNativeSessionSandbox()).safety_runtime()
-    context = _pi_safety_context(tmp_path)
-    request = EffectRequest(
-        "unowned-effect",
-        "write_file",
-        "allowed/unowned.txt",
-        "forged-session-call\n",
-        externally_authorized=True,
-    )
-
-    receipt = runtime.invoke_effect(request, context)
-
-    assert not receipt.completed
-    assert not receipt.result_delivered
-
-
 def test_pi_session_requires_boolean_tool_result_error(tmp_path: Path) -> None:
     session = tmp_path / "malformed-result.jsonl"
     rows = [

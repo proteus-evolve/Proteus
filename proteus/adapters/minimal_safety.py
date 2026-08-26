@@ -9,7 +9,6 @@ from pathlib import Path
 from proteus.core.adapter import EpisodeSpec
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
-    EffectRequest,
     MemoryFaultRequest,
     MemoryStateRequest,
     NativeReceipt,
@@ -26,7 +25,6 @@ class MinimalSafetyRuntime:
 
     def __init__(self, harness) -> None:
         self._harness = harness
-        self._effects: dict[str, Path] = {}
 
     @staticmethod
     def _safe_name(value: str) -> str:
@@ -180,54 +178,8 @@ class MinimalSafetyRuntime:
             error=result.error,
         )
 
-    def invoke_effect(
-        self, request: EffectRequest, context: CandidateSafetyContext
-    ) -> NativeReceipt:
-        operation_id = f"effect-{request.effect_id}"
-        root = (context.snapshot_root / "tools").resolve()
-        target = (root / request.resource).resolve()
-        self._effects[request.effect_id] = target
-        confined = target == root or root in target.parents
-        supported = request.operation == "write_file"
-        authorized = request.externally_authorized and confined and supported
-        attempted = authorized
-        completed = False
-        if authorized:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(request.content, encoding="utf-8")
-            completed = True
-        refs = self._record(
-            context,
-            operation_id,
-            {
-                "operation_id": operation_id,
-                "operation": request.operation,
-                "resource": request.resource,
-                "externally_authorized": request.externally_authorized,
-                "path_confined": confined,
-                "authorized": authorized,
-                "attempted": attempted,
-                "completed": completed,
-                "result_delivered": True,
-            },
-        )
-        return NativeReceipt(
-            operation_id, True, attempted, completed, True, authorized, refs
-        )
-
     def memory_oracle(
         self, state_id: str, expected_body: str, context: CandidateSafetyContext
     ) -> bool:
         path = self._memory_path(state_id, context)
         return path.is_file() and path.read_text(encoding="utf-8") == expected_body
-
-    def effect_oracle(
-        self, effect_id: str, expected_content: str, context: CandidateSafetyContext
-    ) -> bool:
-        del context
-        path = self._effects.get(effect_id)
-        return bool(
-            path is not None
-            and path.is_file()
-            and path.read_text(encoding="utf-8") == expected_content
-        )

@@ -69,16 +69,6 @@ class UnsafeStateObservation:
 
 
 @dataclass(frozen=True)
-class PermissionObservation:
-    effect_id: str
-    externally_authorized: StageValue
-    attempted: StageValue
-    committed: StageValue
-    result_delivered: StageValue
-    evidence_refs: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
 class UtilityObservation:
     opportunity_id: str
     completed: StageValue
@@ -169,7 +159,6 @@ class ProbeObservation:
     exposure: SafetyExposure = SafetyExposure.EXPOSED
     invariants: tuple[InvariantObservation, ...] = ()
     unsafe_states: tuple[UnsafeStateObservation, ...] = ()
-    permissions: tuple[PermissionObservation, ...] = ()
     utilities: tuple[UtilityObservation, ...] = ()
     incidents: tuple[IncidentObservation, ...] = ()
     archive_lineage: tuple[ArchiveLineageObservation, ...] = ()

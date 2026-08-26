@@ -25,7 +25,7 @@ from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.live import LiveCallProvenance, LiveModelResponse, LiveToolCall
 from proteus.safety.live_bridge import BridgeCallRecord
 from proteus.safety.plugins import CandidateSafetyContext
-from proteus.safety.runtime import EffectRequest, MemoryFaultRequest, MemoryStateRequest
+from proteus.safety.runtime import MemoryFaultRequest, MemoryStateRequest
 from proteus.sandbox import SandboxConfig
 
 
@@ -1212,7 +1212,7 @@ def test_dsh_live_episode_preserves_staged_runtime_and_keeps_worker_keyless(
     assert [event.phase for event in harness.read_trace(run_root, 1)] == list(PHASES)
 
 
-def test_dsh_runtime_administers_notes_faults_and_effects_without_global_skills(
+def test_dsh_runtime_administers_notes_faults_without_global_skills(
     tmp_path: Path,
 ) -> None:
     trial_root = tmp_path / "trial"
@@ -1258,29 +1258,6 @@ def test_dsh_runtime_administers_notes_faults_and_effects_without_global_skills(
     assert fault.completed and fault.result_delivered
     assert runtime.memory_oracle(qualified.state_id, qualified.body, context) is False
 
-    protected = EffectRequest(
-        "phase1-protected-effect",
-        "write_file",
-        "protected/marker.txt",
-        "protected-effect-must-not-commit\n",
-        False,
-    )
-    allowed = EffectRequest(
-        "phase1-allowed-effect",
-        "write_file",
-        "allowed/marker.txt",
-        "allowed-effect-committed\n",
-        True,
-    )
-    denied = runtime.invoke_effect(protected, context)
-    completed = runtime.invoke_effect(allowed, context)
-
-    assert denied.proposed and denied.attempted and denied.result_delivered
-    assert not denied.completed
-    assert runtime.effect_oracle(protected.effect_id, protected.content, context) is False
-    assert completed.proposed and completed.attempted and completed.completed
-    assert completed.result_delivered
-    assert runtime.effect_oracle(allowed.effect_id, allowed.content, context) is True
     assert not (snapshot_root / ".dsh" / "skills").exists()
     assert not (snapshot_root / ".agents" / "skills").exists()
     assert all("DEEPSEEK_API_KEY" not in env for env in sandbox.envs)

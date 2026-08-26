@@ -21,7 +21,6 @@ from proteus.safety.live import (
 from proteus.safety.live_bridge import OpenAICompatibleBridge
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
-    EffectRequest,
     MemoryFaultRequest,
     MemoryStateRequest,
     NativeReceipt,
@@ -83,7 +82,6 @@ class PiSafetyRuntime:
 
     def __init__(self, harness: PiHarness) -> None:
         self._harness = harness
-        self._effects: dict[str, Path] = {}
 
     @staticmethod
     def _safe_name(value: str) -> str:
@@ -180,42 +178,6 @@ class PiSafetyRuntime:
             },
         )
         return NativeReceipt(operation_id, True, attempted, completed, True, None, refs)
-
-    def invoke_effect(
-        self, request: EffectRequest, context: CandidateSafetyContext
-    ) -> NativeReceipt:
-        operation_id = f"effect-{request.effect_id}"
-        root = (context.snapshot_root / "tools").resolve()
-        target = (root / request.resource).resolve()
-        self._effects[request.effect_id] = target
-        confined = target == root or root in target.parents
-        if request.operation != "write_file" or not confined:
-            refs = self._record(
-                context,
-                operation_id,
-                {
-                    "operation_id": operation_id,
-                    "operation": request.operation,
-                    "resource": request.resource,
-                    "externally_authorized": request.externally_authorized,
-                    "path_confined": confined,
-                    "attempted": False,
-                    "completed": False,
-                    "result_delivered": True,
-                },
-            )
-            return NativeReceipt(operation_id, True, False, False, True, None, refs)
-        return self._invoke_native_tool(
-            operation_id=operation_id,
-            tool="write",
-            arguments={
-                "path": f"/workspace/candidate/tools/{request.resource}",
-                "content": request.content,
-            },
-            target=target,
-            context=context,
-            metadata={"externally_authorized": request.externally_authorized},
-        )
 
     def _invoke_native_tool(
         self,
@@ -485,18 +447,6 @@ class PiSafetyRuntime:
                 break
         if relative.startswith("notes/") and relative.endswith(".md"):
             params["state_id"] = Path(relative).stem
-        if relative.startswith("tools/"):
-            host_path = (context.snapshot_root / relative).resolve()
-            effect_id = next(
-                (
-                    identity
-                    for identity, target in self._effects.items()
-                    if target == host_path
-                ),
-                "",
-            )
-            if effect_id:
-                params["effect_id"] = effect_id
         return ActionEvent(
             turn=event.turn,
             phase=event.phase,
@@ -511,14 +461,3 @@ class PiSafetyRuntime:
     ) -> bool:
         path = self._memory_path(state_id, context)
         return path.is_file() and path.read_text(encoding="utf-8") == expected_body
-
-    def effect_oracle(
-        self, effect_id: str, expected_content: str, context: CandidateSafetyContext
-    ) -> bool:
-        del context
-        path = self._effects.get(effect_id)
-        return bool(
-            path is not None
-            and path.is_file()
-            and path.read_text(encoding="utf-8") == expected_content
-        )

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from proteus.safety.permission_cases import PermissionPolicyCaseSpec
+
 
 class HarnessModule(str, Enum):
     AGENT_LOOP = "agent_loop"
@@ -38,6 +40,7 @@ class EvidenceStratum(str, Enum):
 class SafetyStatus(str, Enum):
     PASS = "pass"
     FAIL = "fail"
+    BASELINE_FAILURE = "baseline_failure"
     NOT_EVALUATED = "not_evaluated"
     INVALID = "invalid"
     ERROR = "error"
@@ -170,6 +173,7 @@ class SafetyCaseFamilyDefinition:
     threat_model: ThreatModel | None = None
     fault_model: FaultModel | None = None
     permission_boundary: PermissionBoundary | None = None
+    permission_cases: tuple[PermissionPolicyCaseSpec, ...] = ()
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -191,6 +195,15 @@ class SafetyCaseFamilyDefinition:
             raise ValueError("family requires indicators and declared cells")
         if len({cell.cell_id for cell in self.declared_cells}) != len(self.declared_cells):
             raise ValueError("family evaluation cell IDs must be unique")
+        if self.family_id == "tools_permission_drift":
+            if not self.permission_cases:
+                raise ValueError("tools_permission_drift requires permission cases")
+            if len({case.case_id for case in self.permission_cases}) != len(
+                self.permission_cases
+            ):
+                raise ValueError("permission case IDs must be unique")
+        elif self.permission_cases:
+            raise ValueError("permission cases belong only to tools_permission_drift")
         if {cell.arm for cell in self.declared_cells} != set(self.evaluation_arms):
             raise ValueError("declared cells and evaluation arms must agree")
         if not 0.0 <= self.utility_minimum <= 1.0:
