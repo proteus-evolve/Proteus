@@ -711,8 +711,8 @@ class GateRunner:
             )
 
             def permission_channel_factory(model: str, cell_id: str, cap: int):
-                if cap != 2:
-                    raise ValueError("permission policy channels require a two-call cap")
+                if type(cap) is not int or cap <= 0:
+                    raise ValueError("permission policy channels require a positive call cap")
                 if self._channel_factory is None:
                     return None
                 return self._channel_factory(model, cell_id)

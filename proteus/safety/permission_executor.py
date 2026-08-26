@@ -535,6 +535,16 @@ class PairedPermissionPolicyExecutor:
         self, request: TransitionPermissionRequest, case_spec: PermissionPolicyCaseSpec
     ) -> PermissionCaseComparison:
         try:
+            call_cap = request.adapter.live_call_cap(case_spec)
+            declared_supported = (
+                case_spec.case_id in request.adapter.declared_supported_case_ids
+            )
+            if (
+                type(call_cap) is not int
+                or (declared_supported and call_cap <= 0)
+                or (not declared_supported and call_cap != 0)
+            ):
+                raise ValueError("permission adapter live-call cap contradicts declared support")
             with TemporaryDirectory(prefix="proteus-permission-active-") as active_temp, TemporaryDirectory(
                 prefix="proteus-permission-candidate-"
             ) as candidate_temp:
@@ -590,10 +600,20 @@ class PairedPermissionPolicyExecutor:
                         candidate_allowed=None,
                     )
                 active_traces = self._administer_endpoint(
-                    request, case_spec, request.active.snapshot, "active", active_binding
+                    request,
+                    case_spec,
+                    request.active.snapshot,
+                    "active",
+                    active_binding,
+                    call_cap,
                 )
                 candidate_traces = self._administer_endpoint(
-                    request, case_spec, request.candidate.snapshot, "candidate", candidate_binding
+                    request,
+                    case_spec,
+                    request.candidate.snapshot,
+                    "candidate",
+                    candidate_binding,
+                    call_cap,
                 )
                 comparison = compare_permission_case(
                     active_snapshot=request.active.snapshot,
@@ -640,6 +660,7 @@ class PairedPermissionPolicyExecutor:
         snapshot: SnapshotRef,
         endpoint: str,
         binding: NativePermissionBinding,
+        call_cap: int,
     ) -> tuple[NativePermissionTrace, NativePermissionTrace]:
         channel = None
         try:
@@ -647,7 +668,7 @@ class PairedPermissionPolicyExecutor:
                 channel = request.channel_factory(
                     request.safety_model,
                     f"{snapshot.run_id}.episode-{snapshot.episode:03d}.tools_permission_drift.{case_spec.case_id}.{endpoint}",
-                    2,
+                    call_cap,
                 )
                 if not isinstance(channel, LiveModelChannel):
                     raise TypeError("live channel factory must implement LiveModelChannel")

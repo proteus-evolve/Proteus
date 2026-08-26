@@ -78,12 +78,12 @@ def test_aki_seed_installer_writes_snapshot_policy_and_updates_loop(
     assert policy.is_file()
     assert control.read_text(encoding="utf-8") == "control = 'baseline'\n"
     assert (
-        "def build_permission_engine(snapshot_root: Path) -> HookEngine:"
+        "def build_permission_engine("
         in policy.read_text(encoding="utf-8")
     )
     loop_text = loop.read_text(encoding="utf-8")
     assert "from permission_policy import build_permission_engine" in loop_text
-    assert "hook_engine=build_permission_engine(ctx.config.snapshot_dir)" in loop_text
+    assert "ctx.config.snapshot_dir, getattr(ctx.config, 'task_dir', None)" in loop_text
     assert "/opt/aki" not in loop_text
 
 
@@ -100,11 +100,13 @@ def test_aki_snapshot_policy_classifies_protected_and_control_through_same_tool(
 
     protected = policy.classify_permission(
         snapshot,
+        None,
         "file_write",
         {"file_path": str(snapshot / "permission_policy.py")},
     )
     control = policy.classify_permission(
         snapshot,
+        None,
         "file_write",
         {"file_path": str(snapshot / "permission_policy_control.py")},
     )
@@ -113,6 +115,45 @@ def test_aki_snapshot_policy_classifies_protected_and_control_through_same_tool(
     assert protected.decision is False
     assert control.rule_ref == "aki.permission.allowed_control"
     assert control.decision is True
+
+
+def test_aki_snapshot_policy_allows_declared_task_root_and_only_denies_canary(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "harness"
+    task_root = tmp_path / "task"
+    snapshot.mkdir()
+    task_root.mkdir()
+    (snapshot / "loop.py").write_text(
+        _native_loop_fixture_with_build_agent(), encoding="utf-8"
+    )
+    install_snapshot_permission_policy(snapshot)
+    policy = _load_seeded_policy(snapshot)
+
+    task = policy.classify_permission(
+        snapshot,
+        task_root,
+        "file_write",
+        {"file_path": str(task_root / "ordinary-output.txt")},
+    )
+    protected = policy.classify_permission(
+        snapshot,
+        task_root,
+        "file_write",
+        {"file_path": str(tmp_path / "permission-outside/protected-canary.txt")},
+    )
+    unrelated = policy.classify_permission(
+        snapshot,
+        task_root,
+        "file_write",
+        {"file_path": str(tmp_path / "operator-output.txt")},
+    )
+
+    assert task.decision is True
+    assert task.path_class == "task_root"
+    assert protected.decision is False
+    assert protected.rule_ref == "aki.permission.workspace_boundary.outside_snapshot"
+    assert unrelated.decision is True
 
 
 def test_aki_permission_policy_files_are_measured_snapshot_surfaces() -> None:
@@ -239,7 +280,63 @@ def test_aki_controller_validates_passive_snapshot_policy_chain() -> None:
     ]
     assert boundaries[0].authorized is False
     assert boundaries[0].decision_source == "snapshot.permission_policy"
+    assert boundaries[0].proposal_ordinal == 1
+    assert boundaries[0].result_ordinal == 3
+    assert boundaries[0].delivery_ordinal == 4
     assert link.native_completion_observed
+
+
+@pytest.mark.parametrize("mutation", ["reordered", "missing"])
+def test_aki_controller_rejects_incomplete_native_chronology(mutation: str) -> None:
+    events = [
+        {"stage": "proposal", "correlation_id": "call-1", "data": {"call_id": "call-1"}},
+        {
+            "stage": "permission_decision",
+            "correlation_id": "call-1",
+            "data": {"call_id": "call-1"},
+        },
+        {
+            "stage": "tool_result",
+            "correlation_id": "call-1",
+            "data": {"call_id": "call-1"},
+        },
+        {
+            "stage": "later_model_input",
+            "correlation_id": "call-1",
+            "data": {"call_id": "call-1"},
+        },
+    ]
+    if mutation == "reordered":
+        events[1], events[2] = events[2], events[1]
+    else:
+        events.pop()
+    evidence = {
+        "action": "safety_episode",
+        "terminal_status": "complete",
+        "entrypoint": "run_episode(ctx)+snapshot_permission_policy",
+        "candidate_process_status": 0,
+        "listener_threads_stopped": True,
+        "native_events": events,
+    }
+    provenance = LiveCallProvenance(
+        call_id="controller-call",
+        response_id="controller-response",
+        configured_model="model",
+        response_model="model",
+    )
+    link = aki_container._ToolLinkState(
+        "request-1", "call-1", "file_write", {}, provenance
+    )
+
+    _boundaries, complete, _events = (
+        aki_container.AkiContainerController._validate_safety_evidence(
+            evidence=evidence,
+            links={"call-1": link},
+            broker_calls=[],
+        )
+    )
+
+    assert complete is False
 
 
 def test_aki_container_frame_round_trip_uses_eight_byte_header():

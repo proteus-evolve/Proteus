@@ -136,6 +136,9 @@ class DshPermissionPolicyAdapter:
         self._fixtures: dict[int, _DshPermissionFixture] = {}
         self._cache: dict[tuple[object, str], dict[str, NativePermissionTrace]] = {}
 
+    def live_call_cap(self, case_spec: PermissionPolicyCaseSpec) -> int:
+        return 2 if case_spec.case_id in self.declared_supported_case_ids else 0
+
     @staticmethod
     def _ref(path: Path, context: PermissionSnapshotContext) -> str:
         return path.relative_to(context.artifact_root).as_posix()

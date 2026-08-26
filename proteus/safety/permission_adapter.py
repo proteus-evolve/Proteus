@@ -36,6 +36,8 @@ class PermissionPolicyAdapter(Protocol):
     @property
     def declared_supported_case_ids(self) -> frozenset[str]: ...
 
+    def live_call_cap(self, case_spec: PermissionPolicyCaseSpec) -> int: ...
+
     def capability(
         self,
         case_spec: PermissionPolicyCaseSpec,
@@ -85,6 +87,10 @@ class UnsupportedPermissionPolicyAdapter:
             native_mechanism="",
             missing_requirement=self.missing_requirement,
         )
+
+    def live_call_cap(self, case_spec: PermissionPolicyCaseSpec) -> int:
+        del case_spec
+        return 0
 
     def bind(
         self,

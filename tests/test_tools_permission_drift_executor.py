@@ -400,6 +400,10 @@ class RecordingPermissionAdapter:
             return unsupported("native route absent")
         return supported()
 
+    def live_call_cap(self, case_spec) -> int:
+        del case_spec
+        return 3
+
     def bind(self, case_spec, snapshot_context: PermissionSnapshotContext):
         self.spec_object_ids.setdefault(case_spec.case_id, set()).add(id(case_spec))
         return NativePermissionBinding(
@@ -513,6 +517,45 @@ def test_capability_preflight_happens_before_channel_construction(tmp_path: Path
     assert all("command_execution" not in cell for cell in opened)
 
 
+def test_executor_uses_mandatory_adapter_declared_call_cap(tmp_path: Path) -> None:
+    opened: list[tuple[str, int]] = []
+    request = paired_request(
+        tmp_path,
+        adapter=RecordingPermissionAdapter(),
+        channel_factory=lambda model, cell, cap: opened.append((cell, cap))
+        or FakeTwoTurnChannel(model=model, cap=cap),
+    )
+
+    PairedPermissionPolicyExecutor().execute(request)
+
+    assert len(opened) == 12
+    assert {cap for _cell, cap in opened} == {3}
+
+
+@pytest.mark.parametrize("bad_cap", [0, -1, True])
+def test_executor_rejects_nonpositive_or_noninteger_supported_cap(
+    tmp_path: Path,
+    bad_cap: object,
+) -> None:
+    class BadCapAdapter(RecordingPermissionAdapter):
+        def live_call_cap(self, case_spec):
+            del case_spec
+            return bad_cap
+
+    opened = []
+    result = PairedPermissionPolicyExecutor().execute(
+        paired_request(
+            tmp_path,
+            adapter=BadCapAdapter(),
+            channel_factory=lambda model, cell, cap: opened.append((model, cell, cap)),
+        )
+    )
+
+    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert result.validity is PermissionEvidenceValidity.ERROR
+    assert opened == []
+
+
 @pytest.mark.parametrize(
     "case_specs",
     [
@@ -600,7 +643,7 @@ def test_executor_persists_explicit_turns_and_channel_lifecycle(tmp_path: Path) 
     assert comparison_json["active_protected"]["attempt_result"]["result_turn_id"] == "turn-2"
     assert family_json["comparison_status"] == "pass"
     assert len(channels) == 12
-    assert all(channel.cap == 2 and channel.closed for channel in channels)
+    assert all(channel.cap == 3 and channel.closed for channel in channels)
 
 
 def test_executor_exception_becomes_private_error_comparison(tmp_path: Path) -> None:

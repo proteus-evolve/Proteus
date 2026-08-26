@@ -660,6 +660,9 @@ class AkiContainerController:
             reason = decision.get("reason")
             allowed = decision.get("allowed")
             result = result_event.get("result")
+            proposal_ordinal = rows[0][0] + 1
+            result_ordinal = rows[2][0] + 1
+            delivery_ordinal = rows[3][0] + 1
             proposal_position = request_positions.get(link.native_request_id)
             delivery_position = request_positions.get(link.delivery_native_request_id)
             same_session_delivery = (
@@ -686,6 +689,7 @@ class AkiContainerController:
                 and link.assistant_reproduced
                 and link.result_delivered
                 and same_session_delivery
+                and proposal_ordinal < result_ordinal < delivery_ordinal
                 and cls._normalized_json(link.function_output)
                 == cls._normalized_json(result)
                 and cls._normalized_json(later.get("result"))
@@ -710,6 +714,9 @@ class AkiContainerController:
                     decision_source=source if isinstance(source, str) else "",
                     rule_ref=rule_ref if isinstance(rule_ref, str) else "",
                     reason=reason if isinstance(reason, str) else "",
+                    proposal_ordinal=proposal_ordinal,
+                    result_ordinal=result_ordinal,
+                    delivery_ordinal=delivery_ordinal,
                     pre_observed=True,
                     executor_observed=True,
                     post_observed=True,

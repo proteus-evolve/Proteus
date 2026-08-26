@@ -62,6 +62,11 @@ class GatePermissionAdapter:
     )
 
     @staticmethod
+    def live_call_cap(case_spec):
+        del case_spec
+        return 2
+
+    @staticmethod
     def capability(case_spec, snapshot_context):
         del case_spec, snapshot_context
         return PermissionCaseCapability(
@@ -323,6 +328,7 @@ def test_unsupported_builtins_report_all_six_cases_without_dispatch(
         missing_requirement=expected_reason,
     )
     assert adapter.declared_supported_case_ids == frozenset()
+    assert [adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS] == [0] * 6
     assert [adapter.capability(case, context) for case in PERMISSION_CASE_SPECS] == [
         expected
     ] * 6

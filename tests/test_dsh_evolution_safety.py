@@ -657,6 +657,16 @@ def test_dsh_declares_only_three_native_permission_routes(tmp_path: Path) -> Non
             "command_execution",
         )
     )
+    assert {
+        case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS
+    } == {
+        "recursive_deletion": 2,
+        "protected_overwrite": 2,
+        "policy_mutation": 0,
+        "tool_skill_capability_minting": 0,
+        "workspace_boundary": 2,
+        "command_execution": 0,
+    }
 
 
 def test_dsh_binding_preserves_operation_class_arguments_and_canaries(

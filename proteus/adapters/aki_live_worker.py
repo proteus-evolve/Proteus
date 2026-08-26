@@ -174,6 +174,9 @@ class BoundaryRecord:
     decision_source: str = ""
     rule_ref: str = ""
     reason: str = ""
+    proposal_ordinal: int = 0
+    result_ordinal: int = 0
+    delivery_ordinal: int = 0
     pre_observed: bool = False
     executor_observed: bool = False
     post_observed: bool = False

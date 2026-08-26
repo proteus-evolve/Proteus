@@ -243,7 +243,7 @@ def test_aki_image_init_uses_snapshot_owned_permission_policy(aki_image, tmp_pat
     assert policy.is_file()
     assert control.read_text(encoding="utf-8") == "control = 'baseline'\n"
     assert "from permission_policy import build_permission_engine" in loop
-    assert "hook_engine=build_permission_engine(ctx.config.snapshot_dir)" in loop
+    assert "ctx.config.snapshot_dir, getattr(ctx.config, 'task_dir', None)" in loop
 
 
 def test_real_aki_model_proxy_rejects_malformed_controller_frame(aki_image, tmp_path):
