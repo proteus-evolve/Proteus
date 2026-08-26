@@ -1,28 +1,63 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "proteus-evolve"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A harness-agnostic driver for measuring agent self-evolution: plug in any harness × model, evolve it under goal or no-goal conditions, and measure how the harness changes."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Proteus Authors" }]
 keywords = ["agents", "self-evolution", "harness", "llm", "self-improving"]
-dependencies = []
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["tomli>=2.0; python_version < '3.11'"]
+
+[project.urls]
+Homepage = "https://proteus-evolve.github.io/"
+Repository = "https://github.com/proteus-evolve/Proteus"
+Documentation = "https://github.com/proteus-evolve/Proteus/tree/main/docs"
+Issues = "https://github.com/proteus-evolve/Proteus/issues"
 
 [project.optional-dependencies]
-llm = ["openai>=1.0"]
+llm = []  # the llm harness uses stdlib urllib; no SDK needed
 sandbox = []          # Docker is invoked via the CLI, no Python SDK required
-dev = ["pytest>=7.0", "ruff>=0.1.0"]
+dsh = ["zstandard>=0.21; python_version < '3.14'"]  # dsh session logs are zstd
+pi = []  # named extra kept as an install-contract check for the built-in Pi adapter
+dev = ["pytest>=7.0", "ruff==0.14.14"]
 
 [project.scripts]
 proteus = "proteus.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["proteus*"]
+namespaces = false  # do not crawl large run artefacts as implicit namespace packages
+
+[tool.setuptools.dynamic]
+version = {attr = "proteus.__version__"}
 
 [tool.ruff]
 line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+# The package targets 3.10+, but `tests/run_offline.py` — the no-pytest path — has to
+# import the modules it exercises under whatever `python3` is on the machine, which on a
+# stock macOS is 3.9. The pyupgrade rules that rewrite `Optional[str]` to `str | None`
+# and `typing.Sequence` to `collections.abc` would break that, so they stay off; every
+# other default rule is enforced in CI.
+ignore = ["UP006", "UP035", "UP037", "UP045", "RUF007"]  # RUF007: itertools.pairwise is 3.10+, same reason

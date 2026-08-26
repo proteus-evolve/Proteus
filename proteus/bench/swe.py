@@ -40,7 +40,7 @@ GRADE_TIMEOUT_S = 1800
 
 
 def _load_instance(instance_id: str, dataset: str, split: str) -> dict[str, Any]:
-    from datasets import load_dataset  # noqa: PLC0415
+    from datasets import load_dataset
     for row in load_dataset(dataset, split=split):
         if row["instance_id"] == instance_id:
             return dict(row)
@@ -56,33 +56,50 @@ def _setup(ws: Path, inst: dict[str, Any]) -> None:
                    check=True)
 
 
-def _grade(ws: Path, inst: dict[str, Any], episode_tag: str) -> EvalResult:
+def _grade(ws: Path, inst: dict[str, Any], episode: int = 0) -> EvalResult:
     name = f"swebench:{inst['instance_id']}"
     diff = workspace_diff(ws, inst["base_commit"])
     if not diff.strip():
         return EvalResult(name=name, score=0.0, passed=False, detail="empty patch")
+    # the official harness caches on (run_id, instance_id); the run id must therefore be
+    # unique per (episode, patch), or every later episode returns a stale verdict
+    import hashlib
+    run_id = f"proteus-ep{episode}-{hashlib.sha1(diff.encode()).hexdigest()[:10]}"
 
     try:
-        import docker  # noqa: PLC0415
-        from swebench.harness.run_evaluation import run_instance  # noqa: PLC0415
+        import docker
+        from swebench.harness.run_evaluation import run_instance
+
         # the flat `swebench.harness.test_spec` import is broken across versions
-        from swebench.harness.test_spec.test_spec import make_test_spec  # noqa: PLC0415
+        from swebench.harness.test_spec.test_spec import make_test_spec
     except ImportError as exc:
         return EvalResult(name=name, score=0.0, passed=False,
                           detail=f"grading deps missing ({exc}); "
                                  "pip install swebench datasets docker")
 
-    spec = make_test_spec(inst)
-    pred = {"instance_id": inst["instance_id"], "model_name_or_path": "proteus",
-            "model_patch": diff}
-    result = run_instance(spec, pred, docker.from_env(),
-                          run_id=f"proteus-{episode_tag}",   # never reuse: see module doc
-                          timeout=GRADE_TIMEOUT_S)
-    if not result:
+    # the whole grade is guarded: run_instance's positional signature has drifted across
+    # swebench majors, and this path has not been executed against an installed swebench
+    # (it needs x86_64 + ~120GB). A signature mismatch or container error must degrade to
+    # a scored zero with a legible message, never crash the trajectory.
+    try:
+        spec = make_test_spec(inst)
+        pred = {"instance_id": inst["instance_id"], "model_name_or_path": "proteus",
+                "model_patch": diff}
+        result = run_instance(
+            test_spec=spec, pred=pred, client=docker.from_env(),
+            run_id=run_id,
+            timeout=GRADE_TIMEOUT_S)
+        if not result:
+            return EvalResult(name=name, score=0.0, passed=False,
+                              detail="patch did not apply, or the harness errored")
+        report = result[1][inst["instance_id"]]
+    except TypeError as exc:
         return EvalResult(name=name, score=0.0, passed=False,
-                          detail="patch did not apply, or the harness errored")
-
-    report = result[1][inst["instance_id"]]
+                          detail=f"swebench run_instance signature mismatch ({exc}); "
+                                 "pin a supported swebench and adjust proteus/bench/swe.py")
+    except Exception as exc:  # noqa: BLE001 - container/build failure is a zero, not a crash
+        return EvalResult(name=name, score=0.0, passed=False,
+                          detail=f"grading error: {type(exc).__name__}: {exc}"[:200])
     resolved = bool(report.get("resolved"))
     f2p = (report.get("tests_status", {}) or {}).get(
         "FAIL_TO_PASS", {"success": [], "failure": []})
@@ -93,17 +110,18 @@ def _grade(ws: Path, inst: dict[str, Any], episode_tag: str) -> EvalResult:
 
 
 def swe_task(instance_id: str, *, dataset: str = DEFAULT_DATASET,
-             split: str = "test", episode_tag: str = "ep") -> BenchTask:
+             split: str = "test") -> BenchTask:
     """One SWE-bench instance as a `BenchTask`.
 
-    `episode_tag` must differ per episode — pass e.g. `f"ep{episode}"` — or the official
-    harness returns the previous episode's cached verdict.
+    The grader is episode-aware (`as_evaluator` passes the current episode) and folds a
+    patch digest into the official harness's cache identity, so no episode can be served
+    another episode's cached verdict.
     """
     inst = _load_instance(instance_id, dataset, split)
     return BenchTask(
         id=f"swebench:{instance_id}",
         goal_text=inst["problem_statement"],
         setup=lambda ws: _setup(ws, inst),
-        grade=lambda ws: _grade(ws, inst, episode_tag),
+        grade=lambda ws, episode=0: _grade(ws, inst, episode),
         base_commit=inst["base_commit"],
     )

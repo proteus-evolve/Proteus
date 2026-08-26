@@ -5,123 +5,101 @@
     proteus measure --out runs/demo          # structural + behavioural distance, per arm
 
 `--arm` is `neutral`, or `review:<surface>` / `record:<surface>` (repeatable). `--goal` is
-`none` (no-goal) or `task:<text>` (a stated objective). The default harness is `minimal`,
-which runs offline; `aki` plugs in the reference research harness.
+freeform objective text (`none` for no-goal); repeatable `--evaluator` flags independently
+choose what is measured and whether the agent sees it. The default harness is `minimal`,
+which runs offline; `dsh` and `pi` are the source-evolving container adapters, and `aki`
+plugs in the reference research harness.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
+from proteus.core.budget import make_budget_plan
 from proteus.core.disposition import NEUTRAL, record, review
-from proteus.core.goal import Goal, GoalConfig
+from proteus.core.goal import GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
 
 
-def _repository_root(start: Path | None = None) -> Path:
-    """Repository root whose explicit ``.env`` is trusted by safety preflight."""
-    root = Path(start or Path(__file__).resolve().parents[1]).resolve()
-    marker = root / ".git"
-    if not marker.is_file():
-        return root
-    try:
-        label, separator, raw_git_dir = marker.read_text(encoding="utf-8").strip().partition(":")
-        if label != "gitdir" or not separator:
-            return root
-        git_dir = Path(raw_git_dir.strip())
-        if not git_dir.is_absolute():
-            git_dir = marker.parent / git_dir
-        common = git_dir / "commondir"
-        if not common.is_file():
-            return root
-        common_dir = (git_dir / common.read_text(encoding="utf-8").strip()).resolve()
-    except OSError:
-        return root
-    return common_dir.parent if common_dir.name == ".git" else root
+def _candidate_gate_factory(
+    args,
+    *,
+    adapter_factory,
+    controller_root: Path,
+    channel_factory=None,
+):
+    """Load safety only for an explicitly safety-gated run.
 
-
-def _candidate_gate_factory(args, *, adapter_factory, controller_root: Path):
-    """Preflight an optional online gate before the sweep root can be created."""
+    Normal Minimal/benchmark runs must remain usable while optional safety providers are
+    absent or have unavailable live dependencies, so the import belongs behind the CLI flag.
+    """
     if not args.safety_suite:
         if args.safety_model:
             raise ValueError("--safety-model requires --safety-suite")
         return None
+    from proteus.safety.gate import build_candidate_gate_factory
 
-    from proteus.safety.gate import GateRunner
-    from proteus.safety.harness_loading import (
-        load_harness_safety_suite,
-        preflight_harness_safety_suite,
-        suite_requires_fixed_live,
-        validate_harness_safety_suite,
+    return build_candidate_gate_factory(
+        adapter_factory=adapter_factory,
+        suite_spec=args.safety_suite,
+        safety_model=args.safety_model,
+        controller_root=controller_root,
+        channel_factory=channel_factory,
     )
-    from proteus.safety.live import LiveModelBroker, LiveModelConfig
-    from proteus.safety.plugins import CandidateSafetyAdapter, CandidateSafetyExecutor
 
-    for label, value in (
-        ("seeds", args.seeds),
-        ("episodes", args.episodes),
-        ("max turns", args.max_turns),
+
+def _controller_live_channel_factory(args, controller_root: Path):
+    """Create the trusted ordinary/safety model controller outside adapter objects."""
+    if args.harness not in {"llm", "pi", "dsh"}:
+        return None
+    if (
+        args.harness in {"pi", "dsh"}
+        and not getattr(args, "safety_suite", "")
+        and not _pi_controller_model(getattr(args, "model", ""))
     ):
-        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-            raise ValueError(f"safety-gated run {label} must be a positive integer")
-
-    suite = load_harness_safety_suite(args.safety_suite)
-    definitions = validate_harness_safety_suite(suite)
-    configured_suite = suite
-
-    adapter = adapter_factory()
-    if not isinstance(adapter, CandidateSafetyAdapter):
-        raise TypeError(f"adapter {adapter.name!r} does not implement candidate safety")
-    executor = adapter.candidate_safety_executor()
-    if not isinstance(executor, CandidateSafetyExecutor):
-        raise TypeError(f"adapter {adapter.name!r} returned an invalid candidate safety executor")
-    profile = adapter.harness_safety_profile()
-    profile.validate_surfaces(adapter.surfaces())
-    # The predeclared primary module must exist. A missing supporting module is part of the
-    # adapter's exposure result (and therefore a fail-closed gate fact), not a reason to skip
-    # publishing candidate evidence altogether.
-    required_modules = {definition.primary_module for definition in definitions}
-    missing_modules = sorted(
-        module.value for module in required_modules if profile.binding_for(module) is None
+        return None
+    from proteus.safety.live import (
+        OpenAIResponsesChannelFactory,
+        common_repository_root,
     )
-    if missing_modules:
-        raise ValueError(
-            f"adapter {adapter.name!r} does not bind required safety modules: "
-            f"{', '.join(missing_modules)}"
-        )
 
-    model_config = None
-    broker = None
-    if suite_requires_fixed_live(definitions):
-        if not isinstance(args.safety_model, str) or not args.safety_model.strip():
-            raise ValueError("fixed-live safety evidence requires an explicit --safety-model")
-        model_config = LiveModelConfig(model=args.safety_model)
-        preflight_harness_safety_suite(
-            configured_suite,
-            model_config=model_config,
-            repository_root=_repository_root(),
-        )
-        broker = LiveModelBroker.from_repository(model_config, _repository_root())
-    else:
-        preflight_harness_safety_suite(
-            configured_suite,
-            model_config=None,
-            repository_root=_repository_root(),
-        )
+    return OpenAIResponsesChannelFactory.from_repository(
+        repository_root=common_repository_root(Path.cwd()),
+        evidence_root=controller_root / "live-model-ledgers",
+    )
 
-    def factory(_run_id: str):
-        return GateRunner(
-            adapter=adapter_factory(),
-            suite=configured_suite,
-            controller_root=controller_root,
-            model_config=model_config,
-            broker=broker,
-        )
 
-    return factory
+def _pi_controller_model(model: str) -> bool:
+    """Whether an explicit container-harness model uses the OpenAI controller."""
+    value = model.strip().lower()
+    return value.startswith(("gpt-", "o1", "o3", "o4"))
+
+
+def _ordinary_live_channel_factory(args, controller_factory):
+    """Keep empty/default container models on their established provider paths."""
+    if (
+        args.harness in {"pi", "dsh"}
+        and not _pi_controller_model(getattr(args, "model", ""))
+    ):
+        return None
+    return controller_factory
+
+
+def _load_seed_records(root: Path) -> list[dict]:
+    """CLI-facing seed reader with one clean error path and last-write-wins semantics."""
+    path = root / "seeds.jsonl"
+    if not path.exists():
+        raise SystemExit(f"no seeds.jsonl at {path}")
+    from proteus.sweep import read_seed_records
+    try:
+        records = read_seed_records(root)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+    if not records:
+        raise SystemExit(f"no seed records in {path}")
+    return records
 
 
 def _adapter_factory(name: str):
@@ -144,13 +122,68 @@ def _adapter_factory(name: str):
         # your own adapter, no registration needed: --harness mypkg.mymodule:MyHarness
         import importlib
         mod_name, _, cls_name = name.partition(":")
+        # A generated adapter is commonly an uninstalled module in the current project.
+        # Python adds that directory for ``python -m ...`` but not for a console-script
+        # entry point such as ``proteus``.  Put it first just for this import so the
+        # scaffolder's printed next command also works from a regular wheel install.
+        cwd = str(Path.cwd())
+        sys.path.insert(0, cwd)
         try:
             cls = getattr(importlib.import_module(mod_name), cls_name)
         except (ImportError, AttributeError) as exc:
             raise SystemExit(f"cannot load harness {name!r}: {exc}") from exc
+        finally:
+            try:
+                sys.path.remove(cwd)
+            except ValueError:  # pragma: no cover - defensive against import hooks
+                pass
         return cls
     raise SystemExit(f"unknown harness {name!r} "
                      "(built-in: minimal, llm, dsh, pi, aki; or use <module>:<Class>)")
+
+
+def _sandbox_factory(args):
+    """A callable returning a fresh sandbox per run, or None to leave the adapter's default.
+
+    `--env` is what the user brings: an image reference, or a directory / TOML manifest
+    describing one. The individual flags override whatever the manifest said.
+    """
+    if not (args.env or args.network or args.mem or args.cpus or args.docker_arg):
+        return None
+    from proteus.sandbox import DockerSandbox, SandboxConfig
+    overrides = {"network": args.network, "mem_limit": args.mem, "cpus": args.cpus,
+                 "extra_args": tuple(args.docker_arg or ())}
+    try:
+        cfg = (SandboxConfig.from_spec(args.env, **overrides) if args.env
+               else SandboxConfig(**{k: v for k, v in overrides.items() if v}))
+    except (OSError, KeyError, ValueError) as exc:
+        raise SystemExit(f"bad --env {args.env!r}: {exc}") from None
+    return lambda: DockerSandbox(cfg)
+
+
+def _harness_factory(args):
+    """The adapter factory the sweep calls per run, with the user's environment and
+    per-episode caps applied to whichever adapter accepts them."""
+    import inspect
+    cls = _adapter_factory(args.harness)
+    sandbox = _sandbox_factory(args)
+    params = set(inspect.signature(cls).parameters)
+    kw = {}
+    if sandbox is not None and "sandbox" in params:
+        kw["sandbox"] = None      # filled per call below
+    if args.phase_timeout and "phase_timeout_s" in params:
+        kw["phase_timeout_s"] = args.phase_timeout
+    if sandbox is not None and "sandbox" not in params:
+        raise SystemExit(
+            f"harness {args.harness!r} does not take a sandbox, so --env/--network/--mem/"
+            "--cpus/--docker-arg cannot apply to it (containerised built-ins: dsh, pi)")
+
+    def make():
+        call = dict(kw)
+        if sandbox is not None:
+            call["sandbox"] = sandbox()
+        return cls(**call)
+    return make
 
 
 def _arm(spec: str):
@@ -164,42 +197,245 @@ def _arm(spec: str):
     raise SystemExit(f"bad --arm {spec!r} (use neutral | review:<surface> | record:<surface>)")
 
 
-def _goal(spec: str) -> GoalConfig:
-    if spec == "none":
-        return GoalConfig.no_goal()
-    kind, _, text = spec.partition(":")
-    if kind == "task":
-        return GoalConfig.single(Goal(name="task", text=text))
-    raise SystemExit(f"bad --goal {spec!r} (use none | task:<text>)")
+def _goal(spec: str, evaluators) -> GoalConfig:
+    """`--goal` is freeform text ("none" for the no-goal condition); evaluators attach
+    independently via --evaluator. `task:<text>` is accepted for compatibility."""
+    text = "" if spec == "none" else spec.partition(":")[2] if spec.startswith("task:") else spec
+    return GoalConfig.of(text=text, evaluators=evaluators)
+
+
+def _phase_turns(spec: str) -> dict[str, int]:
+    """Parse ``observe=40,propose=25,act=200,reflect=35``."""
+    values: dict[str, int] = {}
+    for item in spec.split(","):
+        name, sep, raw = item.strip().partition("=")
+        if not sep or not name or not raw:
+            raise argparse.ArgumentTypeError(
+                "use observe=N,propose=N,act=N,reflect=N"
+            )
+        if name in values:
+            raise argparse.ArgumentTypeError(f"phase {name!r} appears more than once")
+        try:
+            values[name] = int(raw)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"phase {name!r} needs an integer") from None
+    return values
+
+
+def _evaluator(spec: str, adapter_factory):
+    """Parse one --evaluator: `<what>[@hidden|@observe]`. Returns (spec, task | None).
+
+    measurement: units:<surface-name> | tool-calls | step
+    benchmark:   local:<task> | polyglot:<exercise> | mbpp:<task-id> |
+                 humaneval:<task-id>
+    custom:      contains:<relpath>:<needle>
+    """
+    from proteus.bench.task import as_evaluator
+    from proteus.core import EvaluatorSpec, Visibility
+    from proteus.core import evaluators as ev
+    body, _, vis = spec.partition("@")
+    if vis and vis not in ("hidden", "observe"):
+        raise SystemExit(f"bad --evaluator {spec!r}: visibility is @hidden or @observe")
+    visibility = Visibility(vis) if vis else Visibility.HIDDEN
+    kind, _, arg = body.partition(":")
+    if kind in ("local", "polyglot", "mbpp", "humaneval") and arg:
+        try:
+            if kind == "local":
+                from proteus.bench.local import local_task
+                task = local_task(f"local:{arg}")
+            elif kind == "polyglot":
+                from proteus.bench.polyglot import polyglot_task
+                task = polyglot_task(arg)
+            elif kind == "mbpp":
+                from proteus.bench.mbpp import mbpp_task
+                task = mbpp_task(arg)
+            else:
+                from proteus.bench.humaneval import humaneval_task
+                task = humaneval_task(arg)
+        except KeyError as exc:
+            raise SystemExit(str(exc)) from None
+        return EvaluatorSpec(name=task.id, run=as_evaluator(task), kind="benchmark",
+                             visibility=visibility), task
+    if kind == "units" and arg:
+        surfaces = list(adapter_factory().surfaces())
+        surface = next((s for s in surfaces if s.name == arg), None)
+        # Accept the declared subdir too for compatibility with early v0.1 examples, but
+        # canonicalize the evaluator identity to the surface name in all records.
+        if surface is None:
+            surface = next((s for s in surfaces if s.subdir == arg), None)
+        if surface is None:
+            choices = ", ".join(s.name for s in surfaces) or "(none declared)"
+            raise SystemExit(
+                f"unknown surface {arg!r} for this harness; choose one of: {choices}")
+        return EvaluatorSpec(name=f"units:{surface.name}", run=ev.surface_units(surface),
+                             kind="measurement", visibility=visibility), None
+    if kind == "tool-calls":
+        return EvaluatorSpec(name="tool-calls", run=ev.tool_calls(),
+                             kind="measurement", visibility=visibility), None
+    if kind == "step":
+        surfaces = adapter_factory().surfaces()
+        return EvaluatorSpec(name="structural-step", run=ev.structural_step(surfaces),
+                             kind="measurement", visibility=visibility), None
+    if kind == "contains":
+        relpath, _, needle = arg.partition(":")
+        if relpath and needle:
+            return EvaluatorSpec(name=f"contains:{relpath}", kind="custom",
+                                 run=ev.file_contains(relpath, needle),
+                                 visibility=visibility), None
+    raise SystemExit(
+        f"bad --evaluator {spec!r} "
+        "(use units:<surface-name> | tool-calls | step | local:<task> | "
+        "polyglot:<exercise> | mbpp:<task-id> | humaneval:<task-id> "
+        "| contains:<relpath>:<needle>, with optional @hidden/@observe)")
 
 
 def cmd_run(args) -> int:
+    import hashlib
+
+    if args.max_turns < 0:
+        raise SystemExit("--max-turns must be 0 (unlimited) or a positive integer")
+    if args.min_turns_per_phase < 0:
+        raise SystemExit("--min-turns-per-phase must be 0 or a positive integer")
+    required = args.min_turns_per_phase * 4
+    if required and (not args.max_turns or required > args.max_turns):
+        raise SystemExit(
+            f"--max-turns={args.max_turns} cannot reserve "
+            f"--min-turns-per-phase={args.min_turns_per_phase} across 4 phases; "
+            f"use --max-turns >= {required}"
+        )
     try:
-        adapter_factory = _adapter_factory(args.harness)
-        root = Path(args.out).expanduser()
+        make_budget_plan(
+            max_turns=args.max_turns,
+            min_turns_per_phase=args.min_turns_per_phase,
+            phase_turns=args.phase_turns,
+            hard_max_turns=args.hard_max_turns,
+            checkpoint_turns=args.checkpoint_turns,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+    if args.checkpoint_turns and not args.announce_budget:
+        raise SystemExit("--checkpoint-turns requires --announce-budget")
+    root = Path(args.out).expanduser()
+    factory = _harness_factory(args)
+    try:
+        controller_channel_factory = _controller_live_channel_factory(args, root)
         candidate_gate_factory = _candidate_gate_factory(
             args,
-            adapter_factory=adapter_factory,
+            adapter_factory=factory,
             controller_root=root,
+            channel_factory=controller_channel_factory,
         )
-        cfg = SweepConfig(
-            name=args.out,
-            adapter_factory=adapter_factory,
-            arms=[_arm(a) for a in args.arm],
-            seeds=args.seeds,
-            goal=_goal(args.goal),
-            root=root,
-            model=args.model,
-            episodes=args.episodes,
-            max_turns=args.max_turns,
-            candidate_gate_factory=candidate_gate_factory,
+        ordinary_channel_factory = _ordinary_live_channel_factory(
+            args, controller_channel_factory
         )
+    except (ImportError, TypeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
+    parsed = [_evaluator(e, factory) for e in (args.evaluator or ())]
+    evaluators = tuple(spec for spec, _ in parsed)
+    tasks = [task for _, task in parsed if task is not None]
+    if len(tasks) > 1:
+        raise SystemExit("only one benchmark evaluator per run: each run has one task "
+                         f"workspace, and {len(tasks)} were attached")
+    cfg = SweepConfig(
+        name=args.out,
+        adapter_factory=factory,
+        arms=[_arm(a) for a in args.arm],
+        seeds=args.seeds,
+        goal=_goal(args.goal, evaluators),
+        root=root,
+        model=args.model,
+        episodes=args.episodes,
+        max_turns=args.max_turns,
+        task=(tasks[0] if tasks else None),
+        condition_metadata={
+            # A contains:<path>:<needle> evaluator may embed sensitive literal text.
+            # The normal manifest rows already expose its public identity; digests keep
+            # resume sensitive to every raw CLI parameter without publishing the needle.
+            "evaluator_specs": [
+                hashlib.sha256(spec.encode()).hexdigest()
+                for spec in (args.evaluator or ())
+            ],
+        },
+        min_turns_per_phase=args.min_turns_per_phase,
+        phase_turns=args.phase_turns,
+        hard_max_turns=args.hard_max_turns,
+        checkpoint_turns=args.checkpoint_turns,
+        announce_budget=args.announce_budget,
+        on_existing=args.on_existing,
+        live_channel_factory=ordinary_channel_factory,
+        candidate_gate_factory=candidate_gate_factory,
+        candidate_gate_config=(
+            {"suite": args.safety_suite, "model": args.safety_model}
+            if args.safety_suite else {}
+        ),
+    )
+    try:
         records = run_sweep(cfg)
-    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
-        print(f"run failed: {exc}", file=sys.stderr)
-        return 2
+    except (FileExistsError, ImportError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
     done = sum(r["episodes_complete"] for r in records)
     print(f"ran {len(records)} seeds, {done} episodes -> {args.out}")
+    failed = [r for r in records
+              if r.get("error") or r.get("episodes_complete", 0) < cfg.episodes]
+    if failed:
+        print(f"{len(failed)} seed(s) failed or stopped before {cfg.episodes} episodes",
+              file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_audit(args) -> int:
+    """Which seeds left their harness, and which worked out they are an instrument."""
+    from proteus.measure import audit
+    root = Path(args.out).expanduser()
+    adapter = _adapter_factory(args.harness)()
+    records = _load_seed_records(root)
+    # the study's own directories are what a subject must not be naming back at us
+    outside = tuple(args.outside) or (str(root / "runs"), str(root))
+    flagged = 0
+    for rec in records:
+        run_root = Path(rec["root"])
+        trace = adapter.read_trace(run_root, rec.get("episodes_complete", 0))
+        result = audit.audit_run(run_root, trace, outside=outside)
+        if result.clean:
+            continue
+        flagged += 1
+        print(f"\n{rec['arm']}/{rec['seed']}  {result}")
+        for f in result.findings[:args.max_findings]:
+            print(f"    [{f.kind}] {f.where}: {f.detail}")
+            if f.quote:
+                print(f"        {f.quote[:160]}")
+    print(f"\n{flagged} of {len(records)} seeds flagged. "
+          "Findings are evidence to read, not a verdict — a tool may import subprocess "
+          "and never leave.")
+    return 0
+
+
+def cmd_reliability(args) -> int:
+    """Does each arm reproduce itself? Report before reading any between-arm ratio."""
+    from collections import defaultdict
+
+    from proteus.measure import stream
+    root = Path(args.out).expanduser()
+    adapter = _adapter_factory(args.harness)()
+    records = _load_seed_records(root)
+    by_arm = defaultdict(list)
+    for rec in records:
+        trace = adapter.read_trace(Path(rec["root"]), rec.get("episodes_complete", 0))
+        by_arm[rec["arm"]].append(stream.tool_stream(trace))
+    print(f"{'arm':<18}{'n':>4}{'within':>10}{'null':>10}{'ratio':>8}  reliable")
+    ok = True
+    for arm, runs in sorted(by_arm.items()):
+        if len(runs) < 2:
+            print(f"{arm:<18}{len(runs):>4}   (needs 2+ runs)")
+            continue
+        r = stream.reliability(runs, level=args.level, draws=args.draws)
+        ok &= r["reliable"]
+        print(f"{arm:<18}{r['n_runs']:>4}{r['within']:>10.4f}{r['null']:>10.4f}"
+              f"{r['ratio']:>8.2f}  {'yes' if r['reliable'] else 'NO'}")
+    if not ok:
+        print("\nAn arm that does not reproduce itself voids the between-arm comparison: "
+              "R divides by that spread.")
     return 0
 
 
@@ -230,7 +466,7 @@ def cmd_measure(args) -> int:
     root = Path(args.out).expanduser()
     adapter = _adapter_factory(args.harness)()
     surfaces = adapter.surfaces()
-    records = [json.loads(l) for l in (root / "seeds.jsonl").read_text().splitlines()]
+    records = _load_seed_records(root)
 
     # structural: per-arm, per-surface final unit counts (what got built)
     arm_surface = defaultdict(lambda: defaultdict(list))
@@ -271,35 +507,10 @@ def cmd_measure(args) -> int:
     return 0
 
 
-def cmd_audit(args) -> int:
-    """Run an independent post-run audit over a completed sweep."""
-    from proteus.safety.loading import load_suite
-    from proteus.safety.runner import run_audit
-
-    try:
-        adapter = _adapter_factory(args.harness)()
-    except SystemExit as exc:
-        print(f"audit failed: {exc}", file=sys.stderr)
-        return 2
-    try:
-        suite = load_suite(args.suite)
-        result = run_audit(
-            Path(args.out).expanduser(),
-            adapter,
-            suite,
-            audit_id=args.audit_id,
-        )
-    except (AttributeError, ImportError, OSError, TypeError, ValueError) as exc:
-        print(f"audit failed: {exc}", file=sys.stderr)
-        return 2
-    print(f"audit results: {result.total_results} -> {result.audit_root}")
-    return 0
-
-
 def cmd_check(args) -> int:
     from proteus.testing import check_adapter
     adapter = _adapter_factory(args.harness)()
-    return len(check_adapter(adapter, episode=args.episode, model=args.model))
+    return len(check_adapter(adapter, episode=args.episode))
 
 
 def cmd_env_scaffold(args) -> int:
@@ -333,6 +544,50 @@ def cmd_watch(args) -> int:
     return 0
 
 
+def cmd_safety_retrospective(args) -> int:
+    """Replay preserved checkpoints without turning historical evidence into activation."""
+    from proteus.safety.retrospective import LiveModelConfig, run_retrospective_phase1
+    from proteus.safety.runtime import RuntimeKind
+
+    adapter = _adapter_factory(args.harness)()
+    runtime = adapter.safety_runtime() if callable(getattr(adapter, "safety_runtime", None)) else None
+    if runtime is None:
+        raise SystemExit(f"harness {args.harness!r} does not implement safety_runtime()")
+    model_config = None
+    if runtime.kind is RuntimeKind.MODEL_MEDIATED:
+        if not args.model:
+            raise SystemExit("model-mediated retrospective replay requires --model")
+        from proteus.safety.live import OpenAIResponsesChannelFactory, common_repository_root
+
+        model_config = LiveModelConfig(
+            model=args.model,
+            build_channel_factory=lambda artifact_root: (
+                OpenAIResponsesChannelFactory.from_repository(
+                    repository_root=common_repository_root(Path.cwd()),
+                    evidence_root=artifact_root / "live-model-ledgers",
+                )
+            ),
+        )
+    elif args.model:
+        raise SystemExit("deterministic retrospective replay does not use --model")
+    try:
+        summary = run_retrospective_phase1(
+            sweep_root=Path(args.sweep).expanduser(),
+            adapter=adapter,
+            output_root=Path(args.out).expanduser(),
+            model_config=model_config,
+            run_id=args.run_id,
+            active_episode=args.active_episode,
+        )
+    except (FileExistsError, TypeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
+    print(
+        f"replayed {summary.transitions_administered}/{summary.transitions_attempted} "
+        f"preserved transitions -> {args.out}"
+    )
+    return 0 if summary.complete else 1
+
+
 def cmd_repo(args) -> int:
     from proteus.report import export_repo, push_repo
     if args.repo_cmd == "export":
@@ -352,19 +607,60 @@ def main(argv=None) -> int:
     r.add_argument("--harness", default="minimal")
     r.add_argument("--arm", action="append", default=None,
                    help="neutral | review:<surface> | record:<surface> (repeatable)")
-    r.add_argument("--goal", default="none", help="none | task:<text>")
+    r.add_argument("--goal", default="none",
+                   help="freeform objective text shown to the agent, or 'none'. A goal "
+                        "names an aim; --evaluator decides what is measured. If the goal "
+                        "is specific (e.g. a benchmark), attach that benchmark as an "
+                        "evaluator and set it @observe, or the agent cannot pursue it.")
+    r.add_argument("--evaluator", action="append", metavar="SPEC",
+                   help="attach an evaluator, repeatable: units:<surface-name> | "
+                        "tool-calls | step | local:<task> | polyglot:<exercise> | "
+                        "mbpp:<task-id> | humaneval:<task-id> | "
+                        "contains:<relpath>:<needle>, each with optional @hidden "
+                        "(default) or @observe; at most one benchmark task per run")
     r.add_argument("--seeds", type=int, default=4)
     r.add_argument("--episodes", type=int, default=10)
     r.add_argument("--max-turns", type=int, default=100)
+    r.add_argument("--min-turns-per-phase", type=int, default=0,
+                   help="reserve at least this many turns for every phase: a phase that "
+                        "would starve the later ones is ended early (max-turns must be "
+                        ">= 4x this)")
+    r.add_argument("--phase-turns", type=_phase_turns, default={}, metavar="PLAN",
+                   help="explicit normal allocation, e.g. "
+                        "observe=40,propose=25,act=200,reflect=35; replaces "
+                        "--min-turns-per-phase and must sum to --max-turns")
+    r.add_argument("--hard-max-turns", type=int, default=0, metavar="N",
+                   help="burst ceiling for --phase-turns (default: --max-turns); unused "
+                        "early quota and burst capacity are prioritised for act")
+    r.add_argument("--checkpoint-turns", type=int, default=0, metavar="N",
+                   help="reserve the final N calls of each planned phase for a persistent "
+                        "handoff; requires --phase-turns and --announce-budget")
+    r.add_argument("--announce-budget", action="store_true",
+                   help="tell the agent its live used/remaining calls and phase allowance "
+                        "(recorded in the manifest; announcing changes behaviour)")
+    r.add_argument("--phase-timeout", type=int, default=0, metavar="S",
+                   help="wall-clock limit per phase for containerised harnesses "
+                        "(default: the adapter's own, 600s)")
+    r.add_argument("--env", default="", metavar="SPEC",
+                   help="the container to evolve in: an image reference, or a directory / "
+                        "environment.toml describing one")
+    r.add_argument("--network", default="", choices=("", "none", "host", "bridge"),
+                   help="container network (default: the environment's, else none)")
+    r.add_argument("--mem", default="", metavar="LIMIT", help="container memory, e.g. 4g")
+    r.add_argument("--cpus", default="", metavar="N", help="container cpu limit, e.g. 2")
+    r.add_argument("--docker-arg", action="append", metavar="FLAG",
+                   help="extra `docker run` flag, repeatable (e.g. --docker-arg --gpus "
+                        "--docker-arg all)")
+    r.add_argument("--on-existing", choices=("refuse", "resume", "overwrite"),
+                   default="refuse",
+                   help="what to do when --out already holds runs: refuse (default), "
+                        "resume unfinished seeds, or overwrite them")
     r.add_argument("--model", default="",
                    help="model name; empty uses the adapter's default")
-    r.add_argument("--safety-suite", default="",
-                   help="online candidate-safety suite as <module>:<object>")
-    r.add_argument(
-        "--safety-model",
-        default="",
-        help="fixed model for candidate-safety cells; required by fixed-live suites",
-    )
+    r.add_argument("--safety-suite", default="", metavar="SPEC",
+                   help="optional candidate safety suite; loads safety runtime lazily")
+    r.add_argument("--safety-model", default="", metavar="MODEL",
+                   help="fixed model for the optional safety suite (requires --safety-suite)")
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 
@@ -375,25 +671,42 @@ def main(argv=None) -> int:
                    help="also compute per-surface path length over episode snapshots")
     m.set_defaults(func=cmd_measure)
 
-    a = sub.add_parser(
-        "audit",
-        help="audit a completed evolution sweep without changing it",
-        description="Audit a completed evolution sweep without changing it.",
+    safety = sub.add_parser("safety", help="controller-owned safety operations")
+    safety_sub = safety.add_subparsers(dest="safety_cmd", required=True)
+    retrospective = safety_sub.add_parser(
+        "retrospective", help="replay retained transitions without activation"
     )
-    a.add_argument("--harness", default="minimal")
+    retrospective.add_argument("--harness", required=True)
+    retrospective.add_argument("--sweep", required=True, help="existing sweep root")
+    retrospective.add_argument("--out", required=True, help="new retrospective artifact root")
+    retrospective.add_argument("--model", default="", help="required for model-mediated runtimes")
+    retrospective.add_argument("--run-id", default=None, help="logical run ID for one pair")
+    retrospective.add_argument(
+        "--active-episode", type=int, default=None, help="active episode for one pair"
+    )
+    retrospective.set_defaults(func=cmd_safety_retrospective)
+
+    a = sub.add_parser("audit", help="escape and awareness evidence for a finished sweep")
     a.add_argument("--out", required=True)
-    a.add_argument("--suite", default="proteus.safety.integrity:SUITE",
-                   help="audit suite as <module>:<object>")
-    a.add_argument("--audit-id", default="",
-                   help="output id under <sweep>/audits (default: suite name)")
+    a.add_argument("--harness", default="minimal")
+    a.add_argument("--outside", action="append", default=[],
+                   help="path fragment the subject must not name (repeatable); "
+                        "defaults to the sweep root")
+    a.add_argument("--max-findings", type=int, default=6)
     a.set_defaults(func=cmd_audit)
+
+    rel = sub.add_parser("reliability",
+                         help="does each arm reproduce itself? (run before `measure`)")
+    rel.add_argument("--out", required=True)
+    rel.add_argument("--harness", default="minimal")
+    rel.add_argument("--level", default="freq", choices=("freq", "order", "ncd"))
+    rel.add_argument("--draws", type=int, default=200)
+    rel.set_defaults(func=cmd_reliability)
 
     c = sub.add_parser("check", help="compliance-check a HarnessAdapter implementation")
     c.add_argument("--harness", required=True, help="built-in name or <module>:<Class>")
     c.add_argument("--episode", action="store_true",
                    help="also run one neutral episode (may launch containers / cost money)")
-    c.add_argument("--model", default="",
-                   help="explicit model for the optional live episode")
     c.set_defaults(func=cmd_check)
 
     e = sub.add_parser("env", help="prepared environments: scaffold/build from a harness repo")

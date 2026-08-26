@@ -1,7 +1,7 @@
 """Adapter compliance check: does a `HarnessAdapter` implementation hold the contract?
 
     proteus check --harness mypkg.my_adapter:MyHarness            # static + provisioning
-    proteus check --harness mypkg.my_adapter:MyHarness --episode --model <model>
+    proteus check --harness mypkg.my_adapter:MyHarness --episode  # also run one episode
 
 Static checks cost nothing and run anywhere; `--episode` actually executes one neutral
 episode through the adapter (which may launch containers / call a model, i.e. cost money)
@@ -19,13 +19,7 @@ from proteus.core.adapter import ActionEvent, HarnessAdapter
 from proteus.core.episode import RunConfig, run
 
 
-def check_adapter(
-    adapter,
-    *,
-    episode: bool = False,
-    model: str = "",
-    verbose: bool = True,
-) -> list[str]:
+def check_adapter(adapter, *, episode: bool = False, verbose: bool = True) -> list[str]:
     """Run the compliance checks; returns the list of failure messages."""
     failures: list[str] = []
 
@@ -42,6 +36,10 @@ def check_adapter(
     ok(len(surfaces) > 0, "declares at least one surface")
     ok(all(s.name and s.subdir for s in surfaces), "surfaces have name and subdir")
     ok(len({s.name for s in surfaces}) == len(surfaces), "surface names are unique")
+    from proteus.core.continuity import MODES
+    continuity = getattr(adapter, "continuity_mode", "native")
+    ok(continuity in MODES, "declares a valid continuity mode",
+       f"expected one of {sorted(MODES)}, got {continuity!r}")
 
     # --- provisioning (filesystem only) --------------------------------------------------
     with tempfile.TemporaryDirectory(prefix="proteus-check-") as tmp:
@@ -80,9 +78,9 @@ def check_adapter(
     # --- one live episode (optional: may cost money) --------------------------------------
     if episode:
         with tempfile.TemporaryDirectory(prefix="proteus-check-ep-") as tmp:
-            cfg = RunConfig(name="check", run_id="run-check", adapter=adapter, disposition=NEUTRAL,
+            cfg = RunConfig(name="check", adapter=adapter, disposition=NEUTRAL,
                             goal=GoalConfig.no_goal(), root=Path(tmp) / "run",
-                            model=model, episodes=1, seed=0)
+                            model="", episodes=1, seed=0)
             res = run(cfg)
             ok(res.episodes_complete == 1, "one neutral episode completes",
                res.error or "episode did not complete")

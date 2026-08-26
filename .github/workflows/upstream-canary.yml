@@ -1,0 +1,75 @@
+# The upstream canary: bake dsh and pi from their LATEST main and run one small live
+# sweep. ADVISORY — this workflow going red never blocks a release (that is
+# release-smoke.yml, on pinned versions); it exists so upstream drift is known within a
+# week instead of at the next adapter change. A failure opens (or refreshes) an issue.
+name: upstream-canary
+
+on:
+  schedule:
+    - cron: "30 2 * * 1"   # Mondays, after the release smoke
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        harness: [pi, dsh]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -e . && pip install zstandard
+      - name: require the API secret
+        run: |
+          if [ -z "${{ secrets.DEEPSEEK_API_KEY }}" ]; then
+            echo "::error::add DEEPSEEK_API_KEY under Settings -> Secrets -> Actions"; exit 1
+          fi
+      - name: bake from latest upstream main
+        id: bake
+        run: |
+          set -e
+          if [ "${{ matrix.harness }}" = "pi" ]; then
+            git clone --depth 1 https://github.com/badlogic/pi-mono /tmp/src
+            docker run --rm -v /tmp/src:/opt/src -w /opt/src node:24-slim \
+              sh -c 'npm ci --no-audit --no-fund && npm run hydrate:model-data'
+            sudo rm -rf /tmp/src/node_modules /tmp/src/packages/*/dist /tmp/src/packages/*/*/dist
+            cp environments/pi-src/boot.sh /tmp/src/.proteus-boot.sh
+            docker build -f environments/pi-src/Dockerfile \
+              -t proteus-env-pi-src:0.84.2 /tmp/src
+          else
+            git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness /tmp/src
+            cp environments/dsh-src/boot.sh /tmp/src/.proteus-boot.sh
+            docker build -f environments/dsh-src/Dockerfile \
+              -t proteus-env-dsh-src:0.1.0-rc.7 /tmp/src
+          fi
+          echo "sha=$(git -C /tmp/src rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: one live seed against latest
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python -m proteus.cli run --harness ${{ matrix.harness }} \
+            --arm neutral --seeds 1 --episodes 2 \
+            --max-turns 10 --min-turns-per-phase 2 --announce-budget \
+            --goal "Get better at your work, however you judge it." \
+            --evaluator units:notes --evaluator step@observe --evaluator tool-calls \
+            --out /tmp/canary
+          python scripts/smoke_check.py /tmp/canary --harness ${{ matrix.harness }}
+      - name: open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="upstream canary: ${{ matrix.harness }} latest (${{ steps.bake.outputs.sha }}) broke the adapter"
+          existing=$(gh issue list --search "$title" --state open --json number --jq '.[0].number' || true)
+          if [ -z "$existing" ]; then
+            gh issue create --title "$title" \
+              --body "The weekly canary against ${{ matrix.harness }} upstream main failed. Advisory: releases gate on pinned versions, but the adapter will need attention before the next version bump. See the run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi

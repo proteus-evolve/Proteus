@@ -10,3 +10,4 @@ runs/
 *.jsonl
 .env
 .DS_Store
+.scratch-*/

@@ -1,22 +1,18 @@
-"""Candidate snapshots are evaluated off-tree and activated only by conjunction."""
+"""Candidate-gated activation keeps current-main's transaction semantics."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
-
 from proteus.adapters.minimal import MinimalHarness, mock_policy
-from proteus.core import Goal, GoalConfig, review, snapshot
+from proteus.bench.task import BenchTask
+from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, snapshot
 from proteus.core.activation import CandidateGateResult
-from proteus.core.episode import RunConfig, run
+from proteus.core.episode import RunConfig, pending_candidate_path, run
 from proteus.core.goal import EvalResult
 
 
 class RecordingHarness(MinimalHarness):
-    """A real minimal harness that retains the prompts it was given."""
-
     def __init__(self) -> None:
         super().__init__(policy=mock_policy)
         self.prompts: dict[int, dict[str, str]] = {}
@@ -27,30 +23,16 @@ class RecordingHarness(MinimalHarness):
 
 
 class ScriptedGate:
-    def __init__(self, outcomes):
+    def __init__(self, outcomes: list[CandidateGateResult]) -> None:
         self.outcomes = outcomes
         self.contexts = []
-        self.candidate_has_notes = []
 
     def evaluate(self, context):
         self.contexts.append(context)
-        self.candidate_has_notes.append((context.candidate_root / "notes").is_dir())
-        outcome = self.outcomes[context.episode - 1]
-        if isinstance(outcome, Exception):
-            raise outcome
-        return outcome
+        return self.outcomes[context.episode - 1]
 
 
-class CandidateMutationGate:
-    def __init__(self) -> None:
-        self.saw_task_mutation = False
-
-    def evaluate(self, context):
-        self.saw_task_mutation = (context.candidate_root / "task-evaluator-mutation.txt").exists()
-        return CandidateGateResult(True, "pass", "gates/one")
-
-
-def _cfg(tmp_path, *, gate, goal=None, episodes=2, progress_path=None):
+def _cfg(tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=None):
     return RunConfig(
         name="candidate-test",
         run_id="run-candidate-test",
@@ -62,7 +44,8 @@ def _cfg(tmp_path, *, gate, goal=None, episodes=2, progress_path=None):
         episodes=episodes,
         seed=0,
         candidate_gate=gate,
-        progress_path=progress_path,
+        task=task,
+        grader_sandbox=grader_sandbox,
     )
 
 
@@ -74,186 +57,93 @@ def _files(root: Path) -> dict[str, bytes]:
     }
 
 
-def test_freezes_candidate_before_task_and_gate_evaluation(tmp_path):
+def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):
     gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
-    seen = []
+    seen = {}
+    grader = object()
 
-    work_tree = tmp_path / "run" / "harness"
+    def setup(workspace: Path) -> None:
+        (workspace / "task.txt").write_text("seeded", encoding="utf-8")
 
-    def evaluator(_trace, context):
-        candidate = snapshot.candidate_for_episode(work_tree, 1)
-        seen.append((candidate, Path(context.harness_root)))
-        return EvalResult(name="task", score=1.0)
-
-    cfg = _cfg(tmp_path, gate=gate, goal=GoalConfig.single(Goal("task", evaluator=evaluator)), episodes=1)
-    run(cfg)
-
-    assert seen[0][0] is not None
-    assert seen[0][0].to_dict() == {
-        "run_id": "run-candidate-test", "episode": 1, "role": "candidate",
-    }
-    assert seen[0][1] != work_tree
-    assert gate.contexts[0].candidate == seen[0][0]
-    assert gate.candidate_has_notes == [True]
-
-
-def test_pass_activates_the_exact_frozen_candidate_tree(tmp_path):
-    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
-    result = run(_cfg(tmp_path, gate=gate, episodes=1))
-    work_tree = Path(result.root) / "harness"
-    candidate = snapshot.candidate_for_episode(work_tree, 1)
-    active = snapshot.commit_for_episode(work_tree, 1)
-
-    assert candidate is not None
-    assert active is not None
-    materialized = tmp_path / "candidate"
-    snapshot.materialize_candidate(work_tree, candidate, materialized)
-    assert any((materialized / "notes").glob("*.md"))
-    active_root = tmp_path / "active"
-    snapshot.materialize(work_tree, active, active_root)
-    assert _files(materialized) == _files(active_root)
-
-
-@pytest.mark.parametrize(
-    "outcome",
-    [
-        CandidateGateResult(False, "fail", "gates/fail"),
-        CandidateGateResult(False, "not_evaluated", "gates/not-evaluated"),
-        CandidateGateResult(False, "invalid", "gates/invalid"),
-        CandidateGateResult(False, "error", "gates/error"),
-        CandidateGateResult(True, "fail", "gates/contradictory-fail"),
-        CandidateGateResult(True, "not_evaluated", "gates/contradictory-not-evaluated"),
-        CandidateGateResult(True, "invalid", "gates/contradictory-invalid"),
-        CandidateGateResult(True, "error", "gates/contradictory-error"),
-        RuntimeError("gate crashed"),
-    ],
-)
-def test_nonpassing_gate_restores_previous_active_tree(tmp_path, outcome):
-    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one"), outcome])
-    result = run(_cfg(tmp_path, gate=gate))
-    work_tree = Path(result.root) / "harness"
-    active_one = snapshot.commit_for_episode(work_tree, 1)
-    active_two = snapshot.commit_for_episode(work_tree, 2)
-
-    assert active_one is not None and active_two is not None
-    active_one_root = tmp_path / "active-one"
-    active_two_root = tmp_path / "active-two"
-    snapshot.materialize(work_tree, active_one, active_one_root)
-    snapshot.materialize(work_tree, active_two, active_two_root)
-    assert _files(active_two_root) == _files(active_one_root)
-    rejected = snapshot.candidate_for_episode(work_tree, 2)
-    assert rejected is not None
-    rejected_root = tmp_path / "rejected"
-    snapshot.materialize_candidate(work_tree, rejected, rejected_root)
-    assert _files(rejected_root) != _files(active_one_root)
-
-
-@pytest.mark.parametrize(
-    "task_selected,gate_allowed",
-    [(False, True), (True, False)],
-)
-def test_task_selection_and_gate_must_both_allow_activation(tmp_path, task_selected, gate_allowed):
-    scores = {1: 1.0, 2: 0.0 if not task_selected else 2.0}
+    task = BenchTask("fixture", "fixture task", setup=setup, grade=lambda *_: None)
 
     def evaluator(_trace, context):
-        return EvalResult(name="task", score=scores[context.episode])
-
-    gate = ScriptedGate([
-        CandidateGateResult(True, "pass", "gates/one"),
-        CandidateGateResult(gate_allowed, "pass" if gate_allowed else "fail", "gates/two"),
-    ])
-    goal = GoalConfig.single(Goal("task", evaluator=evaluator), selection="accept_reject")
-    result = run(_cfg(tmp_path, gate=gate, goal=goal))
-
-    assert result.eval_history[1]["task_selected"] is task_selected
-    assert result.eval_history[1]["activated"] is False
-    assert len(gate.contexts) == 2
-
-
-def test_safety_gate_receives_an_unmodified_frozen_candidate(tmp_path):
-    gate = CandidateMutationGate()
-
-    def evaluator(_trace, context):
-        (Path(context.harness_root) / "task-evaluator-mutation.txt").write_text("mutated")
+        seen["harness"] = Path(context.harness_root)
+        seen["active"] = Path(context.active_harness_root)
+        seen["task"] = Path(context.task_root)
+        seen["grader"] = context.grader_sandbox
+        seen["task_content"] = (Path(context.task_root) / "task.txt").read_text(encoding="utf-8")
+        (Path(context.harness_root) / "task-only-mutation.txt").write_text("mutated")
         return EvalResult(name="task", score=1.0)
 
     result = run(_cfg(
         tmp_path,
         gate=gate,
         goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
+        task=task,
         episodes=1,
+        grader_sandbox=grader,
     ))
 
+    harness = Path(result.root) / "harness"
+    assert seen["harness"] != harness
+    assert seen["active"] != harness
+    assert seen["task"] == seen["harness"].parent / "task"
+    assert seen["task_content"] == "seeded"
+    assert seen["grader"] is grader
+    assert gate.contexts[0].candidate_root != seen["harness"]
+    assert not (gate.contexts[0].candidate_root / "task-only-mutation.txt").exists()
     assert result.eval_history[0]["activated"] is True
-    assert gate.saw_task_mutation is False
 
 
-def test_task_evaluator_exception_still_runs_safety_and_commits_rejected_episode(tmp_path):
-    sentinel = "SENTINEL-PRIVATE-TASK-ERROR"
-    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
-
-    def evaluator(_trace, _context):
-        raise RuntimeError(sentinel)
-
-    result = run(
-        _cfg(
-            tmp_path,
-            gate=gate,
-            goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
-            episodes=2,
-        )
-    )
-    work_tree = Path(result.root) / "harness"
-
-    assert len(gate.contexts) == 1
-    assert result.episodes_complete == 1
-    assert result.error == "RuntimeError: task evaluation failed"
-    assert result.eval_history == [
-        {"episode": 1, "task_selected": False, "activated": False, "results": []}
-    ]
-    assert snapshot.commit_for_episode(work_tree, 1) is not None
-    assert snapshot.candidate_for_episode(work_tree, 1) is not None
-
-    active_zero = tmp_path / "active-zero"
-    active_one = tmp_path / "active-one"
-    seeded = snapshot.commit_for_episode(work_tree, 0)
-    rejected = snapshot.commit_for_episode(work_tree, 1)
-    assert seeded is not None and rejected is not None
-    snapshot.materialize(work_tree, seeded, active_zero)
-    snapshot.materialize(work_tree, rejected, active_one)
-    assert _files(active_one) == _files(active_zero)
-
-    subject_text = "\n".join(
-        path.read_text(errors="ignore")
-        for path in Path(result.root).rglob("*")
-        if path.is_file() and ".snapshot.git" not in path.parts
-    )
-    assert sentinel not in subject_text
-
-
-def test_candidates_remain_materializable_and_active_mapping_is_gapless(tmp_path):
+def test_nonpassing_gate_preserves_candidate_and_restores_active_tree(tmp_path):
     gate = ScriptedGate([
         CandidateGateResult(True, "pass", "gates/one"),
         CandidateGateResult(False, "fail", "gates/two"),
-        CandidateGateResult(True, "pass", "gates/three"),
     ])
-    result = run(_cfg(tmp_path, gate=gate, episodes=3))
-    work_tree = Path(result.root) / "harness"
+    result = run(_cfg(tmp_path, gate=gate))
+    harness = Path(result.root) / "harness"
+    active_one = snapshot.commit_for_episode(harness, 1)
+    active_two = snapshot.commit_for_episode(harness, 2)
+    candidate_two = snapshot.candidate_for_episode(harness, 2)
 
-    for episode in (1, 2, 3):
-        assert snapshot.commit_for_episode(work_tree, episode) is not None
-        candidate = snapshot.candidate_for_episode(work_tree, episode)
-        assert candidate is not None
-        destination = tmp_path / f"candidate-{episode}"
-        snapshot.materialize_candidate(work_tree, candidate, destination)
-        assert (destination / "STATE.md").is_file()
+    assert active_one is not None and active_two is not None and candidate_two is not None
+    one = tmp_path / "one"
+    two = tmp_path / "two"
+    rejected = tmp_path / "rejected"
+    snapshot.materialize(harness, active_one, one)
+    snapshot.materialize(harness, active_two, two)
+    snapshot.materialize_candidate(harness, candidate_two, rejected)
+    assert _files(two) == _files(one)
+    assert _files(rejected) != _files(one)
+    assert result.eval_history[1]["safety_status"] == "fail"
+    assert result.eval_history[1]["activated"] is False
 
 
-def test_indicator_feedback_never_enters_agent(tmp_path):
-    sentinel = "SENTINEL-INDICATOR-FAILURE"
-    progress = tmp_path / "controller" / "progress.jsonl"
-    gate = ScriptedGate([CandidateGateResult(False, sentinel, "gates/candidate-0001/decision.json")])
-    cfg = _cfg(tmp_path, gate=gate, episodes=1, progress_path=progress)
+def test_rejected_gate_does_not_advance_accept_reject_score_baseline(tmp_path):
+    scores = {1: 1.0, 2: 0.0}
+
+    def evaluator(_trace, context):
+        return EvalResult(name="task", score=scores[context.episode])
+
+    gate = ScriptedGate([
+        CandidateGateResult(False, "fail", "gates/one"),
+        CandidateGateResult(True, "pass", "gates/two"),
+    ])
+    result = run(_cfg(
+        tmp_path,
+        gate=gate,
+        goal=GoalConfig.single(Goal("task", evaluator=evaluator), selection="accept_reject"),
+    ))
+
+    assert [row["task_selected"] for row in result.eval_history] == [True, True]
+    assert [row["activated"] for row in result.eval_history] == [False, True]
+
+
+def test_gate_detail_never_enters_agent_feedback(tmp_path):
+    sentinel = "SENTINEL-GATE-DETAIL"
+    gate = ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")])
+    cfg = _cfg(tmp_path, gate=gate, episodes=1)
     result = run(cfg)
 
     subject_text = "\n".join(
@@ -263,24 +153,180 @@ def test_indicator_feedback_never_enters_agent(tmp_path):
     )
     assert sentinel not in subject_text
     assert all(sentinel not in prompt for prompts in cfg.adapter.prompts.values() for prompt in prompts.values())
-
-    record = json.loads(progress.read_text().strip())
-    assert record["task_selected"] is True
-    assert record["activated"] is False
-    assert record["decision_ref"] == "gates/candidate-0001/decision.json"
-    assert "accepted" not in record
-    assert sentinel not in json.dumps(result.eval_history)
+    assert result.eval_history[0]["decision_ref"] == "gates/one"
 
 
-def test_progress_path_inside_subject_run_is_rejected(tmp_path):
+def test_snapshot_refs_are_logical_and_candidate_materialization_uses_them(tmp_path):
+    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
+    result = run(_cfg(tmp_path, gate=gate, episodes=1))
+    harness = Path(result.root) / "harness"
+    candidate = snapshot.candidate_for_episode(harness, 1)
+    assert candidate is not None
+    assert candidate.to_dict() == {
+        "run_id": "run-candidate-test", "episode": 1, "role": "candidate",
+    }
+    destination = tmp_path / "candidate"
+    snapshot.materialize_candidate(harness, candidate, destination)
+    assert (destination / "STATE.md").is_file()
+
+
+def test_gate_rejection_removes_ignored_candidate_files_from_live_harness(tmp_path):
+    class IgnoredCandidateHarness(RecordingHarness):
+        def run_episode(self, spec):
+            result = super().run_episode(spec)
+            (spec.root / "harness" / ".gitignore").write_text("ignored.txt\n", encoding="utf-8")
+            (spec.root / "harness" / "ignored.txt").write_text("candidate", encoding="utf-8")
+            return result
+
     cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+        gate=ScriptedGate([CandidateGateResult(False, "fail", "gates/one")]),
         episodes=1,
-        progress_path=tmp_path / "run" / "controller" / "progress.jsonl",
     )
+    cfg.adapter = IgnoredCandidateHarness()
+    result = run(cfg)
+    harness = Path(result.root) / "harness"
+    candidate = snapshot.candidate_for_episode(harness, 1)
+    assert candidate is not None
+    preserved = tmp_path / "preserved"
+    snapshot.materialize_candidate(harness, candidate, preserved)
+    assert (preserved / "ignored.txt").read_text(encoding="utf-8") == "candidate"
+    assert not (harness / "ignored.txt").exists()
 
-    with pytest.raises(ValueError, match="outside the subject run"):
-        run(cfg)
 
-    assert not cfg.root.exists()
+def test_resume_uses_only_previously_activated_scores_as_its_selection_baseline(tmp_path):
+    scores = {1: 1.0, 2: 0.0}
+
+    def evaluator(_trace, context):
+        return EvalResult(name="task", score=scores[context.episode])
+
+    goal = GoalConfig.single(Goal("task", evaluator=evaluator), selection="accept_reject")
+    first = run(_cfg(
+        tmp_path,
+        gate=ScriptedGate([CandidateGateResult(False, "fail", "gates/one")]),
+        goal=goal,
+        episodes=1,
+    ))
+    resumed_cfg = _cfg(
+        tmp_path,
+        gate=ScriptedGate([
+            CandidateGateResult(False, "fail", "unused"),
+            CandidateGateResult(True, "pass", "gates/two"),
+        ]),
+        goal=goal,
+        episodes=2,
+    )
+    resumed = run(resumed_cfg, start=first.episodes_complete, resume=True)
+
+    assert [row["activated"] for row in resumed.eval_history] == [False, True]
+    assert resumed.eval_history[1]["task_selected"] is True
+
+
+def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
+    sentinel = "SENTINEL-SAFETY-ONLY-REJECTION"
+
+    def evaluator(_trace, _context):
+        return EvalResult(name="task", score=1.0, detail="task feedback")
+
+    goal = GoalConfig.single(
+        Goal("task", evaluator=evaluator, visibility=Visibility.OBSERVE)
+    )
+    cfg = _cfg(
+        tmp_path,
+        gate=ScriptedGate([
+            CandidateGateResult(False, sentinel, "gates/one"),
+            CandidateGateResult(True, "pass", "gates/two"),
+        ]),
+        goal=goal,
+    )
+    result = run(cfg)
+
+    observe = cfg.adapter.prompts[2]["observe"]
+    assert "Feedback on your last episode" in observe
+    assert "not kept" not in observe
+    assert sentinel not in observe
+    assert result.eval_history[0]["task_selected"] is True
+    assert result.eval_history[0]["activated"] is False
+
+
+def test_resume_after_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
+    sentinel = "SENTINEL-RESUMED-SAFETY-REJECTION"
+
+    def evaluator(_trace, _context):
+        return EvalResult(name="task", score=1.0, detail="task feedback")
+
+    goal = GoalConfig.single(
+        Goal("task", evaluator=evaluator, visibility=Visibility.OBSERVE)
+    )
+    first = run(_cfg(
+        tmp_path,
+        gate=ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")]),
+        goal=goal,
+        episodes=1,
+    ))
+    resumed_cfg = _cfg(
+        tmp_path,
+        gate=ScriptedGate([
+            CandidateGateResult(False, "unused", "unused"),
+            CandidateGateResult(True, "pass", "gates/two"),
+        ]),
+        goal=goal,
+        episodes=2,
+    )
+    run(resumed_cfg, start=first.episodes_complete, resume=True)
+
+    observe = resumed_cfg.adapter.prompts[2]["observe"]
+    assert "Feedback on your last episode" in observe
+    assert "not kept" not in observe
+    assert sentinel not in observe
+
+
+def test_staged_viability_repair_keeps_active_runtime_then_activates_through_gate(tmp_path):
+    class StagedHarness(MinimalHarness):
+        staged_activation = True
+
+        def __init__(self) -> None:
+            super().__init__(policy=mock_policy)
+            self.active_observations = []
+
+        def run_episode(self, spec):
+            active = Path(spec.active_root)
+            candidate = spec.root / "harness"
+            self.active_observations.append({
+                "episode": spec.episode,
+                "active_broken": (active / "BROKEN").exists(),
+                "candidate_broken": (candidate / "BROKEN").exists(),
+            })
+            if spec.episode == 1:
+                (candidate / "BROKEN").write_text("does not compile\n", encoding="utf-8")
+                assert not (active / "BROKEN").exists()
+            else:
+                assert (candidate / "BROKEN").read_text(encoding="utf-8") == "does not compile\n"
+                assert not (active / "BROKEN").exists()
+                (candidate / "BROKEN").unlink()
+                (candidate / "repaired.txt").write_text("healthy\n", encoding="utf-8")
+            return EpisodeResult(episode=spec.episode, ok=True)
+
+        def validate_candidate(self, harness_root):
+            return "compile failed" if (Path(harness_root) / "BROKEN").exists() else ""
+
+    adapter = StagedHarness()
+    gate = ScriptedGate([
+        CandidateGateResult(False, "unused", "unused"),
+        CandidateGateResult(True, "pass", "gates/two"),
+    ])
+    root = tmp_path / "staged"
+    result = run(RunConfig(
+        name="staged", run_id="run-staged", adapter=adapter, disposition=review("notes"),
+        goal=GoalConfig(), root=root, model="mock", episodes=2, candidate_gate=gate,
+    ))
+
+    assert adapter.active_observations == [
+        {"episode": 1, "active_broken": False, "candidate_broken": False},
+        {"episode": 2, "active_broken": False, "candidate_broken": True},
+    ]
+    assert [context.episode for context in gate.contexts] == [2]
+    assert result.eval_history[0]["failure_kind"] == "viability"
+    assert result.eval_history[1]["activated"] is True
+    assert (root / "harness" / "repaired.txt").read_text(encoding="utf-8") == "healthy\n"
+    assert not pending_candidate_path(root).exists()

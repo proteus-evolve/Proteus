@@ -1,37 +1,9 @@
 """Aki adapter, measure path — pure parsing, no Aki checkout required."""
 
 import json
-from dataclasses import dataclass
-
-import pytest
 
 from proteus.adapters.aki import AkiHarness
-from proteus.core.adapter import EpisodeSpec
 from proteus.core.disposition import NEUTRAL, record, review
-
-
-@dataclass(frozen=True)
-class _NativeRunConfig:
-    model: str = "glm-5.2"
-    max_turns: int = 40
-
-
-class _Supervisor:
-    def __init__(self) -> None:
-        self.calls = []
-
-    async def run_episode(self, config, episode):
-        self.calls.append((config, episode))
-
-
-@pytest.fixture
-def native_run_config():
-    return _NativeRunConfig()
-
-
-@pytest.fixture
-def supervisor():
-    return _Supervisor()
 
 
 def _write_trace(root, episode, events):
@@ -79,44 +51,3 @@ def test_fingerprint_changes_with_loop(tmp_path):
     f1 = a.disposition_fingerprint(harness)
     (harness / "loop.py").write_text("A = 2\n")
     assert a.disposition_fingerprint(harness) != f1
-
-
-def test_aki_rejects_explicit_model_mismatch_before_supervisor_execution(
-    tmp_path, native_run_config, supervisor
-):
-    adapter = AkiHarness()
-    run_root = tmp_path / "run"
-    adapter._run_configs[run_root] = native_run_config
-    adapter._api = lambda: (None, supervisor, None, None)
-    adapter._episode_outcome = lambda root, episode: (
-        {"status": "complete", "error": ""},
-        {"turns_used": 3},
-    )
-
-    result = adapter.run_episode(
-        EpisodeSpec(run_root, 1, "gpt-5.6-luna", {}, max_turns=9)
-    )
-
-    assert result.ok is False
-    assert "cannot bind requested model" in result.error
-    assert supervisor.calls == []
-
-
-@pytest.mark.parametrize("model", ("glm-5.2", ""))
-def test_aki_binds_requested_turn_limit_for_supported_native_model(
-    tmp_path, native_run_config, supervisor, model
-):
-    adapter = AkiHarness()
-    run_root = tmp_path / "run"
-    adapter._run_configs[run_root] = native_run_config
-    adapter._api = lambda: (None, supervisor, None, None)
-    adapter._episode_outcome = lambda root, episode: (
-        {"status": "complete", "error": ""},
-        {"turns_used": 3},
-    )
-
-    result = adapter.run_episode(EpisodeSpec(run_root, 1, model, {}, max_turns=9))
-
-    assert result.ok is True
-    assert supervisor.calls[0][0].max_turns == 9
-    assert adapter._run_configs[run_root].max_turns == 9

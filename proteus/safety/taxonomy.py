@@ -1,14 +1,9 @@
-"""Module-first taxonomy contracts for harness-safety case families."""
+"""Harness-neutral declarations for activation-time safety families."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-
-from proteus.core.adapter import Surface
-
-EVOLUTION_SAFETY_TAXONOMY_VERSION = "proteus-evolution-safety/1"
 
 
 class HarnessModule(str, Enum):
@@ -34,10 +29,10 @@ class EvaluationArm(str, Enum):
     MODULE_INTERVENTION = "module_intervention"
 
 
-class SafetyExposure(str, Enum):
-    EXPOSED = "exposed"
-    NOT_EXPOSED = "not_exposed"
-    UNKNOWN = "unknown"
+class EvidenceStratum(str, Enum):
+    NATIVE_BOUNDARY = "native_boundary"
+    REAL_EPISODE = "real_episode"
+    ARCHIVE_LINEAGE = "archive_lineage"
 
 
 class SafetyStatus(str, Enum):
@@ -48,6 +43,12 @@ class SafetyStatus(str, Enum):
     ERROR = "error"
 
 
+class SafetyExposure(str, Enum):
+    EXPOSED = "exposed"
+    NOT_EXPOSED = "not_exposed"
+    UNKNOWN = "unknown"
+
+
 class SafetyIndicator(str, Enum):
     INVARIANT_PRESERVATION = "invariant_preservation"
     UNSAFE_STATE_PROPAGATION = "unsafe_state_propagation"
@@ -56,20 +57,9 @@ class SafetyIndicator(str, Enum):
     RECOVERY_ROLLBACK = "recovery_rollback"
 
 
-class EvidenceStratum(str, Enum):
-    DETERMINISTIC_BOUNDARY = "deterministic_boundary"
-    FIXED_LIVE_BEHAVIOR = "fixed_live_behavior"
-    ARCHIVE_LINEAGE = "archive_lineage"
-
-
 def _require_text(label: str, value: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be non-empty")
-
-
-def _require_text_items(label: str, values: tuple[str, ...]) -> None:
-    if not values or not all(isinstance(value, str) and value.strip() for value in values):
-        raise ValueError(f"{label} must contain non-empty values")
 
 
 @dataclass(frozen=True)
@@ -94,14 +84,17 @@ class ThreatModel:
     defensive_control_under_test: str
 
     def __post_init__(self) -> None:
-        _require_text("attacker", self.attacker)
-        _require_text("defender", self.defender)
-        _require_text("entry point", self.entry_point)
-        _require_text_items("attacker capabilities", self.attacker_capabilities)
-        _require_text_items("attacker capability limits", self.attacker_capability_limits)
-        _require_text("attacker objective", self.attacker_objective)
-        _require_text("protected invariant", self.protected_invariant)
-        _require_text("defensive control under test", self.defensive_control_under_test)
+        for label, value in (
+            ("attacker", self.attacker),
+            ("defender", self.defender),
+            ("entry point", self.entry_point),
+            ("attacker objective", self.attacker_objective),
+            ("protected invariant", self.protected_invariant),
+            ("defensive control", self.defensive_control_under_test),
+        ):
+            _require_text(label, value)
+        if not self.attacker_capabilities or not self.attacker_capability_limits:
+            raise ValueError("threat model capabilities and limits must be non-empty")
 
 
 @dataclass(frozen=True)
@@ -114,8 +107,8 @@ class PermissionBoundary:
     def __post_init__(self) -> None:
         _require_text("permission actor", self.actor)
         _require_text("requested operation", self.requested_operation)
-        _require_text_items("allowed capabilities", self.allowed_capabilities)
-        _require_text_items("prohibited capabilities", self.prohibited_capabilities)
+        if not self.allowed_capabilities or not self.prohibited_capabilities:
+            raise ValueError("permission capabilities must be non-empty")
 
 
 @dataclass(frozen=True)
@@ -136,52 +129,25 @@ class IndicatorRequirement:
 
     def __post_init__(self) -> None:
         if not isinstance(self.indicator, SafetyIndicator):
-            raise TypeError("indicator requirement requires a SafetyIndicator")
-        if not isinstance(self.critical, bool):
-            raise TypeError("indicator requirement critical flag requires a bool")
+            raise TypeError("indicator requirement needs a SafetyIndicator")
         if not self.required_strata:
-            raise ValueError("indicator requirement requires evidence strata")
-        if not all(isinstance(item, EvidenceStratum) for item in self.required_strata):
-            raise TypeError("indicator requirement strata require EvidenceStratum values")
+            raise ValueError("indicator requirement needs evidence strata")
         if len(self.required_strata) != len(set(self.required_strata)):
             raise ValueError("indicator requirement strata must be unique")
 
 
 @dataclass(frozen=True)
-class ModuleBinding:
-    module: HarnessModule
-    surface_names: tuple[str, ...] = ()
-    runtime_evidence: bool = False
+class EvaluationCell:
+    cell_id: str
+    arm: EvaluationArm
+    stratum: EvidenceStratum
 
     def __post_init__(self) -> None:
-        if not isinstance(self.module, HarnessModule):
-            raise TypeError("module binding requires a HarnessModule")
-        if len(self.surface_names) != len(set(self.surface_names)):
-            raise ValueError("module binding surface names must be unique")
-        if any(not isinstance(name, str) or not name.strip() for name in self.surface_names):
-            raise ValueError("module binding surface names must be non-empty")
-        if not self.surface_names and not self.runtime_evidence:
-            raise ValueError("module binding requires a surface or runtime evidence")
-
-
-@dataclass(frozen=True)
-class HarnessSafetyProfile:
-    bindings: tuple[ModuleBinding, ...]
-
-    def __post_init__(self) -> None:
-        modules = [binding.module for binding in self.bindings]
-        if len(modules) != len(set(modules)):
-            raise ValueError("harness safety profile has duplicate module bindings")
-
-    def validate_surfaces(self, surfaces: Sequence[Surface]) -> None:
-        declared = {surface.name for surface in surfaces}
-        for binding in self.bindings:
-            for name in binding.surface_names:
-                if name not in declared:
-                    raise ValueError(f"module binding references undeclared surface: {name}")
-
-    def binding_for(self, module: HarnessModule) -> ModuleBinding | None:
-        return next((binding for binding in self.bindings if binding.module is module), None)
+        _require_text("evaluation cell ID", self.cell_id)
+        if not isinstance(self.arm, EvaluationArm):
+            raise TypeError("evaluation cell requires an EvaluationArm")
+        if not isinstance(self.stratum, EvidenceStratum):
+            raise TypeError("evaluation cell requires an EvidenceStratum")
 
 
 @dataclass(frozen=True)
@@ -200,10 +166,10 @@ class SafetyCaseFamilyDefinition:
     behavior_failure: str
     module_failure: str
     evaluation_arms: tuple[EvaluationArm, ...]
+    declared_cells: tuple[EvaluationCell, ...]
     threat_model: ThreatModel | None = None
     fault_model: FaultModel | None = None
     permission_boundary: PermissionBoundary | None = None
-    intervention_expected_violation: bool | None = None
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -215,64 +181,25 @@ class SafetyCaseFamilyDefinition:
             ("module failure", self.module_failure),
         ):
             _require_text(label, value)
-        if not isinstance(self.invariant, SafetyInvariantDefinition):
-            raise TypeError("case family invariant requires a SafetyInvariantDefinition")
-        if not self.indicator_requirements:
-            raise ValueError("case family requires indicator requirements")
-        if not all(
-            isinstance(requirement, IndicatorRequirement)
-            for requirement in self.indicator_requirements
-        ):
-            raise TypeError("case family indicator requirements must be typed")
-        indicators = [requirement.indicator for requirement in self.indicator_requirements]
-        if len(indicators) != len(set(indicators)):
-            raise ValueError("case family indicator requirements must be unique")
-        if isinstance(self.utility_minimum, bool) or not isinstance(
-            self.utility_minimum, (int, float)
-        ):
-            raise TypeError("utility minimum requires a number")
-        if not 0.0 <= self.utility_minimum <= 1.0:
-            raise ValueError("utility minimum must be between zero and one")
-        self._validate_modules()
-        self._validate_arms()
-        self._validate_source()
-
-    def _validate_modules(self) -> None:
-        if not isinstance(self.primary_module, HarnessModule):
-            raise TypeError("primary module requires a HarnessModule")
-        if not isinstance(self.scope, CaseScope):
-            raise TypeError("case family scope requires a CaseScope")
         if self.primary_module in self.supporting_modules:
-            raise ValueError("primary module cannot also be a supporting module")
-        if len(self.supporting_modules) != len(set(self.supporting_modules)):
-            raise ValueError("supporting modules must be unique")
-        if not all(isinstance(module, HarnessModule) for module in self.supporting_modules):
-            raise TypeError("supporting modules require HarnessModule values")
+            raise ValueError("primary module cannot also support its family")
         if self.scope is CaseScope.SINGLE_MODULE and self.supporting_modules:
             raise ValueError("single-module family cannot have supporting modules")
         if self.scope is CaseScope.CROSS_MODULE and not self.supporting_modules:
             raise ValueError("cross-module family requires supporting modules")
-
-    def _validate_arms(self) -> None:
-        if not all(isinstance(arm, EvaluationArm) for arm in self.evaluation_arms):
-            raise TypeError("evaluation arms require EvaluationArm values")
-        if len(self.evaluation_arms) != len(set(self.evaluation_arms)):
-            raise ValueError("evaluation arms must be unique")
-        for required in (EvaluationArm.MODEL_REFERENCE, EvaluationArm.FULL_HARNESS):
-            if required not in self.evaluation_arms:
-                raise ValueError(f"case family requires {required.value} evaluation arm")
-        has_intervention = EvaluationArm.MODULE_INTERVENTION in self.evaluation_arms
-        if has_intervention != (self.intervention_expected_violation is not None):
-            raise ValueError(
-                "module intervention and intervention_expected_violation are required together"
-            )
-
-    def _validate_source(self) -> None:
+        if not self.indicator_requirements or not self.declared_cells:
+            raise ValueError("family requires indicators and declared cells")
+        if len({cell.cell_id for cell in self.declared_cells}) != len(self.declared_cells):
+            raise ValueError("family evaluation cell IDs must be unique")
+        if {cell.arm for cell in self.declared_cells} != set(self.evaluation_arms):
+            raise ValueError("declared cells and evaluation arms must agree")
+        if not 0.0 <= self.utility_minimum <= 1.0:
+            raise ValueError("utility minimum must be between zero and one")
         if self.safety_kind is SafetyKind.ADVERSARIAL:
             if self.threat_model is None or self.fault_model is not None:
                 raise ValueError("adversarial family requires only a threat model")
-        elif self.safety_kind is SafetyKind.NON_ADVERSARIAL:
-            if self.fault_model is None or self.threat_model is not None:
-                raise ValueError("non-adversarial family requires only a fault model")
-        else:
-            raise TypeError("case family requires a SafetyKind")
+        elif (
+            self.safety_kind is SafetyKind.NON_ADVERSARIAL
+            and (self.fault_model is None or self.threat_model is not None)
+        ):
+            raise ValueError("non-adversarial family requires only a fault model")

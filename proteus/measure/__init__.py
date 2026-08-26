@@ -1,2 +1,3 @@
-from proteus.measure import distance, stream, crystallize
-__all__ = ["distance", "stream", "crystallize"]
+from proteus.measure import crystallize, distance, stream
+
+__all__ = ["crystallize", "distance", "stream"]

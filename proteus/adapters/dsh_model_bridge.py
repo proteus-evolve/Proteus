@@ -1,354 +1,235 @@
-"""Controller-owned OpenAI Responses route for keyless DSH containers."""
+"""DSH-specific configuration for the shared keyless controller bridge."""
 
 from __future__ import annotations
 
-import hmac
 import json
-import secrets
-import threading
-import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import cast
+from pathlib import Path
+from types import TracebackType
 
-from proteus.safety.live import LiveCallProvenance, LiveModelChannel, LiveToolCall
+from proteus.safety.live import (
+    LiveModelChannel,
+    LiveModelResponse,
+    LiveProtocolError,
+)
+from proteus.safety.live_bridge import BridgeCallRecord, OpenAICompatibleBridge
 
-
-@dataclass(frozen=True)
-class DshBridgeRecord:
-    """One controller-observed DSH request and normalized live response."""
-
-    request_id: str
-    model: str
-    model_input: str | Sequence[Mapping[str, object]]
-    instructions: str
-    tools: tuple[Mapping[str, object], ...]
-    tool_calls: tuple[LiveToolCall, ...]
-    provenance: LiveCallProvenance
+BRIDGE_PROVIDER = "proteus-openai"
+BRIDGE_PLACEHOLDER = "proteus-local-bridge"
 
 
-def _response_item(call: LiveToolCall, index: int) -> dict[str, object]:
-    return {
-        "id": f"fc_{index}",
-        "type": "function_call",
-        "status": "completed",
-        "call_id": call.call_id,
-        "name": call.name,
-        "arguments": json.dumps(dict(call.arguments), separators=(",", ":")),
-    }
-
-
-def _response_body(response) -> dict[str, object]:
-    output: list[dict[str, object]] = []
-    if response.output_text:
-        output.append(
-            {
-                "id": "msg_0",
-                "type": "message",
-                "status": "completed",
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": response.output_text,
-                        "annotations": [],
-                    }
-                ],
-            }
-        )
-    output.extend(_response_item(call, index) for index, call in enumerate(response.tool_calls))
-    return {
-        "id": response.response_id,
-        "object": "response",
-        "created_at": int(time.time()),
-        "status": "completed",
-        "model": response.model,
-        "output": output,
-        "output_text": response.output_text,
-        "parallel_tool_calls": True,
-        "usage": {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
-        },
-    }
-
-
-def _sse_event(name: str, payload: Mapping[str, object]) -> bytes:
-    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    return f"event: {name}\ndata: {data}\n\n".encode()
-
-
-def _stream_body(body: Mapping[str, object]) -> bytes:
-    response_id = str(body["id"])
-    model = str(body["model"])
-    output = cast(list[dict[str, object]], body["output"])
-    empty = {**body, "status": "in_progress", "output": [], "output_text": ""}
-    chunks = [
-        _sse_event("response.created", {"type": "response.created", "response": empty}),
-        _sse_event(
-            "response.in_progress",
-            {"type": "response.in_progress", "response": empty},
-        ),
-    ]
-    for index, item in enumerate(output):
-        item_id = str(item["id"])
-        pending = {**item, "status": "in_progress"}
-        if item["type"] == "message":
-            pending["content"] = []
-        elif item["type"] == "function_call":
-            pending["arguments"] = ""
-        chunks.append(
-            _sse_event(
-                "response.output_item.added",
-                {
-                    "type": "response.output_item.added",
-                    "response_id": response_id,
-                    "output_index": index,
-                    "item": pending,
-                },
-            )
-        )
-        if item["type"] == "message":
-            content = cast(list[dict[str, object]], item["content"])[0]
-            text = str(content["text"])
-            chunks.extend(
-                (
-                    _sse_event(
-                        "response.content_part.added",
-                        {
-                            "type": "response.content_part.added",
-                            "response_id": response_id,
-                            "item_id": item_id,
-                            "output_index": index,
-                            "content_index": 0,
-                            "part": {"type": "output_text", "text": "", "annotations": []},
-                        },
-                    ),
-                    _sse_event(
-                        "response.output_text.delta",
-                        {
-                            "type": "response.output_text.delta",
-                            "response_id": response_id,
-                            "item_id": item_id,
-                            "output_index": index,
-                            "content_index": 0,
-                            "delta": text,
-                        },
-                    ),
-                    _sse_event(
-                        "response.output_text.done",
-                        {
-                            "type": "response.output_text.done",
-                            "response_id": response_id,
-                            "item_id": item_id,
-                            "output_index": index,
-                            "content_index": 0,
-                            "text": text,
-                        },
-                    ),
-                    _sse_event(
-                        "response.content_part.done",
-                        {
-                            "type": "response.content_part.done",
-                            "response_id": response_id,
-                            "item_id": item_id,
-                            "output_index": index,
-                            "content_index": 0,
-                            "part": content,
-                        },
-                    ),
-                )
-            )
-        else:
-            arguments = str(item["arguments"])
-            chunks.extend(
-                (
-                    _sse_event(
-                        "response.function_call_arguments.delta",
-                        {
-                            "type": "response.function_call_arguments.delta",
-                            "response_id": response_id,
-                            "item_id": item_id,
-                            "output_index": index,
-                            "delta": arguments,
-                        },
-                    ),
-                    _sse_event(
-                        "response.function_call_arguments.done",
-                        {
-                            "type": "response.function_call_arguments.done",
-                            "response_id": response_id,
-                            "item_id": item_id,
-                            "output_index": index,
-                            "arguments": arguments,
-                        },
-                    ),
-                )
-            )
-        chunks.append(
-            _sse_event(
-                "response.output_item.done",
-                {
-                    "type": "response.output_item.done",
-                    "response_id": response_id,
-                    "output_index": index,
-                    "item": item,
-                },
-            )
-        )
-    completed = {**body, "model": model}
-    chunks.append(
-        _sse_event(
-            "response.completed",
-            {"type": "response.completed", "response": completed},
-        )
+def _result_call_ids(
+    input_value: str | Sequence[Mapping[str, object]],
+) -> tuple[str, ...]:
+    if isinstance(input_value, str):
+        return ()
+    return tuple(
+        str(item["call_id"])
+        for item in input_value
+        if item.get("type") in {"function_call_output", "custom_tool_call_output"}
+        and isinstance(item.get("call_id"), str)
+        and item["call_id"]
     )
-    chunks.append(b"data: [DONE]\n\n")
-    return b"".join(chunks)
+
+
+class _DshBudgetBoundaryChannel:
+    """Finish a settled DSH phase with one real fixed-model no-tools turn."""
+
+    def __init__(self, channel: LiveModelChannel, evidence_root: Path) -> None:
+        self._channel = channel
+        self._evidence_root = Path(evidence_root)
+        self._phase = ""
+        self._stop_at = 0
+        self._issued_calls = 0
+        self._pending_boundary_calls: tuple[str, ...] = ()
+        self._boundary_records = 0
+
+    @property
+    def model(self) -> str:
+        return self._channel.model
+
+    def set_phase_boundary(self, phase: str, stop_at: int, used_before: int) -> None:
+        if self._pending_boundary_calls:
+            raise LiveProtocolError("previous DSH budget boundary was not settled")
+        if used_before != self._issued_calls:
+            raise LiveProtocolError("native DSH call count does not match controller budget state")
+        if stop_at and stop_at < used_before:
+            raise LiveProtocolError("DSH phase stop precedes calls already issued")
+        self._phase = phase
+        self._stop_at = stop_at
+
+    def respond(
+        self,
+        *,
+        input: str | Sequence[Mapping[str, object]],
+        instructions: str = "",
+        tools: Sequence[Mapping[str, object]] = (),
+    ) -> LiveModelResponse:
+        if not tools:
+            return self._channel.respond(
+                input=input,
+                instructions=instructions,
+                tools=tools,
+            )
+
+        result_ids = _result_call_ids(input)
+        if self._pending_boundary_calls:
+            missing = tuple(
+                call_id
+                for call_id in self._pending_boundary_calls
+                if call_id not in result_ids
+            )
+            if missing:
+                raise LiveProtocolError(
+                    "DSH budget boundary request is missing the exact settled result"
+                )
+            response = self._channel.respond(
+                input=input,
+                instructions=instructions,
+                tools=(),
+            )
+            if response.tool_calls:
+                raise LiveProtocolError(
+                    "DSH budget boundary model returned a tool call with tools disabled"
+                )
+            self._record_boundary(response, result_ids)
+            self._pending_boundary_calls = ()
+            return response
+
+        response = self._channel.respond(
+            input=input,
+            instructions=instructions,
+            tools=tools,
+        )
+        issued = tuple(call.call_id for call in response.tool_calls)
+        next_count = self._issued_calls + len(issued)
+        if self._stop_at and next_count > self._stop_at:
+            raise LiveProtocolError("DSH controller response exceeds the phase tool budget")
+        self._issued_calls = next_count
+        if self._stop_at and issued and self._issued_calls == self._stop_at:
+            self._pending_boundary_calls = issued
+        return response
+
+    def close(self) -> None:
+        self._channel.close()
+
+    def _record_boundary(
+        self, response: LiveModelResponse, result_ids: tuple[str, ...]
+    ) -> None:
+        self._boundary_records += 1
+        path = self._evidence_root / f"budget-boundary-{self._boundary_records:03d}.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "phase": self._phase,
+                    "stop_at": self._stop_at,
+                    "issued_calls": self._issued_calls,
+                    "settled_call_ids": list(self._pending_boundary_calls),
+                    "result_call_ids": list(result_ids),
+                    "forwarded_tools": 0,
+                    "input_preserved": True,
+                    "response_id": response.response_id,
+                    "configured_model": response.provenance.configured_model,
+                    "returned_model": response.model,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
 
 class DshModelBridge:
-    """Expose one bounded ``LiveModelChannel`` as a local Responses endpoint."""
+    """Mount an exact-model DSH route over the shared controller bridge."""
+
+    provider = BRIDGE_PROVIDER
 
     def __init__(
         self,
-        channel: LiveModelChannel,
         *,
-        route_key: str | None = None,
-        bind_host: str = "127.0.0.1",
-        container_host: str = "host.docker.internal",
+        channel: LiveModelChannel,
+        evidence_root: Path,
+        config_root: Path,
     ) -> None:
-        if not isinstance(channel.model, str) or not channel.model.strip():
-            raise ValueError("DSH bridge requires an explicit live model")
-        self.channel = channel
-        self.route_key = route_key or f"route-{secrets.token_urlsafe(24)}"
-        self.bind_host = bind_host
-        self.container_host = container_host
-        self.records: tuple[DshBridgeRecord, ...] = ()
-        self._records: list[DshBridgeRecord] = []
-        self._lock = threading.Lock()
-        self._server: ThreadingHTTPServer | None = None
-        self._thread: threading.Thread | None = None
+        if not isinstance(channel, LiveModelChannel):
+            raise TypeError("DSH bridge channel must implement LiveModelChannel")
+        self._channel = channel
+        self._config_root = Path(config_root)
+        self._budget_channel = _DshBudgetBoundaryChannel(channel, Path(evidence_root))
+        self._bridge = OpenAICompatibleBridge(
+            channel=self._budget_channel,
+            evidence_root=Path(evidence_root),
+        )
+
+    @property
+    def model(self) -> str:
+        return self._channel.model
+
+    @property
+    def patch_path(self) -> Path:
+        return self._config_root / "cordis.patch.yml"
 
     @property
     def container_base_url(self) -> str:
-        if self._server is None:
-            raise RuntimeError("DSH model bridge is not running")
-        return f"http://{self.container_host}:{self._server.server_port}/v1"
+        return self._bridge.container_base_url
 
-    def __enter__(self) -> DshModelBridge:  # noqa: PYI034 - Python 3.10 has no typing.Self
-        bridge = self
+    @property
+    def records(self) -> tuple[BridgeCallRecord, ...]:
+        return self._bridge.records
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, format, *args):
-                del format, args
+    def set_phase_boundary(self, phase: str, stop_at: int, used_before: int) -> None:
+        self._budget_channel.set_phase_boundary(phase, stop_at, used_before)
 
-            def _json(self, status: int, payload: Mapping[str, object]) -> None:
-                encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-                self.send_response(status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(encoded)))
-                self.end_headers()
-                self.wfile.write(encoded)
-
-            def do_POST(self) -> None:
-                if self.path not in {"/responses", "/v1/responses"}:
-                    self._json(404, {"error": {"message": "unknown route"}})
-                    return
-                supplied = self.headers.get("Authorization", "")
-                expected = f"Bearer {bridge.route_key}"
-                if not hmac.compare_digest(supplied, expected):
-                    self._json(401, {"error": {"message": "invalid route credential"}})
-                    return
-                try:
-                    length = int(self.headers.get("Content-Length", "0"))
-                    payload = json.loads(self.rfile.read(length).decode("utf-8"))
-                    response, body = bridge._respond(payload)
-                except (json.JSONDecodeError, TypeError, ValueError) as exc:
-                    self._json(400, {"error": {"message": str(exc)}})
-                    return
-                except Exception as exc:  # noqa: BLE001 - bounded controller error
-                    self._json(502, {"error": {"message": str(exc)}})
-                    return
-                if payload.get("stream") is True:
-                    encoded = _stream_body(body)
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/event-stream")
-                    self.send_header("Cache-Control", "no-cache")
-                    self.send_header("Content-Length", str(len(encoded)))
-                    self.end_headers()
-                    self.wfile.write(encoded)
-                    return
-                del response
-                self._json(200, body)
-
-        self._server = ThreadingHTTPServer((self.bind_host, 0), Handler)
-        self._server.daemon_threads = False
-        self._server.block_on_close = True
-        self._thread = threading.Thread(
-            target=self._server.serve_forever,
-            name="proteus-dsh-model-bridge",
-            daemon=True,
-        )
-        self._thread.start()
+    def __enter__(self) -> DshModelBridge:  # noqa: PYI034 - Python 3.10 support
+        self._bridge.__enter__()
+        try:
+            self._config_root.mkdir(parents=True, exist_ok=False)
+            self.patch_path.write_text(self._patch_text(), encoding="utf-8")
+        except Exception:
+            self._bridge.__exit__(None, None, None)
+            raise
         return self
 
-    def _respond(self, payload: object):
-        if not isinstance(payload, dict):
-            raise TypeError("DSH Responses request must be an object")
-        model = payload.get("model")
-        if model != self.channel.model:
-            raise ValueError("DSH Responses request model does not match the configured model")
-        model_input = payload.get("input", "")
-        if not isinstance(model_input, (str, list)):
-            raise TypeError("DSH Responses input must be text or a message list")
-        if isinstance(model_input, list) and not all(isinstance(item, dict) for item in model_input):
-            raise TypeError("DSH Responses message list must contain objects")
-        instructions = payload.get("instructions", "")
-        tools = payload.get("tools", [])
-        if not isinstance(instructions, str):
-            raise TypeError("DSH Responses instructions must be text")
-        if not isinstance(tools, list) or not all(isinstance(item, dict) for item in tools):
-            raise TypeError("DSH Responses tools must be an object list")
-        response = self.channel.respond(
-            input=cast(str | list[dict[str, object]], model_input),
-            instructions=instructions,
-            tools=cast(list[dict[str, object]], tools),
-        )
-        provenance = response.provenance
-        if (
-            provenance.configured_model != self.channel.model
-            or provenance.response_model != self.channel.model
-            or response.model != self.channel.model
-        ):
-            raise ValueError("DSH bridge received mismatched model provenance")
-        with self._lock:
-            number = len(self._records) + 1
-            self._records.append(
-                DshBridgeRecord(
-                    request_id=f"dsh-request-{number}",
-                    model=self.channel.model,
-                    model_input=cast(str | list[dict[str, object]], model_input),
-                    instructions=instructions,
-                    tools=tuple(cast(list[dict[str, object]], tools)),
-                    tool_calls=response.tool_calls,
-                    provenance=provenance,
-                )
-            )
-            self.records = tuple(self._records)
-        return response, _response_body(response)
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self._bridge.__exit__(exc_type, exc, traceback)
 
-    def close(self) -> None:
-        if self._server is not None:
-            self._server.shutdown()
-            self._server.server_close()
-        if self._thread is not None:
-            self._thread.join()
-        self._server = None
-        self._thread = None
+    def _patch_text(self) -> str:
+        model = self.model
+        forbidden = {"\r", "\n", ":", '"'}
+        if not model or any(character in model for character in forbidden):
+            raise ValueError("DSH bridge model must be a non-empty YAML-safe ID")
+        return f"""\
+- id: agent-default-model
+  config:
+    provider: {self.provider}
+    model: {model}
 
-    def __exit__(self, exc_type, exc, traceback) -> None:
-        del exc_type, exc, traceback
-        self.close()
+- id: tools
+  config:
+    mode: native
+
+- id: llm-pi-ai
+  config:
+    providers:
+      {self.provider}:
+        displayName: Proteus controller bridge
+        api: openai-responses
+        baseURL: {self.container_base_url}
+        headers:
+          Authorization: Bearer {BRIDGE_PLACEHOLDER}
+        retryPolicy:
+          mode: normal
+          maxRetries: 0
+        models:
+          - id: {model}
+            name: {model}
+            contextWindow: 128000
+            maxTokens: 4096
+            reasoningEfforts: false
+"""

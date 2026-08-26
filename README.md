@@ -9,10 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yichen14/Proteus/actions/workflows/ci.yml"><img src="https://github.com/yichen14/Proteus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/proteus-evolve/Proteus/actions/workflows/ci.yml"><img src="https://github.com/proteus-evolve/Proteus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml"><img src="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml/badge.svg" alt="release smoke"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/version-0.1.0-informational.svg" alt="v0.1.0">
+  <img src="https://img.shields.io/badge/version-0.3.0-informational.svg" alt="v0.3.0">
   <img src="https://img.shields.io/badge/status-research%20preview-orange.svg" alt="research preview">
 </p>
 
@@ -20,8 +21,12 @@
   <a href="#-60-second-demo-no-api-key-no-docker">Quick Start</a> •
   <a href="#-harnesses-in-the-box">Harnesses</a> •
   <a href="#%EF%B8%8F-how-it-works">How It Works</a> •
+  <a href="docs/EPISODE.md">The Episode Loop</a> •
   <a href="docs/ADAPTERS.md">Onboard Your Harness</a> •
   <a href="docs/RECIPES.md">Recipes</a> •
+  <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
+  <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
+  <a href="docs/releases/v0.3.0.md">v0.3.0 Notes</a> •
   <a href="environments/README.md">Environments</a> •
   <a href="#-measurement">Measurement</a>
 </p>
@@ -45,9 +50,9 @@ self-evolving harness actually *do*, and does an initial condition leave a perma
 Three things set it apart from every existing harness-evolution system:
 
 1. **Harness-agnostic.** Others evolve harnesses built from their *own* primitives. Proteus
-   evolves *yours*: implement one small `HarnessAdapter` and your agent — Aki (default),
-   DeepSeek Harness, a bare ReAct loop, or your own — plugs into the same framework,
-   sandbox, and measurement.
+   evolves *yours*: implement one small `HarnessAdapter` and your agent — the bundled
+   offline `minimal` harness (the CLI default), DeepSeek Harness, Pi, Aki, or your own —
+   plugs into the same framework, sandbox, and measurement.
 2. **Goal *and* no-goal, with visible or hidden evaluators.** Others hard-code a single
    regime: one benchmark verifier, agent blind to the score, goal mandatory. Proteus spans
    the space — `no-goal | one goal | many goals`, and evaluators the agent either **sees**
@@ -62,7 +67,7 @@ Three things set it apart from every existing harness-evolution system:
 ## 🚀 60-second demo (no API key, no Docker)
 
 ```bash
-pip install -e .            # dependency-free: even the live-LLM harness runs on stdlib
+pip install proteus-evolve  # no model SDK; Python 3.10 adds only a TOML compatibility package
 ```
 
 The bundled `minimal` harness runs fully offline, so you can see the whole pipeline before
@@ -93,27 +98,39 @@ An installed action preference measurably shifts what the harness grows — and 
 |---|---|---|
 | `minimal` | offline reference harness (mock policy) | nothing |
 | `llm` | the same harness driven by a live model — any OpenAI-compatible endpoint, DeepSeek by default | an API key |
-| `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), stock headless profile, in a prepared container | Docker + an explicit `gpt-*` model and repository-root OpenAI credential |
+| `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), headless profile, in a prepared container | Docker + a DeepSeek key |
 | `pi` | [Pi](https://github.com/badlogic/pi-mono) — Mario Zechner's minimal coding harness (4 tools, native AGENTS.md + skills) | Docker + a DeepSeek key |
 | `aki` | the Aki research harness (the paper's apparatus) | the research checkout |
 | yours | `--harness <module>:<Class>` — no registration | your adapter |
 
-`dsh` is the template for third-party integrations: no harness code is modified. The
-adapter seeds a workspace, supplies an ephemeral patch for the exact provider/model, launches
-the prepared container per phase, and validates a new session log through terminal
-`turn/end`. The DSH process receives only dummy route authentication; a controller-owned
-OpenAI-compatible bridge holds the real credential and model provenance. Its disposition
-installs as a removable block in `AGENTS.md`, which DSH reads natively. Stock rc.7 also
-discovers candidate-writable project skills from `.dsh/skills/` and `.agents/skills/`.
+`dsh` and `pi` are the source-evolving third-party integrations. At seed time each adapter
+extracts the pinned harness's real TypeScript source into `harness/src/`. During episode N,
+all four phases boot the same read-only last-valid snapshot while writing a separate
+candidate. After reflect, Proteus rebuilds and validates the candidate; only a passing
+candidate activates in episode N+1. A failed build is prevented from activating, while
+its exact tree is restored as the next writable repair candidate; the next episode's
+running harness remains healthy. The source is therefore a
+measured, snapshotted `loop` surface alongside instructions, notes, tools, and skills. The
+adapters still leave the upstream repositories untouched: they arrange the run copy,
+launch one prepared container per phase, and parse the harness's own session logs.
 
 ## 🏗️ How it works
 
-<p align="center">
-  <img src="docs/assets/proteus-architecture.png" alt="The Proteus evolve loop" width="900">
-</p>
+```mermaid
+flowchart LR
+    U["Run config<br/>harness × model<br/>goal + evaluators<br/>arms + seeds"] --> F["Proteus framework<br/>assemble phase prompts"]
+    F --> A["HarnessAdapter<br/>run one episode"]
+    A --> H["harness/<br/>evolving, snapshotted subject"]
+    A --> T["task/<br/>optional benchmark workspace<br/>outside the snapshot"]
+    A --> L["native harness logs"]
+    L --> E["evaluators<br/>hidden or observe-visible"]
+    E --> S["selection + snapshot<br/>accept or preserve-and-restore"]
+    S --> F
+```
 
-Every seed runs `N` context-fresh **episodes**; only files cross the episode boundary. One
-episode is four phases:
+Every seed runs `N` context-fresh **episodes**. Evolved harness files cross the episode
+boundary; adapters that opt into framework continuity also receive a bounded operational
+handoff stored outside the measured snapshot. One episode is four phases:
 
 ```
 observe  →  propose  →  act  →  reflect
@@ -122,7 +139,8 @@ observe  →  propose  →  act  →  reflect
 - **observe** — take stock; if you configured a *visible* evaluator, its score on the last
   episode is shown here.
 - **propose** — list ways to improve your own harness.
-- **act** — carry one out by editing the harness (the goal, if any, is announced here).
+- **act** — carry one out by editing the harness. The goal, if any, is announced in every
+  fresh phase so observation and planning stay aligned with it.
 - **reflect** — decide what to keep.
 
 The **framework** owns everything that is not the harness (prompts, goal text, evaluator
@@ -133,7 +151,7 @@ routing, snapshotting, selection, measurement). The **adapter** owns everything 
 
 | Concept | What it is |
 |---|---|
-| `HarnessAdapter` | the contract a harness implements: its surfaces, how to run an episode, how to read the action trace, how to install/remove a disposition |
+| `HarnessAdapter` | the contract a harness implements: its surfaces, phase-continuity capability, how to run an episode, how to read the action trace, how to install/remove a disposition |
 | `Surface` | one editable, persistent region (memory / skills / tools / code / …), declared as data so the measurement layer needs no hard-coded names |
 | `Disposition` | the action-preference perturbation — a **single, removable** change at t=0 (prompt suffix, config value, or code patch) |
 | `GoalConfig` | goal / no-goal / multi-goal, each evaluator `HIDDEN` or `OBSERVE`-visible, plus outer-loop selection (`accept_reject`) |
@@ -154,13 +172,19 @@ NEUTRAL              # the control, F0 — no perturbation
 ### Goals and evaluators
 
 ```python
-from proteus.core import GoalConfig, Goal, Visibility
+from proteus.core import EvaluatorSpec, GoalConfig, Visibility
 
 GoalConfig.no_goal()                                    # unpressured evolution
-GoalConfig.single(Goal("solve", text=..., evaluator=my_eval,
-                       visibility=Visibility.OBSERVE))  # agent sees its score
-GoalConfig.multi([...])                                 # several objectives at once
-GoalConfig.single(goal, selection="accept_reject")      # outer loop rejects regressions
+GoalConfig.of(text="Become more reliable.")             # stated goal, no evaluator
+GoalConfig.of(
+    text="Become more reliable.",
+    evaluators=(EvaluatorSpec("reliability", my_eval,
+                              visibility=Visibility.OBSERVE),),
+)                                                       # agent sees the score next episode
+GoalConfig.of(text="Pursue A and B together.",
+              evaluators=(EvaluatorSpec("a", eval_a),
+                          EvaluatorSpec("b", eval_b)),
+              selection="accept_reject")               # outer loop rejects regressions
 ```
 
 An evaluator is any callable `(trace, ctx) -> EvalResult`; bring a benchmark verifier, an
@@ -178,8 +202,7 @@ DockerSandbox(SandboxConfig(network="host",     # needs an LLM endpoint
 
 A self-editing agent writes and runs its own code, so an application-level file sandbox
 cannot contain it — Proteus runs real harnesses in a container whose filesystem holds the
-harness and nothing else. Docker environment values travel in the Docker client process
-environment; the host command line contains only `-e NAME`, never `-e NAME=value`.
+harness and nothing else.
 
 ## 🔌 Onboard your harness
 
@@ -189,20 +212,27 @@ The input is a **repository** — a git URL or local path:
 proteus env scaffold --from https://github.com/org/their-harness --name theirs --ref v1.2.0
 proteus env build theirs             # pinned image, resolved sha recorded in the manifest
 # write the adapter (7 methods), then:
-proteus check --harness mypkg.theirs_adapter:TheirsHarness --episode --model <model>
+proteus check --harness mypkg.theirs_adapter:TheirsHarness --episode
 proteus run   --harness mypkg.theirs_adapter:TheirsHarness --arm neutral ...
 ```
 
 `proteus check` machine-verifies the contract (removable disposition via fingerprint
 round-trip, snapshot-ability, trace shape). The full guide: [docs/ADAPTERS.md](docs/ADAPTERS.md).
+To start from a working skeleton instead of a blank file,
+`python -m proteus.scaffold adapter MyHarness` copies the fully-commented
+[proteus/examples/adapter_template.py](proteus/examples/adapter_template.py) — see
+[CONTRIBUTING.md](CONTRIBUTING.md). The templates ship on PyPI too; outside a Git checkout
+the default output is the current directory (or choose an explicit `--dest`).
 
 ## 📦 Prepared environments
 
-`environments/` ships one pinned Docker environment per supported harness — a `Dockerfile`
-plus an `environment.toml` manifest (`SandboxConfig.from_manifest` loads it). The evolving
-workspace is always a mount, never baked into the image, so one image serves every
-condition and seed. Conventions: [environments/README.md](environments/README.md); design
-survey behind them (what we borrowed from Harbor): [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md).
+`environments/` contains two environment shapes. Manifest-backed environments pair a
+`Dockerfile` or prebuilt image with `environment.toml`; the built-in `dsh-src/` and
+`pi-src/` images are instead built from pinned upstream source checkouts, because the image
+must contain the exact source and toolchain that the adapter later extracts and rebuilds.
+In both shapes evolving state lives in mounts, never in a per-run image. Conventions:
+[environments/README.md](environments/README.md); design notes:
+[docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md).
 
 ## 📏 Measurement
 
@@ -216,6 +246,10 @@ from proteus.measure import distance, stream, crystallize
   permutation test `R`.
 - `crystallize` — mount an evolved state under a neutral disposition and test whether it
   reads back as its own endpoint (two-stage fidelity + arm-shift).
+
+To add a per-episode measurement evaluator, a post-run statistic, or an adapter-native
+counter, see [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md). The guide covers their different
+contracts, artifact boundaries, CLI/report integration, statistical rules, and tests.
 
 ## 📤 Outputs
 
@@ -237,85 +271,48 @@ proteus watch --out runs/demo          # http://localhost:8300/report.html
 Tracking data (condition labels, hidden scores) lives at the sweep level, outside run
 roots, so the evolving agent can never read its own condition.
 
-## 🛡️ Candidate safety and integrity auditing
-
-Proteus keeps task selection, online candidate safety, and post-run instrument auditing
-separate. Task evaluators may affect selection or provide configured feedback. Safety
-indicators can reject a frozen candidate, but their values, names, evidence, blockers, and
-warnings never enter prompts, reward, critique, memory, or later episodes.
-
-Enable the Phase 1 activation gate explicitly:
-
-```bash
-uv run proteus run \
-  --harness aki \
-  --arm neutral \
-  --goal none \
-  --seeds 1 \
-  --episodes 3 \
-  --safety-model gpt-5.6-luna \
-  --safety-suite proteus.safety.phase1:SUITE \
-  --out runs/evolution-safety-phase1
-```
-
-The model controls have separate owners. `--model` configures ordinary evolution and flows into
-each `EpisodeSpec`; `--safety-model` configures only the fixed-live candidate-safety cells. The Aki
-command above intentionally leaves `--model` unset so the adapter uses its native ordinary model.
-A gated DSH run supplies both flags because DSH also requires an explicit ordinary-run model.
-
-The ownership chain is deliberately narrow: `HarnessAdapter` runs ordinary evolution;
-the optional `CandidateSafetyAdapter` exposes a safety profile and native executor;
-`CandidateSafetyExecutor` administers adapter-native probes; and `GateRunner` owns the
-shared matched-cell schedule, validation, indicator derivation, policy, and publication.
-A configured safety suite always runs in full before activation; it cannot select a family
-subset. CLI and safety preflight validate the flag pairing, suite, adapter bindings,
-fixed-live-model budget, and repository-root `.env` credential before creating the sweep
-directory. A fixed-live suite requires a non-empty `--safety-model`, and `--safety-model`
-without `--safety-suite` is rejected. There is no best-effort, policy-selection,
-scalar-threshold, or safety-feedback option.
-
-Every evolved tree is frozen before task and safety evaluation. Proteus activates it only
-when both decisions allow; otherwise it restores the previous active tree while preserving
-the rejected candidate and controller evidence. Terminal artifacts live under
-`<sweep>/safety-gates/`, outside subject run roots. `proteus report --out <sweep>` renders
-logical active/candidate identity, task selection, activation outcome, five independent
-indicator profiles, blockers, warnings, and artifact links. It does not compute a combined
-safety score or describe a rejected candidate as active.
-
-The Aki and DSH adapters structurally implement `CandidateSafetyAdapter` and return their
-native `CandidateSafetyExecutor`. Aki executes only each materialized endpoint's native
-`loop.py::run_episode(ctx)` inside a keyless, network-denied worker. An explicit Aki ordinary-run
-model that differs from its native binding fails during the episode, after sweep setup but before
-the supervisor runs. The trusted controller owns model credentials and API calls. Candidate-authored
-events cannot establish permission containment or recovery. Missing Aki or DSH native loader,
-permission, maintenance, lineage, or recovery evidence remains `not_exposed` or `not_evaluated` and
-therefore blocks critical activation; Proteus does not install a fallback.
-
-The deterministic integrity audit remains a separate post-run command:
-
-```bash
-proteus audit --harness minimal --out runs/demo \
-    --audit-id instrument-integrity-v1
-proteus report --out runs/demo
-```
-
-Audit artifacts live under `<sweep>/audits/`. The default `instrument-integrity` suite
-checks snapshot and trace observability; it does not establish harness safety. Audit
-outcomes preserve `not_evaluated`, `invalid`, and `error`, and audit results never affect
-selection or later episodes.
-
 ## 📊 Status
 
-`v0.1` (research preview). Working today: the offline `minimal` harness with the full
-measurement suite; the `llm` harness live against DeepSeek; the `dsh` adapter running
-keyless, explicitly model-bound DeepSeek Harness headless episodes in its prepared container;
-the `aki` adapter — measure
-path reads existing research runs with no checkout, run path drives the containerized
-research runner; repo-first environment builds; the adapter compliance checker; CI on
-Python 3.10–3.14. As a cross-implementation check, Proteus's behavioural ruler applied to
-the research runs independently reproduces their headline dynamics: arms separate at
-episode 1 (R = 1.63) and converge by episode 30 (R = 0.93). Proteus is the open framework
-behind our paper on action preference as an initial condition for self-improving agents.
+`v0.3.0` (research preview). Working today: the offline `minimal` harness; the live `llm`
+harness; pinned, source-evolving DeepSeek Harness and Pi adapters with frozen per-episode
+activation, automatic rollback, exact-tree boundary gates, rebuild caching, turn budgets,
+phase-aware act-priority budget plans and agent-authored checkpoint tracking, and task
+mounts; the Aki research adapter; local, Polyglot, and SWE-bench task integrations;
+resume-safe sweeps; the full measurement,
+audit, reliability, report, and repository-export paths; and adapter/environment tooling.
+CI covers Python 3.10–3.14. The separate release-smoke workflow runs two episodes across
+the public release set (`minimal`, `llm`, `dsh`, `pi`), exercises the benchmark path, and
+requires both container harnesses to edit their own source and boot the edit; releases use
+pinned upstream versions, while the weekly upstream canary is advisory. As a
+cross-implementation check, Proteus's
+behavioural ruler applied to the research runs independently reproduces their headline
+dynamics: arms separate at episode 1 (R = 1.63) and converge by episode 30 (R = 0.93).
+
+## 🤝 Contributing
+
+The two highest-value contributions are **a new harness adapter** (evolve another agent
+framework) and **a new benchmark** (measure under more goals). Both are single-file,
+contract-checked, CI-gated additions:
+
+```bash
+python -m proteus.scaffold adapter MyHarness    # skeleton -> proteus/adapters/myharness.py
+python -m proteus.scaffold benchmark my_task    # skeleton -> proteus/bench/my_task.py
+proteus check --harness proteus.adapters.myharness:MyHarness --episode
+```
+
+The step-by-step guide (contract, templates, the conformance gate in
+`tests/test_conformance.py`, PR expectations) is [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Where help is wanted, in one line each — the full list with difficulty tags is
+[ROADMAP.md](ROADMAP.md):
+
+- **More harnesses** — Hermes Agent first (Python, built-in self-improvement surfaces),
+  then SWE-agent, OpenClaw, Codex CLI, OpenHands, OpenCode, Goose.
+- **More benchmarks** — BigCodeBench-lite and a LiveCodeBench subset, SWE-bench
+  Lite/Verified wiring, and finishing sandboxed grading for `swe` (HumanEval and MBPP
+  are shipped).
+- **Analysis** — `proteus compare` for side-by-side arms/runs; an episode-atlas view.
+- **Reproducibility & cost** — per-episode token/cost accounting; one-command reproduce.
 
 ## 📖 Citation
 

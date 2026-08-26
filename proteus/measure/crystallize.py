@@ -22,7 +22,7 @@ from typing import Sequence
 
 from proteus.core import snapshot
 from proteus.core.adapter import HarnessAdapter
-from proteus.core.disposition import NEUTRAL, Disposition
+from proteus.core.disposition import Disposition
 from proteus.measure import stream
 
 
@@ -49,12 +49,22 @@ def materialize_state(evolved_root: Path, checkpoint: int, dest: Path,
 
 def fidelity(probe_stream: Sequence[str], own_endpoint: Sequence[str],
              other_endpoints: Sequence[Sequence[str]]) -> dict:
-    """Stage A: distance to own endpoint vs. to others. <1 ratio = faithful to its own state."""
+    """Stage A: distance to own endpoint vs. to others. <1 ratio = faithful to its own state.
+
+    Zero distance to another seed's endpoint is the *worst* case for this statistic — the
+    probe reproduced someone else's behaviour exactly — so the ratio must be large there.
+    Returning 0.0 when `mean_other == 0` reported that case as perfect fidelity, inverting
+    the conclusion; an epsilon floor keeps the ratio monotone in the direction it claims.
+    """
     own = stream.freq_distance(probe_stream, own_endpoint)
-    others = [stream.freq_distance(probe_stream, e) for e in other_endpoints] or [1.0]
+    others = [stream.freq_distance(probe_stream, e) for e in other_endpoints]
+    if not others:
+        raise ValueError(
+            "fidelity needs at least one other endpoint: with nothing to compare against, "
+            "'closer to its own state than to others' is undefined")
     mean_other = sum(others) / len(others)
     return {"to_own": own, "to_others": mean_other,
-            "ratio": own / mean_other if mean_other else 0.0}
+            "ratio": own / max(mean_other, 1e-9), "n_others": len(others)}
 
 
 def arm_shift(f0_streams: dict[str, list[list[str]]]) -> dict:

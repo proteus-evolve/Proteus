@@ -1,844 +1,375 @@
 from __future__ import annotations
 
 import json
-import threading
-import time
-from dataclasses import dataclass, fields, replace
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-from proteus.core.activation import CandidateGateContext, CandidateGateResult
+from proteus import cli
+from proteus.adapters.minimal import MinimalHarness
+from proteus.adapters.minimal_safety import MinimalSafetyRuntime
+from proteus.core.activation import CandidateGateContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.evidence import (
-    InvariantObservation,
-    ProbeEndpoint,
-    ProbeObservation,
-    ProbeStatuses,
-    StageValue,
-    UtilityObservation,
-)
-from proteus.safety.gate import GateRunner
-from proteus.safety.indicators import (
-    EvolutionSafetyProfile,
-    IndicatorAssessment,
-    IndicatorComponent,
-    IndicatorDirection,
-    MatchedProbeObservations,
-)
-from proteus.safety.live import LiveCallProvenance, LiveModelConfig
-from proteus.safety.policy import SafetyGateStatus, evaluate_safety_policy
-from proteus.safety.publication import AtomicCandidatePublication
-from proteus.safety.taxonomy import (
-    CaseScope,
-    EvaluationArm,
-    EvidenceStratum,
-    FaultModel,
-    HarnessModule,
-    HarnessSafetyProfile,
-    IndicatorRequirement,
-    ModuleBinding,
-    SafetyCaseFamilyDefinition,
-    SafetyExposure,
-    SafetyIndicator,
-    SafetyInvariantDefinition,
-    SafetyKind,
-    SafetyStatus,
-)
-
-
-def _snapshots() -> tuple[SnapshotRef, SnapshotRef]:
-    return (
-        SnapshotRef("run-1", 0, SnapshotRole.ACTIVE),
-        SnapshotRef("run-1", 1, SnapshotRole.CANDIDATE),
-    )
-
-
-def _family(
-    indicator: SafetyIndicator = SafetyIndicator.INVARIANT_PRESERVATION,
-    *,
-    critical: bool = True,
-    strata: tuple[EvidenceStratum, ...] = (EvidenceStratum.DETERMINISTIC_BOUNDARY,),
-    utility_minimum: float = 0.0,
-    arms: tuple[EvaluationArm, ...] = (
-        EvaluationArm.MODEL_REFERENCE,
-        EvaluationArm.FULL_HARNESS,
-    ),
-) -> SafetyCaseFamilyDefinition:
-    return SafetyCaseFamilyDefinition(
-        family_id="family-1",
-        family_version="1",
-        primary_module=HarnessModule.MEMORY,
-        supporting_modules=(),
-        scope=CaseScope.SINGLE_MODULE,
-        safety_kind=SafetyKind.NON_ADVERSARIAL,
-        scenario="controlled scenario",
-        invariant=SafetyInvariantDefinition("family-1.invariant", "the invariant holds"),
-        indicator_requirements=(IndicatorRequirement(indicator, critical, strata),),
-        utility_minimum=utility_minimum,
-        exposure_rule="the native path is directly observable",
-        behavior_failure="a harmful behavior occurs",
-        module_failure="the module violates the invariant",
-        evaluation_arms=arms,
-        intervention_expected_violation=(
-            False if EvaluationArm.MODULE_INTERVENTION in arms else None
-        ),
-        fault_model=FaultModel("controlled source", "controlled condition"),
-    )
-
-
-def _component(
-    component_id: str,
-    *,
-    status: SafetyStatus = SafetyStatus.PASS,
-    direction: IndicatorDirection = IndicatorDirection.SAME,
-    value: object = 0,
-) -> IndicatorComponent:
-    evaluated = 0 if status is SafetyStatus.NOT_EVALUATED else 1
-    return IndicatorComponent(
-        component_id=component_id,
-        status=status,
-        direction=direction,
-        planned=1,
-        eligible=1,
-        evaluated=evaluated,
-        value=value,
-        evidence_refs=("evidence/oracle.json",),
-    )
-
-
-def _profile(
-    indicator: SafetyIndicator,
-    *components: IndicatorComponent,
-    status: SafetyStatus | None = None,
-) -> EvolutionSafetyProfile:
-    active, candidate = _snapshots()
-    assessment = IndicatorAssessment(
-        indicator=indicator,
-        status=status or components[0].status,
-        direction=components[0].direction,
-        components=tuple(components),
-    )
-    return EvolutionSafetyProfile(active, candidate, {"family-1": (assessment,)})
-
-
-@pytest.mark.parametrize(
-    ("indicator", "component", "status", "direction", "value", "code"),
-    [
-        (
-            SafetyIndicator.INVARIANT_PRESERVATION,
-            "conditional_regression",
-            SafetyStatus.FAIL,
-            IndicatorDirection.WORSE,
-            1.0,
-            "critical_invariant_regression",
-        ),
-        (
-            SafetyIndicator.PERMISSION_BOUNDARY_INTEGRITY,
-            "unauthorized_expansion_drift",
-            SafetyStatus.FAIL,
-            IndicatorDirection.WORSE,
-            ("effect-1",),
-            "unauthorized_expansion_drift",
-        ),
-        (
-            SafetyIndicator.PERMISSION_BOUNDARY_INTEGRITY,
-            "revocation_enforcement_failure",
-            SafetyStatus.FAIL,
-            IndicatorDirection.WORSE,
-            ("effect-1",),
-            "revocation_enforcement_failure",
-        ),
-        (
-            SafetyIndicator.HARM_CONTAINMENT,
-            "harm_committed",
-            SafetyStatus.FAIL,
-            IndicatorDirection.SAME,
-            1,
-            "critical_harm_commit",
-        ),
-        (
-            SafetyIndicator.HARM_CONTAINMENT,
-            "harm_committed",
-            SafetyStatus.PASS,
-            IndicatorDirection.WORSE,
-            0,
-            "worsening_harm_commit",
-        ),
-        (
-            SafetyIndicator.UNSAFE_STATE_PROPAGATION,
-            "active_lineage_persistence",
-            SafetyStatus.FAIL,
-            IndicatorDirection.WORSE,
-            ("state:true",),
-            "worsening_active_lineage_persistence",
-        ),
-    ],
-)
-def test_policy_blocks_each_observed_critical_rule(
-    indicator,
-    component,
-    status,
-    direction,
-    value,
-    code,
-) -> None:
-    family = _family(indicator)
-    profile = _profile(
-        indicator,
-        _component(component, status=status, direction=direction, value=value),
-        status=status,
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {})
-
-    assert decision.allowed is False
-    assert decision.status is SafetyGateStatus.FAIL
-    assert code in {blocker.code for blocker in decision.blockers}
-
-
-@pytest.mark.parametrize(
-    ("source_status", "terminal"),
-    [
-        (SafetyStatus.NOT_EVALUATED, SafetyGateStatus.NOT_EVALUATED),
-        (SafetyStatus.INVALID, SafetyGateStatus.INVALID),
-        (SafetyStatus.ERROR, SafetyGateStatus.ERROR),
-    ],
-)
-def test_policy_fails_closed_on_critical_terminal_status(source_status, terminal) -> None:
-    family = _family()
-    profile = _profile(
-        SafetyIndicator.INVARIANT_PRESERVATION,
-        _component("conditional_regression", status=source_status, value=None),
-        status=source_status,
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {})
-
-    assert decision.allowed is False
-    assert decision.status is terminal
-    assert decision.blockers[0].code == f"critical_{source_status.value}"
-
-
-def test_policy_maps_critical_not_exposed_to_not_evaluated() -> None:
-    family = _family()
-    profile = _profile(
-        SafetyIndicator.INVARIANT_PRESERVATION,
-        _component(
-            "conditional_regression",
-            status=SafetyStatus.NOT_EVALUATED,
-            direction=IndicatorDirection.UNKNOWN,
-            value=None,
-        ),
-        status=SafetyStatus.NOT_EVALUATED,
-    )
-    active, candidate = _snapshots()
-    pair = MatchedProbeObservations(
-        ProbeObservation(
-            snapshot=active,
-            endpoint=ProbeEndpoint.ACTIVE,
-            arm=EvaluationArm.FULL_HARNESS,
-            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
-            exposure=SafetyExposure.NOT_EXPOSED,
-        ),
-        ProbeObservation(
-            snapshot=candidate,
-            endpoint=ProbeEndpoint.CANDIDATE,
-            arm=EvaluationArm.FULL_HARNESS,
-            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
-            exposure=SafetyExposure.NOT_EXPOSED,
-        ),
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {"family-1": (pair,)})
-
-    assert decision.status is SafetyGateStatus.NOT_EVALUATED
-    assert "critical_not_exposed" in {blocker.code for blocker in decision.blockers}
-
-
-@pytest.mark.parametrize(
-    ("critical", "allowed", "blocker_code", "warning"),
-    [
-        (True, False, "critical_unknown_exposure", None),
-        (
-            False,
-            True,
-            None,
-            "family-1:invariant_preservation:exposure:unknown",
-        ),
-    ],
-)
-def test_unknown_exposure_is_never_silently_complete(
-    critical: bool,
-    allowed: bool,
-    blocker_code: str | None,
-    warning: str | None,
-) -> None:
-    family = _family(critical=critical)
-    profile = _profile(
-        SafetyIndicator.INVARIANT_PRESERVATION,
-        _component("conditional_regression"),
-    )
-    active, candidate = _snapshots()
-
-    def observation(snapshot, endpoint):
-        return ProbeObservation(
-            snapshot=snapshot,
-            endpoint=endpoint,
-            arm=EvaluationArm.FULL_HARNESS,
-            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
-            statuses=ProbeStatuses(module=SafetyStatus.PASS),
-            invariants=(InvariantObservation("family-1.invariant", StageValue.TRUE),),
-            evidence_refs=(f"evidence/{endpoint.value}.json",),
-        )
-
-    pair = MatchedProbeObservations(
-        observation(active, ProbeEndpoint.ACTIVE),
-        observation(candidate, ProbeEndpoint.CANDIDATE),
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {"family-1": (pair,)})
-
-    assert decision.allowed is allowed
-    if blocker_code is not None:
-        assert decision.status is SafetyGateStatus.NOT_EVALUATED
-        assert blocker_code in {blocker.code for blocker in decision.blockers}
-    if warning is not None:
-        assert warning in decision.warnings
-
-
-def test_policy_blocks_matched_benign_utility_below_declared_minimum() -> None:
-    family = _family(utility_minimum=0.75)
-    profile = _profile(
-        SafetyIndicator.INVARIANT_PRESERVATION,
-        _component("conditional_regression"),
-    )
-    active, candidate = _snapshots()
-
-    def observation(snapshot, endpoint, completed):
-        return ProbeObservation(
-            snapshot=snapshot,
-            endpoint=endpoint,
-            arm=EvaluationArm.FULL_HARNESS,
-            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
-            statuses=ProbeStatuses(utility=SafetyStatus.PASS),
-            exposure=SafetyExposure.EXPOSED,
-            utilities=(
-                UtilityObservation("benign-1", StageValue.TRUE, completed),
-                UtilityObservation("benign-2", StageValue.TRUE, StageValue.TRUE),
-            ),
-            evidence_refs=(f"evidence/{endpoint.value}.json",),
-        )
-
-    pair = MatchedProbeObservations(
-        observation(active, ProbeEndpoint.ACTIVE, StageValue.TRUE),
-        observation(candidate, ProbeEndpoint.CANDIDATE, StageValue.FALSE),
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {"family-1": (pair,)})
-
-    assert decision.status is SafetyGateStatus.FAIL
-    assert decision.blockers[-1].code == "matched_benign_utility_below_minimum"
-
-
-@pytest.mark.parametrize(
-    "candidate_utilities",
-    [
-        (UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),),
-        (
-            UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),
-            UtilityObservation("benign-2", StageValue.FALSE, StageValue.TRUE),
-        ),
-        (
-            UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),
-            UtilityObservation("benign-2", StageValue.TRUE, StageValue.TRUE),
-            UtilityObservation("benign-3", StageValue.TRUE, StageValue.TRUE),
-        ),
-    ],
-)
-def test_utility_requires_exact_matched_active_candidate_opportunities(
-    candidate_utilities: tuple[UtilityObservation, ...],
-) -> None:
-    family = _family(utility_minimum=0.75)
-    profile = _profile(
-        SafetyIndicator.INVARIANT_PRESERVATION,
-        _component("conditional_regression"),
-    )
-    active, candidate = _snapshots()
-    active_utilities = (
-        UtilityObservation("benign-1", StageValue.TRUE, StageValue.TRUE),
-        UtilityObservation("benign-2", StageValue.TRUE, StageValue.TRUE),
-    )
-
-    def observation(snapshot, endpoint, utilities):
-        return ProbeObservation(
-            snapshot=snapshot,
-            endpoint=endpoint,
-            arm=EvaluationArm.FULL_HARNESS,
-            stratum=EvidenceStratum.DETERMINISTIC_BOUNDARY,
-            statuses=ProbeStatuses(utility=SafetyStatus.PASS),
-            exposure=SafetyExposure.EXPOSED,
-            utilities=utilities,
-            evidence_refs=(f"evidence/{endpoint.value}.json",),
-        )
-
-    pair = MatchedProbeObservations(
-        observation(active, ProbeEndpoint.ACTIVE, active_utilities),
-        observation(candidate, ProbeEndpoint.CANDIDATE, candidate_utilities),
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {"family-1": (pair,)})
-
-    assert decision.allowed is False
-    assert decision.status is SafetyGateStatus.NOT_EVALUATED
-    assert "matched_benign_utility_not_comparable" in {
-        blocker.code for blocker in decision.blockers
-    }
-
-
-def test_noncritical_unknown_warns_and_persistent_baseline_failure_does_not_block() -> None:
-    family = _family(critical=False)
-    profile = _profile(
-        SafetyIndicator.INVARIANT_PRESERVATION,
-        _component(
-            "persistently_unsafe",
-            status=SafetyStatus.NOT_EVALUATED,
-            direction=IndicatorDirection.UNKNOWN,
-            value=None,
-        ),
-        status=SafetyStatus.NOT_EVALUATED,
-    )
-
-    decision = evaluate_safety_policy(profile, (family,), {})
-
-    assert decision.allowed is True
-    assert decision.status is SafetyGateStatus.PASS
-    assert decision.blockers == ()
-    assert decision.warnings == (
-        "family-1:invariant_preservation:persistently_unsafe:not_evaluated",
-    )
-
-
-@dataclass(frozen=True)
-class _Suite:
-    families: tuple[SafetyCaseFamilyDefinition, ...]
-    name: str = "test-suite"
-    version: str = "1"
-
-    def definitions(self):
-        return self.families
-
-
-class _Channel:
-    model = "gpt-fixed"
-
-
-class _Broker:
-    def channel(self, _cell_id: str):
-        return _Channel()
-
-
-class _LateCallChannel:
-    model = "gpt-fixed"
-
-    def __init__(self) -> None:
-        self.calls = 0
-        self.closed = False
-
-    def respond(self, *, input, instructions="", tools=()):
-        del input, instructions, tools
-        self.calls += 1
-
-    def close(self) -> None:
-        self.closed = True
-
-
-class _LateCallBroker:
-    def __init__(self) -> None:
-        self.channels: list[_LateCallChannel] = []
-
-    def channel(self, _cell_id: str):
-        channel = _LateCallChannel()
-        self.channels.append(channel)
-        return channel
-
-
-class _Executor:
-    name = "recording-executor"
-
-    def __init__(self, mode: str = "pass") -> None:
-        self.mode = mode
-        self.calls: list[
-            tuple[ProbeEndpoint, EvaluationArm, EvidenceStratum, Path, Path, Path]
-        ] = []
-
-    def collect(self, definition, endpoint, arm, stratum, context, channel):
-        self.calls.append(
-            (
-                endpoint,
-                arm,
-                stratum,
-                context.snapshot_root,
-                context.trial_root,
-                context.evidence_dir,
-            )
-        )
-        assert context.snapshot_root.is_dir()
-        assert not (context.snapshot_root / "cell-marker.txt").exists()
-        (context.snapshot_root / "cell-marker.txt").write_text("cell-local", encoding="utf-8")
-        if self.mode == "exception":
-            raise RuntimeError("sk-secret-must-not-be-published")
-        if self.mode == "timeout":
-            time.sleep(0.05)
-        if self.mode == "wrong-type":
-            return {"status": "pass"}
-        if self.mode == "not-exposed":
-            return ProbeObservation(
-                snapshot=context.snapshot,
-                endpoint=endpoint,
-                arm=arm,
-                stratum=stratum,
-                exposure=SafetyExposure.NOT_EXPOSED,
-            )
-
-        context.evidence_dir.mkdir(parents=True, exist_ok=True)
-        (context.evidence_dir / "oracle.json").write_text('{"direct":true}\n')
-        ref = (
-            Path("evidence")
-            / definition.family_id
-            / endpoint.value
-            / arm.value
-            / f"trial-{stratum.value}-0001"
-            / "oracle.json"
-        ).as_posix()
-        provenance = ()
-        if stratum is EvidenceStratum.FIXED_LIVE_BEHAVIOR:
-            model = "wrong-model" if self.mode == "wrong-model" else "gpt-fixed"
-            provenance = (LiveCallProvenance("call-1", "response-1", model, model),)
-        invariant_id = (
-            "unrelated.invariant"
-            if self.mode == "wrong-invariant"
-            else definition.invariant.invariant_id
-        )
-        invariants = () if self.mode == "missing-oracle" else (
-            InvariantObservation(invariant_id, StageValue.TRUE),
-        )
-        refs = ("evidence/missing.json",) if self.mode == "missing-ref" else (ref,)
-        return ProbeObservation(
-            snapshot=context.snapshot,
-            endpoint=endpoint,
-            arm=arm,
-            stratum=stratum,
-            statuses=ProbeStatuses(module=SafetyStatus.PASS),
-            exposure=SafetyExposure.EXPOSED,
-            invariants=invariants,
-            model_provenance=provenance,
-            evidence_refs=refs,
-        )
-
-
-class _LateTerminalExecutor:
-    name = "late-terminal-executor"
-
-    def __init__(self, marker: Path) -> None:
-        self.marker = marker
-        self.finished: list[str] = []
-        self.all_finished = threading.Event()
-        self._lock = threading.Lock()
-
-    def collect(self, definition, endpoint, arm, stratum, context, channel):
-        del definition, arm, stratum, context
-        time.sleep(0.05)
-        assert channel is not None
-        channel.respond(input="late controller call")
-        with self.marker.open("a", encoding="utf-8") as sink:
-            sink.write(endpoint.value + "\n")
-        with self._lock:
-            self.finished.append(endpoint.value)
-            if len(self.finished) == 2:
-                self.all_finished.set()
-        raise TimeoutError("executor-owned timeout after terminal cleanup")
-
-
-class _Adapter:
-    def __init__(self, executor: _Executor) -> None:
-        self.executor = executor
-
-    def harness_safety_profile(self):
-        return HarnessSafetyProfile((ModuleBinding(HarnessModule.MEMORY, runtime_evidence=True),))
-
-    def candidate_safety_executor(self):
-        return self.executor
-
-
-def _context(tmp_path: Path) -> CandidateGateContext:
-    active, candidate = _snapshots()
-    run_root = tmp_path / "subject-run"
-    active_root = run_root / "active"
-    candidate_root = run_root / "candidate"
-    active_root.mkdir(parents=True)
-    candidate_root.mkdir(parents=True)
-    (active_root / "state.txt").write_text("active", encoding="utf-8")
-    (candidate_root / "state.txt").write_text("candidate", encoding="utf-8")
+from proteus.safety.evidence import EvidenceCellObservation
+from proteus.safety.gate import build_candidate_gate_factory
+from proteus.safety.live import LiveCallProvenance
+from proteus.safety.phase1 import SUITE
+from proteus.safety.runtime import RuntimeKind
+from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
+
+
+def _gate_context(tmp_path: Path) -> CandidateGateContext:
+    active_root = tmp_path / "subject" / "active"
+    candidate_root = tmp_path / "subject" / "candidate"
+    MinimalHarness().seed(active_root)
+    MinimalHarness().seed(candidate_root)
     return CandidateGateContext(
-        run_id="run-1",
+        run_id="matched-run",
         episode=1,
-        active=active,
-        candidate=candidate,
+        active=SnapshotRef("matched-run", 0, SnapshotRole.ACTIVE),
+        candidate=SnapshotRef("matched-run", 1, SnapshotRole.CANDIDATE),
         active_root=active_root,
         candidate_root=candidate_root,
-        adapter_name="test-adapter",
         events=(),
     )
 
 
-def _runner(
-    tmp_path: Path,
-    executor: _Executor,
-    *,
-    family: SafetyCaseFamilyDefinition | None = None,
-    model_config: LiveModelConfig | None = None,
-    broker=None,
-) -> GateRunner:
-    return GateRunner(
-        adapter=_Adapter(executor),
-        suite=_Suite((family or _family(),)),
-        controller_root=tmp_path / "controller",
-        model_config=model_config,
-        broker=broker,
-    )
-
-
-def _artifact_text(root: Path) -> str:
-    return "\n".join(
-        path.read_text(encoding="utf-8", errors="ignore")
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    )
-
-
-def _contains_key(value: object, forbidden: str) -> bool:
-    if isinstance(value, dict):
-        return forbidden in value or any(_contains_key(item, forbidden) for item in value.values())
-    if isinstance(value, list):
-        return any(_contains_key(item, forbidden) for item in value)
-    return False
-
-
-def test_gate_runs_every_declared_matched_cell_in_a_fresh_copy_and_publishes_terminal_artifacts(
+def test_gate_administers_each_family_once_per_endpoint_and_projects_declared_cells(
     tmp_path: Path,
 ) -> None:
-    arms = (
-        EvaluationArm.MODEL_REFERENCE,
-        EvaluationArm.FULL_HARNESS,
-        EvaluationArm.MODULE_INTERVENTION,
-    )
-    strata = (EvidenceStratum.DETERMINISTIC_BOUNDARY, EvidenceStratum.ARCHIVE_LINEAGE)
-    family = _family(strata=strata, arms=arms)
-    executor = _Executor()
-    runner = _runner(tmp_path, executor, family=family)
-    context = _context(tmp_path)
+    controller_root = tmp_path / "controller"
+    gate = build_candidate_gate_factory(
+        adapter_factory=MinimalHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="",
+        controller_root=controller_root,
+    )("matched-run")
 
-    result = runner.evaluate(context)
+    decision = gate.evaluate(_gate_context(tmp_path))
 
-    assert result == CandidateGateResult(
-        True,
-        "pass",
-        "safety-gates/run-1/candidate-0001/decision.json",
-    )
-    assert {
-        (endpoint, arm, stratum)
-        for endpoint, arm, stratum, *_ in executor.calls
-    } == {
-        (endpoint, arm, stratum)
-        for endpoint in ProbeEndpoint
-        for arm in arms
-        for stratum in strata
+    assert not decision.allowed
+    gate_root = (controller_root / decision.decision_ref).parent
+    published = [json.loads(line) for line in (gate_root / "results.jsonl").read_text().splitlines()]
+    assert len(published) == len(SUITE.definitions()) * 2
+    by_family_endpoint = {
+        (item["family_id"], item["endpoint"]): item for item in published
     }
-    assert len({call[3] for call in executor.calls}) == 12
-    assert len({call[4] for call in executor.calls}) == 12
-    assert len({call[5] for call in executor.calls}) == 12
-    assert not (context.active_root / "cell-marker.txt").exists()
-    assert not (context.candidate_root / "cell-marker.txt").exists()
-
-    safety_root = tmp_path / "controller" / "safety-gates"
-    candidate_root = safety_root / "run-1" / "candidate-0001"
-    assert (safety_root / "manifest.json").is_file()
-    assert (safety_root / "run-1" / "activations.jsonl").is_file()
-    assert not any((safety_root / "run-1" / ".staging").iterdir())
-    assert all(
-        (candidate_root / name).is_file()
-        for name in (
-            "transition.json",
-            "observations.jsonl",
-            "indicators.json",
-            "decision.json",
-        )
-    )
-    observations = [
-        json.loads(line)
-        for line in (candidate_root / "observations.jsonl").read_text().splitlines()
-    ]
-    assert all(not Path(ref).is_absolute() for row in observations for ref in row["evidence_refs"])
-    payloads = [json.loads(path.read_text()) for path in candidate_root.glob("*.json")]
-    payloads.extend(observations)
-    assert not any(_contains_key(payload, "score") for payload in payloads)
-    assert {field.name for field in fields(result)} == {"allowed", "status", "decision_ref"}
-
-
-@pytest.mark.parametrize("location", ["active", "candidate", "run"])
-def test_controller_root_must_be_outside_every_subject_root(tmp_path: Path, location: str) -> None:
-    context = _context(tmp_path)
-    roots = {
-        "active": context.active_root,
-        "candidate": context.candidate_root,
-        "run": context.active_root.parent,
+    assert set(by_family_endpoint) == {
+        (definition.family_id, endpoint)
+        for definition in SUITE.definitions()
+        for endpoint in ("active", "candidate")
     }
-    runner = _runner(tmp_path, _Executor())
-    runner.controller_root = roots[location] / "controller"
+    for definition in SUITE.definitions():
+        declared = [cell.cell_id for cell in definition.declared_cells]
+        for endpoint in ("active", "candidate"):
+            observation = by_family_endpoint[(definition.family_id, endpoint)]
+            assert [cell["cell_id"] for cell in observation["cells"]] == declared
+            for cell in observation["cells"]:
+                if cell["status"] in {SafetyStatus.PASS.value, SafetyStatus.FAIL.value}:
+                    assert cell["evidence_refs"]
+                    assert all(
+                        f"/{cell['cell_id']}/" in f"/{ref}"
+                        for ref in cell["evidence_refs"]
+                    )
+                    assert all((gate_root / ref).is_file() for ref in cell["evidence_refs"])
 
-    with pytest.raises(ValueError, match="outside active, candidate, and run roots"):
-        runner.evaluate(context)
-
-    assert not runner.controller_root.exists()
-
-
-@pytest.mark.parametrize("location", ["active", "candidate", "shared"])
-def test_subject_roots_must_not_be_inside_controller_root(
-    tmp_path: Path, location: str
-) -> None:
-    context = _context(tmp_path)
-    controller = tmp_path / "controller"
-    if location == "active":
-        active_root = controller / "active"
-        candidate_root = tmp_path / "outside" / "candidate"
-    elif location == "candidate":
-        active_root = tmp_path / "outside" / "active"
-        candidate_root = controller / "candidate"
-    else:
-        active_root = controller / "subject-run" / "active"
-        candidate_root = controller / "subject-run" / "candidate"
-    active_root.mkdir(parents=True, exist_ok=True)
-    candidate_root.mkdir(parents=True, exist_ok=True)
-    context = replace(context, active_root=active_root, candidate_root=candidate_root)
-    runner = _runner(tmp_path, _Executor())
-
-    with pytest.raises(ValueError, match="outside active, candidate, and run roots"):
-        runner.evaluate(context)
-
-    assert not (controller / "safety-gates").exists()
-
-
-@pytest.mark.parametrize(
-    ("mode", "expected_status"),
-    [
-        ("exception", "error"),
-        ("wrong-type", "invalid"),
-        ("missing-ref", "invalid"),
-        ("missing-oracle", "invalid"),
-        ("wrong-invariant", "invalid"),
-        ("not-exposed", "not_evaluated"),
-    ],
-)
-def test_executor_and_evidence_failures_are_published_rejections(
-    tmp_path: Path, mode: str, expected_status: str
-) -> None:
-    result = _runner(tmp_path, _Executor(mode)).evaluate(_context(tmp_path))
-
-    assert result.allowed is False
-    assert result.status == expected_status
-    assert result.decision_ref.endswith("/decision.json")
-    artifacts = _artifact_text(tmp_path / "controller")
-    assert "sk-secret-must-not-be-published" not in artifacts
-
-
-def test_gate_waits_for_executor_terminal_side_effects_and_calls_before_publication(
-    tmp_path: Path,
-) -> None:
-    config = LiveModelConfig(model="gpt-fixed", timeout_seconds=0.01)
-    family = _family(strata=(EvidenceStratum.FIXED_LIVE_BEHAVIOR,))
-    broker = _LateCallBroker()
-    executor = _LateTerminalExecutor(tmp_path / "late-effects.txt")
-
-    result = _runner(
-        tmp_path,
-        executor,
-        family=family,
-        model_config=config,
-        broker=broker,
-    ).evaluate(_context(tmp_path))
-    finished_at_return = tuple(executor.finished)
-    calls_at_return = sum(channel.calls for channel in broker.channels)
-    channels_closed_at_return = bool(broker.channels) and all(
-        channel.closed for channel in broker.channels
+    candidate_outcomes = {
+        family_id: item["status"]
+        for (family_id, endpoint), item in by_family_endpoint.items()
+        if endpoint == "candidate"
+    }
+    assert candidate_outcomes == {
+        "memory_bad_admission": "fail",
+        "memory_collapse": "fail",
+        "tools_permission_drift": "not_evaluated",
+    }
+    tools = by_family_endpoint[("tools_permission_drift", "candidate")]
+    real_episode = next(
+        cell for cell in tools["cells"]
+        if cell["stratum"] == EvidenceStratum.REAL_EPISODE.value
     )
-    marker_at_return = (
-        (tmp_path / "late-effects.txt").read_text(encoding="utf-8")
-        if (tmp_path / "late-effects.txt").is_file()
-        else ""
-    )
-    executor.all_finished.wait(1)
-
-    candidate = tmp_path / "controller/safety-gates/run-1/candidate-0001"
-    failures = [json.loads(path.read_text()) for path in candidate.rglob("failure.json")]
-
-    assert result.allowed is False
-    assert result.status == "error"
-    assert set(finished_at_return) == {"active", "candidate"}
-    assert calls_at_return == 4
-    assert set(marker_at_return.splitlines()) == {"active", "candidate"}
-    assert channels_closed_at_return is True
-    assert {payload["configured_model"] for payload in failures} == {"gpt-fixed"}
+    assert real_episode["status"] == SafetyStatus.NOT_EVALUATED.value
+    assert real_episode["reason"] == "no_exact_proposal"
+    assert tools["status"] == SafetyStatus.NOT_EVALUATED.value
 
 
-def test_fixed_live_gate_artifacts_record_the_configured_model(tmp_path: Path) -> None:
-    family = _family(strata=(EvidenceStratum.FIXED_LIVE_BEHAVIOR,))
-    config = LiveModelConfig(model="gpt-fixed", timeout_seconds=0.1)
-
-    result = _runner(
-        tmp_path,
-        _Executor(),
-        family=family,
-        model_config=config,
-        broker=_Broker(),
-    ).evaluate(_context(tmp_path))
-    candidate = tmp_path / "controller/safety-gates/run-1/candidate-0001"
-    transition = json.loads((candidate / "transition.json").read_text())
-
-    assert result.allowed is True
-    assert transition["configured_model"] == "gpt-fixed"
-
-
-def test_fixed_live_provenance_must_match_the_configured_model(tmp_path: Path) -> None:
-    family = _family(strata=(EvidenceStratum.FIXED_LIVE_BEHAVIOR,))
-    config = LiveModelConfig(model="gpt-fixed", timeout_seconds=0.1)
-
-    result = _runner(
-        tmp_path,
-        _Executor("wrong-model"),
-        family=family,
-        model_config=config,
-        broker=_Broker(),
-    ).evaluate(_context(tmp_path))
-
-    assert result.allowed is False
-    assert result.status == "invalid"
-
-
-def test_publication_failure_is_retained_and_never_indexed_as_passing(
+def test_malformed_selected_runtime_uses_clean_cli_preflight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fail_publication(self, *, activation):
-        raise OSError("publication unavailable")
+    class MalformedHarness(MinimalHarness):
+        name = "malformed"
 
-    monkeypatch.setattr(AtomicCandidatePublication, "publish", fail_publication)
-    runner = _runner(tmp_path, _Executor())
+        def safety_runtime(self):
+            return object()
 
-    result = runner.evaluate(_context(tmp_path))
+    monkeypatch.setattr(cli, "_harness_factory", lambda _args: MalformedHarness)
+    output_root = tmp_path / "must-not-exist"
 
-    assert result.allowed is False
-    assert result.status == "error"
-    run_root = tmp_path / "controller" / "safety-gates" / "run-1"
-    assert not (run_root / "candidate-0001").exists()
-    assert not (run_root / "activations.jsonl").exists()
-    assert list((run_root / ".failed").glob("candidate-0001-*"))
+    with pytest.raises(SystemExit, match="does not implement HarnessSafetyRuntime"):
+        cli.main(
+            [
+                "run",
+                "--harness",
+                "minimal",
+                "--arm",
+                "neutral",
+                "--seeds",
+                "1",
+                "--episodes",
+                "1",
+                "--safety-suite",
+                "proteus.safety.phase1:SUITE",
+                "--out",
+                str(output_root),
+            ]
+        )
+
+    assert not output_root.exists()
+
+
+def test_evidence_cell_rejects_malformed_administration_fields() -> None:
+    with pytest.raises(TypeError, match="administered and oracle_complete must be booleans"):
+        EvidenceCellObservation(
+            cell_id="family.native_boundary",
+            stratum=EvidenceStratum.NATIVE_BOUNDARY,
+            status=SafetyStatus.NOT_EVALUATED,
+            administered="yes",  # type: ignore[arg-type]
+            oracle_complete=False,
+            violation=None,
+            evidence_refs=(),
+        )
+
+
+def test_terminal_evidence_cell_requires_an_observed_violation_value() -> None:
+    with pytest.raises(ValueError, match="terminal evidence cell requires a violation"):
+        EvidenceCellObservation(
+            cell_id="family.native_boundary",
+            stratum=EvidenceStratum.NATIVE_BOUNDARY,
+            status=SafetyStatus.PASS,
+            administered=True,
+            oracle_complete=True,
+            violation=None,
+            evidence_refs=("evidence/family.json",),
+        )
+
+
+def test_model_runtime_gets_one_closed_channel_per_real_episode_cell(
+    tmp_path: Path,
+) -> None:
+    class ModelRuntime(MinimalSafetyRuntime):
+        kind = RuntimeKind.MODEL_MEDIATED
+
+        def run_safety_episode(self, prompts, context, channel):
+            assert channel is not None
+            result = super().run_safety_episode(prompts, context, None)
+            provenance = LiveCallProvenance(
+                call_id=f"call-{context.snapshot.role.value}",
+                response_id=f"response-{context.snapshot.role.value}",
+                configured_model="gpt-5.6-luna",
+                response_model="gpt-5.6-luna",
+            )
+            return replace(result, model_provenance=(provenance,))
+
+    class ModelHarness(MinimalHarness):
+        name = "model-fixture"
+
+        def safety_runtime(self):
+            return ModelRuntime(self)
+
+    class Channel:
+        def __init__(self, cell_id: str) -> None:
+            self.cell_id = cell_id
+            self.closed = False
+
+        @property
+        def model(self) -> str:
+            return "gpt-5.6-luna"
+
+        def close(self) -> None:
+            self.closed = True
+
+        def respond(self, *, input, instructions="", tools=()):
+            del input, instructions, tools
+            raise AssertionError("fixture runtime owns the deterministic response")
+
+    channels: list[Channel] = []
+
+    def channel_factory(model: str, cell_id: str) -> Channel:
+        assert model == "gpt-5.6-luna"
+        channel = Channel(cell_id)
+        channels.append(channel)
+        return channel
+
+    gate = build_candidate_gate_factory(
+        adapter_factory=ModelHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="gpt-5.6-luna",
+        controller_root=tmp_path / "controller",
+        channel_factory=channel_factory,
+    )("model-run")
+
+    gate.evaluate(_gate_context(tmp_path))
+
+    assert len(channels) == len(SUITE.definitions()) * 2
+    assert all(".real_episode." in channel.cell_id for channel in channels)
+    assert all(channel.closed for channel in channels)
+
+
+def test_model_channel_without_close_is_rejected_before_use(tmp_path: Path) -> None:
+    class ModelRuntime(MinimalSafetyRuntime):
+        kind = RuntimeKind.MODEL_MEDIATED
+
+    class ModelHarness(MinimalHarness):
+        name = "model-fixture"
+
+        def safety_runtime(self):
+            return ModelRuntime(self)
+
+    class NoCloseChannel:
+        @property
+        def model(self) -> str:
+            return "gpt-5.6-luna"
+
+        def respond(self, *, input, instructions="", tools=()):
+            del input, instructions, tools
+            raise AssertionError("malformed channel must be rejected before use")
+
+    gate = build_candidate_gate_factory(
+        adapter_factory=ModelHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="gpt-5.6-luna",
+        controller_root=tmp_path / "controller",
+        channel_factory=lambda _model, _cell_id: NoCloseChannel(),
+    )("model-run")
+
+    with pytest.raises(TypeError, match="must implement LiveModelChannel"):
+        gate.evaluate(_gate_context(tmp_path))
+
+    assert not (tmp_path / "controller" / "safety-gates" / "matched-run" / "episode-001").exists()
+
+
+def test_malformed_closable_model_channel_is_closed_after_protocol_rejection(
+    tmp_path: Path,
+) -> None:
+    class ModelRuntime(MinimalSafetyRuntime):
+        kind = RuntimeKind.MODEL_MEDIATED
+
+    class ModelHarness(MinimalHarness):
+        name = "model-fixture"
+
+        def safety_runtime(self):
+            return ModelRuntime(self)
+
+    class MalformedClosableChannel:
+        closed = False
+
+        @property
+        def model(self) -> str:
+            return "gpt-5.6-luna"
+
+        def close(self) -> None:
+            self.closed = True
+
+    channel = MalformedClosableChannel()
+    gate = build_candidate_gate_factory(
+        adapter_factory=ModelHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="gpt-5.6-luna",
+        controller_root=tmp_path / "controller",
+        channel_factory=lambda _model, _cell_id: channel,
+    )("model-run")
+
+    with pytest.raises(TypeError, match="must implement LiveModelChannel"):
+        gate.evaluate(_gate_context(tmp_path))
+
+    assert channel.closed
+
+
+def test_model_channel_closes_when_executor_raises(tmp_path: Path) -> None:
+    class FailingModelRuntime(MinimalSafetyRuntime):
+        kind = RuntimeKind.MODEL_MEDIATED
+
+        def run_safety_episode(self, prompts, context, channel):
+            del prompts, context, channel
+            raise RuntimeError("executor failed")
+
+    class ModelHarness(MinimalHarness):
+        name = "model-fixture"
+
+        def safety_runtime(self):
+            return FailingModelRuntime(self)
+
+    class Channel:
+        closed = False
+
+        @property
+        def model(self) -> str:
+            return "gpt-5.6-luna"
+
+        def respond(self, *, input, instructions="", tools=()):
+            del input, instructions, tools
+            raise AssertionError("fixture runtime fails before a response")
+
+        def close(self) -> None:
+            self.closed = True
+
+    channel = Channel()
+    gate = build_candidate_gate_factory(
+        adapter_factory=ModelHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="gpt-5.6-luna",
+        controller_root=tmp_path / "controller",
+        channel_factory=lambda _model, _cell_id: channel,
+    )("model-run")
+
+    with pytest.raises(RuntimeError, match="executor failed"):
+        gate.evaluate(_gate_context(tmp_path))
+
+    assert channel.closed
+
+
+def test_model_channel_close_failure_cannot_publish_a_decision(tmp_path: Path) -> None:
+    class ModelRuntime(MinimalSafetyRuntime):
+        kind = RuntimeKind.MODEL_MEDIATED
+
+        def run_safety_episode(self, prompts, context, channel):
+            result = super().run_safety_episode(prompts, context, None)
+            provenance = LiveCallProvenance(
+                call_id="call-close-failure",
+                response_id="response-close-failure",
+                configured_model="gpt-5.6-luna",
+                response_model="gpt-5.6-luna",
+            )
+            return replace(result, model_provenance=(provenance,))
+
+    class ModelHarness(MinimalHarness):
+        name = "model-fixture"
+
+        def safety_runtime(self):
+            return ModelRuntime(self)
+
+    class CloseFailureChannel:
+        @property
+        def model(self) -> str:
+            return "gpt-5.6-luna"
+
+        def respond(self, *, input, instructions="", tools=()):
+            del input, instructions, tools
+            raise AssertionError("fixture runtime owns the deterministic response")
+
+        def close(self) -> None:
+            raise RuntimeError("channel close failed")
+
+    gate = build_candidate_gate_factory(
+        adapter_factory=ModelHarness,
+        suite_spec="proteus.safety.phase1:SUITE",
+        safety_model="gpt-5.6-luna",
+        controller_root=tmp_path / "controller",
+        channel_factory=lambda _model, _cell_id: CloseFailureChannel(),
+    )("model-run")
+
+    with pytest.raises(RuntimeError, match="channel close failed"):
+        gate.evaluate(_gate_context(tmp_path))
+
+    assert not (tmp_path / "controller" / "safety-gates" / "matched-run" / "episode-001").exists()

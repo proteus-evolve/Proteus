@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional, Sequence, Tuple
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.core.disposition import Disposition
-from proteus.core.episode import PHASES
 
 if TYPE_CHECKING:
-    from proteus.safety.taxonomy import HarnessSafetyProfile
+    from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 
 # A policy maps (phase, prompt, episode, rng) -> list of (tool, surface, text) actions.
 Action = Tuple[str, Optional[str], str]
@@ -49,9 +49,8 @@ def mock_policy(phase: str, prompt: str, episode: int, rng: random.Random) -> li
             acts.append(("write_tool", "tools", f"tool_e{episode}"))
         if leans_notes or rng.random() < 0.5:
             acts.append(("write_note", "notes", f"note_e{episode}_{rng.randint(0,3)}"))
-    elif phase == "reflect":
-        if leans_notes and rng.random() < 0.6:
-            acts.append(("write_note", "notes", f"reflection_e{episode}"))
+    elif phase == "reflect" and leans_notes and rng.random() < 0.6:
+        acts.append(("write_note", "notes", f"reflection_e{episode}"))
     return acts
 
 
@@ -59,6 +58,8 @@ class MinimalHarness:
     """A `HarnessAdapter` for the minimal reference harness."""
 
     name = "minimal"
+    continuity_mode = "none"
+    disposition_in_files = False   # the perturbation reaches this harness via prompts
 
     def __init__(self, policy: Policy = mock_policy) -> None:
         self.policy = policy
@@ -70,24 +71,14 @@ class MinimalHarness:
                     is_code=True),
         ]
 
-    def harness_safety_profile(self) -> HarnessSafetyProfile:
-        """Bind native surfaces to the canonical harness-safety modules."""
-        from proteus.safety.taxonomy import (
-            HarnessModule,
-            HarnessSafetyProfile,
-            ModuleBinding,
-        )
-
-        return HarnessSafetyProfile(
-            bindings=(
-                ModuleBinding(HarnessModule.AGENT_LOOP, runtime_evidence=True),
-                ModuleBinding(HarnessModule.MEMORY, surface_names=("notes",)),
-                ModuleBinding(HarnessModule.TOOLS, surface_names=("tools",)),
-            )
-        )
-
     def required_edit_tools(self) -> frozenset[str]:
         return frozenset({"write_note", "write_tool"})
+
+    def safety_runtime(self) -> MinimalSafetyRuntime:
+        """Bind activation safety to Minimal's actual notes/tools implementation."""
+        from proteus.adapters.minimal_safety import MinimalSafetyRuntime
+
+        return MinimalSafetyRuntime(self)
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         for sub in ("notes", "tools"):
@@ -112,11 +103,23 @@ class MinimalHarness:
         trace_path.parent.mkdir(parents=True, exist_ok=True)
         turn = 0
         writes = {"notes": 0, "tools": 0}
+        phase_counts = {phase: 0 for phase in PHASES}
+        capped = False
+        plan = budget_plan(spec)
         with trace_path.open("w", encoding="utf-8") as sink:
             for phase in PHASES:
-                prompt = spec.phase_prompts.get(phase, "")
+                if plan.enabled and turn >= plan.hard_limit:
+                    capped = True
+                if capped:
+                    break
+                stop_at = plan.stop_at(phase, turn)
+                prompt = phase_prompt(spec, phase, turn)
                 for tool, surface, text in self.policy(phase, prompt, spec.episode, rng):
+                    if plan.enabled and turn >= stop_at:
+                        capped = turn >= plan.hard_limit
+                        break
                     turn += 1
+                    phase_counts[phase] += 1
                     if tool == "write_note":
                         (harness / "notes" / f"{text}.md").write_text(
                             f"episode {spec.episode}: {text}\n")
@@ -129,8 +132,10 @@ class MinimalHarness:
                         "turn": turn, "phase": phase, "tool": tool,
                         "surface": surface, "text": text,
                     }) + "\n")
-        return EpisodeResult(episode=spec.episode, ok=True, turns=turn,
-                             counters={"writes": writes})
+        counters = {"writes": writes, "turn_capped": capped}
+        counters.update({f"phase_{phase}_turns": count
+                         for phase, count in phase_counts.items()})
+        return EpisodeResult(episode=spec.episode, ok=True, turns=turn, counters=counters)
 
     def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:
         path = root / "traces" / f"ep{episode:03d}.jsonl"

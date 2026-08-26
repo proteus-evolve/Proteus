@@ -9,10 +9,9 @@
 html { scroll-snap-type:y mandatory }
 section.snap { height:100vh; scroll-snap-align:start; position:relative;
   display:flex; flex-direction:column; align-items:center; justify-content:center }
-#corner-nav { position:fixed; top:16px; right:20px; z-index:40; display:flex; gap:18px }
-#corner-nav a { font:11px "SF Mono",ui-monospace,monospace; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--soft) }
-#corner-nav a:hover { color:var(--anchor) }
+#corner-nav { position:fixed; top:16px; right:20px; z-index:40; display:flex;
+  gap:10px; align-items:center }
+
 
 /* the full-viewport stage: behind the hero, front for the trace section */
 #stage { position:fixed; inset:0; z-index:1; opacity:.16; pointer-events:none;
@@ -23,35 +22,68 @@ body.trace-front #stage { opacity:1; pointer-events:auto }
 #traj .axis { stroke:var(--rule) }
 #traj .tline { stroke:var(--soft); fill:none; stroke-width:1.2 }
 #traj circle { cursor:pointer }
-#traj circle.cur { animation:breathe 1.5s ease-in-out infinite }
-@keyframes breathe { 0%,100%{opacity:1} 50%{opacity:.18} }
+#traj circle.cur { animation:breathe 3.4s cubic-bezier(.4,0,.6,1) infinite;
+  transform-box:fill-box; transform-origin:50% 50%; will-change:transform,opacity }
+@keyframes breathe {
+  0%,100% { transform:scale(.8);  opacity:.5 }
+  50%     { transform:scale(1.9); opacity:1 }
+}
+#traj circle.halo { fill:none; stroke:var(--anchor-hi); stroke-width:2;
+  transform-box:fill-box; transform-origin:50% 50%; pointer-events:none;
+  animation:halo 3.4s cubic-bezier(.4,0,.6,1) infinite }
+@keyframes halo {
+  0%,100% { transform:scale(1);   opacity:.5 }
+  50%     { transform:scale(3.2); opacity:0 }
+}
 #stage-cap { display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap }
 #tick-line { min-height:20px; color:var(--anchor-hi) }
+#live-card { position:absolute; width:min(330px, 34vw); pointer-events:none;
+  opacity:0; transition:opacity .5s; border-left:2px solid var(--anchor-hi);
+  padding:2px 0 2px 14px }
+body.trace-front #live-card { opacity:1 }
+#live-card .lc-prompt { font:italic 15px/1.5 "Iowan Old Style",Palatino,Georgia,serif;
+  color:var(--ink); margin:6px 0 10px }
+#live-card .lc-sub { color:var(--dim) }
+#live-card .art { font:12px/1.7 "SF Mono",ui-monospace,monospace; color:var(--soft);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+#live-card .art b { color:var(--anchor-hi); font-weight:400 }
 .hero-sec { z-index:2; text-align:center; pointer-events:none }
 .hero-sec > * { pointer-events:auto }
+.hero-h1 { font-size:clamp(30px,4.6vw,52px); font-weight:400; line-height:1.12;
+  margin:26px auto 12px; max-width:20ch; text-wrap:balance }
+.hero-cta { margin-top:34px; display:flex; gap:14px; justify-content:center;
+  flex-wrap:wrap }
 .hero-sec .down { position:absolute; bottom:30px; left:50%;
   transform:translateX(-50%); color:var(--dim); animation:bob 2.4s infinite;
   pointer-events:none }
 @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
 @media (prefers-reduced-motion: reduce) {
-  .hero-sec .down, #traj circle.cur, .sp-dot { animation:none } }
-.trace-hint { position:absolute; top:9vh; left:5vw; z-index:2; pointer-events:none;
-  opacity:0; transition:opacity .8s }
-body.trace-front .trace-hint { opacity:1 }
+  .hero-sec .down, #traj circle.cur, #traj circle.halo, .sp-dot { animation:none }
+  #traj circle.halo { display:none } }
+.trace-hint { position:fixed; top:9vh; left:5vw; z-index:3; pointer-events:none;
+  opacity:0; visibility:hidden;
+  transition:opacity .8s cubic-bezier(.32,.72,0,1), visibility 0s .8s }
+body.trace-front .trace-hint { opacity:1; visibility:visible; transition-delay:0s }
 .rest { position:relative; z-index:2; background:var(--bg) }
 section.page { height:100vh; scroll-snap-align:start; overflow-y:auto;
   display:flex; align-items:center; background:var(--bg);
   border-top:1px solid var(--rule); position:relative; z-index:2 }
 section.page > .wrap { width:100% }
 .sp-dot { width:7px; height:7px; border-radius:50%; background:var(--anchor-hi);
-  display:inline-block; margin-right:8px; animation:pulse 1.6s ease-in-out infinite }
+  display:inline-block; margin-right:8px;
+  animation:breathe-dot 3.4s cubic-bezier(.4,0,.6,1) infinite }
+@keyframes breathe-dot {
+  0%,100% { transform:scale(.62); opacity:.5;  box-shadow:0 0 0 0 var(--anchor-hi) }
+  50%     { transform:scale(1.15); opacity:1;  box-shadow:0 0 9px 1px var(--anchor-hi) }
+}
 </style>
 </head>
 <body>
 <nav id="corner-nav">
-  <a href="playground.html">Playground</a>
-  <a href="https://github.com/yichen14/Proteus">GitHub</a>
+  <a href="playground.html">Lab</a>
+  <a href="https://github.com/proteus-evolve/Proteus">GitHub</a>
+  <button id="theme-btn" type="button" aria-label="switch theme"></button>
 </nav>
 
 <div id="stage">
@@ -60,6 +92,12 @@ section.page > .wrap { width:100% }
     click empty space to zoom out · drag the bar to scrub</div>
   <svg id="traj" viewBox="0 0 1000 520" aria-label="evolution trajectory">
     <g id="tj-overlay"></g><g id="tj-world"></g></svg>
+  <div id="live-card">
+    <div class="micro"><span class="sp-dot"></span><span id="lc-head"></span></div>
+    <div class="lc-prompt" id="lc-prompt"></div>
+    <div class="micro lc-sub">acting on</div>
+    <div id="lc-arts"></div>
+  </div>
   <div id="stage-cap">
     <span class="micro" id="tick-line"></span>
     <span class="micro" id="case-foot"></span>
@@ -78,16 +116,79 @@ section.page > .wrap { width:100% }
 
 <section class="snap hero-sec">
   <div class="kicker micro">an open instrument · est. 2026 · MIT</div>
-  <img class="logo" src="assets/proteus-logo.png" alt="Proteus"
-    style="width:120px;background:#fff;padding:12px;border:1px solid var(--rule)">
-  <h1 style="font-size:clamp(30px,4.6vw,52px);font-weight:400;line-height:1.12;
-    margin:26px auto 12px;max-width:20ch;text-wrap:balance">
+  <svg class="mark lockup" viewBox="0 0 621 734" role="img" aria-label="Proteus">
+  <title>Proteus</title>
+  <style>
+    .mark line { stroke: currentColor; stroke-width: 5; opacity: .8; stroke-linecap: round }
+    .mark circle { fill: currentColor }
+    .mark circle.a { fill: var(--logo-accent, #3E7A58) }
+    .mark path { fill: currentColor }
+  </style>
+  <g transform="translate(92.0 0)">
+    <g fill="none">
+      <line x1="30" y1="30" x2="233" y2="32"/>
+      <line x1="30" y1="30" x2="30" y2="204"/>
+      <line x1="233" y1="32" x2="384" y2="117"/>
+      <line x1="233" y1="32" x2="135" y2="300"/>
+      <line x1="384" y1="117" x2="407" y2="278"/>
+      <line x1="384" y1="117" x2="135" y2="300"/>
+      <line x1="30" y1="204" x2="135" y2="300"/>
+      <line x1="30" y1="204" x2="30" y2="395"/>
+      <line x1="407" y1="278" x2="263" y2="369"/>
+      <line x1="135" y1="300" x2="263" y2="369"/>
+      <line x1="135" y1="300" x2="30" y2="395"/>
+      <line x1="263" y1="369" x2="30" y2="395"/>
+      <line x1="30" y1="395" x2="30" y2="583"/>
+    </g>
+    <circle cx="30" cy="30" r="25"/>
+    <circle cx="233" cy="32" r="25" class="a"/>
+    <circle cx="384" cy="117" r="25"/>
+    <circle cx="30" cy="204" r="25"/>
+    <circle cx="407" cy="278" r="25" class="a"/>
+    <circle cx="135" cy="300" r="25"/>
+    <circle cx="263" cy="369" r="25" class="a"/>
+    <circle cx="30" cy="395" r="25"/>
+    <circle cx="30" cy="583" r="25"/>
+  </g>
+  <g transform="translate(0.0 667.0)">
+    <g transform="translate(-18.000000,77.058488) scale(0.100000,-0.100000)">
+      <path d="M2253 751 c-135 -46 -213 -162 -213 -316 0 -229 195 -380 413 -321
+207 56 305 296 199 490 -75 137 -246 200 -399 147z m225 -117 c78 -46 126
+-165 102 -256 -50 -191 -291 -237 -398 -76 -24 38 -27 50 -27 132 0 84 2 94
+29 134 67 98 190 126 294 66z"/>
+      <path d="M6108 760 c-76 -23 -128 -95 -128 -177 0 -86 50 -139 175 -188 90
+-35 114 -50 126 -82 21 -55 -35 -113 -107 -113 -35 0 -112 37 -127 61 -17 27
+-28 24 -66 -15 l-33 -34 42 -41 c89 -86 249 -96 336 -19 48 42 64 77 64 138 0
+100 -36 140 -180 201 -94 39 -120 62 -120 106 0 75 119 97 184 34 l32 -31 38
+39 37 38 -42 37 c-61 52 -151 70 -231 46z"/>
+      <path d="M180 435 l0 -325 55 0 55 0 0 120 0 120 83 0 c98 0 146 12 187 47 94
+78 93 245 -1 315 -54 40 -93 48 -240 48 l-139 0 0 -325z m290 210 c37 -19 50
+-43 50 -92 -1 -73 -46 -103 -152 -103 l-78 0 0 105 0 105 75 0 c48 0 87 -6
+105 -15z"/>
+      <path d="M1118 754 c-5 -4 -8 -151 -8 -326 l0 -318 55 0 55 0 0 120 0 120 49
+0 49 0 74 -120 73 -120 63 0 64 0 -23 38 c-13 20 -49 77 -80 127 l-58 89 39
+23 c49 30 90 108 90 173 0 62 -35 127 -89 165 -42 30 -44 30 -194 33 -84 2
+-155 0 -159 -4z m281 -108 c49 -26 66 -99 35 -145 -24 -34 -74 -51 -149 -51
+l-65 0 0 105 0 105 75 0 c46 0 87 -6 104 -14z"/>
+      <path d="M3110 710 l0 -50 95 0 95 0 0 -275 0 -275 50 0 50 0 0 275 0 275 95
+0 95 0 0 50 0 50 -240 0 -240 0 0 -50z"/>
+      <path d="M4060 435 l0 -325 205 0 205 0 0 50 0 50 -150 0 -150 0 0 90 0 89
+128 3 127 3 3 47 3 47 -128 3 -128 3 -3 83 -3 82 151 0 150 0 0 50 0 50 -205
+0 -205 0 0 -325z"/>
+      <path d="M4988 753 c-2 -5 -4 -111 -3 -238 1 -220 2 -232 24 -278 97 -198 393
+-174 456 37 11 37 15 105 15 268 l0 218 -54 0 -55 0 -3 -232 c-3 -209 -5 -236
+-22 -261 -54 -80 -178 -79 -228 2 -22 34 -23 48 -26 264 l-4 227 -48 0 c-27 0
+-50 -3 -52 -7z"/>
+    </g>
+  </g>
+</svg>
+  <h1 class="hero-h1">
     Self-evolution for <em style="font-style:italic;color:var(--anchor-hi)">any</em>
     agent harness.</h1>
   <div class="slog" style="color:var(--soft)">Plug in. Evolve. Measure.</div>
-  <div class="cta" style="margin-top:34px;display:flex;gap:14px;justify-content:center">
-    <a class="btn primary" href="playground.html">Launch Playground</a>
-    <a class="btn" href="https://github.com/yichen14/Proteus">Star on GitHub</a>
+  <div class="cta hero-cta">
+    <a class="btn primary" href="playground.html">Enter the evolving lab</a>
+    <a class="btn" href="https://github.com/proteus-evolve/Proteus">Star on GitHub</a>
   </div>
   <div class="down">↓</div>
 </section>
@@ -107,8 +208,8 @@ section.page > .wrap { width:100% }
     <div class="card">
       <h3>Any harness</h3>
       Plug in DeepSeek Harness, Pi, our reference harnesses, or your own — one small
-      adapter, no harness code modified. The framework, sandbox, and measurement work
-      unchanged.
+      adapter, upstream untouched. Each run can evolve its own harness source while the
+      framework, sandbox, and measurement work unchanged.
     </div>
     <div class="card">
       <h3>Goal or no goal</h3>
@@ -301,15 +402,21 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
 
 <section class="page"><div class="wrap">
   <h2>60-second demo · no key · no docker</h2>
-  <pre class="cmd">pip install proteus-evolve   # or: git clone github.com/yichen14/Proteus && pip install -e .
+  <pre class="cmd">git clone https://github.com/proteus-evolve/Proteus.git && cd Proteus
+python3 -m pip install -e .
 proteus run --harness minimal --arm neutral --arm review:notes --arm review:tools \
     --seeds 4 --episodes 8 --out runs/demo
 proteus measure --harness minimal --out runs/demo</pre>
-</div>
-
 
   <footer class="site">Proteus · plug in / evolve / measure ·
-<a href="https://github.com/yichen14/Proteus">github.com/yichen14/Proteus</a></footer></section>
+    <a href="https://github.com/proteus-evolve/Proteus">github.com/proteus-evolve/Proteus</a>
+    <a class="site-counter" href="https://hits.sh/proteus-evolve.github.io/"
+      aria-label="View public site visit statistics">
+      <img src="https://hits.sh/proteus-evolve.github.io.svg?view=total&amp;style=flat-square&amp;label=site%20visits&amp;color=2E5D43&amp;labelColor=7A7263"
+        alt="Proteus site visit count" height="20" decoding="async">
+    </a>
+  </footer>
+</div></section>
 
 
 <div id="dome-overlay">
@@ -324,6 +431,7 @@ proteus measure --harness minimal --out runs/demo</pre>
   <div class="dome-body">
     <div class="disc" id="dome">
       <div class="micro" id="dome-phase"></div>
+      <div class="prompt" id="dome-prompt"></div>
       <div id="dome-feed"></div>
     </div>
     <div class="dome-panels">
@@ -356,8 +464,19 @@ proteus measure --harness minimal --out runs/demo</pre>
 #traj .axis { stroke:var(--rule) }
 #traj .tline { stroke:var(--soft); fill:none; stroke-width:1 }
 #traj circle { cursor:pointer }
-#traj circle.cur { animation:breathe 1.5s ease-in-out infinite }
-@keyframes breathe { 0%,100%{opacity:1} 50%{opacity:.18} }
+#traj circle.cur { animation:breathe 3.4s cubic-bezier(.4,0,.6,1) infinite;
+  transform-box:fill-box; transform-origin:50% 50%; will-change:transform,opacity }
+@keyframes breathe {
+  0%,100% { transform:scale(.8);  opacity:.5 }
+  50%     { transform:scale(1.9); opacity:1 }
+}
+#traj circle.halo { fill:none; stroke:var(--anchor-hi); stroke-width:2;
+  transform-box:fill-box; transform-origin:50% 50%; pointer-events:none;
+  animation:halo 3.4s cubic-bezier(.4,0,.6,1) infinite }
+@keyframes halo {
+  0%,100% { transform:scale(1);   opacity:.5 }
+  50%     { transform:scale(3.2); opacity:0 }
+}
 #tick-line { min-height:17px; color:var(--anchor-hi) }
 .sp-foot { margin-top:8px; color:var(--dim) }
 #transport { display:flex; align-items:center; gap:12px; margin-top:14px }
@@ -396,16 +515,20 @@ proteus measure --harness minimal --out runs/demo</pre>
 .dome-nav a { margin-left:18px; font:12px "SF Mono",ui-monospace,monospace;
   letter-spacing:.1em; text-transform:uppercase }
 .dome-body { flex:1; position:relative; display:flex; align-items:center }
-.disc { --R:min(42vh, 38vw); position:absolute; left:-1px; top:50%;
+.disc { --R:min(96vh, 54vw); position:absolute; left:-1px; top:50%;
   transform:translateY(-50%); width:var(--R); height:calc(2*var(--R));
   border-radius:0 var(--R) var(--R) 0; overflow:hidden;
   display:flex; flex-direction:column; justify-content:center;
-  padding:0 9% 0 7%; color:#F8F7F2 }
+  padding:0 12% 0 4%; color:#F8F7F2 }
 .disc .micro { color:rgba(255,255,255,.72) }
-#dome-phase { letter-spacing:.3em; margin-bottom:14px }
-#dome-feed { max-height:60%; overflow:hidden; font:12.5px/1.95 "SF Mono",
-  ui-monospace,monospace; mask-image:linear-gradient(to bottom, transparent,
-  black 16%) }
+#dome-phase { letter-spacing:.3em; margin-bottom:8px }
+.disc .prompt { font:italic 14.5px/1.5 "Iowan Old Style",Palatino,Georgia,serif;
+  color:rgba(255,255,255,.82); margin-bottom:16px; max-width:46ch }
+#dome-feed { max-height:66%; overflow-y:auto; font:13px/1.85 "SF Mono",
+  ui-monospace,monospace; scrollbar-width:none }
+#dome-feed::-webkit-scrollbar { display:none }
+#dome-feed.live { mask-image:linear-gradient(to bottom, transparent, black 14%) }
+#dome-feed .st.now { background:rgba(255,255,255,.14); border-radius:3px }
 #dome-feed .st { display:flex; gap:10px; align-items:baseline; white-space:nowrap;
   overflow:hidden }
 #dome-feed .st .ph { color:rgba(255,255,255,.5); width:60px; flex:none;
@@ -414,17 +537,102 @@ proteus measure --harness minimal --out runs/demo</pre>
 #dome-feed .st .tg { color:rgba(255,255,255,.66); overflow:hidden;
   text-overflow:ellipsis }
 #dome-feed .st.w .tl { text-decoration:underline; text-underline-offset:3px }
-.dome-panels { margin-left:calc(min(42vh,38vw) + 6vw); flex:1;
+.dome-panels { margin-left:calc(min(96vh,54vw) + 3vw); flex:1;
   display:grid; grid-template-columns:1fr 1fr; gap:34px; max-width:760px;
   padding-right:3vw }
 .dome-side .kv { font-size:13.5px }
 .dome-side .kv .micro { display:block; margin:10px 0 1px }
 @media (max-width:820px) {
-  .disc { --R:min(30vh,44vw) }
-  .dome-panels { margin-left:calc(min(30vh,44vw) + 8vw); grid-template-columns:1fr;
+  .disc { --R:min(56vh,80vw) }
+  .dome-panels { margin-left:calc(min(56vh,80vw) + 4vw); grid-template-columns:1fr;
     overflow-y:auto; max-height:88vh }
 }
 .meas-bar { height:5px; background:var(--anchor); margin:3px 0 8px }
+
+/* ------------------------------------------------------------------ phone layout
+   A phone is portrait, short, and has a browser chrome that grows and shrinks as you
+   scroll. Three things follow: heights are dvh (100vh is the *large* viewport, so a
+   100vh section is taller than what you can see while the address bar is out); snap is
+   proximity, not mandatory, so a section taller than the screen can still be read; and
+   the trajectory frame turns portrait, because a 1000x520 world drawn 375px wide is
+   195px tall — a sliver. */
+@media (max-width:760px) {
+  html { scroll-snap-type:y proximity }
+  section.snap, section.page { height:auto; min-height:100vh; min-height:100svh }
+  section.snap { padding:72px 20px 30px }
+  section.page { align-items:flex-start; padding:64px 0 34px }
+  section.page > .wrap { margin-block:auto }          /* centred if it fits, top if not */
+
+  #corner-nav { top:10px; right:12px; gap:6px }
+  #corner-nav a, #theme-btn { padding:5px 8px; font-size:10px; letter-spacing:.1em }
+
+  /* the stage's readouts belong to the trace section; over the hero they collide
+     with the wordmark, so they only exist once the trace is in front */
+  #stage { padding:64px 20px 24px }
+  #stage > .micro, #stage-cap, #transport { display:none }
+  body.trace-front #stage > .micro,
+  body.trace-front #stage-cap,
+  body.trace-front #transport { display:flex }
+  body.trace-front #stage > .micro { display:block; font-size:10px; line-height:1.6 }
+  #stage-cap { flex-direction:column; gap:4px }
+  #transport { flex-wrap:wrap; gap:8px 10px; margin-top:10px }
+  #scrub { order:2; flex:1 0 100%; min-width:0 }
+  #scrub-lab { order:1; margin-left:auto }
+
+  /* no room beside a 6px dot, and the same content is one tap away in the episode
+     view, so the floating card is dropped rather than shrunk */
+  #live-card { display:none }
+  .trace-hint { top:62px; left:20px; right:20px }
+  .trace-hint .micro { font-size:10px; line-height:1.55 }
+  .trace-hint .micro + .micro { display:none }   /* the stage caption already says it */
+
+  .hero-sec .mark.lockup, .hero .mark.lockup { height:104px }
+  .hero-h1 { font-size:28px; margin-top:20px }
+  .hero-cta { flex-direction:column; align-items:stretch; gap:10px; margin-top:26px }
+  .hero-cta .btn { padding:12px 14px }
+  .hero-sec .down { bottom:14px }
+
+  pre.cmd { font-size:11.5px; padding:12px }
+  h2 { margin-top:0 }
+
+  /* the episode view stacks: the disc keeps bleeding off the left edge, the setup and
+     measurement panels move below it instead of into a 16px gutter */
+  #dome-overlay { padding:14px 16px }
+  .dome-top { flex-wrap:wrap; gap:6px 14px }
+  .dome-nav a { margin-left:0; margin-right:16px }
+  .dome-body { flex-direction:column; align-items:stretch; overflow:visible }
+  .disc { --R:min(44vh,96vw); position:relative; left:0; top:0; transform:none;
+    margin-left:-16px; flex:none; padding:0 18% 0 16px }
+  /* keep the feed in the disc's wide middle band, or the curve eats the outer rows */
+  #dome-feed { max-height:56% }
+  .disc .prompt { font-size:13.5px }
+  .dome-panels { margin-left:0; grid-template-columns:1fr; gap:22px; max-width:none;
+    padding:22px 0 0; overflow:visible; max-height:none }
+}
+
+/* A phone held sideways is wide enough to miss the query above and far too short for a
+   full-height hero: the same crowding, so the same treatment, keyed on height. */
+@media (max-height:600px) {
+  html { scroll-snap-type:y proximity }
+  section.snap, section.page { height:auto; min-height:100vh; min-height:100svh }
+  section.snap { padding:54px 5vw 22px }
+  section.page { align-items:flex-start; padding:50px 0 26px }
+  section.page > .wrap { margin-block:auto }
+  #corner-nav { top:8px; right:12px }
+
+  #stage { padding:48px 5vw 16px }
+  #stage > .micro, #stage-cap, #transport, #live-card { display:none }
+  body.trace-front #stage > .micro { display:block }
+  body.trace-front #stage-cap { display:flex }
+  body.trace-front #transport { display:flex }
+  #traj { min-height:0; max-height:52svh }
+
+  .hero-sec .mark.lockup, .hero .mark.lockup { height:76px }
+  .hero-h1 { font-size:26px; margin:14px auto 8px }
+  .hero-cta { margin-top:18px }
+  .hero-sec .down { display:none }
+  .trace-hint { top:50px }
+}
 </style>
 
 <script src="assets/case-data.js"></script>
@@ -433,10 +641,23 @@ proteus measure --harness minimal --out runs/demo</pre>
   const C = window.CASE, EPS = C.episodes, N = EPS.length;
   const SURF = {memory:"var(--s-memory)", skills:"var(--s-skills)", tools:"var(--s-tools)"};
   const WRITE = /write|edit|update|append/;
+  // the framework's four phase prompts, verbatim (this arm adds no disposition or goal
+  // text, so what the agent receives is exactly this)
+  const PROMPTS = {
+    observe: "Take stock of the harness you woke up in: what is here, what state it is in.",
+    propose: "List what you could do next to improve your own harness.",
+    act: "Pick one of your proposals and carry it out by editing your own harness.",
+    reflect: "Decide what to carry forward. Only files survive to the next episode.",
+  };
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---- world geometry: x = episode, y = tool calls (fixed scale)
   const SP = 160, PADX = 90, VH = 520, TOP = 70, BOT = VH - 70;
+  // the SVG frame is separate from the world: landscape on a desktop, portrait on a
+  // phone, where a 1000x520 frame drawn 375px wide would be 195px of usable plot
+  const svgEl = document.getElementById("traj");
+  let FW = 1000, FH = 520, GRID_FS = 11;
+  const narrow = () => innerWidth <= 760;
   const tcMax = Math.max(...EPS.map(e => e.steps.length));
   const Y_MAX = Math.ceil(tcMax / 25) * 25;
   const px = i => PADX + i * SP;
@@ -449,6 +670,7 @@ proteus measure --harness minimal --out runs/demo</pre>
       stroke-width="1.4" points=""/>
     <line id="tj-grow" stroke="var(--anchor-hi)" stroke-width="1.6"
       x1="0" y1="0" x2="0" y2="0" opacity="0"/>
+    <circle id="tj-halo" class="halo" r="7" cx="-999" cy="-999"/>
     <g id="tj-dots"></g>`;
   const dots = document.getElementById("tj-dots");
   const dom = i => {
@@ -469,31 +691,48 @@ proteus measure --harness minimal --out runs/demo</pre>
   });
 
   // ---- 2D camera on the world group
-  const S_FOLLOW = 1000 / (SP * 2.6);            // ~2.4x: two-three dots in frame
-  const S_OVER = Math.min(1000 / WORLD_W, 1) * 0.96;
+  let S_FOLLOW, S_OVER;
+  function setFrame() {
+    const n = narrow();
+    FW = n ? 520 : 1000;
+    FH = n ? 560 : 520;
+    GRID_FS = n ? 15 : 11;
+    svgEl.setAttribute("viewBox", `0 0 ${FW} ${FH}`);
+    S_FOLLOW = FW / (SP * (n ? 3 : 2.6));
+    S_OVER = Math.min(FW / WORLD_W, 1) * 0.96;
+  }
+  setFrame();
   let mode = "follow";
   let cam = {x: px(0), y: py(0), s: S_FOLLOW};
   let tgt = {x: px(0), y: py(0), s: S_FOLLOW};
+  // world units per rendered CSS pixel at a given camera scale: a phone frame is 520
+  // units wide in ~340px, so a radius that reads on a desktop is invisible here
+  const perPx = s => (FW / (svgEl.clientWidth || FW)) / s;
   function styleForMode() {
     const over = mode === "over";
-    [...dots.children].forEach(c => c.setAttribute("r", over ? 16 : 6));
-    document.getElementById("tj-line").setAttribute("stroke-width", over ? 4 : 1.4);
-    document.getElementById("tj-grow").setAttribute("stroke-width", over ? 4.5 : 1.6);
+    const u = perPx(over ? S_OVER : S_FOLLOW);
+    const r = narrow() ? (over ? 4.5 : 11) * u : (over ? 16 : 6);
+    const lw = narrow() ? (over ? 1.6 : 1.4) * u : (over ? 4 : 1.4);
+    [...dots.children].forEach(c => c.setAttribute("r", r.toFixed(1)));
+    document.getElementById("tj-line").setAttribute("stroke-width", lw.toFixed(2));
+    document.getElementById("tj-grow").setAttribute("stroke-width",
+      (lw * 1.15).toFixed(2));
   }
   function applyCam() {
     world.setAttribute("transform",
-      `translate(${500 - cam.s * cam.x} ${260 - cam.s * cam.y}) scale(${cam.s})`);
+      `translate(${FW/2 - cam.s * cam.x} ${FH/2 - cam.s * cam.y}) scale(${cam.s})`);
     // y gridlines live in screen space, mapped through the camera
     const rows = [0, Y_MAX/2, Y_MAX].map(v => {
       const wy = BOT - (v / Y_MAX) * (BOT - TOP);
-      return {v, sy: 260 + cam.s * (wy - cam.y)};
-    }).filter(r => r.sy > 26 && r.sy < VH - 8);
+      return {v, sy: FH/2 + cam.s * (wy - cam.y)};
+    }).filter(r => r.sy > 26 && r.sy < FH - 8);
     overlay.innerHTML = rows.map(r =>
-      `<line x1="0" x2="1000" y1="${r.sy}" y2="${r.sy}" stroke="var(--rule)"
+      `<line x1="0" x2="${FW}" y1="${r.sy}" y2="${r.sy}" stroke="var(--rule)"
          stroke-dasharray="2 5"/>
-       <text x="8" y="${r.sy - 5}" fill="var(--dim)" font-size="11"
+       <text x="8" y="${r.sy - 5}" fill="var(--dim)" font-size="${GRID_FS}"
          font-family="SF Mono,ui-monospace,monospace">${r.v}</text>`).join("")
-      + `<text x="992" y="${VH-10}" text-anchor="end" fill="var(--dim)" font-size="11"
+      + `<text x="${FW-8}" y="${FH-10}" text-anchor="end" fill="var(--dim)"
+         font-size="${GRID_FS}"
          font-family="SF Mono,ui-monospace,monospace">tool calls / episode</text>`;
   }
 
@@ -516,6 +755,11 @@ proteus measure --harness minimal --out runs/demo</pre>
       c.classList.toggle("cur", k === i);
     });
     syncLine(i);
+    const halo = document.getElementById("tj-halo");
+    if (halo) {
+      halo.setAttribute("cx", px(i)); halo.setAttribute("cy", py(i));
+      halo.setAttribute("r", narrow() ? (12 * perPx(cam.s)).toFixed(1) : 7);
+    }
     const u = EPS[i].units;
     document.getElementById("case-foot").textContent =
       `${C.meta.kind} · ep ${EPS[i].ep}/${N} · ${EPS[i].steps.length} tool calls · ` +
@@ -562,6 +806,7 @@ proteus measure --harness minimal --out runs/demo</pre>
         }
       }
     }
+    paintLiveCard(ep, intra, flying);
     const a = reduced() ? 1 : 0.055;
     cam.x += (tgt.x - cam.x) * a;
     cam.y += (tgt.y - cam.y) * a;
@@ -569,6 +814,35 @@ proteus measure --harness minimal --out runs/demo</pre>
     applyCam();
     paintTransport(ep);
     requestAnimationFrame(frame);
+  }
+
+  // ---- the card that rides beside the evolving dot
+  const card = document.getElementById("live-card");
+  function paintLiveCard(ep, intra, flying) {
+    if (mode !== "follow") { card.style.opacity = 0; return; }
+    card.style.opacity = "";
+    const svg = document.getElementById("traj");
+    const box = svg.getBoundingClientRect();
+    const sx = box.left + (FW/2 + cam.s * (px(ep) - cam.x)) * box.width / FW;
+    const sy = box.top + (FH/2 + cam.s * (py(ep) - cam.y)) * box.height / FH;
+    const stage = document.getElementById("stage").getBoundingClientRect();
+    card.style.left = Math.min(sx - stage.left + 34, stage.width - 360) + "px";
+    card.style.top  = Math.max(sy - stage.top - 40, 8) + "px";
+
+    const e = EPS[ep], steps = e.steps;
+    const k = flying ? steps.length
+      : Math.max(1, Math.min(steps.length,
+          Math.round(intra / DWELL * steps.length)));
+    const ph = steps[k - 1] ? steps[k - 1][0] : "observe";
+    document.getElementById("lc-head").textContent =
+      flying ? `episode ${e.ep} complete` : `episode ${e.ep} · ${ph} · step ${k}/${steps.length}`;
+    document.getElementById("lc-prompt").textContent = flying ? "" : (PROMPTS[ph] || "");
+    // artefacts: the write-type calls made so far, most recent first
+    const arts = steps.slice(0, k).filter(s => WRITE.test(s[1]))
+      .slice(-4).reverse()
+      .map(s => `<div class="art"><b>${s[1]}</b> ${s[2] || ""}</div>`).join("");
+    document.getElementById("lc-arts").innerHTML =
+      arts || '<div class="art">— nothing written yet —</div>';
   }
 
   // ---- transport: pause, speed, drag-to-scrub (the dome feed shares these)
@@ -593,6 +867,9 @@ proteus measure --harness minimal --out runs/demo</pre>
     scrubTo(e.clientX); });
   scrub.addEventListener("pointermove", e => { if (scrubbing) scrubTo(e.clientX); });
   scrub.addEventListener("pointerup", () => scrubbing = false);
+  // release even if the finger or cursor leaves the bar first
+  addEventListener("pointerup", () => scrubbing = false);
+  addEventListener("pointercancel", () => scrubbing = false);
   scrub.addEventListener("click", e => e.stopPropagation());
   function paintTransport(ep) {
     const f = vt / CYCLE;
@@ -611,6 +888,19 @@ proteus measure --harness minimal --out runs/demo</pre>
       tgt = {x: px(cur), y: py(cur), s: S_FOLLOW};
     }
     styleForMode();
+  });
+
+  // rotating a phone swaps the frame between portrait and landscape
+  let frameTimer = null;
+  addEventListener("resize", () => {
+    clearTimeout(frameTimer);
+    frameTimer = setTimeout(() => {
+      setFrame();
+      tgt.s = mode === "over" ? S_OVER : S_FOLLOW;
+      cam.s = tgt.s;
+      styleForMode();
+      applyCam();
+    }, 150);
   });
 
   // ---- the dome (episode detail) --------------------------------------------
@@ -657,51 +947,92 @@ proteus measure --harness minimal --out runs/demo</pre>
     }
     ov.classList.remove("on");
   }
+  // how far into episode `i` the playhead is, 0..1 (1 = finished)
+  function progressOf(i) {
+    const t0 = vt - i * EP_MS;
+    if (t0 <= 0) return 0;
+    if (t0 >= DWELL) return 1;
+    return t0 / DWELL;
+  }
+  function isLive(i) { return Math.floor(vt / EP_MS) === i; }
+
+  function measHTML(e, k, live) {
+    // k = steps taken so far; a finished episode reports its final state, a running one
+    // reports only what has happened, because the rest has not happened yet
+    const steps = e.steps.slice(0, k);
+    const counts = {};
+    steps.forEach(s => counts[s[1]] = (counts[s[1]] || 0) + 1);
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const mx = top.length ? top[0][1] : 1;
+    const writes = steps.filter(s => WRITE.test(s[1])).length;
+    const surf = [...new Set(steps.map(s => s[2]).filter(Boolean))].slice(0, 4);
+    const phases = [...new Set(steps.map(s => s[0]))];
+    return `
+      <span class="micro">${live ? "state so far · episode still running"
+                                 : "state after this episode"}</span>
+      ${live ? `phases done: ${phases.join(" › ") || "—"}`
+             : `memory ${e.units.memory} · skills ${e.units.skills} · tools ${e.units.tools}`}
+      <span class="micro">${live ? "Δ so far" : "Δ this episode"}</span>
+      ${live ? `${writes} write-type calls`
+             : `+${e.d.a} added · ${e.d.r} revised · ${e.d.d} dropped`}
+      <span class="micro">tool calls</span>${k}${live ? ` / ${e.steps.length}` : ""}
+      <span class="micro">files touched</span>${surf.join(", ") || "—"}
+      <span class="micro">top tools</span>` +
+      (top.map(([tl, n]) => `<div>${tl} · ${n}
+        <div class="meas-bar" style="width:${Math.round(100 * n / mx)}%"></div></div>`)
+        .join("") || "<div class='micro'>—</div>");
+  }
+
+  function stepHTML(s, now) {
+    const [ph, tool, tg] = s;
+    return `<div class="st${WRITE.test(tool) ? " w" : ""}${now ? " now" : ""}">
+      <span class="ph">${ph}</span><span class="tl">${tool}</span>
+      <span class="tg">${tg || ""}</span></div>`;
+  }
+
   function renderDome() {
     const e = EPS[domeEp];
+    const live = isLive(domeEp);
     document.getElementById("dome").style.background = dom(domeEp);
     document.getElementById("dome-title").textContent =
-      `episode ${e.ep} of ${N} · ${C.meta.kind}`;
+      `episode ${e.ep} of ${N} · ${live ? "running now" : "completed"} · ${C.meta.kind}`;
     const m = C.meta;
     document.getElementById("dome-setup").innerHTML = [
       ["harness", m.harness], ["model", m.model], ["arm", m.arm],
       ["goal", m.goal], ["sandbox", m.sandbox], ["note", m.disclosure],
-    ].map(([k,v]) => `<span class="micro">${k}</span>${v}`).join("");
-    const counts = {};
-    e.steps.forEach(s => counts[s[1]] = (counts[s[1]]||0) + 1);
-    const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,5);
-    const mx = top.length ? top[0][1] : 1;
-    document.getElementById("dome-meas").innerHTML = `
-      <span class="micro">state after</span>
-      memory ${e.units.memory} · skills ${e.units.skills} · tools ${e.units.tools}
-      <span class="micro">Δ this episode</span>
-      +${e.d.a} added · ${e.d.r} revised · ${e.d.d} dropped
-      <span class="micro">tool calls</span>${e.steps.length}
-      <span class="micro">top tools</span>` +
-      top.map(([tl,n]) => `<div>${tl} · ${n}
-        <div class="meas-bar" style="width:${Math.round(100*n/mx)}%"></div></div>`).join("");
+    ].map(([k, v]) => `<span class="micro">${k}</span>${v}`).join("");
+
     const feed = document.getElementById("dome-feed");
-    feed.innerHTML = "";
     clearInterval(feedTimer);
-    let j = 0, acc = 0;
-    const ms = Math.max(120, Math.min(400, 12000 / e.steps.length));
-    feedTimer = setInterval(() => {
-      if (!playing) return;              // the global transport pauses the dome too
-      acc += 50 * speed;                 // and scales with the global speed
-      while (acc >= ms && j < e.steps.length) {
-        acc -= ms;
-        const [ph, tool, tg] = e.steps[j++];
-        document.getElementById("dome-phase").textContent = ph.toUpperCase();
-        const d = document.createElement("div");
-        d.className = "st" + (WRITE.test(tool) ? " w" : "");
-        d.innerHTML = `<span class="ph">${ph}</span>
-          <span class="tl">${tool}</span><span class="tg">${tg || ""}</span>`;
-        feed.appendChild(d);
-        while (feed.children.length > 14) feed.removeChild(feed.firstChild);
-      }
-      if (j >= e.steps.length) clearInterval(feedTimer);
-    }, 50);
+    feed.classList.toggle("live", live);
+
+    if (!live) {
+      // a finished episode is a record, not a performance: show all of it, at rest
+      document.getElementById("dome-phase").textContent =
+        e.steps.length ? e.steps[e.steps.length - 1][0].toUpperCase() : "";
+      feed.innerHTML = e.steps.map(s => stepHTML(s, false)).join("");
+      document.getElementById("dome-prompt").textContent = "";
+      document.getElementById("dome-meas").innerHTML = measHTML(e, e.steps.length, false);
+      return;
+    }
+
+    // the live episode tracks the playhead, so pausing or scrubbing moves it too
+    const paint = () => {
+      const k = Math.max(1, Math.round(progressOf(domeEp) * e.steps.length));
+      const shown = e.steps.slice(Math.max(0, k - 16), k);
+      feed.innerHTML = shown.map((s, idx) =>
+        stepHTML(s, idx === shown.length - 1)).join("");
+      feed.scrollTop = feed.scrollHeight;
+      const ph = e.steps[k - 1] ? e.steps[k - 1][0] : "observe";
+      document.getElementById("dome-phase").textContent = ph.toUpperCase();
+      document.getElementById("dome-prompt").textContent = PROMPTS[ph] || "";
+      document.getElementById("dome-meas").innerHTML = measHTML(e, k, true);
+      if (!isLive(domeEp)) { clearInterval(feedTimer); renderDome(); }  // it just ended
+    };
+    paint();
+    feedTimer = setInterval(paint, 220);
   }
+
   document.getElementById("dome-close").onclick = e => { e.preventDefault(); closeDome(); };
   document.getElementById("dome-prev").onclick = e => { e.preventDefault();
     if (domeEp > 0) { domeEp--; renderDome(); } };
@@ -734,5 +1065,6 @@ new IntersectionObserver(es => {
     e.isIntersecting && e.intersectionRatio > .45));
 }, {threshold:[.45]}).observe(traceSec);
 </script>
+<script src="assets/theme.js"></script>
 </body>
 </html>

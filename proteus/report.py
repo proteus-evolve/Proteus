@@ -13,9 +13,7 @@ artifact.
 
 from __future__ import annotations
 
-import html
 import http.server
-import json
 import subprocess
 from pathlib import Path
 
@@ -35,7 +33,6 @@ _PAGE = """<!doctype html>
 body { background:var(--bg); color:var(--ink);
        font:14px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif; padding:24px }
 h1 { font-size:18px; letter-spacing:.04em }
-h2 { font-size:16px; letter-spacing:.03em; margin-top:28px }
 .sub { color:var(--sub); margin:4px 0 20px }
 table { width:100%; border-collapse:collapse; background:var(--card);
         border:1px solid var(--line); border-radius:8px; overflow:hidden }
@@ -51,10 +48,6 @@ th { border-top:none; color:var(--sub); font-weight:600; font-size:12px;
        border:1px solid var(--line); color:var(--sub) }
 .done { color:var(--accent); border-color:var(--accent) }
 .bad  { color:var(--bad); border-color:var(--bad) }
-.audit-counts { white-space:nowrap; font-size:12px }
-.audit-links a { color:var(--accent); margin-right:10px }
-.gate-profile { font-size:12px }
-.gate-links a { color:var(--accent); margin-right:10px }
 footer { color:var(--sub); margin-top:16px; font-size:12px }
 </style>
 </head>
@@ -65,22 +58,6 @@ footer { color:var(--sub); margin-top:16px; font-size:12px }
 <th>arm</th><th>seed</th><th>progress</th><th>episodes</th><th>tool calls</th>
 <th>units by surface</th><th>growth</th><th>last score</th><th>status</th>
 </tr></thead><tbody id="rows"></tbody></table>
-<section id="gate-section"__GATE_HIDDEN__>
-<h2>Candidate activation history</h2>
-<div class="sub">terminal controller decisions; safety indicators never enter agent context</div>
-<table><thead><tr>
-<th>run</th><th>active</th><th>candidate</th><th>task</th><th>safety</th>
-<th>outcome</th><th>indicator profile</th><th>blockers</th><th>warnings</th><th>artifacts</th>
-</tr></thead><tbody id="gate-rows">__GATE_ROWS__</tbody></table>
-</section>
-<section id="audit-section"__AUDIT_HIDDEN__>
-<h2>Safety audits</h2>
-<div class="sub">post-run evidence; never fed back into evolution</div>
-<table><thead><tr>
-<th>audit</th><th>suite</th><th>status counts</th><th>targets</th>
-<th>evidence methods</th><th>state</th><th>artifacts</th>
-</tr></thead><tbody id="audit-rows">__AUDIT_ROWS__</tbody></table>
-</section>
 <footer id="foot"></footer>
 <script>
 async function jl(u){ const r = await fetch(u,{cache:"no-store"});
@@ -133,302 +110,9 @@ tick(); setInterval(tick, 5000);
 """
 
 
-def _safe_audit_path(value: object) -> str | None:
-    if not isinstance(value, str) or not value or "\\" in value:
-        return None
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
-        return None
-    return path.as_posix()
-
-
-def _count_text(value: object) -> str:
-    if not isinstance(value, dict) or not value:
-        return "—"
-    return "  ".join(f"{key}:{value[key]}" for key in sorted(value))
-
-
-def _read_json_object(path: Path) -> dict[str, object] | None:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def _logical_snapshot(value: object, role: str) -> str | None:
-    if not isinstance(value, dict):
-        return None
-    run_id = value.get("run_id")
-    episode = value.get("episode")
-    actual_role = value.get("role")
-    if (
-        not isinstance(run_id, str)
-        or not run_id
-        or isinstance(episode, bool)
-        or not isinstance(episode, int)
-        or episode < 0
-        or actual_role != role
-    ):
-        return None
-    return f"episode {episode} ({role})"
-
-
-def _progress_by_decision(root: Path, run_id: str) -> dict[str, dict[str, object]]:
-    path = root / "progress" / f"{run_id}.jsonl"
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return {}
-    records: dict[str, dict[str, object]] = {}
-    for line in lines:
-        try:
-            value = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(value, dict):
-            continue
-        decision_ref = value.get("decision_ref")
-        if isinstance(decision_ref, str) and _safe_audit_path(decision_ref) is not None:
-            records[decision_ref] = value
-    return records
-
-
-def _indicator_text(value: object) -> str | None:
-    if not isinstance(value, dict) or not value:
-        return None
-    rows: list[str] = []
-    for family_id in sorted(value):
-        assessments = value[family_id]
-        if not isinstance(family_id, str) or not isinstance(assessments, list):
-            return None
-        for assessment in assessments:
-            if not isinstance(assessment, dict):
-                return None
-            indicator = assessment.get("indicator")
-            status = assessment.get("status")
-            direction = assessment.get("direction")
-            components = assessment.get("components")
-            if not all(isinstance(item, str) for item in (indicator, status, direction)):
-                return None
-            if not isinstance(components, list):
-                return None
-            evaluated = 0
-            eligible = 0
-            for component in components:
-                if not isinstance(component, dict):
-                    return None
-                item_evaluated = component.get("evaluated")
-                item_eligible = component.get("eligible")
-                if (
-                    isinstance(item_evaluated, bool)
-                    or not isinstance(item_evaluated, int)
-                    or isinstance(item_eligible, bool)
-                    or not isinstance(item_eligible, int)
-                    or not 0 <= item_evaluated <= item_eligible
-                ):
-                    return None
-                evaluated += item_evaluated
-                eligible += item_eligible
-            rows.append(
-                f"{family_id} / {indicator}: {status} / {direction} "
-                f"({evaluated}/{eligible} evaluated)"
-            )
-    return " | ".join(rows) if rows else None
-
-
-def _messages(value: object, *, blockers: bool = False) -> str | None:
-    if not isinstance(value, list):
-        return None
-    rendered: list[str] = []
-    for item in value:
-        if blockers:
-            if not isinstance(item, dict) or not isinstance(item.get("code"), str):
-                return None
-            rendered.append(str(item["code"]))
-        elif isinstance(item, str):
-            rendered.append(item)
-        else:
-            return None
-    return " | ".join(rendered) if rendered else "—"
-
-
-def _gate_rows(sweep_root: Path) -> list[str]:
-    safety_root = sweep_root / "safety-gates"
-    if _read_json_object(safety_root / "manifest.json") is None:
-        return []
-    rows: list[str] = []
-    for run_root in sorted(path for path in safety_root.iterdir() if path.is_dir()):
-        run_id = run_root.name
-        progress = _progress_by_decision(sweep_root, run_id)
-        try:
-            activation_lines = (run_root / "activations.jsonl").read_text(
-                encoding="utf-8"
-            ).splitlines()
-        except OSError:
-            continue
-        for line in activation_lines:
-            try:
-                activation = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(activation, dict):
-                continue
-            decision_ref = _safe_audit_path(activation.get("decision_ref"))
-            if decision_ref is None:
-                continue
-            expected_prefix = f"safety-gates/{run_id}/"
-            if not decision_ref.startswith(expected_prefix) or not decision_ref.endswith(
-                "/decision.json"
-            ):
-                continue
-            transition_ref = (
-                Path(decision_ref).parent / "transition.json"
-            ).as_posix()
-            indicators_ref = (
-                Path(decision_ref).parent / "indicators.json"
-            ).as_posix()
-            observations_ref = (
-                Path(decision_ref).parent / "observations.jsonl"
-            ).as_posix()
-            transition = _read_json_object(sweep_root / transition_ref)
-            indicators = _read_json_object(sweep_root / indicators_ref)
-            decision = _read_json_object(sweep_root / decision_ref)
-            if (
-                transition is None
-                or indicators is None
-                or decision is None
-                or not (sweep_root / observations_ref).is_file()
-            ):
-                continue
-            active_text = _logical_snapshot(transition.get("active"), "active")
-            candidate_text = _logical_snapshot(transition.get("candidate"), "candidate")
-            if active_text is None or candidate_text is None:
-                continue
-            if (
-                indicators.get("active") != transition.get("active")
-                or indicators.get("candidate") != transition.get("candidate")
-                or activation.get("candidate") != transition.get("candidate")
-                or activation.get("episode") != transition.get("episode")
-            ):
-                continue
-            allowed = decision.get("allowed")
-            status = decision.get("status")
-            if (
-                type(allowed) is not bool
-                or not isinstance(status, str)
-                or activation.get("allowed") is not allowed
-                or activation.get("status") != status
-            ):
-                continue
-            profile_text = _indicator_text(indicators.get("assessments"))
-            blocker_text = _messages(decision.get("blockers"), blockers=True)
-            warning_text = _messages(decision.get("warnings"))
-            if profile_text is None or blocker_text is None or warning_text is None:
-                continue
-            progress_row = progress.get(decision_ref)
-            if progress_row is None:
-                continue
-            if progress_row.get("episode") != transition.get("episode"):
-                continue
-            task_selected = progress_row.get("task_selected")
-            activated = progress_row.get("activated")
-            if type(task_selected) is not bool or type(activated) is not bool:
-                continue
-            expected_activation = task_selected and allowed and status == "pass"
-            if activated is not expected_activation:
-                continue
-            task_text = "selected" if task_selected else "rejected"
-            outcome = "activated" if activated else "rejected"
-            cells = (
-                run_id,
-                active_text,
-                candidate_text,
-                task_text,
-                status,
-                outcome,
-                profile_text,
-                blocker_text,
-                warning_text,
-            )
-            rendered = "".join(
-                f'<td class="gate-profile">{html.escape(cell)}</td>'
-                if position >= 6
-                else f"<td>{html.escape(cell)}</td>"
-                for position, cell in enumerate(cells)
-            )
-            links = (
-                f'<a href="{html.escape(transition_ref, quote=True)}">transition</a>'
-                f'<a href="{html.escape(indicators_ref, quote=True)}">indicators</a>'
-                f'<a href="{html.escape(decision_ref, quote=True)}">decision</a>'
-            )
-            rows.append(f'<tr>{rendered}<td class="gate-links">{links}</td></tr>')
-    return rows
-
-
-def _audit_rows(sweep_root: Path) -> list[str]:
-    audits_root = sweep_root / "audits"
-    try:
-        index = json.loads((audits_root / "index.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
-    entries = index.get("audits") if isinstance(index, dict) else None
-    if not isinstance(entries, list):
-        return []
-
-    rows: list[str] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        audit_id = entry.get("id")
-        suite = entry.get("suite")
-        version = entry.get("version")
-        summary_ref = _safe_audit_path(entry.get("summary"))
-        results_ref = _safe_audit_path(entry.get("results"))
-        if not all(isinstance(value, str) for value in (audit_id, suite, version)):
-            continue
-        if summary_ref is None or results_ref is None:
-            continue
-        try:
-            summary = json.loads(
-                (audits_root / summary_ref).read_text(encoding="utf-8")
-            )
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(summary, dict):
-            continue
-        cells = (
-            str(audit_id),
-            f"{suite} {version}".strip(),
-            _count_text(summary.get("status_counts")),
-            _count_text(summary.get("target_counts")),
-            _count_text(summary.get("evidence_method_counts")),
-        )
-        rendered = "".join(
-            f'<td class="audit-counts">{html.escape(cell)}</td>'
-            if position >= 2
-            else f"<td>{html.escape(cell)}</td>"
-            for position, cell in enumerate(cells)
-        )
-        rendered += '<td><span class="tag done">completed</span></td>'
-        links = (
-            f'<a href="audits/{html.escape(summary_ref, quote=True)}">summary</a>'
-            f'<a href="audits/{html.escape(results_ref, quote=True)}">results</a>'
-        )
-        rows.append(f'<tr>{rendered}<td class="audit-links">{links}</td></tr>')
-    return rows
-
-
 def write_report(sweep_root: Path) -> Path:
-    root = Path(sweep_root)
-    audit_rows = _audit_rows(root)
-    gate_rows = _gate_rows(root)
-    page = _PAGE.replace("__AUDIT_HIDDEN__", "" if audit_rows else " hidden")
-    page = page.replace("__AUDIT_ROWS__", "\n".join(audit_rows))
-    page = page.replace("__GATE_HIDDEN__", "" if gate_rows else " hidden")
-    page = page.replace("__GATE_ROWS__", "\n".join(gate_rows))
-    out = root / "report.html"
-    out.write_text(page, encoding="utf-8")
+    out = Path(sweep_root) / "report.html"
+    out.write_text(_PAGE, encoding="utf-8")
     return out
 
 

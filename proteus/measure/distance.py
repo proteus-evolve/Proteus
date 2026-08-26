@@ -33,20 +33,86 @@ def _read(path: Path) -> str:
         return ""
 
 
+def _files(base: Path) -> list[Path]:
+    return sorted(p for p in base.rglob("*")
+                  if p.is_file() and "__pycache__" not in p.parts)
+
+
+def _defs(path: Path, rel: str) -> dict[str, str]:
+    """Top-level defs and classes of a Python file, as {rel::name: hash of its source}.
+
+    Falls back to the whole file when it does not parse — a harness mid-edit often has
+    a syntactically broken file, and a measurement pass must not raise on it.
+    """
+    import ast
+    src = _read(path)
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return {rel: _sha(src)}
+    lines = src.splitlines(keepends=True)
+    out: dict[str, str] = {}
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        seg = "".join(lines[node.lineno - 1:(node.end_lineno or node.lineno)])
+        out[f"{rel}::{node.name}"] = _sha(seg)
+    # module-level code outside any def is itself a unit: an agent that rewrites the
+    # dispatch table at the bottom of loop.py has changed the harness
+    body = "".join(ln for i, ln in enumerate(lines, 1)
+                   if not any(n.lineno <= i <= (n.end_lineno or n.lineno)
+                              for n in tree.body
+                              if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                                ast.ClassDef))))
+    if body.strip():
+        out[f"{rel}::<module>"] = _sha(body)
+    return out
+
+
 def units(harness_root: Path, surfaces: Sequence[Surface]) -> dict[str, dict[str, str]]:
-    """Every unit of every declared surface, as {surface: {unit_id: content_hash}}."""
+    """Every unit of every declared surface, as {surface: {unit_id: content_hash}}.
+
+    Unit ids are paths relative to the surface, never bare stems: two files that share a
+    stem in different directories are two units, and a directory-unit surface hashes all
+    of its members, so editing any one of them moves the unit.
+    """
     out: dict[str, dict[str, str]] = {s.name: {} for s in surfaces}
     for s in surfaces:
         base = harness_root / s.subdir
+        if base.is_file():
+            # a surface whose subdir is a single file (a self-edited code file such as
+            # loop.py, or an instructions file such as AGENTS.md). Skipping these was a
+            # measurement bug: they are exactly the self-editing surfaces the study is
+            # about, and they would have read distance 0 forever.
+            if s.unit == "top_level_def":
+                out[s.name].update(_defs(base, base.name))
+            else:
+                out[s.name][base.name] = _sha(_read(base))
+            continue
         if not base.is_dir():
             continue
-        for path in sorted(base.rglob("*")):
-            if not path.is_file() or path.name.startswith(".") or "__pycache__" in path.parts:
-                continue
-            # a "directory"-unit surface (e.g. skills) keys by the containing dir; a
-            # "file"-unit surface keys by the file stem.
-            name = path.parent.name if s.unit == "directory" else path.stem
-            out[s.name][name] = _sha(_read(path))
+        if s.unit == "directory":
+            # the unit is a directory (a skill is a folder); its hash covers every member,
+            # so a change to any file inside moves the unit. Keying by the directory name
+            # alone let the last file written overwrite its siblings' hashes, and a
+            # two-file skill could be edited without the measurement changing at all.
+            groups: dict[str, list[Path]] = {}
+            for path in _files(base):
+                rel = path.relative_to(base)
+                # the unit is the TOP-LEVEL directory: alpha/scripts/run.py belongs to
+                # unit "alpha", not to a separate unit "alpha/scripts"
+                key = rel.parts[0] if len(rel.parts) > 1 else rel.as_posix()
+                groups.setdefault(key, []).append(path)
+            for key, members in groups.items():
+                out[s.name][key] = _sha("\0".join(
+                    f"{p.relative_to(base).as_posix()}\0{_read(p)}" for p in sorted(members)))
+            continue
+        for path in _files(base):
+            rel = path.relative_to(base).as_posix()
+            if s.unit == "top_level_def":
+                out[s.name].update(_defs(path, rel))
+            else:
+                out[s.name][rel] = _sha(_read(path))
     return out
 
 

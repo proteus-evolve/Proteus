@@ -135,7 +135,7 @@ def build(name_or_manifest: str, env_root: Path = Path("environments")) -> str:
         else:
             out_lines.append(line)
     if sha:
-        idx = next(i for i, l in enumerate(out_lines) if l.strip() == "[source]")
+        idx = next(i for i, ln in enumerate(out_lines) if ln.strip() == "[source]")
         out_lines.insert(idx + 1, f'resolved_sha = "{sha}"')
     manifest.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
     return tag

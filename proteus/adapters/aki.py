@@ -19,7 +19,8 @@ The adapter never writes into the Aki checkout; all state lands in the Proteus r
 Known limits, stated rather than papered over:
 - Aki's phase prompts live inside the harness (`loop.py`), so `spec.phase_prompts` is not
   injected into the episode yet; no-goal runs — the paper's primary regime — are fully
-  supported, goal-text injection into Aki episodes is not wired.
+  supported, while the framework default epistemic protocol and goal-text injection are
+  not wired into Aki episodes. Other bundled adapters consume `spec.phase_prompts`.
 - Aki couples seeding and disposition install in one `init_run`, so this adapter performs
   both inside `install_disposition` (the framework calls `seed` first; it only records state).
 """
@@ -31,17 +32,11 @@ import hashlib
 import json
 import os
 import sys
-from collections.abc import Sequence
-from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Optional, Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.disposition import Disposition
-
-if TYPE_CHECKING:
-    from proteus.adapters.aki_safety import AkiCandidateSafetyExecutor
-    from proteus.safety.taxonomy import HarnessSafetyProfile
 
 #: Aki phase names -> Proteus phase names.
 _PHASE = {"observe": "observe", "propose": "propose",
@@ -63,6 +58,8 @@ class AkiHarness:
     """`HarnessAdapter` for the Aki research harness."""
 
     name = "aki"
+    continuity_mode = "native"     # Aki's supervisor owns its internal phase state
+    disposition_in_files = True    # the apparatus installs the persona through its carrier
 
     SURFACES = (
         Surface("memory", "memory", unit="file", write_tools=frozenset({"memory_write"})),
@@ -77,7 +74,7 @@ class AkiHarness:
     def __init__(self, src: str | None = None, docker: bool = True) -> None:
         self.src = Path(src or os.environ.get("AKI_HARNESS_SRC", "")).expanduser()
         self.docker = docker
-        self._pending_root: Path | None = None
+        self._pending_root: Optional[Path] = None
         self._run_configs: dict[Path, object] = {}
 
     # ---------------------------------------------------------------- contract: metadata
@@ -87,50 +84,6 @@ class AkiHarness:
 
     def required_edit_tools(self) -> frozenset[str]:
         return frozenset({"memory_write", "skill_write", "tool_write", "file_write"})
-
-    def harness_safety_profile(self) -> HarnessSafetyProfile:
-        """Bind Aki's four native modules to its candidate-local safety executor."""
-        from proteus.safety.taxonomy import (
-            HarnessModule,
-            HarnessSafetyProfile,
-            ModuleBinding,
-        )
-
-        return HarnessSafetyProfile(
-            bindings=(
-                ModuleBinding(
-                    HarnessModule.AGENT_LOOP,
-                    surface_names=("loop",),
-                    runtime_evidence=True,
-                ),
-                ModuleBinding(
-                    HarnessModule.MEMORY,
-                    surface_names=("memory",),
-                    runtime_evidence=True,
-                ),
-                ModuleBinding(
-                    HarnessModule.SKILLS,
-                    surface_names=("skills",),
-                    runtime_evidence=True,
-                ),
-                ModuleBinding(
-                    HarnessModule.TOOLS,
-                    surface_names=("tools",),
-                    runtime_evidence=True,
-                ),
-            )
-        )
-
-    def candidate_safety_executor(self) -> AkiCandidateSafetyExecutor:
-        """Return the optional Aki-native Phase 1 executor."""
-        from proteus.adapters.aki_live_worker import AkiWorkerController
-        from proteus.adapters.aki_safety import AkiCandidateSafetyExecutor
-
-        source_python = self.src / ".venv" / "bin" / "python"
-        worker = AkiWorkerController(
-            python_executable=(source_python if source_python.is_file() else None)
-        )
-        return AkiCandidateSafetyExecutor(worker)
 
     # ---------------------------------------------------------------- run path (needs Aki)
 
@@ -196,18 +149,6 @@ class AkiHarness:
         config = self._run_configs.get(run_root)
         if config is None:
             raise RuntimeError("run_episode before install_disposition for this root")
-        native_model = str(getattr(config, "model", ""))
-        if spec.model and spec.model != native_model:
-            return EpisodeResult(
-                episode=spec.episode,
-                ok=False,
-                error=(
-                    f"Aki ordinary evolution cannot bind requested model {spec.model!r}; "
-                    f"native run is configured for {native_model!r}"
-                ),
-            )
-        config = replace(config, max_turns=spec.max_turns)
-        self._run_configs[run_root] = config
         asyncio.run(supervisor.run_episode(config, spec.episode))
         # Read the outcome back from the trace — the only channel Proteus trusts.
         status, counters = self._episode_outcome(run_root, spec.episode)
@@ -229,7 +170,7 @@ class AkiHarness:
                 return candidate
         raise FileNotFoundError(f"no trace for episode {episode} under {traces}")
 
-    def _surface_for_tool(self, tool: str) -> str | None:
+    def _surface_for_tool(self, tool: str) -> Optional[str]:
         for s in self.SURFACES:
             if tool in s.write_tools:
                 return s.name
@@ -282,9 +223,7 @@ class AkiHarness:
         candidates = sorted(
             [harness_root / "loop.py",
              *(harness_root.parent / ".aki").glob("persona*"),
-             *harness_root.glob("disposition_*.py")],
-            key=str,
-        )
+             *harness_root.glob("disposition_*.py")], key=str)
         for p in candidates:
             if p.is_file():
                 h.update(p.name.encode())

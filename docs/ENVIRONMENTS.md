@@ -18,7 +18,8 @@ This note records what we adopted, what we deliberately do differently, and why.
    declare `network` per environment; `none` is the default in `SandboxConfig`.
 3. **Date/version-tagged prebuilt images, never `latest`.** Harbor ships every
    Terminal-Bench task as a Docker Hub image tagged by build date. We tag
-   `proteus-env-<name>:<harness-version>` (e.g. `proteus-env-dsh:0.1.0-rc.7`).
+   `proteus-env-<name>:<harness-version>` (e.g.
+   `proteus-env-dsh-src:0.1.0-rc.7`).
 4. **Prefixed image naming for safe cleanup.** Harbor prefixes locally built images
    (`hb__*`) so `cache clean` can match them. Our `proteus-env-` prefix serves the same
    purpose.
@@ -53,5 +54,94 @@ This note records what we adopted, what we deliberately do differently, and why.
   image rebuilds, snapshots of the mounts instead of artifact collection, and no
   benchmark registry — the `environments/` directory in-repo is the registry.
 - Harbor's agent abstraction installs the agent *into* the task container at trial time.
-  Proteus bakes the harness into the environment image at build time (pinned), because
-  the harness is the constant apparatus and the workspace is the variable.
+  Proteus source-mode images bake a pinned pristine harness, its dependencies, and its
+  build toolchain once. At seed time the adapter extracts the real source into the mounted
+  workspace; later boots rebuild from that evolvable copy without rebuilding the image.
+  Dependencies and toolchain are the constant apparatus; the run-local source is part of
+  the measured subject.
+
+## Bringing your own environment
+
+Point `--env` at a compatible image reference, or at a directory / `environment.toml`
+describing one, to override a containerized adapter's default environment:
+
+```bash
+proteus run --harness dsh --env ghcr.io/you/your-env:1.4 --network host \
+    --arm neutral --seeds 2 --episodes 10 --out runs/mine
+```
+
+A manifest is the same thing, versioned, with the settings attached:
+
+```toml
+[environment]
+docker_image = "ghcr.io/you/your-env:1.4"   # or `image` for a tag you build locally
+network      = "host"                        # none (default) | host | bridge | a named network
+memory       = "8g"
+cpus         = "4"
+workdir      = "/workspace"
+user         = "1000:1000"                   # avoid root-owned files in the mounts
+env_passthrough = ["DEEPSEEK_API_KEY"]       # forwarded from your shell — secrets go here
+docker_args  = ["--gpus", "all"]             # anything the fields above do not name
+
+[[environment.mounts]]                       # extra bind mounts, repeatable
+host      = "/data/corpora"
+container = "/corpora"
+
+[environment.env]                            # literal values, visible in the process table
+LANG = "C.UTF-8"
+```
+
+```bash
+proteus run --harness pi --env ./my-env --out runs/mine ...
+```
+
+Command-line flags (`--network`, `--mem`, `--cpus`, `--docker-arg`) override the manifest,
+so one manifest can serve several runs. In Python the same object is passed directly, which
+is also how a custom adapter accepts one:
+
+```python
+from proteus.sandbox import DockerSandbox, SandboxConfig
+from proteus.adapters.dsh import DshHarness
+
+env = SandboxConfig.from_spec("./my-env", network="host")
+harness = DshHarness(sandbox=DockerSandbox(env), phase_timeout_s=1200)
+```
+
+The image contract belongs to the adapter. For `dsh` and `pi`, a replacement must provide
+the same source-mode contract as their bundled images: the expected source tar
+(`/opt/dsh-source.tar` or `/opt/pi-source.tar`), an entrypoint that exact-syncs
+`/workspace/src` onto the pinned tree, rebuilds on source-hash changes, and then accepts the
+adapter's CLI arguments. During model phases, the adapters mount the frozen active snapshot
+read-only at `/workspace`, the writable candidate at `/workspace/candidate`, native state
+at `/state`, and, for benchmark runs, the task at `/workspace/task`. The same boot contract
+is reused model-free after reflect with the candidate at `/workspace` for boundary
+validation. Their defaults also run containers as the host uid/gid so bind-mounted files
+remain editable and snapshot-cleanable on Linux. A custom adapter may define a different
+image contract.
+
+## Bounding an episode
+
+The episode budget and wall-clock backstop are independent:
+
+- `--max-turns` is the iteration budget: the number of steps an episode may take before it
+  stops, enforced by the adapter rather than merely suggested to the model. `minimal` and
+  `llm` enforce it directly. `dsh` and `pi` enforce it exactly between phases and
+  approximately within a phase by polling their native session logs and stopping the
+  container at the budget line. `--min-turns-per-phase` reserves budget for later phases;
+  `--announce-budget` additionally tells the agent the limit, an off-by-default
+  experimental condition. Budget stops record `turn_capped` and snapshot normally.
+- For long source-evolution tasks, `--phase-turns` replaces the uniform minimum with an
+  exact normal plan, `--hard-max-turns` adds a bounded burst ceiling, and unused early
+  quota is reserved for act. `--checkpoint-turns` keeps an agent-visible tail for its own
+  persistent handoff and requires `--announce-budget`. A recommended starting point is
+  `300` normal / `500` hard with
+  `observe=40,propose=25,act=200,reflect=35` and a two-call checkpoint reserve. These are
+  experimental-condition fields and must be repeated unchanged when resuming.
+- `--phase-timeout` is wall-clock seconds per phase for containerised harnesses, where the
+  external CLI owns its own loop. Reaching it ends the episode with a timeout error rather
+  than hanging the sweep. Default 600.
+
+Episode cost grows with episode index — later episodes wake up to a larger harness and read
+more of it — so a cap that is comfortable at episode 1 is the one that matters at episode 30.
+The hard limit is still a ceiling, not a target: a phase may stop early when it has enough
+evidence or a complete change.

@@ -10,10 +10,16 @@ Trust model (v1):
   "run any repo" is arbitrary code execution as a service.
 - **BYO key, memory only.** The user's API key lives in the job object, is injected into
   the adapter instance for that run only (never process env, so concurrent tenants cannot
-  cross-contaminate), is redacted from every response, and is dropped when the run ends.
+  cross-contaminate), and is dropped when the run ends.
 - **Hard caps** on arms/seeds/episodes/text lengths; run artifacts expire after a TTL.
 - Run ids are unguessable (uuid4); knowing the id grants read access to that run's
-  progress — the sharable-link model. Cancellation requires the creator token.
+  progress — the sharable-link model.
+
+**Deployment posture (v0.2.0): localhost / trusted network only.** This server is not
+hardened for untrusted public exposure — there is no key redaction in logs, no auth on
+cancellation, and a request can name an arbitrary LLM `base_url`. Bind it to 127.0.0.1
+(the default) or put it behind an authenticating proxy; do not expose it raw to the
+internet until these are addressed.
 
 Run:  python web/server.py --port 8400 --max-concurrent 2
 """
@@ -36,10 +42,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from proteus.core.disposition import NEUTRAL, Disposition, record, review  # noqa: E402
-from proteus.core.goal import Goal, GoalConfig, Visibility  # noqa: E402
-from proteus.core import evaluators  # noqa: E402
-from proteus.sweep import SweepConfig, run_sweep  # noqa: E402
+from proteus.core import evaluators
+from proteus.core.disposition import NEUTRAL, Disposition, record, review
+from proteus.core.goal import Goal, GoalConfig, Visibility
+from proteus.sweep import SweepConfig, run_sweep
 
 STATIC = Path(__file__).parent / "static"
 
@@ -282,7 +288,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(STATIC / "demo.html", "text/html; charset=utf-8")
         if re.fullmatch(r"/assets/[\w.-]+", p):
             ext = p.rsplit(".", 1)[-1]
-            ctype = {"png": "image/png", "css": "text/css", "js": "text/javascript"}.get(
+            ctype = {"png": "image/png", "svg": "image/svg+xml", "css": "text/css",
+                     "js": "text/javascript", "json": "application/json"}.get(
                 ext, "application/octet-stream")
             return self._file(STATIC / "assets" / p.split("/")[-1], ctype)
         if p == "/api/config":

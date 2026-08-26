@@ -24,10 +24,20 @@ def install_block(path: Path, disposition: Disposition) -> None:
     if OPEN in text:
         head, _, rest = text.partition(OPEN)
         _, _, tail = rest.partition(CLOSE)
-        text = head + tail
-    if not disposition.is_empty and disposition.prompt_suffix:
+        text = (head + tail).rstrip() + "\n"
+    parts = []
+    if disposition.prompt_suffix:
+        parts.append(disposition.prompt_suffix.strip())
+    if disposition.per_phase:
+        parts.append("Phase-specific action preferences:\n" + "\n".join(
+            f"- During {phase}: {instruction.strip()}"
+            for phase, instruction in disposition.per_phase.items()
+            if instruction.strip()
+        ))
+    carrier = "\n\n".join(part for part in parts if part)
+    if not disposition.is_empty and carrier:
         text = (text.rstrip() + "\n\n" + OPEN + "\n"
-                + disposition.prompt_suffix.strip() + "\n" + CLOSE + "\n")
+                + carrier + "\n" + CLOSE + "\n")
     path.write_text(text, encoding="utf-8")
 
 

@@ -1,235 +1,258 @@
 # Recipes
 
-Complete, copy-paste sequences from a stock harness to measured self-evolution. Execution
-status is stated per recipe.
+Copy-paste paths from a checkout of Proteus to measured self-evolution. The pinned Pi and
+DeepSeek Harness paths below are the same paths exercised by `release-smoke.yml`.
 
-## Pi (pi-coding-agent) — minimal harness, full pipeline
+## Install Proteus
 
-[Pi](https://github.com/badlogic/pi-mono) is Mario Zechner's deliberately minimal coding
-harness: four built-in tools, native `AGENTS.md`, native skills. Nothing in it knows about
-Proteus — which is the point.
-
-Status: steps 1–2 executed (image built; `proteus check --harness pi` passes 8/8 static +
-provisioning; the container reaches the DeepSeek endpoint and writes session JSONL).
-Steps 3–6 are wired but not yet executed live.
+Install the release from PyPI:
 
 ```bash
-# 1. prepared environment (Node 24 + pi, pinned)
-docker build -q -t proteus-env-pi:0.84.2 environments/pi/
+python3 -m pip install proteus-evolve
+```
 
-# 2. contract check (free: static + provisioning; --episode adds one live episode)
+Clone the repository as well when a recipe uses the checked-in Dockerfiles or boot
+wrappers under `environments/`:
+
+```bash
+git clone https://github.com/proteus-evolve/Proteus.git
+cd Proteus
+```
+
+The offline reference harness needs no API key or Docker:
+
+```bash
+proteus run --harness minimal \
+    --arm neutral --arm review:notes --arm review:tools \
+    --seeds 4 --episodes 8 --out runs/demo
+proteus reliability --harness minimal --out runs/demo
+proteus measure --harness minimal --out runs/demo --travel
+```
+
+## Pi — evolve the real TypeScript source
+
+[Pi](https://github.com/badlogic/pi-mono) is pinned at `v0.84.2`. Its source-mode image
+bakes the checkout, dependencies, hydrated model data, and rebuild wrapper. The adapter
+extracts that exact source into each run's `harness/src/`; changed source is rebuilt and
+boot-checked before the next episode.
+
+```bash
+PI_BUILD_ROOT="$(mktemp -d)"
+PI_CONTEXT="$PI_BUILD_ROOT/pi-mono"
+git clone --depth 1 --branch v0.84.2 \
+    https://github.com/badlogic/pi-mono "$PI_CONTEXT"
+docker run --rm --network host -v "$PI_CONTEXT:/opt/src" -w /opt/src node:24-slim \
+    sh -c 'npm ci --no-audit --no-fund && npm run hydrate:model-data'
+docker run --rm -v "$PI_CONTEXT:/opt/src" --entrypoint sh node:24-slim \
+    -c 'rm -rf /opt/src/node_modules /opt/src/packages/*/dist /opt/src/packages/*/*/dist'
+cp environments/pi-src/boot.sh "$PI_CONTEXT/.proteus-boot.sh"
+docker build -f environments/pi-src/Dockerfile \
+    -t proteus-env-pi-src:0.84.2 "$PI_CONTEXT"
+
 proteus check --harness pi
-proteus check --harness pi --episode          # needs DEEPSEEK_API_KEY
-
-# 3. self-evolution: two arms, no goal
 export DEEPSEEK_API_KEY=...
+proteus check --harness pi --episode
 proteus run --harness pi \
+    --goal "Get better at your work, however you judge it." \
+    --evaluator units:notes --evaluator step@observe --evaluator tool-calls \
     --arm neutral --arm review:notes \
-    --seeds 2 --episodes 3 --out runs/pi-demo
-
-# 4. watch it live (from a second terminal, any time after step 3 starts)
-proteus watch --out runs/pi-demo              # http://localhost:8300/report.html
-
-# 5. measure with the same ruler every harness gets
-proteus measure --harness pi --out runs/pi-demo --travel
-
-# 6. keep the evolution history as a git repo; push it if you want
-proteus repo export runs/pi-demo/runs/run-<id> pi-evolution
-git -C pi-evolution log --oneline             # one commit per episode
+    --seeds 2 --episodes 3 \
+    --max-turns 32 --min-turns-per-phase 8 --announce-budget \
+    --out runs/pi-demo
 ```
 
-What the adapter does (~150 lines, `proteus/adapters/pi.py`): seeds `AGENTS.md` +
-`notes/ tools/ skills/`, installs the disposition as a removable marked block in
-`AGENTS.md` (pi loads it natively), runs one `pi -p` session per phase in the container
-(`--session-dir` pointed at a mounted state dir, `--skill /workspace/skills`), and parses
-pi's session JSONL (`message` events, `toolCall` blocks) into the normalized trace.
+## DeepSeek Harness — evolve the real TypeScript source
 
-## DeepSeek Harness (dsh) — plugin-architecture harness
-
-Same shape, different harness (see `proteus/adapters/dsh.py`; environment in
-`environments/deepseek-harness/`). DSH stays stock. Proteus applies an ephemeral
-`agent-default-model`/`llm-pi-ai` patch before each positional headless task and accepts the
-phase only when a new session records the same provider/model and a completed terminal
-`turn/end`. Put `OPENAI_API_KEY` in the repository-root `.env`; the DSH container receives
-only dummy route authentication.
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is pinned at
+`dsh-v0.1.0-rc.7`. The image and adapter use the same exact-tree source/rebuild contract as
+Pi. Python below 3.14 additionally needs `zstandard` to read DSH's multi-frame session logs.
 
 ```bash
-docker build -q -t proteus-env-dsh:0.1.0-rc.7 environments/deepseek-harness/
-uv run proteus check --harness dsh --episode --model gpt-5.6-luna
-uv run proteus run --harness dsh --arm neutral --arm review:notes \
-    --seeds 1 --episodes 2 --model gpt-5.6-luna --out runs/dsh-demo
-proteus measure --harness dsh --out runs/dsh-demo
+python3 -m pip install 'zstandard>=0.21'
+DSH_BUILD_ROOT="$(mktemp -d)"
+DSH_CONTEXT="$DSH_BUILD_ROOT/deepseek-harness"
+git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness "$DSH_CONTEXT"
+git -C "$DSH_CONTEXT" fetch --depth 1 origin tag dsh-v0.1.0-rc.7
+git -C "$DSH_CONTEXT" checkout dsh-v0.1.0-rc.7
+cp environments/dsh-src/boot.sh "$DSH_CONTEXT/.proteus-boot.sh"
+docker build --network host -f environments/dsh-src/Dockerfile \
+    -t proteus-env-dsh-src:0.1.0-rc.7 "$DSH_CONTEXT"
+
+proteus check --harness dsh
+export DEEPSEEK_API_KEY=...
+proteus check --harness dsh --episode
+proteus run --harness dsh \
+    --goal "Get better at your work, however you judge it." \
+    --evaluator units:notes --evaluator step@observe --evaluator tool-calls \
+    --arm neutral --arm review:notes \
+    --seeds 2 --episodes 3 \
+    --max-turns 32 --min-turns-per-phase 8 --announce-budget \
+    --out runs/dsh-demo
 ```
 
-To evaluate every DSH candidate before activation, add the definitions-only Phase 1 suite:
+For both source adapters, an unchanged source takes a pristine fast path. A changed source
+is exact-synced, rebuilt once per source hash, cached under `/state`, and rejected by the
+post-reflect viability gate if it cannot boot. DSH additionally checks the frozen lockfile
+against the image's offline pnpm store, dynamically includes new workspace-package outputs
+in that cache, and repeats startup in a fresh container using the real headless profile.
+Every phase within an episode runs the same frozen snapshot; a valid candidate activates
+only in the next episode, while an invalid one is blocked from activation and restored as
+the next episode's writable repair base. The running harness remains the last-valid
+snapshot. Containers run as the host uid/gid so their bind-mounted files remain editable
+on Linux.
+
+### Long-form source evolution budget
+
+The 32-call commands above are smoke-sized demonstrations. For a substantial source change
+(for example, adding a modality), start with a phase-aware budget so planning cannot consume
+the implementation window and act can expand without making 500 calls the expected cost:
 
 ```bash
-uv run proteus run \
-  --harness dsh \
-  --arm neutral \
-  --goal none \
-  --seeds 1 \
-  --episodes 2 \
-  --model gpt-5.6-luna \
-  --safety-model gpt-5.6-luna \
-  --safety-suite proteus.safety.phase1:SUITE \
-  --out runs/dsh-evolution-safety
+proteus run --harness dsh \
+    --goal "Add robust audio-input support and verify it end to end." \
+    --evaluator step@observe --evaluator tool-calls \
+    --arm neutral --seeds 1 --episodes 30 \
+    --max-turns 300 \
+    --phase-turns observe=40,propose=25,act=200,reflect=35 \
+    --hard-max-turns 500 --checkpoint-turns 2 --announce-budget \
+    --out runs/dsh-audio
 ```
 
-Here `--model` selects the ordinary DSH episode route, while `--safety-model` independently fixes
-the model used by candidate-safety cells. DSH needs both explicit values; neither flag substitutes
-for the other.
+This does not ask Proteus to invent memory or skills for DSH. Each fresh phase sees its
+live remaining budget; DSH owns the handoff content, while Proteus archives it and reports
+`checkpoint_misses` if DSH leaves the checkpoint unchanged.
 
-The DSH profile binds terminal Agent Loop evidence, `notes/` as Memory, `tools/` as Tools,
-and native Skills at `.dsh/skills/` plus `.agents/skills/`. Bad Memory uses exact note
-identity, native read arguments, controller-observed model input, a call-linked successful
-write result, and the exact post-run marker. Native recovery, memory collapse maintenance,
-call-linked protected-send permission/effect evidence, and archive lineage are unavailable
-and therefore fail critical activation closed. Skills presence and generic tool success do
-not manufacture permission or commit evidence.
+## Watch, measure, audit, resume, and export
 
-## Your harness
+These commands are harness-independent:
 
 ```bash
-proteus env scaffold --from <git-url-or-local-path> --name yours
-proteus env build yours
-# write the adapter (docs/ADAPTERS.md), then:
-proteus check --harness mypkg.yours_adapter:YoursHarness --episode --model <model>
+proteus watch --out runs/dsh-demo                 # http://localhost:8300/report.html
+proteus reliability --harness dsh --out runs/dsh-demo
+proteus audit --harness dsh --out runs/dsh-demo
+proteus measure --harness dsh --out runs/dsh-demo --travel
+
+# Re-running the same configuration after interruption skips finished seeds and resumes
+# partial seeds after their last contiguous snapshot commit.
+proteus run --harness dsh \
+    --goal "Get better at your work, however you judge it." \
+    --evaluator units:notes --evaluator step@observe --evaluator tool-calls \
+    --arm neutral --arm review:notes \
+    --seeds 2 --episodes 3 \
+    --max-turns 32 --min-turns-per-phase 8 --announce-budget \
+    --on-existing resume --out runs/dsh-demo
+
+proteus repo export runs/dsh-demo/runs/run-<id> dsh-evolution
+git -C dsh-evolution log --oneline
 ```
 
-## With-goal ablation — benchmarks as goals
+The resume invocation must use the same experimental configuration as the original run.
+Proteus v0.2 records that condition in `manifest.json` and rejects model, goal, evaluator,
+arm, task, budget, adapter/environment, or continuity changes **before modifying any run
+record**. Resume restores the evolved files, selection baseline, visible feedback,
+cumulative counters, and framework handoff; it does not reseed the harness. This includes
+a crash before episode 1: the episode-0 checkpoint is restored rather than treated as a
+fresh run. A v0.1 sweep cannot be condition-verified and must be finished with v0.1 or
+restarted under a new `--out` (see the v0.2.0 release notes).
 
-Proteus's goal axis becomes an experiment when the goal is a *task* and the evaluator is
-its grader. `proteus.bench` supplies both from one object:
+## A benchmark as the goal
+
+A benchmark run has two sibling workspaces:
+
+- `<run>/harness/` is the evolving, measured subject and is snapshotted every episode.
+- `<run>/task/` is the exercise. It lives outside the harness snapshot and moves forward;
+  selection never rolls it back. DSH and Pi mount it at `/workspace/task`.
+
+The CLI can seed one built-in local task or one Aider Polyglot exercise directly. A run may
+attach one benchmark evaluator plus any number of measurement/custom evaluators:
+
+```bash
+proteus run --harness pi \
+    --goal "Fix the interval merge implementation and make every test pass." \
+    --evaluator local:interval-merge@observe \
+    --evaluator step --evaluator tool-calls \
+    --arm neutral --seeds 2 --episodes 10 --out runs/intervals
+
+# First use shallow-clones and caches Aider-AI/polyglot-benchmark. Set
+# PROTEUS_POLYGLOT_DIR to an existing checkout to avoid the clone.
+proteus run --harness dsh \
+    --goal "Implement the Bowling exercise and make every test pass." \
+    --evaluator polyglot:bowling@observe \
+    --evaluator step --arm neutral --seeds 2 --episodes 10 --out runs/bowling
+```
+
+The equivalent Python API, also used for third-party benchmarks, is:
 
 ```python
+from pathlib import Path
+
+from proteus.adapters.pi import PiHarness
 from proteus.bench import as_goal
 from proteus.bench.local import local_task
-from proteus.core import Visibility
-from proteus.core.episode import RunConfig, run
+from proteus.core import NEUTRAL, RunConfig, Visibility, run
 
-task = local_task("local:interval-merge")        # offline; no Docker, no dataset
-cfg = RunConfig(name="goal-observe", adapter=..., disposition=...,
-                goal=as_goal(task, visibility=Visibility.OBSERVE),
-                root=..., model=..., episodes=30, task=task)
+task = local_task("local:interval-merge")
+cfg = RunConfig(
+    name="intervals",
+    adapter=PiHarness(),
+    disposition=NEUTRAL,
+    goal=as_goal(task, visibility=Visibility.OBSERVE),
+    task=task,
+    root=Path("runs/intervals-python"),
+    model="",
+    episodes=10,
+)
 run(cfg)
 ```
 
-The task is seeded into `harness/task/` before episode 1 and graded after every episode, so
-the ablation is a matter of swapping one field:
-
-| condition | `goal=` |
-|---|---|
-| no goal (this paper's primary regime) | `GoalConfig.no_goal()` |
-| goal, score hidden from the agent | `as_goal(task)` |
-| goal, score shown in the next observe phase | `as_goal(task, visibility=Visibility.OBSERVE)` |
-| goal + outer-loop rejection of regressions | `as_goal(task, selection="accept_reject")` |
-
-**Two workspaces, do not confuse them.** `harness/` is what evolves and what the rulers
-measure; `harness/task/` is what the agent was asked to work on. Task files land inside the
-harness workspace on purpose — every adapter already gives the agent file access there, so
-a benchmark needs no adapter change — but that means the measurement layer counts them as
-structure unless you exclude `TASK_SUBDIR`.
+A custom adapter used with benchmarks must expose `<run>/task/` to its agent while keeping
+it outside `harness/`; DSH and Pi demonstrate the container mount. The bundled `minimal`
+and `llm` harnesses prove evaluator plumbing but do not offer general file tools for solving
+arbitrary task workspaces.
 
 ### SWE-bench
 
 `proteus.bench.swe.swe_task("django__django-11133")` grades through the official harness
-(`make_test_spec` + `run_instance`), reporting the binary `resolved` as `passed` and the
-fail-to-pass fraction as `score` (a sparse 0/1 reward says little about *direction*, which
-is what an evolution study reads).
+(`make_test_spec` + `run_instance`). It reports the official binary `resolved` result as
+`passed` and the fail-to-pass fraction as a dense `score`.
 
-Written against the verified upstream API; **not yet executed** — it needs an x86_64 Linux
-box with ~120 GB free disk (per-instance images), `pip install swebench datasets docker`,
-and network for the first pull. Three constraints are load-bearing and documented in the
-module: the only bridge to the grader is `git diff base_commit` (so the task workspace must
-be that repo at that commit — `setup` clones it), the upstream cache keys on
-`(run_id, instance_id)` and ignores the patch (so the run id embeds the episode), and every
-distinct instance is another image (so pin a small fixed set).
+This integration is written against the verified upstream API but is not part of the live
+release gate: it needs an x86_64 Linux host, roughly 120 GB free disk for per-instance
+images, `pip install swebench datasets docker`, and network for the first pull. Its task
+workspace is the instance repository at `base_commit`; the only bridge to the grader is
+`git diff base_commit`, and the grader run id includes the episode because upstream caches
+on `(run_id, instance_id)` rather than patch content.
 
-## Post-run safety audit
+## Goals and evaluators are independent
 
-Proteus's built-in safety audit is a second, read-only pass over a completed trajectory. It
-never changes the episode prompts, goal evaluator, accept/reject selection, or later harness
-state.
+`--goal` is arbitrary natural-language objective text. Each repeatable `--evaluator` is a
+separate measurement decision and is hidden by default; append `@observe` to show its result
+to the agent in the next episode's observe phase.
 
-```bash
-# 1. Produce a complete offline trajectory.
-proteus run --harness minimal --arm neutral \
-    --seeds 1 --episodes 2 --out runs/audit-demo
+Supported CLI evaluator forms:
 
-# 2. Audit immutable episode snapshots and normalized traces.
-proteus audit --harness minimal --out runs/audit-demo \
-    --audit-id instrument-integrity-v1
+- measurement: `units:<surface-name>`, `tool-calls`, `step`
+- benchmark: `local:<task>`, `polyglot:<exercise>` (one benchmark per run)
+- custom: `contains:<relpath>:<needle>`
 
-# 3. Generate and serve the report after the audit is published.
-proteus report --out runs/audit-demo
-proteus watch --out runs/audit-demo
-```
+A general goal such as “become more robust” needs no benchmark. A specific optimization
+claim does: if the goal says “optimize benchmark X”, attach X and make it `@observe`, or the
+agent has no measured feedback for the stated objective.
 
-The default suite checks the measurement substrate: snapshot materialization, trace
-availability, canonical phase names, and whether a reflect-phase self-assessment signal was
-exposed. It does not claim that the harness is safe. The report renders audit counts in a
-separate table; audit results never become task scores or evolution feedback.
+The default episode protocol does not assume that an attached evaluator is either complete
+or incomplete. A benchmark can fully define a goal whose whole meaning is “raise this
+benchmark score”; the same benchmark can be only partial evidence for a broader goal. The
+harness is asked to judge that relationship and may add its own tests or evaluators when
+they reduce uncertainty, but not merely because an external evaluator exists. With neither
+a goal nor evaluator, the default remains open-ended: the harness may keep exploring or
+formulate its own provisional goal and evaluation machinery as part of its evolved state.
 
-Use a custom adapter-specific suite through the same extension style as harness adapters:
+## Your harness
 
 ```bash
-proteus audit --harness mypkg.adapter:MyHarness --out runs/my-study \
-    --suite mypkg.safety:SUITE --audit-id native-cases-v1
+proteus env scaffold --from <git-url-or-local-path> --name yours --ref <tag-or-sha>
+proteus env build yours
+# Implement the adapter contract in docs/ADAPTERS.md, then:
+proteus check --harness mypkg.yours_adapter:YoursHarness
+proteus check --harness mypkg.yours_adapter:YoursHarness --episode
 ```
-
-## Online candidate activation gate
-
-Run the complete Aki Phase 1 profile before every candidate activation:
-
-```bash
-uv run proteus run \
-  --harness aki \
-  --arm neutral \
-  --goal none \
-  --seeds 1 \
-  --episodes 3 \
-  --safety-model gpt-5.6-luna \
-  --safety-suite proteus.safety.phase1:SUITE \
-  --out runs/evolution-safety-phase1
-```
-
-This Aki command leaves ordinary `--model` unset, preserving Aki's native episode model, and uses
-`--safety-model` only for fixed-live gate cells. The repository-root `.env` must contain the
-credential required by that safety model. CLI and safety-prerequisite failures, including a missing
-or empty required safety model, invalid flag pairing, credential, suite, adapter protocol, module
-binding, or budget, occur before `runs/evolution-safety-phase1` is created. By contrast, an explicit
-unsupported Aki ordinary `--model` fails during the episode after the sweep root and manifest have
-been created, but still before the Aki supervisor runs. Activation evaluates every family in the
-configured suite; it has no family-subset option.
-
-`HarnessAdapter` owns ordinary evolution. The optional `CandidateSafetyAdapter` supplies a safety
-profile and native `CandidateSafetyExecutor`; that executor administers adapter-native probes.
-`GateRunner` provides the shared matched-cell orchestration, validation, indicators, policy, and
-publication. Aki and DSH structurally implement this extension. Do not add a suite-owned provider,
-completed-sweep safety runner, feedback flag, best-effort mode, policy selector, or scalar
-threshold.
-
-Generate the offline report after the run:
-
-```bash
-proteus report --out runs/evolution-safety-phase1
-proteus watch --out runs/evolution-safety-phase1
-```
-
-The report reads terminal activation artifacts under `safety-gates/`. It renders task
-selection, logical active/candidate identity, activation outcome, indicator directions and
-coverage, blockers, warnings, and links. Staging, failed, incomplete, or internally
-inconsistent candidates are not rendered as terminal history.
-
-The Aki worker executes only the materialized endpoint's native `loop.py::run_episode(ctx)`. It is
-keyless and network-denied; the controller broker owns live API calls and provenance. An explicit
-Aki ordinary-run model that differs from the native binding fails before the supervisor runs. When
-native Aki or DSH recovery, maintenance, permission, or loader support is absent, the result stays
-`not_exposed` / `not_evaluated` and critical activation fails closed.
-
-Custom post-run integrity suites remain trusted local Python extensions invoked with
-`proteus audit --suite <module>:<object>`. They receive disposable materializations and
-must return `AuditAssessment` directly. If an audit executes untrusted historical code, it
-still needs its own OS containment boundary; the audit path is not an online activation
-adapter.

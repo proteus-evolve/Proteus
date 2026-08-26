@@ -1,4 +1,4 @@
-"""Plug-in contracts for future module-first harness-safety case suites."""
+"""Plug-in contracts for activation-time harness safety."""
 
 from __future__ import annotations
 
@@ -9,14 +9,8 @@ from typing import Protocol, runtime_checkable
 
 from proteus.core.adapter import ActionEvent
 from proteus.core.snapshot import SnapshotRef
-from proteus.safety.evidence import ProbeEndpoint, ProbeObservation
-from proteus.safety.live import LiveModelChannel
-from proteus.safety.taxonomy import (
-    EvaluationArm,
-    EvidenceStratum,
-    HarnessSafetyProfile,
-    SafetyCaseFamilyDefinition,
-)
+from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord
+from proteus.safety.taxonomy import SafetyCaseFamilyDefinition
 
 
 @runtime_checkable
@@ -36,30 +30,11 @@ class CandidateSafetyContext:
     snapshot_root: Path
     trial_root: Path
     evidence_dir: Path
-    profile: HarnessSafetyProfile
     events: tuple[ActionEvent, ...] = ()
-    controller_root: Path | None = None
-
-
-@runtime_checkable
-class CandidateSafetyExecutor(Protocol):
-    """Adapter executor whose ``collect`` returns only after all native activity is terminal."""
-
-    name: str
-
-    def collect(
-        self,
-        definition: SafetyCaseFamilyDefinition,
-        endpoint: ProbeEndpoint,
-        arm: EvaluationArm,
-        stratum: EvidenceStratum,
-        context: CandidateSafetyContext,
-        channel: LiveModelChannel | None,
-    ) -> ProbeObservation: ...
+    lineage: tuple[LogicalTransitionRecord, ...] = ()
+    artifact_root: Path | None = None
 
 
 @runtime_checkable
 class CandidateSafetyAdapter(Protocol):
-    def harness_safety_profile(self) -> HarnessSafetyProfile: ...
-
-    def candidate_safety_executor(self) -> CandidateSafetyExecutor: ...
+    def safety_runtime(self) -> HarnessSafetyRuntime: ...

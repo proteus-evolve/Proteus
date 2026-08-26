@@ -69,11 +69,47 @@ class EpisodeSpec:
     root: Path                       # the run root; harness working tree lives at root/harness
     episode: int                     # 1-based
     model: str                       # model id the harness should use
-    phase_prompts: Mapping[str, str] # observe/propose/act/reflect texts (goal + evaluator
-                                     # feedback already merged in by the framework)
+    phase_prompts: Mapping[str, str] # observe/propose/act/reflect texts (default episode
+                                     # protocol, goal, and visible evaluator feedback
+                                     # already merged in by the framework)
     max_turns: int = 100
+    min_turns_per_phase: int = 0
+    """Reserve at least this many turns for each phase. While phase i runs, its stop
+    line is `max_turns - min_turns_per_phase * phases_remaining_after_i`: a phase that
+    reaches its line is ended early so the later phases keep their reserve. A
+    reservation stop moves to the next phase; only a spent budget ends the episode."""
+    phase_turns: Mapping[str, int] = field(default_factory=dict)
+    """Optional explicit normal-plan allocation for observe/propose/act/reflect. When
+    present it replaces ``min_turns_per_phase`` and must sum to ``max_turns``."""
+    hard_max_turns: int = 0
+    """Optional burst ceiling for an explicit phase plan. Zero means ``max_turns``."""
+    checkpoint_turns: int = 0
+    """Final calls in each explicit phase allowance reserved by the prompt protocol for
+    a persistent continuation checkpoint."""
+    announce_budget: bool = False
+    """Whether the adapter should show the live budget contract at phase start."""
     seed: int = 0                    # the run's RNG seed (condition replicate index)
     extra_env: Mapping[str, str] = field(default_factory=dict)
+    continuity_mode: str = "native"
+    """How fresh phases continue: ``native`` means the harness owns continuity,
+    ``framework`` uses Proteus's external handoff protocol, and ``none`` deliberately
+    leaves phases independent. The adapter declaration is copied here by the core."""
+    active_root: Path | None = None
+    """Frozen harness snapshot that must execute every phase of this episode.
+
+    `root/harness` remains the writable candidate. Adapters declaring
+    `staged_activation = True` execute from `active_root` while exposing the candidate
+    separately for edits. Candidate changes may be inspected, but only the model-free
+    episode-boundary validator may execute them; they never become the controlling harness
+    until the next episode.
+    """
+    live_model_channel: Any = None
+    """Optional ephemeral controller-owned model capability for this episode.
+
+    The adapter may use the capability but must not retain or close it. The core episode
+    transaction owns its lifetime so credentials and provider authority never become part
+    of a persistent adapter object.
+    """
 
 
 @runtime_checkable
@@ -81,6 +117,28 @@ class HarnessAdapter(Protocol):
     """The whole contract. Implement this and Proteus can evolve your harness."""
 
     name: str
+
+    # Adapters may declare `continuity_mode = "framework" | "none"`. It is deliberately
+    # optional rather than a Protocol member so existing custom adapters stay compatible;
+    # absence means `native`. Framework adapters mount the run's external
+    # `.proteus-state` at `/workspace/.proteus` and use HandoffStore between phases.
+
+    # Adapters whose own editable files can affect execution may declare
+    # `staged_activation = True`. The core then materializes a frozen active snapshot
+    # for EpisodeSpec.active_root. Such adapters must keep that runtime separate from
+    # the writable candidate and may expose `validate_candidate(harness_root) -> str`.
+
+    disposition_in_files: bool = False
+    """True when `install_disposition` writes the perturbation into a file the harness
+    loads on its own (an `AGENTS.md`-style instructions surface).
+
+    The framework otherwise appends the disposition text to every phase prompt. For a
+    file-carrying harness that would deliver the same text twice per phase — roughly
+    double the intended dose, through two channels of different salience — and the
+    prompt copy is a transient injection that lives outside `F`, so it is neither
+    removable nor covered by `disposition_fingerprint`. Declaring True keeps the single
+    planted difference in `F`, which is what makes later divergence attributable.
+    """
 
     # --- static declaration -------------------------------------------------------------
     def surfaces(self) -> Sequence[Surface]:
