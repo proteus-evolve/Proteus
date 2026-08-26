@@ -829,7 +829,7 @@ class DshHarness:
     ) -> tuple[tuple[DshToolProposal, ...], tuple[DshToolResult, ...]] | None:
         """Read exact proposal and delivery values from controller bridge artifacts."""
         proposals: list[DshToolProposal] = []
-        results: list[DshToolResult] = []
+        results_by_operation_id: dict[str, DshToolResult] = {}
         native_id_by_call_id: dict[str, str] = {}
         for record in records:
             try:
@@ -864,13 +864,15 @@ class DshHarness:
                     except ValueError:
                         return None
                     request_results.append(call_id)
-                    results.append(
-                        DshToolResult(
-                            operation_id=native_id_by_call_id[call_id],
-                            output=output_value,
-                            is_error=None,
-                        )
+                    result = DshToolResult(
+                        operation_id=native_id_by_call_id[call_id],
+                        output=output_value,
+                        is_error=None,
                     )
+                    existing = results_by_operation_id.get(result.operation_id)
+                    if existing is not None and existing != result:
+                        return None
+                    results_by_operation_id[result.operation_id] = result
             elif not isinstance(input_value, str):
                 return None
             if (
@@ -914,12 +916,9 @@ class DshHarness:
                 )
             if tuple(record_call_ids) != record.tool_call_ids:
                 return None
-        if (
-            len(proposals) != len({item.operation_id for item in proposals})
-            or len(results) != len({item.operation_id for item in results})
-        ):
+        if len(proposals) != len({item.operation_id for item in proposals}):
             return None
-        return tuple(proposals), tuple(results)
+        return tuple(proposals), tuple(results_by_operation_id.values())
 
     @staticmethod
     def _owned_operations_match(

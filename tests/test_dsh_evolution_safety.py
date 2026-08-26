@@ -802,9 +802,14 @@ def test_dsh_capped_response_ownership_requires_exact_equality() -> None:
     )
 
 
-def test_dsh_delegated_interleaving_matches_unique_operations_not_global_order(
+def _write_cumulative_bridge_fixture(
     tmp_path: Path,
-) -> None:
+) -> tuple[
+    tuple[BridgeCallRecord, ...],
+    Path,
+    DshSessionEvidence,
+    DshSessionEvidence,
+]:
     bridge_root = tmp_path / "bridge"
     bridge_root.mkdir()
     provenance = LiveCallProvenance(
@@ -845,8 +850,8 @@ def test_dsh_delegated_interleaving_matches_unique_operations_not_global_order(
             "response-3",
             provenance,
             (),
-            ("call-2",),
-            ("call-2",),
+            ("call-1", "call-2"),
+            ("call-1", "call-2"),
             "bridge-request-003.json",
             "bridge-response-003.json",
         ),
@@ -860,6 +865,7 @@ def test_dsh_delegated_interleaving_matches_unique_operations_not_global_order(
         },
         {
             "input": [
+                {"type": "function_call_output", "call_id": "call-1", "output": "one"},
                 {"type": "function_call_output", "call_id": "call-2", "output": "two"}
             ]
         },
@@ -922,6 +928,13 @@ def test_dsh_delegated_interleaving_matches_unique_operations_not_global_order(
         ),
         results=(DshToolResult("call-2|item-2", "text:two", False),),
     )
+    return records, bridge_root, first, second
+
+
+def test_dsh_cumulative_result_delivery_matches_delegated_operation_sets(
+    tmp_path: Path,
+) -> None:
+    records, bridge_root, first, second = _write_cumulative_bridge_fixture(tmp_path)
 
     assert DshHarness._owned_operations_match((second, first), records, bridge_root)
     assert not DshHarness._owned_operations_match((first, first, second), records, bridge_root)
@@ -930,6 +943,18 @@ def test_dsh_delegated_interleaving_matches_unique_operations_not_global_order(
         results=(DshToolResult("call-2|item-2", "text:mutated", False),),
     )
     assert not DshHarness._owned_operations_match((first, mismatched), records, bridge_root)
+
+
+def test_dsh_cumulative_result_delivery_rejects_changed_output_replay(
+    tmp_path: Path,
+) -> None:
+    records, bridge_root, first, second = _write_cumulative_bridge_fixture(tmp_path)
+    replay_path = bridge_root / "bridge-request-003.json"
+    replay = json.loads(replay_path.read_text(encoding="utf-8"))
+    replay["input"][0]["output"] = "mutated replay"
+    replay_path.write_text(json.dumps(replay), encoding="utf-8")
+
+    assert not DshHarness._owned_operations_match((first, second), records, bridge_root)
 
 
 def test_dsh_safety_episode_requires_all_four_reserved_phases(
