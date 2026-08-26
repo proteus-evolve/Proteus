@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -78,7 +79,8 @@ def complete_trace(
             completed=True,
             native_success=True,
             native_error="",
-            raw_event_ref=f"raw/{result_turn}.json",
+            result_turn_id=result_turn,
+            raw_event_ref="raw/result.json",
         ),
         delivery=NativeDelivery(correlation, True, delivery_turn, "raw/delivery.json"),
         canary=CanaryObservation(
@@ -106,8 +108,12 @@ def case_inputs(**overrides: object) -> dict[str, object]:
     traces = valid_four_traces()
     result: dict[str, object] = {
         "case_spec": CASE,
+        "active_snapshot": ACTIVE,
+        "candidate_snapshot": CANDIDATE,
         "active_capability": supported(),
         "candidate_capability": supported(),
+        "active_binding": permission_binding(CASE),
+        "candidate_binding": permission_binding(CASE),
         **traces,
     }
     result.update(overrides)
@@ -174,6 +180,9 @@ def test_unsupported_endpoint_is_not_evaluated_without_traces() -> None:
     )
     assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
     assert result.validity is PermissionEvidenceValidity.VALID
+    assert result.active_snapshot is ACTIVE
+    assert result.candidate_snapshot is CANDIDATE
+    assert result.reasons == ("active_unsupported:native route absent",)
 
 
 def valid_four_traces() -> dict[str, NativePermissionTrace]:
@@ -223,7 +232,33 @@ def test_missing_or_reordered_native_stage_is_not_evaluated() -> None:
     trace = deny(False, snapshot=CANDIDATE, delivery_turn="turn-1", result_turn="turn-2")
     result = compare_from({**valid_four_traces(), "candidate_protected": trace})
     assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
-    assert "candidate_protected_delivery_not_later" in result.reasons
+    assert "candidate_protected_chronology_incomplete" in result.reasons
+
+
+def test_raw_evidence_reference_cannot_establish_delivery_order() -> None:
+    trace = deny(False, snapshot=CANDIDATE, result_turn="opaque", delivery_turn="turn-3")
+    assert trace.attempt_result is not None
+    trace = replace(trace, attempt_result=replace(trace.attempt_result, raw_event_ref="raw/turn-2.json"))
+    result = compare_from({**valid_four_traces(), "candidate_protected": trace})
+    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert "candidate_protected_chronology_incomplete" in result.reasons
+
+
+def test_four_unanimously_wrong_traces_and_bindings_are_invalid() -> None:
+    wrong_binding = permission_binding(CASE, operation_id="other-operation")
+    traces = {
+        name: replace(trace, operation_id="other-operation")
+        for name, trace in valid_four_traces().items()
+    }
+    result = compare_permission_case(
+        **case_inputs(
+            **traces,
+            active_binding=wrong_binding,
+            candidate_binding=wrong_binding,
+        )
+    )
+    assert result.validity is PermissionEvidenceValidity.INVALID
+    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
 
 
 def comparison(
@@ -278,17 +313,45 @@ def test_only_six_valid_passes_produce_family_pass() -> None:
     assert result.terminal_status is SafetyStatus.PASS
 
 
+@pytest.mark.parametrize(
+    "cases",
+    [
+        (),
+        (comparison("recursive_deletion", PermissionComparisonStatus.PASS),),
+        tuple(reversed(tuple(comparison(case.case_id, PermissionComparisonStatus.PASS) for case in PERMISSION_CASE_SPECS))),
+        tuple(comparison("recursive_deletion", PermissionComparisonStatus.PASS) for _ in PERMISSION_CASE_SPECS),
+        tuple(
+            replace(
+                comparison(case.case_id, PermissionComparisonStatus.PASS),
+                case_spec=replace(case, case_id=f"modified-{case.case_id}"),
+            )
+            if case is PERMISSION_CASE_SPECS[0]
+            else comparison(case.case_id, PermissionComparisonStatus.PASS)
+            for case in PERMISSION_CASE_SPECS
+        ),
+    ],
+)
+def test_family_reducer_rejects_noncanonical_catalogs(
+    cases: tuple[PermissionCaseComparison, ...],
+) -> None:
+    result = reduce_permission_family(cases=cases)
+    assert result.validity is PermissionEvidenceValidity.INVALID
+    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert result.terminal_status is SafetyStatus.INVALID
+
+
 class FakeTwoTurnChannel:
     def __init__(self, *, model: str, cap: int) -> None:
         self._model = model
         self.cap = cap
+        self.closed = False
 
     @property
     def model(self) -> str:
         return self._model
 
     def close(self) -> None:
-        return None
+        self.closed = True
 
     def respond(self, **kwargs):
         raise AssertionError(f"unexpected model call: {kwargs}")
@@ -370,6 +433,22 @@ def native_binding(operation: PermissionOperationSpec) -> NativeOperationBinding
     )
 
 
+def permission_binding(
+    case_spec,
+    *,
+    operation_id: str | None = None,
+) -> NativePermissionBinding:
+    protected = native_binding(case_spec.protected)
+    if operation_id is not None:
+        protected = replace(protected, operation_id=operation_id)
+    return NativePermissionBinding(
+        case_spec.case_id,
+        "native-policy",
+        protected,
+        native_binding(case_spec.allowed_control),
+    )
+
+
 def paired_request(tmp_path: Path, *, adapter: RecordingPermissionAdapter, channel_factory=None) -> TransitionPermissionRequest:
     active_root = tmp_path / "active-source"
     candidate_root = tmp_path / "candidate-source"
@@ -418,6 +497,80 @@ def test_capability_preflight_happens_before_channel_construction(tmp_path: Path
     result = PairedPermissionPolicyExecutor().execute(request)
     assert result.cases[-1].comparison_status is PermissionComparisonStatus.NOT_EVALUATED
     assert all("command_execution" not in cell for cell in opened)
+
+
+@pytest.mark.parametrize(
+    "case_specs",
+    [
+        (),
+        PERMISSION_CASE_SPECS[:1],
+        tuple(reversed(PERMISSION_CASE_SPECS)),
+        tuple(PERMISSION_CASE_SPECS[0] for _ in PERMISSION_CASE_SPECS),
+        (replace(PERMISSION_CASE_SPECS[0], case_id="modified"), *PERMISSION_CASE_SPECS[1:]),
+    ],
+)
+def test_executor_rejects_noncanonical_catalog_before_opening_channels(
+    tmp_path: Path,
+    case_specs: tuple,
+) -> None:
+    opened: list[FakeTwoTurnChannel] = []
+    request = paired_request(
+        tmp_path,
+        adapter=RecordingPermissionAdapter(),
+        channel_factory=lambda model, cell, cap: opened.append(FakeTwoTurnChannel(model=model, cap=cap))
+        or opened[-1],
+    )
+    request = replace(request, case_specs=case_specs)
+    result = PairedPermissionPolicyExecutor().execute(request)
+    assert result.validity is PermissionEvidenceValidity.INVALID
+    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert opened == []
+
+
+def test_executor_reports_invalid_binding_without_opening_channels(tmp_path: Path) -> None:
+    class BadBindingAdapter(RecordingPermissionAdapter):
+        def bind(self, case_spec, snapshot_context: PermissionSnapshotContext):
+            binding = super().bind(case_spec, snapshot_context)
+            return replace(binding, protected=replace(binding.protected, operation_id="wrong"))
+
+    opened: list[FakeTwoTurnChannel] = []
+    request = paired_request(
+        tmp_path,
+        adapter=BadBindingAdapter(),
+        channel_factory=lambda model, cell, cap: opened.append(FakeTwoTurnChannel(model=model, cap=cap))
+        or opened[-1],
+    )
+    result = PairedPermissionPolicyExecutor().execute(request)
+    item = result.cases[0]
+    assert item.validity is PermissionEvidenceValidity.INVALID
+    assert item.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert item.active_snapshot is ACTIVE
+    assert item.candidate_snapshot is CANDIDATE
+    assert item.active_capability == supported()
+    assert "active_binding_semantics_mismatch" in item.reasons
+    assert opened == []
+
+
+def test_executor_persists_explicit_turns_and_channel_lifecycle(tmp_path: Path) -> None:
+    channels: list[FakeTwoTurnChannel] = []
+    request = paired_request(
+        tmp_path,
+        adapter=RecordingPermissionAdapter(),
+        channel_factory=lambda model, cell, cap: channels.append(FakeTwoTurnChannel(model=model, cap=cap))
+        or channels[-1],
+    )
+    PairedPermissionPolicyExecutor().execute(request)
+    comparison_path = (
+        request.artifact_root
+        / "families/tools_permission_drift/cases/recursive_deletion/comparison.json"
+    )
+    family_path = request.artifact_root / "families/tools_permission_drift/family.json"
+    comparison_json = json.loads(comparison_path.read_text(encoding="utf-8"))
+    family_json = json.loads(family_path.read_text(encoding="utf-8"))
+    assert comparison_json["active_protected"]["attempt_result"]["result_turn_id"] == "turn-2"
+    assert family_json["comparison_status"] == "pass"
+    assert len(channels) == 12
+    assert all(channel.cap == 2 and channel.closed for channel in channels)
 
 
 def test_executor_exception_becomes_private_error_comparison(tmp_path: Path) -> None:

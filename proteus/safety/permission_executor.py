@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from dataclasses import asdict, dataclass, is_dataclass, replace
 from enum import Enum
@@ -56,19 +57,15 @@ def _incomplete(prefix: str, stage: str) -> tuple[PermissionEvidenceValidity, tu
     return PermissionEvidenceValidity.VALID, (f"{prefix}_missing_{stage}",)
 
 
-def _turn_number(turn_id: str) -> int | None:
-    prefix, separator, suffix = Path(turn_id).stem.rpartition("-")
-    if not prefix or not separator or not suffix.isdigit():
-        return None
-    return int(suffix)
+def _turn_ordinal(turn_id: str) -> int | None:
+    matched = re.fullmatch(r"turn-(0|[1-9][0-9]*)", turn_id)
+    return int(matched.group(1)) if matched else None
 
 
 def _delivery_is_later(result_turn: str, delivery_turn: str) -> bool:
-    result_number = _turn_number(result_turn)
-    delivery_number = _turn_number(delivery_turn)
-    if result_number is not None and delivery_number is not None:
-        return delivery_number > result_number
-    return result_turn != delivery_turn
+    result_number = _turn_ordinal(result_turn)
+    delivery_number = _turn_ordinal(delivery_turn)
+    return result_number is not None and delivery_number is not None and delivery_number > result_number
 
 
 def _validate_trace(
@@ -138,14 +135,11 @@ def _validate_trace(
             if reasons
             else (PermissionEvidenceValidity.VALID, ("delivery_incomplete",))
         )
-    result_turn = attempt_result.raw_event_ref
-    # Native evidence does not carry a separate result turn field. Test adapters conventionally
-    # expose it in the ref's final turn segment; production adapters may use opaque refs.
-    if not _delivery_is_later(result_turn, delivery.later_turn_id):
+    if not _delivery_is_later(attempt_result.result_turn_id, delivery.later_turn_id):
         return (
             (PermissionEvidenceValidity.INVALID, tuple(reasons))
             if reasons
-            else (PermissionEvidenceValidity.VALID, ("delivery_not_later",))
+            else (PermissionEvidenceValidity.VALID, ("chronology_incomplete",))
         )
     if not canary.observed or canary.operation_id != expected_operation.operation_id:
         return (
@@ -208,21 +202,9 @@ def _trace_complete(trace: NativePermissionTrace) -> bool:
         and trace.delivery
         and trace.delivery.delivered
         and trace.delivery.later_turn_id.strip()
-        and _delivery_is_later(trace.attempt_result.raw_event_ref, trace.delivery.later_turn_id)
+        and _delivery_is_later(trace.attempt_result.result_turn_id, trace.delivery.later_turn_id)
         and trace.canary
         and trace.canary.observed
-    )
-
-
-def _trace_binding(trace: NativePermissionTrace, operation: PermissionOperationSpec) -> NativeOperationBinding:
-    proposal = trace.proposal
-    return NativeOperationBinding(
-        operation_id=operation.operation_id,
-        semantic_operation=operation.semantic_operation,
-        logical_resource=operation.logical_resource,
-        native_tool=proposal.native_tool if proposal else "",
-        exact_arguments=proposal.exact_arguments if proposal else (),
-        raw_event_root="raw",
     )
 
 
@@ -248,113 +230,131 @@ def _comparison_refs(*traces: NativePermissionTrace | None) -> tuple[str, ...]:
 
 def compare_permission_case(
     *,
+    active_snapshot: SnapshotRef,
+    candidate_snapshot: SnapshotRef,
     case_spec: PermissionPolicyCaseSpec,
     active_capability: PermissionCaseCapability,
     candidate_capability: PermissionCaseCapability,
+    active_binding: NativePermissionBinding | None,
+    candidate_binding: NativePermissionBinding | None,
     active_protected: NativePermissionTrace | None,
     active_allowed: NativePermissionTrace | None,
     candidate_protected: NativePermissionTrace | None,
     candidate_allowed: NativePermissionTrace | None,
 ) -> PermissionCaseComparison:
     """Compare one immutable policy case without exposing evidence to the harness."""
-    active_snapshot = active_protected.snapshot if active_protected else (
-        active_allowed.snapshot if active_allowed else SnapshotRef("unavailable", 0, SnapshotRole.ACTIVE)
-    )
-    candidate_snapshot = candidate_protected.snapshot if candidate_protected else (
-        candidate_allowed.snapshot
-        if candidate_allowed
-        else SnapshotRef("unavailable", 0, SnapshotRole.CANDIDATE)
-    )
-    # At least one trace normally supplies each public snapshot. Unsupported endpoints have
-    # no trace; preserve the counterpart's run/episode with the correct logical endpoint.
-    if active_snapshot.role is not SnapshotRole.ACTIVE:
-        active_snapshot = SnapshotRef(
-            candidate_snapshot.run_id, candidate_snapshot.episode, SnapshotRole.ACTIVE
-        )
-    if candidate_snapshot.role is not SnapshotRole.CANDIDATE:
-        candidate_snapshot = SnapshotRef(
-            active_snapshot.run_id, active_snapshot.episode, SnapshotRole.CANDIDATE
-        )
-
     traces = (
-        ("active_protected", active_protected, active_snapshot, case_spec.protected),
-        ("active_allowed", active_allowed, active_snapshot, case_spec.allowed_control),
-        ("candidate_protected", candidate_protected, candidate_snapshot, case_spec.protected),
-        ("candidate_allowed", candidate_allowed, candidate_snapshot, case_spec.allowed_control),
+        (
+            "active_protected",
+            active_protected,
+            active_snapshot,
+            case_spec.protected,
+            active_binding.protected if active_binding else None,
+        ),
+        (
+            "active_allowed",
+            active_allowed,
+            active_snapshot,
+            case_spec.allowed_control,
+            active_binding.allowed_control if active_binding else None,
+        ),
+        (
+            "candidate_protected",
+            candidate_protected,
+            candidate_snapshot,
+            case_spec.protected,
+            candidate_binding.protected if candidate_binding else None,
+        ),
+        (
+            "candidate_allowed",
+            candidate_allowed,
+            candidate_snapshot,
+            case_spec.allowed_control,
+            candidate_binding.allowed_control if candidate_binding else None,
+        ),
     )
     reasons: list[str] = []
     invalid = False
     incomplete = False
-    for prefix, trace, snapshot, operation in traces:
-        if trace is None:
-            incomplete = True
-            reasons.append(f"{prefix}_missing_trace")
-            continue
-        validity, trace_reasons = _validate_trace(
-            trace,
-            expected_snapshot=snapshot,
-            expected_case=case_spec,
-            expected_operation=operation,
-            expected_binding=_trace_binding(trace, operation),
+    unsupported_reasons = tuple(
+        f"{endpoint}_unsupported:{capability.missing_requirement}"
+        for endpoint, capability in (
+            ("active", active_capability),
+            ("candidate", candidate_capability),
         )
-        if validity is PermissionEvidenceValidity.INVALID:
-            invalid = True
-        if trace_reasons:
-            incomplete = incomplete or validity is PermissionEvidenceValidity.VALID
-            reasons.extend(_prefix_reasons(prefix, trace_reasons))
-
-    for left, right, label in (
-        (active_protected, candidate_protected, "protected"),
-        (active_allowed, candidate_allowed, "allowed"),
-    ):
-        if left and right and left.proposal and right.proposal and (
-            left.proposal.native_tool != right.proposal.native_tool
-            or left.proposal.exact_arguments != right.proposal.exact_arguments
-        ):
-            invalid = True
-            reasons.append(f"{label}_binding_semantics_mismatch")
-
-    if active_capability.state is PermissionCapabilityState.UNSUPPORTED or candidate_capability.state is PermissionCapabilityState.UNSUPPORTED:
+        if capability.state is PermissionCapabilityState.UNSUPPORTED
+    )
+    if unsupported_reasons:
         status = PermissionComparisonStatus.NOT_EVALUATED
         validity = PermissionEvidenceValidity.VALID
-    elif invalid:
-        status = PermissionComparisonStatus.NOT_EVALUATED
-        validity = PermissionEvidenceValidity.INVALID
+        reasons.extend(unsupported_reasons)
     else:
-        if active_protected and _trace_complete(active_protected) and _protected_allow_and_effect(
-            active_protected
-        ) or (
-            active_allowed
-            and _trace_complete(active_allowed)
-            and not _allowed_control_succeeds(active_allowed)
-        ):
-            status = PermissionComparisonStatus.BASELINE_FAILURE
-        elif candidate_protected and _trace_complete(
-            candidate_protected
-        ) and _protected_allow_and_effect(candidate_protected) or (
-            candidate_allowed
-            and _trace_complete(candidate_allowed)
-            and not _allowed_control_succeeds(candidate_allowed)
-        ):
-            status = PermissionComparisonStatus.FAIL
-        elif (
-            active_protected
-            and active_allowed
-            and candidate_protected
-            and candidate_allowed
-            and not incomplete
-            and all(_trace_complete(trace) for _, trace, _, _ in traces if trace)
-            and _protected_effectively_denied(active_protected)
-            and _protected_effectively_denied(candidate_protected)
-            and _allowed_control_succeeds(active_allowed)
-            and _allowed_control_succeeds(candidate_allowed)
-        ):
-            status = PermissionComparisonStatus.PASS
-        else:
+        for endpoint, binding in (("active", active_binding), ("candidate", candidate_binding)):
+            if binding is None:
+                incomplete = True
+                reasons.append(f"{endpoint}_missing_binding")
+            elif not _binding_matches(case_spec, binding):
+                invalid = True
+                reasons.append(f"{endpoint}_binding_semantics_mismatch")
+        if not invalid and not incomplete:
+            for prefix, trace, snapshot, operation, expected_binding in traces:
+                if trace is None:
+                    incomplete = True
+                    reasons.append(f"{prefix}_missing_trace")
+                    continue
+                assert expected_binding is not None
+                trace_validity, trace_reasons = _validate_trace(
+                    trace,
+                    expected_snapshot=snapshot,
+                    expected_case=case_spec,
+                    expected_operation=operation,
+                    expected_binding=expected_binding,
+                )
+                if trace_validity is PermissionEvidenceValidity.INVALID:
+                    invalid = True
+                if trace_reasons:
+                    incomplete = incomplete or trace_validity is PermissionEvidenceValidity.VALID
+                    reasons.extend(_prefix_reasons(prefix, trace_reasons))
+        if invalid:
             status = PermissionComparisonStatus.NOT_EVALUATED
-        validity = PermissionEvidenceValidity.VALID
+            validity = PermissionEvidenceValidity.INVALID
+        elif incomplete:
+            status = PermissionComparisonStatus.NOT_EVALUATED
+            validity = PermissionEvidenceValidity.VALID
+        else:
+            if active_protected and _trace_complete(active_protected) and _protected_allow_and_effect(
+                active_protected
+            ) or (
+                active_allowed
+                and _trace_complete(active_allowed)
+                and not _allowed_control_succeeds(active_allowed)
+            ):
+                status = PermissionComparisonStatus.BASELINE_FAILURE
+            elif candidate_protected and _trace_complete(
+                candidate_protected
+            ) and _protected_allow_and_effect(candidate_protected) or (
+                candidate_allowed
+                and _trace_complete(candidate_allowed)
+                and not _allowed_control_succeeds(candidate_allowed)
+            ):
+                status = PermissionComparisonStatus.FAIL
+            elif (
+                active_protected
+                and active_allowed
+                and candidate_protected
+                and candidate_allowed
+                and all(_trace_complete(trace) for _, trace, _, _, _ in traces if trace)
+                and _protected_effectively_denied(active_protected)
+                and _protected_effectively_denied(candidate_protected)
+                and _allowed_control_succeeds(active_allowed)
+                and _allowed_control_succeeds(candidate_allowed)
+            ):
+                status = PermissionComparisonStatus.PASS
+            else:
+                status = PermissionComparisonStatus.NOT_EVALUATED
+            validity = PermissionEvidenceValidity.VALID
     if (
-        not invalid
+        validity is PermissionEvidenceValidity.VALID
         and candidate_protected
         and candidate_protected.decision
         and candidate_protected.decision.value is NativePermissionDecisionValue.ALLOW
@@ -386,6 +386,15 @@ def compare_permission_case(
 
 def reduce_permission_family(*, cases: tuple[PermissionCaseComparison, ...]) -> PermissionFamilyComparison:
     """Fail closed while keeping result validity independent of comparison status."""
+    if not _canonical_case_comparisons(cases):
+        return _invalid_family(
+            cases[0].active_snapshot if cases else SnapshotRef("unavailable", 0, SnapshotRole.ACTIVE),
+            cases[0].candidate_snapshot
+            if cases
+            else SnapshotRef("unavailable", 0, SnapshotRole.CANDIDATE),
+            cases=cases,
+            blocker="permission_case_catalog_mismatch",
+        )
     first = cases[0]
     validity = (
         PermissionEvidenceValidity.ERROR
@@ -398,11 +407,7 @@ def reduce_permission_family(*, cases: tuple[PermissionCaseComparison, ...]) -> 
         comparison_status = PermissionComparisonStatus.FAIL
     elif any(case.comparison_status is PermissionComparisonStatus.BASELINE_FAILURE for case in cases):
         comparison_status = PermissionComparisonStatus.BASELINE_FAILURE
-    elif (
-        tuple(case.case_id for case in cases)
-        == tuple(case.case_id for case in PERMISSION_CASE_SPECS)
-        and all(case.comparison_status is PermissionComparisonStatus.PASS for case in cases)
-    ):
+    elif all(case.comparison_status is PermissionComparisonStatus.PASS for case in cases):
         comparison_status = PermissionComparisonStatus.PASS
     else:
         comparison_status = PermissionComparisonStatus.NOT_EVALUATED
@@ -436,6 +441,34 @@ def reduce_permission_family(*, cases: tuple[PermissionCaseComparison, ...]) -> 
         validity=validity,
         terminal_status=terminal_status,
         blockers=blockers,
+    )
+
+
+def _canonical_case_comparisons(cases: tuple[PermissionCaseComparison, ...]) -> bool:
+    return len(cases) == len(PERMISSION_CASE_SPECS) and all(
+        item.case_id == case_spec.case_id and item.case_spec is case_spec
+        for item, case_spec in zip(cases, PERMISSION_CASE_SPECS, strict=True)
+    )
+
+
+def _invalid_family(
+    active_snapshot: SnapshotRef,
+    candidate_snapshot: SnapshotRef,
+    *,
+    cases: tuple[PermissionCaseComparison, ...],
+    blocker: str,
+) -> PermissionFamilyComparison:
+    return PermissionFamilyComparison(
+        family_id="tools_permission_drift",
+        family_version="2",
+        schema_version="2",
+        active_snapshot=active_snapshot,
+        candidate_snapshot=candidate_snapshot,
+        cases=cases,
+        comparison_status=PermissionComparisonStatus.NOT_EVALUATED,
+        validity=PermissionEvidenceValidity.INVALID,
+        terminal_status=SafetyStatus.INVALID,
+        blockers=(blocker,),
     )
 
 
@@ -477,6 +510,15 @@ class PairedPermissionPolicyExecutor:
     """Materialize paired disposable harness copies and compare native traces."""
 
     def execute(self, request: TransitionPermissionRequest) -> PermissionFamilyComparison:
+        if request.case_specs is not PERMISSION_CASE_SPECS:
+            family = _invalid_family(
+                request.active.snapshot,
+                request.candidate.snapshot,
+                cases=(),
+                blocker="permission_case_catalog_mismatch",
+            )
+            _write_json(request.artifact_root / "families" / "tools_permission_drift" / "family.json", family)
+            return family
         comparisons: list[PermissionCaseComparison] = []
         for case_spec in request.case_specs:
             comparison = self._execute_case(request, case_spec)
@@ -505,9 +547,13 @@ class PairedPermissionPolicyExecutor:
                     or candidate_capability.state is PermissionCapabilityState.UNSUPPORTED
                 ):
                     return compare_permission_case(
+                        active_snapshot=request.active.snapshot,
+                        candidate_snapshot=request.candidate.snapshot,
                         case_spec=case_spec,
                         active_capability=active_capability,
                         candidate_capability=candidate_capability,
+                        active_binding=None,
+                        candidate_binding=None,
                         active_protected=None,
                         active_allowed=None,
                         candidate_protected=None,
@@ -517,16 +563,32 @@ class PairedPermissionPolicyExecutor:
                 candidate_binding = request.adapter.bind(case_spec, candidate_context)
                 if active_binding is None or candidate_binding is None:
                     return compare_permission_case(
+                        active_snapshot=request.active.snapshot,
+                        candidate_snapshot=request.candidate.snapshot,
                         case_spec=case_spec,
                         active_capability=active_capability,
                         candidate_capability=candidate_capability,
+                        active_binding=active_binding,
+                        candidate_binding=candidate_binding,
                         active_protected=None,
                         active_allowed=None,
                         candidate_protected=None,
                         candidate_allowed=None,
                     )
                 if not _binding_matches(case_spec, active_binding) or not _binding_matches(case_spec, candidate_binding):
-                    raise ValueError("native binding does not match permission case")
+                    return compare_permission_case(
+                        active_snapshot=request.active.snapshot,
+                        candidate_snapshot=request.candidate.snapshot,
+                        case_spec=case_spec,
+                        active_capability=active_capability,
+                        candidate_capability=candidate_capability,
+                        active_binding=active_binding,
+                        candidate_binding=candidate_binding,
+                        active_protected=None,
+                        active_allowed=None,
+                        candidate_protected=None,
+                        candidate_allowed=None,
+                    )
                 active_traces = self._administer_endpoint(
                     request, case_spec, request.active.snapshot, "active", active_binding
                 )
@@ -534,61 +596,18 @@ class PairedPermissionPolicyExecutor:
                     request, case_spec, request.candidate.snapshot, "candidate", candidate_binding
                 )
                 comparison = compare_permission_case(
+                    active_snapshot=request.active.snapshot,
+                    candidate_snapshot=request.candidate.snapshot,
                     case_spec=case_spec,
                     active_capability=active_capability,
                     candidate_capability=candidate_capability,
+                    active_binding=active_binding,
+                    candidate_binding=candidate_binding,
                     active_protected=active_traces[0],
                     active_allowed=active_traces[1],
                     candidate_protected=candidate_traces[0],
                     candidate_allowed=candidate_traces[1],
                 )
-                validation_reasons: list[str] = []
-                for prefix, trace, snapshot, operation, expected_binding in (
-                    (
-                        "active_protected",
-                        active_traces[0],
-                        request.active.snapshot,
-                        case_spec.protected,
-                        active_binding.protected,
-                    ),
-                    (
-                        "active_allowed",
-                        active_traces[1],
-                        request.active.snapshot,
-                        case_spec.allowed_control,
-                        active_binding.allowed_control,
-                    ),
-                    (
-                        "candidate_protected",
-                        candidate_traces[0],
-                        request.candidate.snapshot,
-                        case_spec.protected,
-                        candidate_binding.protected,
-                    ),
-                    (
-                        "candidate_allowed",
-                        candidate_traces[1],
-                        request.candidate.snapshot,
-                        case_spec.allowed_control,
-                        candidate_binding.allowed_control,
-                    ),
-                ):
-                    trace_validity, trace_reasons = _validate_trace(
-                        trace,
-                        expected_snapshot=snapshot,
-                        expected_case=case_spec,
-                        expected_operation=operation,
-                        expected_binding=expected_binding,
-                    )
-                    if trace_validity is PermissionEvidenceValidity.INVALID:
-                        validation_reasons.extend(_prefix_reasons(prefix, trace_reasons))
-                if validation_reasons:
-                    return replace(
-                        comparison,
-                        validity=PermissionEvidenceValidity.INVALID,
-                        comparison_status=PermissionComparisonStatus.NOT_EVALUATED,
-                        reasons=(*comparison.reasons, *validation_reasons),
-                    )
                 return comparison
         except Exception as exc:  # noqa: BLE001 - every adapter exception is private evidence.
             return self._error_comparison(request, case_spec, exc)

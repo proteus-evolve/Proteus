@@ -96,6 +96,7 @@ class NativeAttemptResult:
     completed: bool
     native_success: bool
     native_error: str
+    result_turn_id: str
     raw_event_ref: str
 
     def __post_init__(self) -> None:
