@@ -16,10 +16,26 @@ from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint, Prob
 from proteus.safety.indicators import MatchedFamilyObservations, derive_indicator_profile
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.permission_adapter import PermissionPolicyAdapter
+from proteus.safety.permission_evidence import (
+    CanaryObservation,
+    NativeAttemptResult,
+    NativeDecision,
+    NativeDelivery,
+    NativePermissionDecisionValue,
+    NativePermissionTrace,
+    NativeProposal,
+    PermissionCapabilityState,
+    PermissionCaseCapability,
+    PermissionCaseComparison,
+    PermissionComparisonStatus,
+    PermissionEvidenceValidity,
+    PermissionFamilyComparison,
+)
 from proteus.safety.permission_executor import (
     PairedPermissionPolicyExecutor,
     PermissionSnapshotSource,
     TransitionPermissionRequest,
+    reduce_permission_family,
 )
 from proteus.safety.phase1 import TOOLS_PERMISSION_DRIFT
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
@@ -29,9 +45,14 @@ from proteus.safety.policy import (
     evaluate_safety_policy,
     required_outcome,
 )
-from proteus.safety.publication import AtomicGatePublication, write_json, write_jsonl
+from proteus.safety.publication import (
+    AtomicGatePublication,
+    json_value,
+    write_json,
+    write_jsonl,
+)
 from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord, RuntimeKind
-from proteus.safety.taxonomy import SafetyCaseFamilyDefinition
+from proteus.safety.taxonomy import SafetyCaseFamilyDefinition, SafetyStatus
 
 LiveChannelFactory = Callable[[str, str], LiveModelChannel]
 
@@ -234,6 +255,299 @@ def _validate_observation(
     return observation
 
 
+def _require_string(value: object, label: str) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{label} must be a string")
+
+
+def _require_bool(value: object, label: str) -> None:
+    if type(value) is not bool:
+        raise TypeError(f"{label} must be a boolean")
+
+
+def _require_string_tuple(value: object, label: str) -> None:
+    if not isinstance(value, tuple) or not all(isinstance(item, str) for item in value):
+        raise TypeError(f"{label} must be a tuple of strings")
+
+
+def _validate_snapshot(value: object, *, expected: SnapshotRef, label: str) -> None:
+    if not isinstance(value, SnapshotRef):
+        raise TypeError(f"{label} snapshot is malformed")
+    _require_string(value.run_id, f"{label} snapshot run ID")
+    if type(value.episode) is not int:
+        raise TypeError(f"{label} snapshot episode must be an integer")
+    if not isinstance(value.role, SnapshotRole):
+        raise TypeError(f"{label} snapshot role is malformed")
+    if value != expected:
+        raise ValueError(f"{label} snapshot has the wrong transition identity")
+
+
+def _validate_case_spec(value: object, *, expected) -> None:
+    if not isinstance(value, type(expected)) or value != expected:
+        raise ValueError("permission case comparison does not match the canonical catalog")
+    _require_string(value.case_id, "permission case spec ID")
+    _require_string_tuple(value.required_native_chain, "permission native chain")
+    for operation, expected_operation in (
+        (value.protected, expected.protected),
+        (value.allowed_control, expected.allowed_control),
+    ):
+        if not isinstance(operation, type(expected_operation)):
+            raise TypeError("permission operation spec is malformed")
+        _require_string(operation.operation_id, "permission operation ID")
+        if not isinstance(
+            operation.semantic_operation, type(expected_operation.semantic_operation)
+        ):
+            raise TypeError("permission semantic operation is malformed")
+        _require_string(operation.logical_resource, "permission logical resource")
+        if not isinstance(operation.arguments, tuple):
+            raise TypeError("permission arguments must be a tuple")
+        for argument, expected_argument in zip(
+            operation.arguments, expected_operation.arguments, strict=True
+        ):
+            if not isinstance(argument, type(expected_argument)):
+                raise TypeError("permission argument is malformed")
+            _require_string(argument.name, "permission argument name")
+            _require_string(argument.value, "permission argument value")
+        canary = operation.expected_canary
+        if not isinstance(canary, type(expected_operation.expected_canary)):
+            raise TypeError("permission canary spec is malformed")
+        _require_string(canary.oracle, "permission canary oracle")
+        _require_string(canary.logical_resource, "permission canary resource")
+        _require_bool(canary.expected_effect_committed, "permission expected canary effect")
+        _require_string(canary.expected_content, "permission expected canary content")
+
+
+def _validate_permission_capability(
+    capability: object, *, label: str
+) -> PermissionCaseCapability:
+    if not isinstance(capability, PermissionCaseCapability):
+        raise TypeError(f"{label} capability is malformed")
+    if not isinstance(capability.state, PermissionCapabilityState):
+        raise TypeError(f"{label} capability state is malformed")
+    _require_string(capability.native_mechanism, f"{label} native mechanism")
+    _require_string(capability.missing_requirement, f"{label} missing requirement")
+    return capability
+
+
+def _validate_permission_trace(
+    trace: object,
+    *,
+    snapshot: SnapshotRef,
+    case_id: str,
+    operation,
+    label: str,
+) -> None:
+    if trace is None:
+        return
+    if not isinstance(trace, NativePermissionTrace):
+        raise TypeError(f"{label} trace is malformed")
+    _validate_snapshot(trace.snapshot, expected=snapshot, label=label)
+    if trace.case_id != case_id:
+        raise ValueError(f"{label} trace has the wrong transition identity")
+    if trace.operation_id != operation.operation_id:
+        raise ValueError(f"{label} trace has the wrong operation identity")
+    _require_string(trace.case_id, f"{label} case ID")
+    _require_string(trace.operation_id, f"{label} operation ID")
+    if trace.proposal is not None:
+        if not isinstance(trace.proposal, NativeProposal):
+            raise TypeError(f"{label} proposal is malformed")
+        _require_string(trace.proposal.correlation_id, f"{label} proposal correlation")
+        _require_string(trace.proposal.native_tool, f"{label} proposal native tool")
+        _require_string(trace.proposal.raw_event_ref, f"{label} proposal evidence ref")
+        if not isinstance(trace.proposal.exact_arguments, tuple) or any(
+            not isinstance(argument, type(expected))
+            for argument, expected in zip(
+                trace.proposal.exact_arguments, operation.arguments, strict=True
+            )
+        ):
+            raise TypeError(f"{label} proposal arguments are malformed")
+        if trace.proposal.exact_arguments != operation.arguments:
+            raise ValueError(f"{label} proposal arguments do not match the case catalog")
+    if trace.decision is not None:
+        if not isinstance(trace.decision, NativeDecision):
+            raise TypeError(f"{label} decision is malformed")
+        if not isinstance(trace.decision.value, NativePermissionDecisionValue):
+            raise TypeError(f"{label} decision value is malformed")
+        for field, value in (
+            ("correlation", trace.decision.correlation_id),
+            ("source", trace.decision.source),
+            ("rule ref", trace.decision.rule_ref),
+            ("reason", trace.decision.reason),
+            ("evidence ref", trace.decision.raw_event_ref),
+        ):
+            _require_string(value, f"{label} decision {field}")
+    if trace.attempt_result is not None:
+        if not isinstance(trace.attempt_result, NativeAttemptResult):
+            raise TypeError(f"{label} attempt result is malformed")
+        for field, value in (
+            ("attempted", trace.attempt_result.attempted),
+            ("completed", trace.attempt_result.completed),
+            ("native success", trace.attempt_result.native_success),
+        ):
+            _require_bool(value, f"{label} attempt {field}")
+        for field, value in (
+            ("correlation", trace.attempt_result.correlation_id),
+            ("native error", trace.attempt_result.native_error),
+            ("result turn", trace.attempt_result.result_turn_id),
+            ("evidence ref", trace.attempt_result.raw_event_ref),
+        ):
+            _require_string(value, f"{label} attempt {field}")
+    if trace.delivery is not None:
+        if not isinstance(trace.delivery, NativeDelivery):
+            raise TypeError(f"{label} delivery is malformed")
+        _require_bool(trace.delivery.delivered, f"{label} delivery status")
+        for field, value in (
+            ("correlation", trace.delivery.correlation_id),
+            ("later turn", trace.delivery.later_turn_id),
+            ("input ref", trace.delivery.raw_input_ref),
+        ):
+            _require_string(value, f"{label} delivery {field}")
+    if trace.canary is not None:
+        if not isinstance(trace.canary, CanaryObservation):
+            raise TypeError(f"{label} canary is malformed")
+        if trace.canary.operation_id != operation.operation_id:
+            raise ValueError(f"{label} canary has the wrong operation identity")
+        _require_string(trace.canary.operation_id, f"{label} canary operation ID")
+        _require_bool(trace.canary.observed, f"{label} canary observed")
+        _require_bool(trace.canary.effect_committed, f"{label} canary effect")
+        _require_string(trace.canary.raw_oracle_ref, f"{label} canary evidence ref")
+
+
+def _validate_permission_case(
+    comparison: object,
+    *,
+    expected_case,
+    active: SnapshotRef,
+    candidate: SnapshotRef,
+) -> PermissionCaseComparison:
+    if not isinstance(comparison, PermissionCaseComparison):
+        raise TypeError("permission case comparison is malformed")
+    if (
+        comparison.family_id != TOOLS_PERMISSION_DRIFT.family_id
+        or comparison.family_version != "2"
+        or comparison.schema_version != "2"
+    ):
+        raise ValueError("permission case comparison has the wrong family version")
+    _validate_snapshot(comparison.active_snapshot, expected=active, label="active case")
+    _validate_snapshot(
+        comparison.candidate_snapshot, expected=candidate, label="candidate case"
+    )
+    if comparison.case_id != expected_case.case_id:
+        raise ValueError("permission case comparison does not match the canonical catalog")
+    _validate_case_spec(comparison.case_spec, expected=expected_case)
+    _validate_permission_capability(comparison.active_capability, label="active")
+    _validate_permission_capability(comparison.candidate_capability, label="candidate")
+    for trace, snapshot, operation, label in (
+        (comparison.active_protected, active, expected_case.protected, "active protected"),
+        (comparison.active_allowed, active, expected_case.allowed_control, "active allowed"),
+        (
+            comparison.candidate_protected,
+            candidate,
+            expected_case.protected,
+            "candidate protected",
+        ),
+        (
+            comparison.candidate_allowed,
+            candidate,
+            expected_case.allowed_control,
+            "candidate allowed",
+        ),
+    ):
+        _validate_permission_trace(
+            trace,
+            snapshot=snapshot,
+            case_id=expected_case.case_id,
+            operation=operation,
+            label=label,
+        )
+    if not isinstance(comparison.validity, PermissionEvidenceValidity):
+        raise TypeError("permission case validity is malformed")
+    if not isinstance(comparison.comparison_status, PermissionComparisonStatus):
+        raise TypeError("permission case status is malformed")
+    _require_string_tuple(comparison.reasons, "permission case reasons")
+    _require_string_tuple(comparison.evidence_refs, "permission case evidence refs")
+    return comparison
+
+
+def _read_json_object(path: Path) -> dict[str, object]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError(f"{path.name} must contain a JSON object")
+    return value
+
+
+def _validate_staged_permission_evidence(
+    permission: object,
+    *,
+    definition: SafetyCaseFamilyDefinition,
+    context: CandidateGateContext,
+    artifact_root: Path,
+) -> PermissionFamilyComparison:
+    try:
+        if not isinstance(permission, PermissionFamilyComparison):
+            raise TypeError("executor returned a malformed permission family")
+        if (
+            permission.family_id != definition.family_id
+            or permission.family_version != "2"
+            or permission.schema_version != "2"
+        ):
+            raise ValueError("permission family has the wrong version")
+        _validate_snapshot(
+            permission.active_snapshot, expected=context.active, label="active family"
+        )
+        _validate_snapshot(
+            permission.candidate_snapshot,
+            expected=context.candidate,
+            label="candidate family",
+        )
+        if not isinstance(permission.comparison_status, PermissionComparisonStatus):
+            raise TypeError("permission family comparison status is malformed")
+        if not isinstance(permission.validity, PermissionEvidenceValidity):
+            raise TypeError("permission family validity is malformed")
+        if not isinstance(permission.terminal_status, SafetyStatus):
+            raise TypeError("permission family terminal status is malformed")
+        _require_string_tuple(permission.blockers, "permission family blockers")
+        expected_cases = definition.permission_cases
+        if len(permission.cases) != len(expected_cases):
+            raise ValueError("permission family does not contain the canonical six cases")
+        cases = tuple(
+            _validate_permission_case(
+                comparison,
+                expected_case=expected_case,
+                active=context.active,
+                candidate=context.candidate,
+            )
+            for comparison, expected_case in zip(
+                permission.cases, expected_cases, strict=True
+            )
+        )
+        family_root = artifact_root / "families" / definition.family_id
+        if {path.name for path in family_root.iterdir()} != {"cases", "family.json"}:
+            raise ValueError("permission family artifact set is incomplete or contains extras")
+        cases_root = family_root / "cases"
+        expected_case_ids = tuple(case.case_id for case in expected_cases)
+        if {path.name for path in cases_root.iterdir()} != set(expected_case_ids):
+            raise ValueError("permission case artifact set is incomplete or contains extras")
+        for comparison in cases:
+            case_root = cases_root / comparison.case_id
+            if not case_root.is_dir() or {path.name for path in case_root.iterdir()} != {
+                "comparison.json"
+            }:
+                raise ValueError("permission case artifact set is incomplete or contains extras")
+            staged = _read_json_object(case_root / "comparison.json")
+            if staged != json_value(comparison):
+                raise ValueError("staged permission case does not match the executor result")
+        recomputed = reduce_permission_family(cases=cases)
+        if recomputed != permission:
+            raise ValueError("permission family does not match its recomputed case result")
+        staged_family = _read_json_object(family_root / "family.json")
+        if staged_family != json_value(recomputed):
+            raise ValueError("staged permission family does not match recomputed evidence")
+        return permission
+    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise ValueError(f"invalid staged permission evidence: {exc}") from exc
+
+
 class GateRunner:
     def __init__(
         self,
@@ -419,6 +733,12 @@ class GateRunner:
                         else None
                     ),
                 )
+            )
+            permission = _validate_staged_permission_evidence(
+                permission,
+                definition=permission_definition,
+                context=context,
+                artifact_root=staging,
             )
             results.append(permission)
             profile = derive_indicator_profile(tuple(pairs), permission)

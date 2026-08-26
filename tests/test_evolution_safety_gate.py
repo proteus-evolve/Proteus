@@ -26,9 +26,11 @@ from proteus.safety.permission_evidence import (
     NativeProposal,
     PermissionCapabilityState,
     PermissionCaseCapability,
+    PermissionComparisonStatus,
 )
 from proteus.safety.permission_executor import PairedPermissionPolicyExecutor
 from proteus.safety.phase1 import SUITE, TOOLS_PERMISSION_DRIFT
+from proteus.safety.publication import write_json
 from proteus.safety.runtime import RuntimeKind
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
 
@@ -152,7 +154,6 @@ class GateFixtureAdapter(MinimalHarness):
         super().__init__()
         self.runtime = RecordingMinimalSafetyRuntime(self)
         self.permission_adapter = GatePermissionAdapter()
-        self.permission_pair_calls = 0
 
     @property
     def memory_endpoint_calls(self) -> set[tuple[str, str]]:
@@ -162,7 +163,6 @@ class GateFixtureAdapter(MinimalHarness):
         return self.runtime
 
     def permission_policy_adapter(self):
-        self.permission_pair_calls += 1
         return self.permission_adapter
 
 
@@ -201,6 +201,75 @@ class ExplodingAfterCaseExecutor(PairedPermissionPolicyExecutor):
         raise RuntimeError("controlled case failure")
 
 
+class RecordingPairedPermissionPolicyExecutor(PairedPermissionPolicyExecutor):
+    def __init__(self, mutation=None) -> None:
+        self.execute_calls = 0
+        self.mutation = mutation
+
+    def execute(self, request):
+        self.execute_calls += 1
+        result = super().execute(request)
+        return self.mutation(request, result) if self.mutation is not None else result
+
+
+def _rewrite_permission_artifacts(request, family) -> None:
+    for case in family.cases:
+        write_json(
+            request.artifact_root
+            / "families/tools_permission_drift/cases"
+            / case.case_id
+            / "comparison.json",
+            case,
+        )
+    write_json(
+        request.artifact_root / "families/tools_permission_drift/family.json",
+        family,
+    )
+
+
+def _missing_case_artifact(request, family):
+    path = (
+        request.artifact_root
+        / "families/tools_permission_drift/cases/recursive_deletion/comparison.json"
+    )
+    path.unlink()
+    return family
+
+
+def _garbled_case_artifact(request, family):
+    path = (
+        request.artifact_root
+        / "families/tools_permission_drift/cases/recursive_deletion/comparison.json"
+    )
+    path.write_text("{not-json\n", encoding="utf-8")
+    return family
+
+
+def _wrong_transition_artifacts(request, family):
+    wrong_active = SnapshotRef("wrong-run", 99, SnapshotRole.ACTIVE)
+    wrong_cases = tuple(
+        replace(case, active_snapshot=wrong_active) for case in family.cases
+    )
+    wrong_family = replace(
+        family,
+        active_snapshot=wrong_active,
+        cases=wrong_cases,
+    )
+    _rewrite_permission_artifacts(request, wrong_family)
+    return wrong_family
+
+
+def _forged_pass_family(request, family):
+    incomplete = replace(
+        family.cases[0],
+        comparison_status=PermissionComparisonStatus.NOT_EVALUATED,
+        reasons=("candidate_protected_missing_delivery",),
+    )
+    forged = replace(family, cases=(incomplete, *family.cases[1:]))
+    _rewrite_permission_artifacts(request, forged)
+    return forged
+
+
 def _gate_context(tmp_path: Path) -> CandidateGateContext:
     active_root = tmp_path / "subject" / "active"
     candidate_root = tmp_path / "subject" / "candidate"
@@ -221,16 +290,19 @@ def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(
     tmp_path: Path,
 ) -> None:
     adapter = GateFixtureAdapter()
-    gate = build_candidate_gate_factory(
-        adapter_factory=lambda: adapter,
-        suite_spec="proteus.safety.phase1:SUITE",
-        safety_model="",
+    executor = RecordingPairedPermissionPolicyExecutor()
+    gate = GateRunner(
+        adapter=adapter,
+        definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
-    )("matched-run")
+        safety_model="",
+        channel_factory=None,
+        permission_executor=executor,
+    )
 
     decision = gate.evaluate(_gate_context(tmp_path))
 
-    assert adapter.permission_pair_calls == 1
+    assert executor.execute_calls == 1
     assert adapter.memory_endpoint_calls == {
         ("memory_bad_admission", "active"),
         ("memory_bad_admission", "candidate"),
@@ -260,6 +332,27 @@ def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(
     assert "endpoint" not in permission[0]
     assert permission[0]["comparison_status"] == "pass"
 
+    by_memory_endpoint = {
+        (item["family_id"], item["endpoint"]): item
+        for item in published
+        if "endpoint" in item
+    }
+    for definition in SUITE.definitions():
+        if definition.family_id == "tools_permission_drift":
+            continue
+        declared = [cell.cell_id for cell in definition.declared_cells]
+        for endpoint in ("active", "candidate"):
+            observation = by_memory_endpoint[(definition.family_id, endpoint)]
+            assert [cell["cell_id"] for cell in observation["cells"]] == declared
+            for cell in observation["cells"]:
+                if cell["status"] in {SafetyStatus.PASS.value, SafetyStatus.FAIL.value}:
+                    assert cell["evidence_refs"]
+                    assert all(
+                        f"/{cell['cell_id']}/" in f"/{ref}"
+                        for ref in cell["evidence_refs"]
+                    )
+                    assert all((root / ref).is_file() for ref in cell["evidence_refs"])
+
 
 def tree_text(root: Path) -> str:
     return "|".join(
@@ -278,8 +371,9 @@ def permission_gate(
     *,
     channel: RecordingChannel | None = None,
     executor: PairedPermissionPolicyExecutor | None = None,
+    adapter: GateFixtureAdapter | None = None,
 ) -> GateRunner:
-    adapter = GateFixtureAdapter()
+    adapter = adapter or GateFixtureAdapter()
     return GateRunner(
         adapter=adapter,
         definitions=SUITE.definitions(),
@@ -331,6 +425,32 @@ def test_gate_failure_publishes_neither_family_nor_decision(tmp_path: Path) -> N
         gate.evaluate(_gate_context(tmp_path))
 
     final = tmp_path / "controller/safety-gates/matched-run/episode-001"
+    assert not final.exists()
+    assert list((final.parent / ".failed").glob("episode-001-*"))
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        _missing_case_artifact,
+        _garbled_case_artifact,
+        _wrong_transition_artifacts,
+        _forged_pass_family,
+    ],
+    ids=["missing-case", "garbled-json", "wrong-transition", "forged-pass"],
+)
+def test_gate_rejects_incomplete_or_mismatched_staged_permission_evidence(
+    tmp_path: Path,
+    mutation,
+) -> None:
+    executor = RecordingPairedPermissionPolicyExecutor(mutation)
+    gate = permission_gate(tmp_path, executor=executor)
+
+    with pytest.raises(ValueError, match="staged permission evidence"):
+        gate.evaluate(_gate_context(tmp_path))
+
+    final = tmp_path / "controller/safety-gates/matched-run/episode-001"
+    assert executor.execute_calls == 1
     assert not final.exists()
     assert list((final.parent / ".failed").glob("episode-001-*"))
 
