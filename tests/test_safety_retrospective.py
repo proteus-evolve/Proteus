@@ -48,6 +48,7 @@ def _preserved_sweep(
                     "seed": seed,
                     "root": str(run_root),
                     "episodes_complete": checkpoint_count,
+                    "error": "",
                 }
             )
         )
@@ -170,7 +171,8 @@ def test_replay_records_four_baseline_exclusions_and_all_76_eligible_pairs(
     assert summary.transitions_seen == 76
     assert manifest["checkpoint_pairs_expected"] == 80
     assert manifest["checkpoint_pairs_seen"] == 80
-    assert manifest["transitions_seen"] == 76
+    assert manifest["transitions_eligible"] == 76
+    assert manifest["transitions_selected"] == 76
     assert len(manifest["exclusions"]) == 4
     assert {item["reason"] for item in manifest["exclusions"]} == {
         "episode_0_seed_has_no_required_native_surfaces"
@@ -194,8 +196,11 @@ def test_replay_selects_exact_logical_pair_and_records_selection(tmp_path: Path)
     )
 
     manifest = json.loads((output_root / "manifest.json").read_text(encoding="utf-8"))
-    assert summary.transitions_seen == 1
+    assert summary.transitions_eligible == 4
+    assert summary.transitions_selected == 1
     assert manifest["selection"] == {"run_id": "run-native-1", "active_episode": 2}
+    assert manifest["transitions_eligible"] == 4
+    assert manifest["transitions_selected"] == 1
     assert [
         path.name
         for path in (output_root / "transitions" / "run-native-1").glob("*.json")
@@ -240,9 +245,16 @@ def test_damaged_archive_publishes_incomplete_manifest_with_missing_checkpoint_r
     assert manifest["complete"] is False
     assert manifest["checkpoint_pairs_expected"] == 2
     assert manifest["checkpoint_pairs_seen"] == 1
-    assert manifest["transitions_seen"] == 0
+    assert manifest["transitions_eligible"] == 0
+    assert manifest["transitions_selected"] == 0
     assert manifest["exclusions"][0]["active"]["episode"] == 0
     assert manifest["source_issues"] == [
+        {
+            "run_id": "run-native",
+            "reason": "short_run",
+            "episodes_complete": 1,
+            "episodes_expected": 2,
+        },
         {
             "run_id": "run-native",
             "active_episode": 1,
@@ -268,6 +280,131 @@ def test_empty_source_archive_is_terminally_incomplete(tmp_path: Path) -> None:
     manifest = json.loads((output_root / "manifest.json").read_text())
     assert summary.complete is False
     assert manifest["source_issues"] == [{"reason": "no_runs_declared"}]
+
+
+@pytest.mark.parametrize(
+    ("record_change", "expected_issue"),
+    (
+        (
+            "missing",
+            {"run_id": "run-native", "reason": "missing_run_record"},
+        ),
+        (
+            "short",
+            {
+                "run_id": "run-native",
+                "reason": "short_run",
+                "episodes_complete": 1,
+                "episodes_expected": 2,
+            },
+        ),
+        (
+            "error",
+            {
+                "run_id": "run-native",
+                "reason": "run_error",
+                "error": "preserved run stopped before terminal publication",
+            },
+        ),
+    ),
+)
+def test_manifest_run_requires_one_complete_error_free_durable_record(
+    tmp_path: Path,
+    record_change: str,
+    expected_issue: dict[str, object],
+) -> None:
+    """Catches valid checkpoint refs masking a missing, short, or failed durable run row."""
+    sweep_root = _preserved_sweep(tmp_path)
+    records_path = sweep_root / "seeds.jsonl"
+    row = json.loads(records_path.read_text())
+    if record_change == "missing":
+        records_path.write_text("", encoding="utf-8")
+    elif record_change == "short":
+        row["episodes_complete"] = 1
+        records_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    else:
+        row["error"] = "preserved run stopped before terminal publication"
+        records_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    output_root = tmp_path / "retrospective"
+
+    summary = run_retrospective_phase1(
+        sweep_root=sweep_root,
+        adapter=MinimalHarness(),
+        output_root=output_root,
+        model_config=None,
+    )
+
+    manifest = json.loads((output_root / "manifest.json").read_text())
+    assert manifest["checkpoint_pairs_expected"] == 2
+    assert manifest["checkpoint_pairs_seen"] == 2
+    assert expected_issue in manifest["source_issues"]
+    assert manifest["transitions_eligible"] == 0
+    assert manifest["transitions_selected"] == 0
+    assert manifest["transitions_attempted"] == 0
+    assert summary.complete is False
+
+
+def test_manifest_run_rejects_duplicate_durable_records(tmp_path: Path) -> None:
+    """Catches manifest identity resolving to more than one durable run record."""
+    sweep_root = _preserved_sweep(tmp_path)
+    records_path = sweep_root / "seeds.jsonl"
+    first = json.loads(records_path.read_text())
+    duplicate = {**first, "seed": 1}
+    records_path.write_text(
+        json.dumps(first) + "\n" + json.dumps(duplicate) + "\n", encoding="utf-8"
+    )
+
+    summary = run_retrospective_phase1(
+        sweep_root=sweep_root,
+        adapter=MinimalHarness(),
+        output_root=tmp_path / "retrospective",
+        model_config=None,
+    )
+
+    assert summary.complete is False
+    manifest = json.loads((tmp_path / "retrospective" / "manifest.json").read_text())
+    assert {"run_id": "run-native", "reason": "duplicate_run_records"} in (
+        manifest["source_issues"]
+    )
+    assert manifest["transitions_eligible"] == 0
+    assert manifest["transitions_attempted"] == 0
+
+
+@pytest.mark.parametrize("relative_output", (Path("."), Path("derived/output")))
+def test_api_rejects_output_inside_source_before_reading_inventory(
+    tmp_path: Path, relative_output: Path
+) -> None:
+    """Catches publication roots that can mutate preserved source before validation."""
+    sweep_root = tmp_path / "damaged-sweep"
+    sweep_root.mkdir()
+    (sweep_root / "seeds.jsonl").write_text("not-json\n", encoding="utf-8")
+    before = _tree_bytes(sweep_root)
+
+    with pytest.raises(ValueError, match="outside the preserved sweep root"):
+        run_retrospective_phase1(
+            sweep_root=sweep_root,
+            adapter=MinimalHarness(),
+            output_root=sweep_root / relative_output,
+            model_config=None,
+        )
+
+    assert _tree_bytes(sweep_root) == before
+
+
+def test_cli_rejects_output_inside_source_without_creating_it(tmp_path: Path) -> None:
+    """Catches CLI validation occurring only after nested output publication begins."""
+    sweep_root = _preserved_sweep(tmp_path)
+    output_root = sweep_root / "retrospective"
+    before = _tree_bytes(sweep_root)
+
+    with pytest.raises(SystemExit, match="outside the preserved sweep root"):
+        main([
+            "safety", "retrospective", "--harness", "minimal", "--sweep", str(sweep_root),
+            "--out", str(output_root),
+        ])
+
+    assert not output_root.exists()
+    assert _tree_bytes(sweep_root) == before
 
 
 def test_all_executor_errors_are_attempted_but_not_administered(tmp_path: Path) -> None:
@@ -463,6 +600,8 @@ def test_real_dsh_transition_replays_through_current_local_runtime(tmp_path: Pat
         },
     }
     assert summary.transitions_attempted == 1
+    assert summary.transitions_eligible == 76
+    assert summary.transitions_selected == 1
     assert summary.transitions_administered == 1
     assert summary.transitions_evaluated == 0
     assert summary.transitions_errors == 0

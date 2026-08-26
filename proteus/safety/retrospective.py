@@ -46,6 +46,8 @@ class LiveModelConfig:
 class RetrospectiveSummary:
     source_sweep: str
     transitions_seen: int
+    transitions_eligible: int
+    transitions_selected: int
     transitions_attempted: int
     transitions_administered: int
     transitions_evaluated: int
@@ -69,6 +71,7 @@ class _RunExpectation:
     run_id: str
     run_root: Path
     episodes: int
+    durable_record_valid: bool = True
 
 
 @dataclass(frozen=True)
@@ -132,14 +135,60 @@ def _run_expectations(sweep_root: Path) -> tuple[tuple[_RunExpectation, ...], li
                     issues.append({"reason": "invalid_manifest_run"})
                     continue
                 matches = rows_by_id.get(run_id, [])
-                if len(matches) > 1:
+                durable_record_valid = len(matches) == 1
+                if not matches:
+                    issues.append({"run_id": run_id, "reason": "missing_run_record"})
+                elif len(matches) > 1:
                     issues.append({"run_id": run_id, "reason": "duplicate_run_records"})
+                else:
+                    row = matches[0]
+                    episodes_complete = row.get("episodes_complete")
+                    if (
+                        not isinstance(episodes_complete, int)
+                        or isinstance(episodes_complete, bool)
+                        or episodes_complete < episodes
+                    ):
+                        durable_record_valid = False
+                        issues.append(
+                            {
+                                "run_id": run_id,
+                                "reason": "short_run",
+                                "episodes_complete": episodes_complete,
+                                "episodes_expected": episodes,
+                            }
+                        )
+                    elif episodes_complete != episodes:
+                        durable_record_valid = False
+                        issues.append(
+                            {
+                                "run_id": run_id,
+                                "reason": "run_episode_mismatch",
+                                "episodes_complete": episodes_complete,
+                                "episodes_expected": episodes,
+                            }
+                        )
+                    run_error = row.get("error")
+                    if run_error != "":
+                        durable_record_valid = False
+                        issues.append(
+                            {
+                                "run_id": run_id,
+                                "reason": "run_error",
+                                "error": (
+                                    str(run_error)
+                                    if run_error is not None
+                                    else "missing durable error status"
+                                ),
+                            }
+                        )
                 root = (
                     Path(str(matches[0].get("root", "")))
                     if matches
                     else sweep_root / "runs" / run_id
                 )
-                expectations.append(_RunExpectation(run_id, root, episodes))
+                expectations.append(
+                    _RunExpectation(run_id, root, episodes, durable_record_valid)
+                )
             if not expectations:
                 issues.append({"reason": "no_runs_declared"})
             return tuple(expectations), issues
@@ -221,7 +270,7 @@ def _inventory(sweep_root: Path) -> _ArchiveInventory:
                         "reason": "episode_0_seed_has_no_required_native_surfaces",
                     }
                 )
-            else:
+            elif run.durable_record_valid:
                 result.append(_Transition(run.run_root, record, tuple(records)))
             records.append(record)
     return _ArchiveInventory(
@@ -256,6 +305,13 @@ def _select_transitions(
             "retrospective transition selector must resolve exactly one active/candidate pair"
         )
     return matches, {"run_id": run_id, "active_episode": active_episode}
+
+
+def _validate_output_location(sweep_root: Path, output_root: Path) -> None:
+    resolved_sweep = sweep_root.resolve()
+    resolved_output = output_root.resolve()
+    if resolved_output == resolved_sweep or resolved_sweep in resolved_output.parents:
+        raise ValueError("retrospective output must be outside the preserved sweep root")
 
 
 def _validate_observation(
@@ -372,6 +428,7 @@ def run_retrospective_phase1(
     """
     sweep_root = Path(sweep_root)
     output_root = Path(output_root)
+    _validate_output_location(sweep_root, output_root)
     inventory = _inventory(sweep_root)
     transitions, selection = _select_transitions(
         inventory.transitions, run_id=run_id, active_episode=active_episode
@@ -506,7 +563,9 @@ def run_retrospective_phase1(
                 "checkpoint_pairs_seen": inventory.checkpoint_pairs_seen,
                 "exclusions": inventory.exclusions,
                 "source_issues": inventory.source_issues,
-                "transitions_seen": len(transitions),
+                "transitions_seen": len(inventory.transitions),
+                "transitions_eligible": len(inventory.transitions),
+                "transitions_selected": len(transitions),
                 "transitions_attempted": attempted,
                 "transitions_administered": administered,
                 "transitions_evaluated": evaluated,
@@ -528,7 +587,9 @@ def run_retrospective_phase1(
         publication.publish()
     return RetrospectiveSummary(
         source_sweep=str(sweep_root),
-        transitions_seen=len(transitions),
+        transitions_seen=len(inventory.transitions),
+        transitions_eligible=len(inventory.transitions),
+        transitions_selected=len(transitions),
         transitions_attempted=attempted,
         transitions_administered=administered,
         transitions_evaluated=evaluated,
