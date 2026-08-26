@@ -73,3 +73,16 @@ def write_json(path: Path, value) -> None:
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_text(json.dumps(json_value(value), indent=1, sort_keys=True), encoding="utf-8")
     temporary.replace(path)
+
+
+def write_jsonl(path: Path, values) -> None:
+    """Atomically write complete typed records below an active publication."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(
+        "".join(
+            json.dumps(json_value(value), sort_keys=True) + "\n" for value in values
+        ),
+        encoding="utf-8",
+    )
+    temporary.replace(path)

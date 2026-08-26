@@ -10,6 +10,18 @@ from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, sn
 from proteus.core.activation import CandidateGateResult
 from proteus.core.episode import RunConfig, pending_candidate_path, run
 from proteus.core.goal import EvalResult
+from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
+from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
+from proteus.safety.permission_evidence import (
+    PermissionCapabilityState,
+    PermissionCaseCapability,
+    PermissionCaseComparison,
+    PermissionComparisonStatus,
+    PermissionEvidenceValidity,
+)
+from proteus.safety.permission_executor import reduce_permission_family
+from proteus.safety.policy import evaluate_safety_policy
 
 
 class RecordingHarness(MinimalHarness):
@@ -30,6 +42,89 @@ class ScriptedGate:
     def evaluate(self, context):
         self.contexts.append(context)
         return self.outcomes[context.episode - 1]
+
+
+def _permission_comparison(case_spec, status):
+    supported = PermissionCaseCapability(
+        PermissionCapabilityState.SUPPORTED, "fixture-native-policy", ""
+    )
+    active = SnapshotRef("run-candidate-test", 0, SnapshotRole.ACTIVE)
+    candidate = SnapshotRef("run-candidate-test", 1, SnapshotRole.CANDIDATE)
+    return PermissionCaseComparison(
+        family_id="tools_permission_drift",
+        family_version="2",
+        schema_version="2",
+        active_snapshot=active,
+        candidate_snapshot=candidate,
+        case_id=case_spec.case_id,
+        case_spec=case_spec,
+        active_capability=supported,
+        candidate_capability=supported,
+        active_protected=None,
+        active_allowed=None,
+        candidate_protected=None,
+        candidate_allowed=None,
+        validity=PermissionEvidenceValidity.VALID,
+        comparison_status=status,
+        reasons=(),
+        evidence_refs=(),
+    )
+
+
+def run_one_candidate(
+    tmp_path: Path,
+    *,
+    task_selected: bool,
+    permission_cases: tuple[PermissionComparisonStatus, ...],
+):
+    family = reduce_permission_family(
+        cases=tuple(
+            _permission_comparison(case_spec, status)
+            for case_spec, status in zip(
+                PERMISSION_CASE_SPECS, permission_cases, strict=True
+            )
+        )
+    )
+    profile = EvolutionSafetyIndicators(
+        (
+            FamilyIndicatorProjection(
+                family_id=family.family_id,
+                family_version=family.family_version,
+                terminal_status=family.terminal_status,
+                active_status=None,
+                candidate_status=None,
+                comparison_status=family.comparison_status,
+                evidence_validity=family.validity,
+                active_components=None,
+                candidate_components=None,
+                blockers=family.blockers,
+            ),
+        )
+    )
+    decision = evaluate_safety_policy(profile)
+    gate = ScriptedGate(
+        [
+            CandidateGateResult(
+                decision.allowed, decision.status.value, "gates/permission"
+            )
+        ]
+    )
+
+    def evaluator(_trace, _context):
+        return EvalResult(
+            name="task",
+            score=1.0,
+            error=not task_selected,
+        )
+
+    return run(
+        _cfg(
+            tmp_path,
+            gate=gate,
+            goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
+            episodes=1,
+        )
+    )
 
 
 def _cfg(tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=None):
@@ -55,6 +150,19 @@ def _files(root: Path) -> dict[str, bytes]:
         for path in root.rglob("*")
         if path.is_file()
     }
+
+
+def test_candidate_requires_task_selection_and_six_valid_permission_passes(
+    tmp_path: Path,
+) -> None:
+    result = run_one_candidate(
+        tmp_path,
+        task_selected=True,
+        permission_cases=(PermissionComparisonStatus.PASS,) * 5
+        + (PermissionComparisonStatus.NOT_EVALUATED,),
+    )
+    assert result.eval_history[0]["accepted"] is False
+    assert result.eval_history[0]["safety_status"] == "not_evaluated"
 
 
 def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):

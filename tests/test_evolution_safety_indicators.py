@@ -8,11 +8,58 @@ import pytest
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
-from proteus.safety.policy import required_outcome
+from proteus.safety.policy import evaluate_safety_policy, required_outcome
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
+
+
+def profile_with_terminal_statuses(
+    statuses: tuple[SafetyStatus, ...],
+) -> EvolutionSafetyIndicators:
+    return EvolutionSafetyIndicators(
+        tuple(
+            FamilyIndicatorProjection(
+                family_id=f"family-{index}",
+                family_version="1",
+                terminal_status=status,
+                active_status=None,
+                candidate_status=None,
+                comparison_status=None,
+                evidence_validity=None,
+                active_components=None,
+                candidate_components=None,
+            )
+            for index, status in enumerate(statuses)
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("statuses", "expected"),
+    [
+        ((SafetyStatus.PASS,), SafetyStatus.PASS),
+        (
+            (SafetyStatus.PASS, SafetyStatus.NOT_EVALUATED),
+            SafetyStatus.NOT_EVALUATED,
+        ),
+        ((SafetyStatus.FAIL, SafetyStatus.BASELINE_FAILURE), SafetyStatus.FAIL),
+        (
+            (SafetyStatus.BASELINE_FAILURE, SafetyStatus.NOT_EVALUATED),
+            SafetyStatus.BASELINE_FAILURE,
+        ),
+        ((SafetyStatus.INVALID, SafetyStatus.FAIL), SafetyStatus.INVALID),
+        ((SafetyStatus.ERROR, SafetyStatus.INVALID), SafetyStatus.ERROR),
+    ],
+)
+def test_policy_uses_exact_fail_closed_terminal_precedence(
+    statuses: tuple[SafetyStatus, ...], expected: SafetyStatus
+) -> None:
+    decision = evaluate_safety_policy(profile_with_terminal_statuses(statuses))
+    assert decision.status is expected
+    assert decision.allowed is (expected is SafetyStatus.PASS)
 
 
 @pytest.mark.parametrize(

@@ -5,8 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import shutil
-from dataclasses import asdict, is_dataclass, replace
-from enum import Enum
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable
 
@@ -16,6 +15,13 @@ from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint, ProbeObservation
 from proteus.safety.indicators import MatchedFamilyObservations, derive_indicator_profile
 from proteus.safety.live import LiveModelChannel
+from proteus.safety.permission_adapter import PermissionPolicyAdapter
+from proteus.safety.permission_executor import (
+    PairedPermissionPolicyExecutor,
+    PermissionSnapshotSource,
+    TransitionPermissionRequest,
+)
+from proteus.safety.phase1 import TOOLS_PERMISSION_DRIFT
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.policy import (
@@ -23,7 +29,7 @@ from proteus.safety.policy import (
     evaluate_safety_policy,
     required_outcome,
 )
-from proteus.safety.publication import AtomicGatePublication
+from proteus.safety.publication import AtomicGatePublication, write_json, write_jsonl
 from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord, RuntimeKind
 from proteus.safety.taxonomy import SafetyCaseFamilyDefinition
 
@@ -48,33 +54,26 @@ def _load_suite(spec: str):
     family_ids = [item.family_id for item in definitions]
     if len(family_ids) != len(set(family_ids)):
         raise ValueError("safety suite family IDs must be unique")
-    unsupported = set(family_ids) - set(PHASE1_EXECUTORS)
+    permission_definitions = tuple(
+        item for item in definitions if item.family_id == TOOLS_PERMISSION_DRIFT.family_id
+    )
+    if len(permission_definitions) != 1:
+        raise ValueError("safety suite must contain one current tools_permission_drift family")
+    permission = permission_definitions[0]
+    if (
+        permission.family_version != "2"
+        or permission.permission_cases != TOOLS_PERMISSION_DRIFT.permission_cases
+    ):
+        raise ValueError("tools_permission_drift must use the current version 2 case catalog")
+    memory_ids = {
+        item.family_id
+        for item in definitions
+        if item.family_id != TOOLS_PERMISSION_DRIFT.family_id
+    }
+    unsupported = memory_ids - set(PHASE1_EXECUTORS)
     if unsupported:
         raise ValueError(f"no core executor for safety families: {sorted(unsupported)}")
     return value, definitions
-
-
-def _json_value(value):
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, Path):
-        return str(value)
-    if is_dataclass(value):
-        return {key: _json_value(item) for key, item in asdict(value).items()}
-    if isinstance(value, dict):
-        return {str(key): _json_value(item) for key, item in value.items()}
-    if isinstance(value, (tuple, list)):
-        return [_json_value(item) for item in value]
-    return value
-
-
-def _write_json(path: Path, value) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(
-        json.dumps(_json_value(value), indent=1, sort_keys=True), encoding="utf-8"
-    )
-    temporary.replace(path)
 
 
 def _load_lineage(
@@ -122,6 +121,21 @@ def _runtime_for(adapter) -> HarnessSafetyRuntime:
     if not isinstance(runtime, HarnessSafetyRuntime):
         raise TypeError("adapter safety_runtime() does not implement HarnessSafetyRuntime")
     return runtime
+
+
+def _permission_adapter_for(adapter) -> PermissionPolicyAdapter:
+    method = getattr(adapter, "permission_policy_adapter", None)
+    if not callable(method):
+        raise TypeError(
+            f"safety-gated adapter {getattr(adapter, 'name', type(adapter).__name__)!r} "
+            "must implement permission_policy_adapter()"
+        )
+    permission_adapter = method()
+    if not isinstance(permission_adapter, PermissionPolicyAdapter):
+        raise TypeError(
+            "adapter permission_policy_adapter() does not implement PermissionPolicyAdapter"
+        )
+    return permission_adapter
 
 
 def _close_channel(channel: LiveModelChannel | None) -> None:
@@ -229,12 +243,16 @@ class GateRunner:
         controller_root: Path,
         safety_model: str,
         channel_factory: LiveChannelFactory | None,
+        permission_adapter: PermissionPolicyAdapter | None = None,
+        permission_executor: PairedPermissionPolicyExecutor | None = None,
     ) -> None:
         self._adapter = adapter
         self._definitions = definitions
         self._controller_root = controller_root
         self._safety_model = safety_model
         self._channel_factory = channel_factory
+        self._permission_adapter = permission_adapter
+        self._permission_executor = permission_executor or PairedPermissionPolicyExecutor()
 
     def _collect_family(
         self,
@@ -334,10 +352,20 @@ class GateRunner:
         with AtomicGatePublication(final_root) as publication:
             assert publication.staging_root is not None
             staging = publication.staging_root
-            _write_json(staging / "controller" / "lineage.json", lineage)
+            write_json(staging / "controller" / "lineage.json", lineage)
             pairs: list[MatchedFamilyObservations] = []
-            flat: list[ProbeObservation] = []
-            for definition in self._definitions:
+            results: list[object] = []
+            memory_definitions = tuple(
+                definition
+                for definition in self._definitions
+                if definition.family_id != TOOLS_PERMISSION_DRIFT.family_id
+            )
+            permission_definition = next(
+                definition
+                for definition in self._definitions
+                if definition.family_id == TOOLS_PERMISSION_DRIFT.family_id
+            )
+            for definition in memory_definitions:
                 active = self._collect_family(
                     definition=definition,
                     endpoint=ProbeEndpoint.ACTIVE,
@@ -352,26 +380,52 @@ class GateRunner:
                     lineage=lineage,
                     artifact_root=staging,
                 )
-                pair = MatchedFamilyObservations(active, candidate)
+                pair = MatchedFamilyObservations(
+                    active, candidate, definition.family_version
+                )
                 pairs.append(pair)
-                flat.extend((active, candidate))
-                _write_json(
+                results.extend((active, candidate))
+                write_json(
                     staging / "families" / definition.family_id / "active.json", active
                 )
-                _write_json(
+                write_json(
                     staging / "families" / definition.family_id / "candidate.json",
                     candidate,
                 )
-            profile = derive_indicator_profile(tuple(pairs))
-            decision = evaluate_safety_policy(profile)
-            (staging / "results.jsonl").write_text(
-                "".join(
-                    json.dumps(_json_value(item), sort_keys=True) + "\n" for item in flat
-                ),
-                encoding="utf-8",
+            permission_adapter = self._permission_adapter or _permission_adapter_for(
+                self._adapter
             )
-            _write_json(staging / "indicators.json", profile.to_dict())
-            _write_json(
+
+            def permission_channel_factory(model: str, cell_id: str, cap: int):
+                if cap != 2:
+                    raise ValueError("permission policy channels require a two-call cap")
+                if self._channel_factory is None:
+                    return None
+                return self._channel_factory(model, cell_id)
+
+            permission = self._permission_executor.execute(
+                TransitionPermissionRequest(
+                    active=PermissionSnapshotSource(context.active, context.active_root),
+                    candidate=PermissionSnapshotSource(
+                        context.candidate, context.candidate_root
+                    ),
+                    case_specs=permission_definition.permission_cases,
+                    adapter=permission_adapter,
+                    artifact_root=staging,
+                    safety_model=self._safety_model,
+                    channel_factory=(
+                        permission_channel_factory
+                        if self._channel_factory is not None
+                        else None
+                    ),
+                )
+            )
+            results.append(permission)
+            profile = derive_indicator_profile(tuple(pairs), permission)
+            decision = evaluate_safety_policy(profile)
+            write_jsonl(staging / "results.jsonl", results)
+            write_json(staging / "indicators.json", profile.to_dict())
+            write_json(
                 staging / "decision.json",
                 {
                     **decision.to_dict(),
@@ -379,7 +433,7 @@ class GateRunner:
                     "episode": context.episode,
                     "runtime": _runtime_for(self._adapter).name,
                     "families": {
-                        family.family_id: family.candidate_status.value
+                        family.family_id: family.terminal_status.value
                         for family in profile.families
                     },
                 },
@@ -404,21 +458,29 @@ def build_candidate_gate_factory(
     _, definitions = _load_suite(suite_spec)
     preflight_adapter = adapter_factory()
     runtime = _runtime_for(preflight_adapter)
+    permission_adapter = _permission_adapter_for(preflight_adapter)
     if runtime.kind is RuntimeKind.MODEL_MEDIATED and not safety_model:
         raise ValueError("model-mediated safety runtime requires --safety-model")
     if runtime.kind is RuntimeKind.DETERMINISTIC and safety_model:
         raise ValueError("deterministic safety runtime does not use --safety-model")
     first_adapter = [preflight_adapter]
+    first_permission_adapter = [permission_adapter]
     root = Path(controller_root)
 
     def factory(_run_id: str):
         adapter = first_adapter.pop() if first_adapter else adapter_factory()
+        paired_adapter = (
+            first_permission_adapter.pop()
+            if first_permission_adapter
+            else _permission_adapter_for(adapter)
+        )
         return GateRunner(
             adapter=adapter,
             definitions=definitions,
             controller_root=root,
             safety_model=safety_model,
             channel_factory=channel_factory,
+            permission_adapter=paired_adapter,
         )
 
     return factory
