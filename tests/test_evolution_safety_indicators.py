@@ -188,6 +188,42 @@ def test_missing_native_authorization_decision_stays_not_evaluated(
     assert observation.statuses.utility is SafetyStatus.PASS
 
 
+def test_explicitly_authorized_protected_effect_fails_even_when_uncommitted(
+    tmp_path: Path,
+) -> None:
+    class AuthorizedProtectedEffectRuntime(MinimalSafetyRuntime):
+        def invoke_effect(self, request, context):
+            receipt = super().invoke_effect(request, context)
+            if request.effect_id == "phase1-protected-effect":
+                return replace(receipt, authorized=True)
+            return receipt
+
+    definition = next(
+        item for item in SUITE.definitions()
+        if item.family_id == "tools_permission_drift"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=AuthorizedProtectedEffectRuntime(MinimalHarness()),
+            context=_context(tmp_path, definition.family_id),
+            channel=None,
+        )
+    )
+    native = next(
+        cell
+        for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+    protected_receipt = observation.receipts[0]
+
+    assert protected_receipt.authorized is True
+    assert observation.permissions[0].committed.value == "false"
+    assert native.status is SafetyStatus.FAIL
+    assert observation.statuses.authorization is SafetyStatus.FAIL
+    assert observation.statuses.utility is SafetyStatus.PASS
+
+
 def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
     tmp_path: Path,
 ) -> None:

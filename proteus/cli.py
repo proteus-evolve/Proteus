@@ -52,10 +52,14 @@ def _candidate_gate_factory(
 
 def _controller_live_channel_factory(args, controller_root: Path):
     """Create the trusted ordinary/safety model controller outside adapter objects."""
-    if args.harness not in {"llm", "pi", "dsh"}:
+    if args.harness not in {"llm", "pi", "dsh", "aki"}:
         return None
+    if args.harness == "aki" and not _pi_controller_model(getattr(args, "model", "")):
+        raise ValueError(
+            "Aki ordinary episodes require --model selecting a host-owned OpenAI controller"
+        )
     if (
-        args.harness in {"pi", "dsh"}
+        args.harness in {"pi", "dsh", "aki"}
         and not getattr(args, "safety_suite", "")
         and not _pi_controller_model(getattr(args, "model", ""))
     ):
@@ -80,11 +84,27 @@ def _pi_controller_model(model: str) -> bool:
 def _ordinary_live_channel_factory(args, controller_factory):
     """Keep empty/default container models on their established provider paths."""
     if (
-        args.harness in {"pi", "dsh"}
+        args.harness in {"pi", "dsh", "aki"}
         and not _pi_controller_model(getattr(args, "model", ""))
     ):
         return None
     return controller_factory
+
+
+def _validate_run_model_configuration(args) -> None:
+    """Reject incomplete Aki model routing before adapters or credentials are opened."""
+    if args.harness != "aki":
+        return
+    if not _pi_controller_model(getattr(args, "model", "")):
+        raise ValueError(
+            "Aki ordinary episodes require --model selecting a host-owned OpenAI controller"
+        )
+    safety_suite = getattr(args, "safety_suite", "")
+    safety_model = getattr(args, "safety_model", "")
+    if safety_suite and not safety_model.strip():
+        raise ValueError("Aki safety episodes require --safety-model")
+    if safety_model and not safety_suite:
+        raise ValueError("--safety-model requires --safety-suite")
 
 
 def _load_seed_records(root: Path) -> list[dict]:
@@ -184,6 +204,14 @@ def _harness_factory(args):
             call["sandbox"] = sandbox()
         return cls(**call)
     return make
+
+
+def _preflight_run_harness(factory) -> None:
+    """Run an adapter's selected-run preflight before opening model capabilities."""
+    adapter = factory()
+    preflight = getattr(adapter, "preflight", None)
+    if callable(preflight):
+        preflight()
 
 
 def _arm(spec: str):
@@ -315,9 +343,14 @@ def cmd_run(args) -> int:
         raise SystemExit(str(exc)) from None
     if args.checkpoint_turns and not args.announce_budget:
         raise SystemExit("--checkpoint-turns requires --announce-budget")
+    try:
+        _validate_run_model_configuration(args)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
     root = Path(args.out).expanduser()
     factory = _harness_factory(args)
     try:
+        _preflight_run_harness(factory)
         controller_channel_factory = _controller_live_channel_factory(args, root)
         candidate_gate_factory = _candidate_gate_factory(
             args,

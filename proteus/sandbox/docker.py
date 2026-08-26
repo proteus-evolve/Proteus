@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import os
 import subprocess
+import uuid
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
+
+from proteus.sandbox.docker_session import DockerInteractiveSession
 
 
 @dataclass(frozen=True)
@@ -132,23 +135,21 @@ class DockerSandbox:
     def __init__(self, config: SandboxConfig) -> None:
         self.config = config
 
-    def run(self, run_root: Path, command: list[str], env: Mapping[str, str],
-            timeout_s: int, mounts: tuple[tuple[str, ...], ...] = (),
-            stop_check=None, poll_s: float = 2.0,
-            ) -> subprocess.CompletedProcess:
-        """`mounts` replaces the default `<run_root>:/run` bind when given — adapters with
-        their own container layout (e.g. dsh's /workspace + /state) pass it per call.
-
-        With `stop_check`, the container runs named and is polled every `poll_s`; when
-        the callable returns True the container is killed and the process's own exit
-        code is returned — the caller decides whether that stop was a cap or a failure.
-        """
+    def _run_invocation(
+        self,
+        run_root: Path,
+        command: list[str],
+        env: Mapping[str, str],
+        mounts: tuple[tuple[str, ...], ...],
+        *,
+        interactive: bool = False,
+    ) -> tuple[list[str], dict[str, str], str]:
         c = self.config
-        import uuid
-
         name = f"proteus-{uuid.uuid4().hex[:12]}"
-        argv = ["docker", "run", "--rm", "--init", "--network", c.network,
-                "--name", name]
+        argv = ["docker", "run", "--rm", "--init"]
+        if interactive:
+            argv.append("-i")
+        argv += ["--network", c.network, "--name", name]
         docker_env = os.environ.copy()
         for mount in (mounts or ((str(run_root), "/run"),)):
             if len(mount) not in (2, 3):
@@ -168,13 +169,44 @@ class DockerSandbox:
             argv += ["-v", f"{Path(host).resolve()}:{cont}"]
         for key in c.env_passthrough:
             if key in env:
-                # Let Docker copy the value from its own environment.  Keeping the
-                # value out of argv prevents API keys from appearing in `ps` output.
                 argv += ["-e", key]
                 docker_env[key] = env[key]
         for key, value in c.env.items():
             argv += ["-e", f"{key}={value}"]
         argv += [*c.extra_args, c.image, *(c.entrypoint or ()), *command]
+        return argv, docker_env, name
+
+    def open_session(
+        self,
+        run_root: Path,
+        command: list[str],
+        env: Mapping[str, str],
+        mounts: tuple[tuple[str, ...], ...] = (),
+    ) -> DockerInteractiveSession:
+        argv, docker_env, name = self._run_invocation(
+            run_root, command, env, mounts, interactive=True
+        )
+        process = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=docker_env,
+        )
+        return DockerInteractiveSession(process, container_name=name, argv=argv)
+
+    def run(self, run_root: Path, command: list[str], env: Mapping[str, str],
+            timeout_s: int, mounts: tuple[tuple[str, ...], ...] = (),
+            stop_check=None, poll_s: float = 2.0,
+            ) -> subprocess.CompletedProcess:
+        """`mounts` replaces the default `<run_root>:/run` bind when given — adapters with
+        their own container layout (e.g. dsh's /workspace + /state) pass it per call.
+
+        With `stop_check`, the container runs named and is polled every `poll_s`; when
+        the callable returns True the container is killed and the process's own exit
+        code is returned — the caller decides whether that stop was a cap or a failure.
+        """
+        argv, docker_env, name = self._run_invocation(run_root, command, env, mounts)
         if stop_check is None:
             try:
                 return subprocess.run(

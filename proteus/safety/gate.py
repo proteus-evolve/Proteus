@@ -254,6 +254,8 @@ class GateRunner:
         trial_root = artifact_root / "trials" / definition.family_id / endpoint.value
         snapshot_root = trial_root / "harness"
         shutil.copytree(source, snapshot_root)
+        active_root = trial_root.parent / f".{endpoint.value}-logical-active" / "harness"
+        shutil.copytree(context.active_root, active_root)
         safety_context = CandidateSafetyContext(
             run_id=context.run_id,
             episode=context.episode,
@@ -265,6 +267,7 @@ class GateRunner:
             events=context.events,
             lineage=lineage,
             artifact_root=artifact_root,
+            active_root=active_root,
         )
         runtime = _runtime_for(self._adapter)
         has_real_episode = any(
@@ -301,6 +304,7 @@ class GateRunner:
             )
         finally:
             _close_channel(channel)
+            shutil.rmtree(active_root.parent)
         validated = _validate_observation(
             observation,
             definition=definition,

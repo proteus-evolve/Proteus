@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
@@ -37,12 +38,57 @@ class LiveToolCall:
 
 
 @dataclass(frozen=True)
+class LiveModelRequestOptions:
+    """Optional controller-owned generation controls for one live model call."""
+
+    max_output_tokens: int | None = None
+    temperature: float | None = None
+    reasoning_effort: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.max_output_tokens is not None and (
+            type(self.max_output_tokens) is not int or self.max_output_tokens <= 0
+        ):
+            raise ValueError("live max output tokens must be a positive integer")
+        if self.temperature is not None and (
+            isinstance(self.temperature, bool)
+            or not isinstance(self.temperature, (int, float))
+            or not 0 <= self.temperature <= 2
+        ):
+            raise ValueError("live temperature must be between 0 and 2")
+        if self.reasoning_effort is not None and self.reasoning_effort not in {
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+        }:
+            raise ValueError("unsupported live reasoning effort")
+
+
+@dataclass(frozen=True)
+class LiveModelUsage:
+    input_tokens: int
+    output_tokens: int
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("input tokens", self.input_tokens),
+            ("output tokens", self.output_tokens),
+        ):
+            if type(value) is not int or value < 0:
+                raise ValueError(f"live model {name} must be a non-negative integer")
+
+
+@dataclass(frozen=True)
 class LiveModelResponse:
     response_id: str
     model: str
     output_text: str
     tool_calls: tuple[LiveToolCall, ...]
     provenance: LiveCallProvenance
+    usage: LiveModelUsage | None = None
 
 
 @runtime_checkable
@@ -56,14 +102,48 @@ class LiveModelChannel(Protocol):
         input: str | Sequence[Mapping[str, object]],
         instructions: str = "",
         tools: Sequence[Mapping[str, object]] = (),
+        options: LiveModelRequestOptions | None = None,
     ) -> LiveModelResponse: ...
 
     def close(self) -> None: ...
 
 
+@runtime_checkable
+class BoundedLiveModelChannel(LiveModelChannel, Protocol):
+    """Trusted channel whose deadline is enforced before the call returns."""
+
+    def respond_bounded(
+        self,
+        *,
+        input: str | Sequence[Mapping[str, object]],
+        instructions: str = "",
+        tools: Sequence[Mapping[str, object]] = (),
+        options: LiveModelRequestOptions | None = None,
+        timeout_s: float,
+    ) -> LiveModelResponse: ...
+
+
 ResponsesTransport = Callable[
-    [str, Mapping[str, object], Mapping[str, str], int], Mapping[str, object]
+    [str, Mapping[str, object], Mapping[str, str], float], Mapping[str, object]
 ]
+
+_CALL_PROCESS_STOP_TIMEOUT_S = 0.5
+
+
+def _isolated_transport_main(
+    connection,
+    transport: ResponsesTransport,
+    url: str,
+    payload: Mapping[str, object],
+    headers: Mapping[str, str],
+    timeout_s: float,
+) -> None:
+    try:
+        connection.send(("ok", transport(url, payload, headers, timeout_s)))
+    except BaseException:
+        connection.send(("error", None))
+    finally:
+        connection.close()
 
 
 def load_repository_openai_key(repository_root: Path) -> str:
@@ -118,7 +198,7 @@ def _stdlib_responses_transport(
     url: str,
     payload: Mapping[str, object],
     headers: Mapping[str, str],
-    timeout: int,
+    timeout: float,
 ) -> Mapping[str, object]:
     request = urllib.request.Request(
         url,
@@ -176,6 +256,100 @@ class OpenAIResponsesChannel:
         input: str | Sequence[Mapping[str, object]],
         instructions: str = "",
         tools: Sequence[Mapping[str, object]] = (),
+        options: LiveModelRequestOptions | None = None,
+    ) -> LiveModelResponse:
+        return self._respond(
+            input=input,
+            instructions=instructions,
+            tools=tools,
+            options=options,
+            bounded_timeout_s=None,
+        )
+
+    def respond_bounded(
+        self,
+        *,
+        input: str | Sequence[Mapping[str, object]],
+        instructions: str = "",
+        tools: Sequence[Mapping[str, object]] = (),
+        options: LiveModelRequestOptions | None = None,
+        timeout_s: float,
+    ) -> LiveModelResponse:
+        if timeout_s <= 0:
+            raise ValueError("live model call timeout must be positive")
+        return self._respond(
+            input=input,
+            instructions=instructions,
+            tools=tools,
+            options=options,
+            bounded_timeout_s=timeout_s,
+        )
+
+    @staticmethod
+    def _stop_call_process(process: multiprocessing.Process) -> None:
+        process.join(_CALL_PROCESS_STOP_TIMEOUT_S)
+        if process.is_alive():
+            process.terminate()
+            process.join(_CALL_PROCESS_STOP_TIMEOUT_S)
+        if process.is_alive():
+            process.kill()
+            process.join(_CALL_PROCESS_STOP_TIMEOUT_S)
+        if process.is_alive():
+            raise LiveProtocolError("bounded Responses transport process did not stop")
+
+    def _bounded_transport(
+        self,
+        *,
+        payload: Mapping[str, object],
+        headers: Mapping[str, str],
+        timeout_s: float,
+    ) -> Mapping[str, object]:
+        context = multiprocessing.get_context("spawn")
+        receive, send = context.Pipe(duplex=False)
+        process = context.Process(
+            target=_isolated_transport_main,
+            args=(
+                send,
+                self._transport,
+                RESPONSES_URL,
+                payload,
+                headers,
+                min(float(self._timeout_s), timeout_s),
+            ),
+            name=f"proteus-live-call-{self._calls:03d}",
+        )
+        started = False
+        try:
+            process.start()
+            started = True
+            send.close()
+            if not receive.poll(timeout_s):
+                self._stop_call_process(process)
+                raise TimeoutError(
+                    f"OpenAI Responses request timed out after {timeout_s} seconds"
+                )
+            try:
+                status, raw = receive.recv()
+            except EOFError:
+                raise LiveProtocolError("OpenAI Responses request failed") from None
+            self._stop_call_process(process)
+            if status != "ok" or not isinstance(raw, Mapping):
+                raise LiveProtocolError("OpenAI Responses request failed")
+            return raw
+        finally:
+            receive.close()
+            send.close()
+            if started and process.is_alive():
+                self._stop_call_process(process)
+
+    def _respond(
+        self,
+        *,
+        input: str | Sequence[Mapping[str, object]],
+        instructions: str,
+        tools: Sequence[Mapping[str, object]],
+        options: LiveModelRequestOptions | None,
+        bounded_timeout_s: float | None,
     ) -> LiveModelResponse:
         if self._closed:
             raise LiveProtocolError("live model channel is closed")
@@ -189,14 +363,26 @@ class OpenAIResponsesChannel:
             raise LiveProtocolError("Responses tools must be mappings")
         self._calls += 1
         call_id = f"call-{self._calls:03d}"
+        max_output_tokens = (
+            options.max_output_tokens
+            if options is not None and options.max_output_tokens is not None
+            else 4096
+        )
+        reasoning_effort = (
+            options.reasoning_effort
+            if options is not None and options.reasoning_effort is not None
+            else "none"
+        )
         payload: dict[str, object] = {
             "model": self._model,
             "input": deepcopy(input),
-            "reasoning": {"effort": "none"},
-            "max_output_tokens": 4096,
+            "reasoning": {"effort": reasoning_effort},
+            "max_output_tokens": max_output_tokens,
             "parallel_tool_calls": False,
             "store": False,
         }
+        if options is not None and options.temperature is not None:
+            payload["temperature"] = options.temperature
         if instructions:
             payload["instructions"] = instructions
         if tools:
@@ -207,7 +393,17 @@ class OpenAIResponsesChannel:
             "Content-Type": "application/json",
         }
         try:
-            raw = self._transport(RESPONSES_URL, payload, headers, self._timeout_s)
+            raw = (
+                self._transport(RESPONSES_URL, payload, headers, self._timeout_s)
+                if bounded_timeout_s is None
+                else self._bounded_transport(
+                    payload=payload,
+                    headers=headers,
+                    timeout_s=bounded_timeout_s,
+                )
+            )
+        except TimeoutError:
+            raise
         except Exception:  # noqa: BLE001 - never expose transport details or credentials
             raise LiveProtocolError("OpenAI Responses request failed") from None
         if not isinstance(raw, Mapping):
@@ -222,8 +418,10 @@ class OpenAIResponsesChannel:
         usage = raw.get("usage")
         if not isinstance(usage, Mapping):
             raise LiveProtocolError("response usage must be a mapping")
-        self.input_tokens += self._token_count(usage, "input_tokens")
-        self.output_tokens += self._token_count(usage, "output_tokens")
+        input_tokens = self._token_count(usage, "input_tokens")
+        output_tokens = self._token_count(usage, "output_tokens")
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
         output_text, tool_calls = self._normalize_output(raw.get("output"))
         provenance = LiveCallProvenance(
             call_id=call_id,
@@ -237,6 +435,10 @@ class OpenAIResponsesChannel:
             output_text=output_text,
             tool_calls=tool_calls,
             provenance=provenance,
+            usage=LiveModelUsage(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            ),
         )
 
     def close(self) -> None:

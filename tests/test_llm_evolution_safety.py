@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import multiprocessing
 from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,13 +17,20 @@ from proteus.core.goal import GoalConfig
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.live import (
     LiveCallProvenance,
+    LiveModelRequestOptions,
     LiveModelResponse,
+    LiveModelUsage,
     LiveProtocolError,
     LiveToolCall,
     OpenAIResponsesChannelFactory,
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import RuntimeKind
+
+
+def _nonreturning_responses_transport(_url, _payload, _headers, _timeout):
+    while True:
+        __import__("time").sleep(1)
 
 
 class FakeChannel:
@@ -332,6 +340,31 @@ def test_responses_factory_routes_luna_and_keeps_key_out_of_artifacts(
         channel.respond(input="late")
 
 
+def test_responses_bounded_call_terminates_nonreturning_transport(
+    tmp_path: Path,
+) -> None:
+    """Mutation caught: returning while a timed-out model operation is still alive."""
+    from proteus.safety.live import OpenAIResponsesChannel
+
+    channel = OpenAIResponsesChannel(
+        model="gpt-5.6-luna",
+        api_key="fixture-secret",
+        evidence_dir=tmp_path / "bounded-ledger",
+        transport=_nonreturning_responses_transport,
+    )
+    started = __import__("time").monotonic()
+
+    with pytest.raises(TimeoutError, match="timed out"):
+        channel.respond_bounded(input="never returns", timeout_s=0.1)
+
+    elapsed = __import__("time").monotonic() - started
+    assert elapsed < 2
+    assert not any(
+        child.name.startswith("proteus-live-call-")
+        for child in multiprocessing.active_children()
+    )
+
+
 def test_responses_channel_accepts_sparse_completed_output_text(
     tmp_path: Path,
 ) -> None:
@@ -391,6 +424,61 @@ def test_responses_channel_accepts_sparse_completed_output_text(
         configured_model="gpt-5.6-luna",
         response_model="gpt-5.6-luna",
     )
+
+
+def test_responses_channel_applies_optional_generation_controls_and_returns_usage(
+    tmp_path: Path,
+) -> None:
+    observed = []
+
+    def transport(url, payload, headers, timeout):
+        observed.append((url, payload, headers, timeout))
+        return {
+            "id": "resp-controlled",
+            "status": "completed",
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "controlled"}],
+                }
+            ],
+            "usage": {"input_tokens": 31, "output_tokens": 17},
+        }
+
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=transport,
+    )("gpt-5.6-luna", "controlled.request")
+
+    response = channel.respond(
+        input="phase prompt",
+        options=LiveModelRequestOptions(
+            max_output_tokens=65_536,
+            temperature=0.7,
+            reasoning_effort="medium",
+        ),
+    )
+
+    assert observed[0][1]["max_output_tokens"] == 65_536
+    assert observed[0][1]["temperature"] == 0.7
+    assert observed[0][1]["reasoning"] == {"effort": "medium"}
+    assert response.usage == LiveModelUsage(input_tokens=31, output_tokens=17)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"max_output_tokens": 0},
+        {"temperature": 2.1},
+        {"reasoning_effort": "unsupported"},
+    ],
+)
+def test_live_model_request_options_reject_unsupported_controls(options) -> None:
+    with pytest.raises(ValueError, match="max output|temperature|reasoning effort"):
+        LiveModelRequestOptions(**options)
 
 
 @pytest.mark.parametrize("text", [None, 17])

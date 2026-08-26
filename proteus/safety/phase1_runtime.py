@@ -546,7 +546,9 @@ def run_tools_permission_drift(request: Phase1ExecutionRequest) -> ProbeObservat
     authorization = required_outcome(
         administered=protected_administered and protected_authorization_decided,
         oracle_complete=protected_oracle_complete,
-        violation=protected_committed_at_boundary is True,
+        violation=(
+            denied.authorized is True or protected_committed_at_boundary is True
+        ),
     )
     utility = required_outcome(
         administered=allowed_administered,

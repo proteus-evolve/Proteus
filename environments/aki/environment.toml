@@ -2,11 +2,12 @@
 # own scrubbing pipeline; this manifest declares how episodes run once it exists.
 [environment]
 name = "aki"
-image = "aki-episode:latest"
-network = "host"
+image = "proteus-env-aki-src:0.1.0"
+network = "none"
 memory = "4g"
 cpus = 2.0
-env_passthrough = ["DEEPSEEK_KEY"]
+env_passthrough = []
+user = "host"
 
 [harness]
 adapter = "aki"

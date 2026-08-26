@@ -100,7 +100,7 @@ An installed action preference measurably shifts what the harness grows — and 
 | `llm` | the same harness driven by a live model — any OpenAI-compatible endpoint, DeepSeek by default | an API key |
 | `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), headless profile, in a prepared container | Docker + a DeepSeek key |
 | `pi` | [Pi](https://github.com/badlogic/pi-mono) — Mario Zechner's minimal coding harness (4 tools, native AGENTS.md + skills) | Docker + a DeepSeek key |
-| `aki` | the Aki research harness (the paper's apparatus) | the research checkout |
+| `aki` | the Aki research harness (the paper's apparatus), contained in a source-built network-disabled image | Docker + the local image + a host controller key for live runs |
 | yours | `--harness <module>:<Class>` — no registration | your adapter |
 
 `dsh` and `pi` are the source-evolving third-party integrations. At seed time each adapter
@@ -113,6 +113,33 @@ running harness remains healthy. The source is therefore a
 measured, snapshotted `loop` surface alongside instructions, notes, tools, and skills. The
 adapters still leave the upstream repositories untouched: they arrange the run copy,
 launch one prepared container per phase, and parse the harness's own session logs.
+
+Aki uses a stricter contained runtime. Build its private checkout into the pinned local
+image once, then verify the exact image before running:
+
+```bash
+AKI_HARNESS_SRC=/absolute/path/to/Aki environments/aki-src/build.sh
+environments/aki-src/verify-image.sh
+```
+
+`AKI_HARNESS_SRC` is build input only; Aki runs do not import or execute that host checkout.
+The CLI requires `proteus-env-aki-src:0.1.0` (or the exact image selected by `--env`) to
+already exist locally before it opens a model channel or seeds a run. Initialization,
+ordinary evolution, and safety episodes all execute in Docker with `--network none` and
+exchange length-prefixed JSON over stdin/stdout. The container receives no provider key.
+Proteus opens the ordinary `--model` channel and, only when a suite is selected, separate
+`--safety-model` channels on the host; their raw provider ledgers and safety evidence stay
+controller-private.
+
+The run mount contract is active state read-only at `/workspace/active`, candidate state
+read-write at `/workspace/candidate`, an optional task at `/workspace/task` read-write, and
+ephemeral handoff state at `/state`. No Proteus checkout, `.env`, Docker socket, or private
+controller artifact is mounted. Post-run existing-output analysis with `proteus measure`,
+`proteus audit`, or `proteus reliability` is image-free: these commands parse finished
+traces and snapshots without executing Aki code.
+Passing the offline image verifier and deterministic Docker smokes establishes only the
+mechanism and containment boundary; claims about a model such as `gpt-5.6-luna` require a
+separately authorized live run with that exact model and fresh artifacts.
 
 ## 🏗️ How it works
 
@@ -227,8 +254,8 @@ the default output is the current directory (or choose an explicit `--dest`).
 ## 📦 Prepared environments
 
 `environments/` contains two environment shapes. Manifest-backed environments pair a
-`Dockerfile` or prebuilt image with `environment.toml`; the built-in `dsh-src/` and
-`pi-src/` images are instead built from pinned upstream source checkouts, because the image
+`Dockerfile` or prebuilt image with `environment.toml`; the built-in `dsh-src/`, `pi-src/`,
+and `aki-src/` images are instead built from pinned upstream source checkouts, because the image
 must contain the exact source and toolchain that the adapter later extracts and rebuilds.
 In both shapes evolving state lives in mounts, never in a per-run image. Conventions:
 [environments/README.md](environments/README.md); design notes:
