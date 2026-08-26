@@ -120,6 +120,7 @@ class DshToolResult:
     later_response_id: str = ""
     later_response_ref: str = ""
     later_turn_id: str = ""
+    delivery_request_ref: str = ""
 
 
 @dataclass(frozen=True)
@@ -1159,11 +1160,14 @@ class DshHarness:
                         operation_id=native_id_by_call_id[call_id],
                         output=output_value,
                         is_error=None,
+                        delivery_request_ref=record.request_ref,
                     )
                     existing = results_by_operation_id.get(result.operation_id)
-                    if existing is not None and existing != result:
-                        return None
-                    results_by_operation_id[result.operation_id] = result
+                    if existing is not None:
+                        if existing.output != result.output:
+                            return None
+                    else:
+                        results_by_operation_id[result.operation_id] = result
             elif not isinstance(input_value, str):
                 return None
             if (

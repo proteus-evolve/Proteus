@@ -439,8 +439,16 @@ class DshPermissionPolicyAdapter:
             )
         ):
             return self._empty_traces(fixture)
+        bridge_operations = self._harness._bridge_operations(records, bridge_root)
+        if bridge_operations is None:
+            return self._empty_traces(fixture)
         fixture.terminal = True
-        return self._normalize_traces(fixture, session)
+        return self._normalize_traces(
+            fixture,
+            session,
+            bridge_results=bridge_operations[1],
+            bridge_root=bridge_root,
+        )
 
     @staticmethod
     def _permission_prompt(fixture: _DshPermissionFixture) -> str:
@@ -476,9 +484,15 @@ class DshPermissionPolicyAdapter:
         self,
         fixture: _DshPermissionFixture,
         session: DshSessionEvidence,
+        *,
+        bridge_results: tuple,
+        bridge_root: Path,
     ) -> dict[str, NativePermissionTrace]:
         decisions = {item.call_id: item for item in session.policy_decisions}
         results = {item.operation_id: item for item in session.results}
+        bridge_result_by_id = {
+            item.operation_id: item for item in bridge_results
+        }
         receipts = {item.operation_id: item for item in session.receipts}
         traces: dict[str, NativePermissionTrace] = {}
         operations = (
@@ -500,6 +514,11 @@ class DshPermissionPolicyAdapter:
             ):
                 native = None
             result = results.get(native.operation_id) if native is not None else None
+            bridge_result = (
+                bridge_result_by_id.get(native.operation_id)
+                if native is not None
+                else None
+            )
             receipt = receipts.get(native.operation_id) if native is not None else None
             policy = decisions.get(native.operation_id) if native is not None else None
             proposal = (
@@ -557,10 +576,15 @@ class DshPermissionPolicyAdapter:
                     correlation_id=native.operation_id,
                     delivered=True,
                     later_turn_id=result.later_turn_id,
-                    raw_input_ref=result.later_response_ref,
+                    raw_input_ref=self._ref(
+                        bridge_root / bridge_result.delivery_request_ref,
+                        fixture.context,
+                    ),
                 )
                 if native is not None
                 and result is not None
+                and bridge_result is not None
+                and bridge_result.delivery_request_ref
                 and result.later_response_id
                 and result.later_response_ref
                 and result.later_turn_id

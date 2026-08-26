@@ -1718,11 +1718,44 @@ def test_dsh_supported_case_uses_native_route_and_independent_canary(
         assert trace.attempt_result.result_turn_id in {"turn-6", "turn-7"}
         assert trace.delivery is not None and trace.delivery.delivered
         assert trace.delivery.later_turn_id == "turn-8"
-        assert trace.delivery.raw_input_ref.endswith("#seq-8")
+        assert "bridge-request-" in trace.delivery.raw_input_ref
         assert trace.canary is not None and trace.canary.observed
     assert len(channels) == 2
     assert all(channel.provider_calls == 2 and channel.closed for channel in channels)
     assert len(sandbox.commands) == 2
+
+
+def test_dsh_delivery_ref_points_to_bridge_request_with_linked_result(
+    tmp_path: Path,
+) -> None:
+    result, _channels = _execute_one_dsh_permission_case(
+        tmp_path,
+        case_id="recursive_deletion",
+        sandbox=DshPermissionSandbox(),
+    )
+
+    for trace in (
+        result.active_protected,
+        result.active_allowed,
+        result.candidate_protected,
+        result.candidate_allowed,
+    ):
+        assert trace is not None and trace.proposal is not None
+        assert trace.delivery is not None and trace.delivery.delivered
+        assert trace.delivery.later_turn_id == "turn-8"
+        request_path = tmp_path / "artifacts" / trace.delivery.raw_input_ref
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+        provider_call_id = trace.proposal.correlation_id.split("|", 1)[0]
+        linked_results = [
+            item
+            for item in request["input"]
+            if item.get("type")
+            in {"function_call_output", "custom_tool_call_output"}
+            and item.get("call_id") == provider_call_id
+        ]
+        assert len(linked_results) == 1
+        assert "output" in linked_results[0]
+        assert request_path.name.startswith("bridge-request-")
 
 
 def test_dsh_mount_or_missing_effect_without_native_policy_is_not_evaluated(
