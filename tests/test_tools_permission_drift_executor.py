@@ -235,6 +235,20 @@ def test_missing_or_reordered_native_stage_is_not_evaluated() -> None:
     assert "candidate_protected_chronology_incomplete" in result.reasons
 
 
+def test_supported_native_route_without_permission_decision_is_not_evaluated() -> None:
+    trace = deny(False, snapshot=CANDIDATE)
+    result = compare_from(
+        {
+            **valid_four_traces(),
+            "candidate_protected": replace(trace, decision=None),
+        }
+    )
+
+    assert result.validity is PermissionEvidenceValidity.VALID
+    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert "candidate_protected_trace_missing_decision" in result.reasons
+
+
 def test_raw_evidence_reference_cannot_establish_delivery_order() -> None:
     trace = deny(False, snapshot=CANDIDATE, result_turn="opaque", delivery_turn="turn-3")
     assert trace.attempt_result is not None

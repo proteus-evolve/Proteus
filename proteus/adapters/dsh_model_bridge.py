@@ -8,6 +8,7 @@ from pathlib import Path
 from types import TracebackType
 
 from proteus.safety.live import (
+    LiveCallProvenance,
     LiveModelChannel,
     LiveModelResponse,
     LiveProtocolError,
@@ -16,6 +17,38 @@ from proteus.safety.live_bridge import BridgeCallRecord, OpenAICompatibleBridge
 
 BRIDGE_PROVIDER = "proteus-openai"
 BRIDGE_PLACEHOLDER = "proteus-local-bridge"
+OBSERVER_CONTAINER_PATH = "/proteus/bridge/proteus-native-result-observer.mjs"
+OBSERVER_OUTPUT_CONTAINER_PATH = "/proteus/native-results/native-results.jsonl"
+
+_NATIVE_RESULT_OBSERVER = """\
+import { appendFileSync } from 'node:fs'
+
+export function apply(ctx, config) {
+  ctx.on('tools/result', (exec, result) => {
+    if (result.isError || typeof result.value !== 'object' || result.value === null
+      || Array.isArray(result.value)) return
+    const sandbox = result.value.sandbox
+    if (typeof sandbox !== 'object' || sandbox === null || Array.isArray(sandbox)) {
+      return
+    }
+    const native = {
+      sandbox: {
+        mode: sandbox.mode,
+        denied: sandbox.denied,
+        enforcement: sandbox.enforcement,
+      },
+    }
+    const stderr = result.value.stderr
+    if (typeof stderr === 'object' && stderr !== null && !Array.isArray(stderr)
+      && typeof stderr.text === 'string') native.stderr = { text: stderr.text }
+    appendFileSync(config.path, JSON.stringify({
+      callId: exec.callId,
+      tool: exec.name,
+      nativeResult: native,
+    }) + '\\n', { encoding: 'utf8' })
+  })
+}
+"""
 
 
 def _result_call_ids(
@@ -35,7 +68,13 @@ def _result_call_ids(
 class _DshBudgetBoundaryChannel:
     """Finish a settled DSH phase with one real fixed-model no-tools turn."""
 
-    def __init__(self, channel: LiveModelChannel, evidence_root: Path) -> None:
+    def __init__(
+        self,
+        channel: LiveModelChannel,
+        evidence_root: Path,
+        *,
+        deterministic_title: bool = False,
+    ) -> None:
         self._channel = channel
         self._evidence_root = Path(evidence_root)
         self._phase = ""
@@ -43,6 +82,8 @@ class _DshBudgetBoundaryChannel:
         self._issued_calls = 0
         self._pending_boundary_calls: tuple[str, ...] = ()
         self._boundary_records = 0
+        self._deterministic_title = deterministic_title
+        self._title_records = 0
 
     @property
     def model(self) -> str:
@@ -65,6 +106,26 @@ class _DshBudgetBoundaryChannel:
         instructions: str = "",
         tools: Sequence[Mapping[str, object]] = (),
     ) -> LiveModelResponse:
+        if (
+            self._deterministic_title
+            and not tools
+            and self._issued_calls == 0
+            and not self._pending_boundary_calls
+        ):
+            self._title_records += 1
+            provenance = LiveCallProvenance(
+                call_id=f"proteus-dsh-title-{self._title_records}",
+                response_id=f"proteus-dsh-title-response-{self._title_records}",
+                configured_model=self.model,
+                response_model=self.model,
+            )
+            return LiveModelResponse(
+                response_id=provenance.response_id,
+                model=self.model,
+                output_text="Proteus native permission episode",
+                tool_calls=(),
+                provenance=provenance,
+            )
         if not tools:
             return self._channel.respond(
                 input=input,
@@ -151,12 +212,20 @@ class DshModelBridge:
         channel: LiveModelChannel,
         evidence_root: Path,
         config_root: Path,
+        deterministic_title: bool = False,
+        observe_native_results: bool = False,
     ) -> None:
         if not isinstance(channel, LiveModelChannel):
             raise TypeError("DSH bridge channel must implement LiveModelChannel")
         self._channel = channel
         self._config_root = Path(config_root)
-        self._budget_channel = _DshBudgetBoundaryChannel(channel, Path(evidence_root))
+        self._evidence_root = Path(evidence_root)
+        self._observe_native_results = observe_native_results
+        self._budget_channel = _DshBudgetBoundaryChannel(
+            channel,
+            Path(evidence_root),
+            deterministic_title=deterministic_title,
+        )
         self._bridge = OpenAICompatibleBridge(
             channel=self._budget_channel,
             evidence_root=Path(evidence_root),
@@ -169,6 +238,14 @@ class DshModelBridge:
     @property
     def patch_path(self) -> Path:
         return self._config_root / "cordis.patch.yml"
+
+    @property
+    def observer_path(self) -> Path:
+        return self._config_root / "proteus-native-result-observer.mjs"
+
+    @property
+    def native_results_path(self) -> Path:
+        return self._evidence_root / "native-results.jsonl"
 
     @property
     def container_base_url(self) -> str:
@@ -185,6 +262,11 @@ class DshModelBridge:
         self._bridge.__enter__()
         try:
             self._config_root.mkdir(parents=True, exist_ok=False)
+            if self._observe_native_results:
+                self.observer_path.write_text(
+                    _NATIVE_RESULT_OBSERVER,
+                    encoding="utf-8",
+                )
             self.patch_path.write_text(self._patch_text(), encoding="utf-8")
         except Exception:
             self._bridge.__exit__(None, None, None)
@@ -204,7 +286,16 @@ class DshModelBridge:
         forbidden = {"\r", "\n", ":", '"'}
         if not model or any(character in model for character in forbidden):
             raise ValueError("DSH bridge model must be a non-empty YAML-safe ID")
+        observer = (
+            f"- id: proteus-native-result-observer\n"
+            f"  name: file://{OBSERVER_CONTAINER_PATH}\n"
+            f"  config:\n"
+            f"    path: {OBSERVER_OUTPUT_CONTAINER_PATH}\n\n"
+            if self._observe_native_results
+            else ""
+        )
         return f"""\
+{observer}
 - id: agent-default-model
   config:
     provider: {self.provider}
