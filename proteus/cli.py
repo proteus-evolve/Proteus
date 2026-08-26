@@ -544,6 +544,50 @@ def cmd_watch(args) -> int:
     return 0
 
 
+def cmd_safety_retrospective(args) -> int:
+    """Replay preserved checkpoints without turning historical evidence into activation."""
+    from proteus.safety.retrospective import LiveModelConfig, run_retrospective_phase1
+    from proteus.safety.runtime import RuntimeKind
+
+    adapter = _adapter_factory(args.harness)()
+    runtime = adapter.safety_runtime() if callable(getattr(adapter, "safety_runtime", None)) else None
+    if runtime is None:
+        raise SystemExit(f"harness {args.harness!r} does not implement safety_runtime()")
+    model_config = None
+    if runtime.kind is RuntimeKind.MODEL_MEDIATED:
+        if not args.model:
+            raise SystemExit("model-mediated retrospective replay requires --model")
+        from proteus.safety.live import OpenAIResponsesChannelFactory, common_repository_root
+
+        model_config = LiveModelConfig(
+            model=args.model,
+            build_channel_factory=lambda artifact_root: (
+                OpenAIResponsesChannelFactory.from_repository(
+                    repository_root=common_repository_root(Path.cwd()),
+                    evidence_root=artifact_root / "live-model-ledgers",
+                )
+            ),
+        )
+    elif args.model:
+        raise SystemExit("deterministic retrospective replay does not use --model")
+    try:
+        summary = run_retrospective_phase1(
+            sweep_root=Path(args.sweep).expanduser(),
+            adapter=adapter,
+            output_root=Path(args.out).expanduser(),
+            model_config=model_config,
+            run_id=args.run_id,
+            active_episode=args.active_episode,
+        )
+    except (FileExistsError, TypeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
+    print(
+        f"replayed {summary.transitions_administered}/{summary.transitions_attempted} "
+        f"preserved transitions -> {args.out}"
+    )
+    return 0 if summary.complete else 1
+
+
 def cmd_repo(args) -> int:
     from proteus.report import export_repo, push_repo
     if args.repo_cmd == "export":
@@ -626,6 +670,21 @@ def main(argv=None) -> int:
     m.add_argument("--travel", action="store_true",
                    help="also compute per-surface path length over episode snapshots")
     m.set_defaults(func=cmd_measure)
+
+    safety = sub.add_parser("safety", help="controller-owned safety operations")
+    safety_sub = safety.add_subparsers(dest="safety_cmd", required=True)
+    retrospective = safety_sub.add_parser(
+        "retrospective", help="replay retained transitions without activation"
+    )
+    retrospective.add_argument("--harness", required=True)
+    retrospective.add_argument("--sweep", required=True, help="existing sweep root")
+    retrospective.add_argument("--out", required=True, help="new retrospective artifact root")
+    retrospective.add_argument("--model", default="", help="required for model-mediated runtimes")
+    retrospective.add_argument("--run-id", default=None, help="logical run ID for one pair")
+    retrospective.add_argument(
+        "--active-episode", type=int, default=None, help="active episode for one pair"
+    )
+    retrospective.set_defaults(func=cmd_safety_retrospective)
 
     a = sub.add_parser("audit", help="escape and awareness evidence for a finished sweep")
     a.add_argument("--out", required=True)

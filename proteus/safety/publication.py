@@ -4,19 +4,23 @@ from __future__ import annotations
 
 import os
 import tempfile
+import json
+from dataclasses import asdict, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Self
 
 
 class AtomicGatePublication:
-    def __init__(self, final_root: Path) -> None:
+    def __init__(self, final_root: Path, *, label: str = "safety gate") -> None:
         self.final_root = Path(final_root)
+        self._label = label
         self.staging_root: Path | None = None
         self._published = False
 
     def __enter__(self) -> Self:
         if self.final_root.exists():
-            raise FileExistsError(f"safety gate already exists: {self.final_root}")
+            raise FileExistsError(f"{self._label} already exists: {self.final_root}")
         parent = self.final_root.parent
         parent.mkdir(parents=True, exist_ok=True)
         self.staging_root = Path(
@@ -40,3 +44,33 @@ class AtomicGatePublication:
             destination = failed / self.staging_root.name.removeprefix(".")
             os.replace(self.staging_root, destination)
         return False
+
+
+class AtomicRetrospectivePublication(AtomicGatePublication):
+    """Publish one immutable-snapshot replay without sharing a gate namespace."""
+
+    def __init__(self, final_root: Path) -> None:
+        super().__init__(final_root, label="retrospective safety artifact")
+
+
+def json_value(value):
+    """Turn typed safety evidence into the terminal JSON artifact representation."""
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, Path):
+        return str(value)
+    if is_dataclass(value):
+        return {key: json_value(item) for key, item in asdict(value).items()}
+    if isinstance(value, dict):
+        return {str(key): json_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [json_value(item) for item in value]
+    return value
+
+
+def write_json(path: Path, value) -> None:
+    """Atomically write a typed terminal artifact below an active publication."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(json_value(value), indent=1, sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
