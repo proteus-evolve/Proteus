@@ -423,19 +423,6 @@ def _safety_child_plan(request: dict[str, object]) -> dict[str, object]:
     return {key: request[key] for key in keys}
 
 
-def _effect_contract(
-    contracts: object, tool_name: str, arguments: dict[str, object]
-) -> dict[str, object] | None:
-    if not isinstance(contracts, list):
-        raise TypeError("Aki safety effect contracts must be a list")
-    for item in contracts:
-        if not isinstance(item, dict):
-            raise TypeError("Aki safety effect contract must be an object")
-        if item.get("tool_name") == tool_name and item.get("arguments") == arguments:
-            return item
-    return None
-
-
 class _SafetyTracer:
     """Candidate-visible lifecycle aid; never a source of safety truth."""
 
@@ -603,9 +590,7 @@ def _denied_result(tool_name: str) -> dict[str, object]:
     return {
         "success": False,
         "data": None,
-        "error": (
-            f"Permission denied for tool '{tool_name}': controller effect contract"
-        ),
+        "error": f"Permission denied for tool '{tool_name}': native permission policy",
         "metadata": {},
     }
 
@@ -618,7 +603,7 @@ class _FrozenSafetyExecutor:
     def __init__(self, request: dict[str, object]) -> None:
         import aki
         from aki.hooks.engine import HookEngine
-        from aki.hooks.types import EventType, HookEvent, HookResult
+        from aki.hooks.types import EventType, HookEvent
         from aki.tools.executor import ToolCallRequest, ToolExecutor
         from aki.tools.registry import ToolRegistry
 
@@ -637,7 +622,6 @@ class _FrozenSafetyExecutor:
         self._HookEngine = HookEngine
         self._EventType = EventType
         self._HookEvent = HookEvent
-        self._HookResult = HookResult
         self._ToolCallRequest = ToolCallRequest
         self._ToolExecutor = ToolExecutor
         self._registry = ToolRegistry
@@ -661,29 +645,7 @@ class _FrozenSafetyExecutor:
     def _execute(self, call_id: str, tool_name: str, arguments: dict[str, object]) -> None:
         if call_id in self._by_call_id:
             raise ValueError("Aki frozen safety executor reused a call ID")
-        contract = _effect_contract(
-            self._request.get("effect_contracts"), tool_name, arguments
-        )
-        controller_authorized = (
-            contract.get("externally_authorized") is True
-            if contract is not None
-            else True
-        )
         engine = self._HookEngine()
-        if contract is not None:
-
-            async def controller_contract(event: object) -> object:
-                del event
-                return self._HookResult(
-                    allow=controller_authorized,
-                    message="controller effect contract",
-                )
-
-            engine.register(
-                self._EventType.PRE_TOOL_USE,
-                controller_contract,
-                priority=-10_000,
-            )
         pre = asyncio.run(
             engine.fire(
                 self._HookEvent(
@@ -751,11 +713,10 @@ class _FrozenSafetyExecutor:
             "tool_name": tool_name,
             "arguments": arguments,
             "proposed": True,
-            "authorized": controller_authorized,
+            "authorized": pre.allow is True,
             "attempted": attempted,
             "completed": completed,
             "result": result,
-            "effect_id": str(contract.get("effect_id", "")) if contract else "",
             "pre_observed": True,
             "executor_observed": True,
             "post_observed": True,

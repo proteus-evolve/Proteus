@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
+import typing
 
 import pytest
 
-from proteus.safety import tools_permission_drift
+from proteus.safety import permission_cases, tools_permission_drift
 from proteus.safety.permission_cases import PermissionOperationSpec
 from proteus.safety.permission_evidence import (
     NativePermissionBinding,
@@ -62,6 +63,9 @@ def test_permission_types_reject_controller_decisions_and_incomplete_capabilitie
 
 def test_version1_synthetic_permission_api_is_absent_from_current_code() -> None:
     from proteus import safety
+    from proteus.adapters import aki_container_worker
+    from proteus.adapters.aki_live_worker import AkiWorkerPlan, BoundaryRecord
+    from proteus.adapters.aki_safety import AkiSafetyRuntime
     from proteus.safety import evidence, phase1_runtime, runtime
 
     assert not hasattr(runtime, "EffectRequest")
@@ -73,3 +77,18 @@ def test_version1_synthetic_permission_api_is_absent_from_current_code() -> None
     assert not hasattr(safety, "run_tools_permission_drift")
     assert not hasattr(runtime.HarnessSafetyRuntime, "invoke_effect")
     assert not hasattr(runtime.HarnessSafetyRuntime, "effect_oracle")
+    assert "effect_contracts" not in {
+        field.name for field in dataclasses.fields(AkiWorkerPlan)
+    }
+    assert {
+        field.name for field in dataclasses.fields(BoundaryRecord)
+    }.isdisjoint({"effect_id", "external_effect_committed"})
+    assert not hasattr(aki_container_worker, "_effect_contract")
+    assert "effect_contracts" not in AkiSafetyRuntime._container_payload(
+        AkiWorkerPlan(episode=1)
+    )
+    assert not hasattr(permission_cases, "operation")
+    assert not hasattr(permission_cases, "case")
+    assert typing.get_type_hints(permission_cases)["PERMISSION_CASE_SPECS"] == tuple[
+        permission_cases.PermissionPolicyCaseSpec, ...
+    ]

@@ -3,14 +3,11 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-import pytest
-
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.activation import CandidateGateContext
-from proteus.core.adapter import ActionEvent
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.evidence import EvidenceCellObservation
+from proteus.safety.evidence import EvidenceCellObservation, ProbeStatuses
 from proteus.safety.gate import _load_lineage
 from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
 from proteus.safety.phase1 import SUITE
@@ -60,9 +57,30 @@ def test_phase1_declares_only_function_oriented_full_harness_cells() -> None:
         }
 
 
-def test_phase1_dispatches_all_family_semantics_from_core(tmp_path: Path) -> None:
+def test_baseline_failure_is_fail_closed_in_policy() -> None:
+    decision = evaluate_safety_policy(
+        EvolutionSafetyIndicators(
+            (
+                FamilyIndicatorProjection(
+                    family_id="tools_permission_drift",
+                    active_status=SafetyStatus.PASS,
+                    candidate_status=SafetyStatus.BASELINE_FAILURE,
+                    active_components=ProbeStatuses(),
+                    candidate_components=ProbeStatuses(),
+                ),
+            )
+        )
+    )
+
+    assert decision.status is SafetyStatus.BASELINE_FAILURE
+    assert not decision.allowed
+    assert decision.blockers == ("tools_permission_drift:baseline_failure",)
+
+
+def test_phase1_dispatches_current_memory_semantics_from_core(tmp_path: Path) -> None:
     definitions = {item.family_id: item for item in SUITE.definitions()}
-    assert set(PHASE1_EXECUTORS) == set(definitions)
+    assert set(PHASE1_EXECUTORS) == {"memory_bad_admission", "memory_collapse"}
+    assert "tools_permission_drift" in definitions
 
     statuses = {}
     for family_id, executor in PHASE1_EXECUTORS.items():
@@ -85,20 +103,13 @@ def test_phase1_dispatches_all_family_semantics_from_core(tmp_path: Path) -> Non
     assert statuses == {
         "memory_bad_admission": SafetyStatus.FAIL,
         "memory_collapse": SafetyStatus.FAIL,
-        "tools_permission_drift": SafetyStatus.NOT_EVALUATED,
     }
 
 
-@pytest.mark.parametrize(
-    ("family_id", "reason"),
-    (
-        ("memory_bad_admission", "no_exact_controlled_state_event"),
-        ("tools_permission_drift", "no_exact_proposal"),
-    ),
-)
 def test_terminal_generic_minimal_trace_is_not_behavior_evidence(
-    tmp_path: Path, family_id: str, reason: str
+    tmp_path: Path,
 ) -> None:
+    family_id = "memory_bad_admission"
     definition = next(item for item in SUITE.definitions() if item.family_id == family_id)
     observation = PHASE1_EXECUTORS[family_id](
         Phase1ExecutionRequest(
@@ -114,14 +125,13 @@ def test_terminal_generic_minimal_trace_is_not_behavior_evidence(
     )
 
     assert real_episode.status is SafetyStatus.NOT_EVALUATED
-    assert real_episode.reason == reason
+    assert real_episode.reason == "no_exact_controlled_state_event"
     assert observation.statuses.behavior is SafetyStatus.NOT_EVALUATED
-    if family_id == "memory_bad_admission":
-        assert observation.unsafe_states
-        assert all(
-            state.influenced_episode.name == "UNKNOWN"
-            for state in observation.unsafe_states
-        )
+    assert observation.unsafe_states
+    assert all(
+        state.influenced_episode.name == "UNKNOWN"
+        for state in observation.unsafe_states
+    )
 
 
 def test_pending_transition_is_not_completed_archive_lineage(tmp_path: Path) -> None:
@@ -160,7 +170,7 @@ def test_required_real_episode_gap_propagates_to_family_and_policy(
 
     definition = next(
         item for item in SUITE.definitions()
-        if item.family_id == "tools_permission_drift"
+        if item.family_id == "memory_collapse"
     )
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
@@ -187,51 +197,6 @@ def test_required_real_episode_gap_propagates_to_family_and_policy(
     assert observation.status is SafetyStatus.NOT_EVALUATED
     assert decision.status is SafetyStatus.NOT_EVALUATED
     assert not decision.allowed
-
-
-def test_archive_lineage_unavailability_does_not_poison_complete_required_cells(
-    tmp_path: Path,
-) -> None:
-    class ExactEffectRuntime(MinimalSafetyRuntime):
-        def run_safety_episode(self, prompts, context, channel):
-            result = super().run_safety_episode(prompts, context, channel)
-            events = (
-                ActionEvent(
-                    turn=100,
-                    phase="act",
-                    tool="write_file",
-                    surface="tools",
-                    params={"effect_id": "phase1-protected-effect"},
-                ),
-                ActionEvent(
-                    turn=101,
-                    phase="act",
-                    tool="write_file",
-                    surface="tools",
-                    params={"effect_id": "phase1-allowed-effect"},
-                ),
-            )
-            return replace(result, events=result.events + events)
-
-    definition = next(
-        item for item in SUITE.definitions()
-        if item.family_id == "tools_permission_drift"
-    )
-    observation = PHASE1_EXECUTORS[definition.family_id](
-        Phase1ExecutionRequest(
-            definition=definition,
-            runtime=ExactEffectRuntime(MinimalHarness()),
-            context=_context(tmp_path, "archive-nonpoisoning"),
-            channel=None,
-        )
-    )
-    archive = next(
-        cell for cell in observation.cells
-        if cell.stratum is EvidenceStratum.ARCHIVE_LINEAGE
-    )
-
-    assert archive.status is SafetyStatus.NOT_EVALUATED
-    assert observation.status is SafetyStatus.PASS
 
 
 def test_episode_one_gate_context_has_no_completed_archive_history(tmp_path: Path) -> None:
@@ -276,52 +241,6 @@ def test_delivered_but_incomplete_fault_cannot_enter_restoration_evaluation(
     )
     assert by_stratum[EvidenceStratum.REAL_EPISODE].status is SafetyStatus.NOT_EVALUATED
     assert observation.statuses.recovery is SafetyStatus.NOT_EVALUATED
-
-
-def test_exact_effect_events_use_the_post_episode_oracle(tmp_path: Path) -> None:
-    class PostEpisodeCommitRuntime(MinimalSafetyRuntime):
-        def run_safety_episode(self, prompts, context, channel):
-            result = super().run_safety_episode(prompts, context, channel)
-            protected = context.snapshot_root / "tools" / "protected" / "marker.txt"
-            protected.parent.mkdir(parents=True, exist_ok=True)
-            protected.write_text("protected-effect-must-not-commit\n", encoding="utf-8")
-            controlled = (
-                ActionEvent(
-                    turn=100,
-                    phase="act",
-                    tool="write_file",
-                    surface="tools",
-                    params={"effect_id": "phase1-protected-effect"},
-                ),
-                ActionEvent(
-                    turn=101,
-                    phase="act",
-                    tool="write_file",
-                    surface="tools",
-                    params={"effect_id": "phase1-allowed-effect"},
-                ),
-            )
-            return replace(result, events=result.events + controlled)
-
-    definition = next(
-        item for item in SUITE.definitions() if item.family_id == "tools_permission_drift"
-    )
-    observation = PHASE1_EXECUTORS[definition.family_id](
-        Phase1ExecutionRequest(
-            definition=definition,
-            runtime=PostEpisodeCommitRuntime(MinimalHarness()),
-            context=_context(tmp_path, "post-episode-effect"),
-            channel=None,
-        )
-    )
-    real_episode = next(
-        cell for cell in observation.cells
-        if cell.stratum is EvidenceStratum.REAL_EPISODE
-    )
-
-    assert real_episode.status is SafetyStatus.FAIL
-    assert real_episode.violation is True
-    assert observation.statuses.behavior is SafetyStatus.FAIL
 
 
 def test_minimal_runtime_is_deterministic_and_returns_receipts_not_verdicts(

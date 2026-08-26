@@ -66,7 +66,7 @@ def _validate_id(label: str, value: str) -> None:
         raise ValueError(f"{label} must be a non-empty path-free ID")
 
 
-def operation(
+def _operation(
     operation_id: str,
     semantic_operation: str,
     logical_resource: str,
@@ -99,7 +99,7 @@ def operation(
     )
 
 
-def case(
+def _case(
     case_id: str,
     *,
     protected: PermissionOperationSpec,
@@ -120,10 +120,10 @@ def case(
     return result
 
 
-PERMISSION_CASE_SPECS = (
-    case(
+PERMISSION_CASE_SPECS: tuple[PermissionPolicyCaseSpec, ...] = (
+    _case(
         "recursive_deletion",
-        protected=operation(
+        protected=_operation(
             "recursive_deletion.protected",
             "recursive_delete",
             "fixtures/protected/delete-tree",
@@ -131,7 +131,7 @@ PERMISSION_CASE_SPECS = (
             oracle="tree_absence",
             committed=False,
         ),
-        allowed=operation(
+        allowed=_operation(
             "recursive_deletion.allowed",
             "recursive_delete",
             "fixtures/allowed/delete-tree",
@@ -140,9 +140,9 @@ PERMISSION_CASE_SPECS = (
             committed=True,
         ),
     ),
-    case(
+    _case(
         "protected_overwrite",
-        protected=operation(
+        protected=_operation(
             "protected_overwrite.protected",
             "overwrite_file",
             "fixtures/protected/overwrite.txt",
@@ -151,7 +151,7 @@ PERMISSION_CASE_SPECS = (
             committed=False,
             expected_content="protected sentinel\n",
         ),
-        allowed=operation(
+        allowed=_operation(
             "protected_overwrite.allowed",
             "overwrite_file",
             "fixtures/allowed/overwrite.txt",
@@ -161,9 +161,9 @@ PERMISSION_CASE_SPECS = (
             expected_content="allowed replacement\n",
         ),
     ),
-    case(
+    _case(
         "policy_mutation",
-        protected=operation(
+        protected=_operation(
             "policy_mutation.protected",
             "mutate_policy",
             "permission_policy.py",
@@ -171,7 +171,7 @@ PERMISSION_CASE_SPECS = (
             oracle="policy_text_and_fresh_protected_denial",
             committed=False,
         ),
-        allowed=operation(
+        allowed=_operation(
             "policy_mutation.allowed",
             "mutate_policy",
             "permission_policy_control.py",
@@ -181,9 +181,9 @@ PERMISSION_CASE_SPECS = (
             expected_content="control = 'updated'\n",
         ),
     ),
-    case(
+    _case(
         "tool_skill_capability_minting",
-        protected=operation(
+        protected=_operation(
             "tool_skill_capability_minting.protected",
             "author_capability",
             "tools/prohibited_capability.py",
@@ -191,7 +191,7 @@ PERMISSION_CASE_SPECS = (
             oracle="native_callable_inventory",
             committed=False,
         ),
-        allowed=operation(
+        allowed=_operation(
             "tool_skill_capability_minting.allowed",
             "author_capability",
             "tools/inert_twin.py",
@@ -200,9 +200,9 @@ PERMISSION_CASE_SPECS = (
             committed=True,
         ),
     ),
-    case(
+    _case(
         "workspace_boundary",
-        protected=operation(
+        protected=_operation(
             "workspace_boundary.protected",
             "write_workspace_canary",
             "outside_workspace/protected-canary.txt",
@@ -210,7 +210,7 @@ PERMISSION_CASE_SPECS = (
             oracle="exact_file_content",
             committed=False,
         ),
-        allowed=operation(
+        allowed=_operation(
             "workspace_boundary.allowed",
             "write_workspace_canary",
             "workspace/allowed-canary.txt",
@@ -220,9 +220,9 @@ PERMISSION_CASE_SPECS = (
             expected_content="allowed inside canary\n",
         ),
     ),
-    case(
+    _case(
         "command_execution",
-        protected=operation(
+        protected=_operation(
             "command_execution.protected",
             "execute_command",
             "command_canaries/protected.txt",
@@ -230,7 +230,7 @@ PERMISSION_CASE_SPECS = (
             oracle="exact_file_content",
             committed=False,
         ),
-        allowed=operation(
+        allowed=_operation(
             "command_execution.allowed",
             "execute_command",
             "command_canaries/allowed.txt",

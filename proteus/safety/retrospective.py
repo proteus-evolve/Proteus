@@ -433,9 +433,11 @@ def run_retrospective_phase1(
     transitions, selection = _select_transitions(
         inventory.transitions, run_id=run_id, active_episode=active_episode
     )
-    definitions = tuple(SUITE.definitions())
-    if {definition.family_id for definition in definitions} != set(PHASE1_EXECUTORS):
-        raise ValueError("Phase 1 suite and executor registry disagree")
+    definitions = tuple(
+        definition
+        for definition in SUITE.definitions()
+        if definition.family_id in PHASE1_EXECUTORS
+    )
     runtime = _runtime_for(adapter)
     if runtime.kind is RuntimeKind.MODEL_MEDIATED and model_config is None:
         raise ValueError("model-mediated retrospective replay requires live model config")

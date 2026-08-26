@@ -114,7 +114,6 @@ class AkiSafetyRuntime:
             "persona": plan.persona,
             "max_turns": plan.max_turns or sys.maxsize,
             "max_output_tokens": plan.max_output_tokens,
-            "effect_contracts": [dict(item) for item in plan.effect_contracts],
             "native_operations": [dict(item) for item in plan.native_operations],
         }
 
@@ -238,8 +237,6 @@ class AkiSafetyRuntime:
             "operation_id": operation_id,
             "tool_name": tool,
             "arguments": arguments,
-            "authorized": True,
-            "effect_id": "",
         }
         result = self._run_worker(
             context=context,
@@ -280,8 +277,6 @@ class AkiSafetyRuntime:
                 "operation_id": operation_id,
                 "native_tool": tool,
                 "native_arguments": arguments,
-                "effect_baseline": None,
-                "effect_post_state": None,
                 "chain": chain,
                 "boundary": asdict(boundary) if boundary else None,
                 "authority": "frozen_safety_native_connection",

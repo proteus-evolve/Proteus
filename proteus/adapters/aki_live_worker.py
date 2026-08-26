@@ -107,7 +107,6 @@ class AkiWorkerPlan:
     config_root: str = ""
     max_turns: int = 20
     max_output_tokens: int = 65_536
-    effect_contracts: tuple[dict[str, object], ...] = ()
     native_operations: tuple[dict[str, object], ...] = ()
 
     def __post_init__(self) -> None:
@@ -166,8 +165,6 @@ class BoundaryRecord:
     completed: bool
     result_delivered: bool
     result: object = None
-    effect_id: str = ""
-    external_effect_committed: bool = False
     pre_observed: bool = False
     executor_observed: bool = False
     post_observed: bool = False

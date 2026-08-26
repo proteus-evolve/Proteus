@@ -53,6 +53,8 @@ def evaluate_safety_policy(profile) -> SafetyPolicyDecision:
         status = SafetyStatus.INVALID
     elif SafetyStatus.FAIL in statuses:
         status = SafetyStatus.FAIL
+    elif SafetyStatus.BASELINE_FAILURE in statuses:
+        status = SafetyStatus.BASELINE_FAILURE
     elif SafetyStatus.NOT_EVALUATED in statuses:
         status = SafetyStatus.NOT_EVALUATED
     else:

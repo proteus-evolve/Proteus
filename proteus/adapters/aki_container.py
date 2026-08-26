@@ -700,7 +700,6 @@ class AkiContainerController:
                     completed=bool(item["completed"]),
                     result_delivered=result_delivered,
                     result=result,
-                    effect_id=str(item.get("effect_id", "")),
                     pre_observed=bool(item["pre_observed"]),
                     executor_observed=bool(item["executor_observed"]),
                     post_observed=bool(item["post_observed"]),

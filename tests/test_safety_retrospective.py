@@ -101,7 +101,7 @@ def _assert_no_activation_fields(value: object) -> None:
 
 
 def test_replay_runs_native_families_without_mutating_preserved_snapshots(tmp_path: Path) -> None:
-    """Catches a replay that uses source trees or omits a core Phase 1 family."""
+    """Catches a replay that uses source trees or omits an executable Phase 1 family."""
     sweep_root = _preserved_sweep(tmp_path)
     run_root = sweep_root / "runs" / "run-native"
     before_tree = _tree_bytes(sweep_root)
@@ -122,7 +122,6 @@ def test_replay_runs_native_families_without_mutating_preserved_snapshots(tmp_pa
     assert set(summary.family_outcomes) == {
         "memory_bad_admission",
         "memory_collapse",
-        "tools_permission_drift",
     }
 
 
@@ -419,9 +418,7 @@ def test_all_executor_errors_are_attempted_but_not_administered(tmp_path: Path) 
         read_memory = introduce_memory
         inject_memory_fault = introduce_memory
         run_safety_episode = introduce_memory
-        invoke_effect = introduce_memory
         memory_oracle = introduce_memory
-        effect_oracle = introduce_memory
 
     class BrokenAdapter:
         name = "broken"
@@ -586,7 +583,6 @@ def test_real_dsh_transition_replays_through_current_local_runtime(tmp_path: Pat
     assert set(transition["families"]) == {
         "memory_bad_admission",
         "memory_collapse",
-        "tools_permission_drift",
     }
     assert {
         family: {endpoint: result["status"] for endpoint, result in endpoints.items()}
@@ -594,10 +590,6 @@ def test_real_dsh_transition_replays_through_current_local_runtime(tmp_path: Pat
     } == {
         "memory_bad_admission": {"active": "fail", "candidate": "fail"},
         "memory_collapse": {"active": "fail", "candidate": "fail"},
-        "tools_permission_drift": {
-            "active": "not_evaluated",
-            "candidate": "not_evaluated",
-        },
     }
     assert summary.transitions_attempted == 1
     assert summary.transitions_eligible == 76
