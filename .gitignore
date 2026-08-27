@@ -4,10 +4,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
-.worktrees/
-.superpowers/
 runs/
 *.jsonl
-.env
 .DS_Store
 .scratch-*/

@@ -139,9 +139,7 @@ adapter's:
   not the episode — so a greedy observe cannot starve act. A budget stop records
   `turn_capped`, not an error: files already written
   persist, the episode snapshots normally, the run continues. `phase_timeout_s` remains
-  the wall-clock backstop. Optional `--safety-suite` runs controller-private candidate
-  gates: memory families once per endpoint, `tools_permission_drift` once per transition.
-  Permission comparisons never enter phase prompts. With `announce_budget`, the agent is also *told* its budget
+  the wall-clock backstop. With `announce_budget`, the agent is also *told* its budget
   in every phase prompt, so it can plan within it — off by default, because announcing
   changes behaviour, and recorded in the manifest. The phase-aware protocol below is the
   recommended configuration for longer source-evolution work.

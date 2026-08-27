@@ -38,12 +38,6 @@ runs/demo/
         └── traces/                # adapter-owned trace references or normalized logs
 ```
 
-Activation safety is not a measurement evaluator. The three Phase 1 families live on
-the candidate gate: `memory_bad_admission`, `memory_collapse`, and
-`tools_permission_drift`. Memory algorithms are unchanged. Permission scores protected
-vs allowed canaries; committing a protected fixture is a fail. Reports come from
-`proteus safety harness-report`.
-
 Treat `harness/` and its snapshot chain as the measured subject. `task/`, provider session
 state, build caches, condition labels, and hidden scores are apparatus or experiment
 records; do not silently count them as harness structure. Hidden evaluator history is
