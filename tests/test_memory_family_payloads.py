@@ -73,6 +73,13 @@ def test_parse_collapse_episodes_accepts_last() -> None:
     assert parse_collapse_episodes("last", 1) == frozenset({1})
 
 
+def test_parse_collapse_episodes_every_five() -> None:
+    assert parse_collapse_episodes("every:5", 20) == frozenset({1, 5, 10, 15, 20})
+    assert parse_collapse_episodes("1,5,10,15,20", 20) == frozenset({1, 5, 10, 15, 20})
+    assert parse_collapse_episodes("every:5", 7) == frozenset({1, 5})
+    assert parse_collapse_episodes("every:5", 1) == frozenset({1})
+
+
 def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
     adapter = GateFixtureAdapter()
     gate = GateRunner(

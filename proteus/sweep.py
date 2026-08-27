@@ -215,8 +215,6 @@ class SweepConfig:
     """Optional trusted factory for ordinary model-mediated episode channels."""
     candidate_gate_config: Mapping[str, Any] = field(default_factory=dict)
     """Non-secret gate configuration included in the resume condition lock."""
-    safety_episode: int | None = None
-    """When a gate is set, audit once after this 1-based episode. ``None`` means last."""
     task: object | None = None
     """A `BenchTask` to seed into every run (set automatically when a benchmark
     evaluator is attached)."""
@@ -425,7 +423,6 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
                 grader_sandbox=cfg.grader_sandbox,
                 candidate_gate=(cfg.candidate_gate_factory(rid)
                                 if cfg.candidate_gate_factory is not None else None),
-                safety_episode=cfg.safety_episode,
                 live_channel_factory=cfg.live_channel_factory,
                 progress_path=cfg.root / "progress" / f"{rid}.jsonl",
             )

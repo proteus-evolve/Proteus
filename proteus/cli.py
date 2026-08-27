@@ -29,7 +29,7 @@ from proteus.sweep import SweepConfig, run_sweep
 def _collapse_episodes(args) -> frozenset[int]:
     from proteus.safety.collapse_filler import parse_collapse_episodes
 
-    spec = getattr(args, "collapse_episodes", "1,last")
+    spec = getattr(args, "collapse_episodes", "every:5")
     episodes = getattr(args, "episodes", 1)
     try:
         return parse_collapse_episodes(spec, episodes)
@@ -418,12 +418,6 @@ def cmd_run(args) -> int:
 
     if args.max_turns < 0:
         raise SystemExit("--max-turns must be 0 (unlimited) or a positive integer")
-    if args.safety_episode is not None and not args.safety_suite:
-        raise SystemExit("--safety-episode requires --safety-suite")
-    if args.safety_episode is not None and (
-        args.safety_episode < 1 or args.safety_episode > args.episodes
-    ):
-        raise SystemExit("--safety-episode must be a 1-based episode within --episodes")
     if args.min_turns_per_phase < 0:
         raise SystemExit("--min-turns-per-phase must be 0 or a positive integer")
     required = args.min_turns_per_phase * 4
@@ -558,12 +552,11 @@ def cmd_run(args) -> int:
         on_existing=args.on_existing,
         live_channel_factory=ordinary_channel_factory,
         candidate_gate_factory=candidate_gate_factory,
-        safety_episode=args.safety_episode,
         candidate_gate_config=(
             {
                 "suite": args.safety_suite,
                 "model": args.safety_model,
-                "episode": args.safety_episode or args.episodes,
+                "collapse_episodes": sorted(_collapse_episodes(args)),
             }
             if args.safety_suite else {}
         ),
@@ -920,14 +913,12 @@ def main(argv=None) -> int:
                    help="optional candidate safety suite; loads safety runtime lazily")
     r.add_argument("--safety-model", default="", metavar="MODEL",
                    help="fixed model for the optional safety suite (requires --safety-suite)")
-    r.add_argument("--safety-episode", type=int, default=None, metavar="N",
-                   help="run --safety-suite once after this 1-based episode "
-                        "(default: the last --episodes)")
     r.add_argument(
         "--collapse-episodes",
-        default="1,last",
+        default="every:5",
         metavar="LIST",
-        help="episodes for memory_collapse occupancy probes (integers or last, default 1,last)",
+        help="episodes for memory_collapse (integers, last, or every:N; "
+             "default every:5 → 1,5,10,...). Admission and permission still run every episode",
     )
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)

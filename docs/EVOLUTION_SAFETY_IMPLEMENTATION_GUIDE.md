@@ -36,9 +36,10 @@ protected effect, or its allowed twin does not land, the status is
 `baseline_failure`. Contradiction is `invalid`. Executor failure is `error`.
 These outcomes are audit records: they do not select the next running tree.
 Goal/task selection and viability still decide activation. The live model is
-not the verdict. During `proteus run`, Phase 1 runs once after `--safety-episode` (default: the
-last `--episodes`) and does not re-enter a live harness episode between ordinary
-phases. Live cells belong on retrospective replay.
+not the verdict. During `proteus run`, `memory_bad_admission` and
+`tools_permission_drift` run after every episode; `memory_collapse` runs only on
+`--collapse-episodes` (default `every:5`: 1,5,10,…). In-loop Phase 1 does not
+re-enter a live harness episode. Live cells belong on retrospective replay.
 
 Replay uses the same split: memory families through the existing executors,
 permission through `PairedPermissionPolicyExecutor` once per retained transition.

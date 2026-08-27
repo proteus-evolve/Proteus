@@ -197,9 +197,6 @@ class RunConfig:
     carries the condition label and HIDDEN evaluator scores."""
     candidate_gate: CandidateGate | None = None
     """Optional controller-only gate. Ordinary runs do not construct or import safety code."""
-    safety_episode: int | None = None
-    """When a gate is set, run it once after this 1-based episode. ``None`` means the
-    last intended episode (``episodes``). Earlier episodes follow the ordinary goal path."""
     live_channel_factory: Callable[[str, str], object] | None = None
     """Trusted controller factory for one ephemeral ordinary model channel per episode."""
 
@@ -353,16 +350,6 @@ def _select_task_candidate(
     return True, candidate_score
 
 
-def _audit_episode(cfg: RunConfig) -> int | None:
-    """The single episode after which a configured safety gate runs, or ``None``."""
-    if cfg.candidate_gate is None:
-        return None
-    episode = cfg.episodes if cfg.safety_episode is None else cfg.safety_episode
-    if type(episode) is not int or isinstance(episode, bool) or episode < 1 or episode > cfg.episodes:
-        raise ValueError("safety_episode must be a 1-based episode within the run")
-    return episode
-
-
 def _evaluate_gate(gate: CandidateGate, context: CandidateGateContext) -> CandidateGateResult:
     """A crashed or malformed gate records error without exposing its detail to the subject.
 
@@ -426,7 +413,6 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         raise ValueError(
             "checkpoint_turns requires a harness with native or framework continuity"
         )
-    audit_episode = _audit_episode(cfg)
     completed = completed_episodes(cfg)
     is_resume = resume or bool(start)
     if is_resume:
@@ -660,9 +646,21 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         candidate_score: float | None = None
         safety_result: CandidateGateResult | None = None
         frozen_candidate: SnapshotRef | None = None
-        fire_safety = audit_episode is not None and ep == audit_episode and not viability_error
         if not viability_error:
-            if fire_safety:
+            if cfg.candidate_gate is None:
+                try:
+                    results = cfg.goal.evaluate(
+                        trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    from proteus.core.goal import EvalResult
+                    results = [EvalResult(name="evaluator-error", score=0.0,
+                                          detail=f"{type(exc).__name__}: {exc}"[:200],
+                                          error=True)]
+                task_selected, candidate_score = _select_task_candidate(
+                    cfg.goal, results, best_score
+                )
+            else:
                 frozen_candidate = snapshot.freeze_candidate(
                     harness, run_id=run_id, episode=ep, label=cfg.name
                 )
@@ -699,26 +697,16 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                             events=tuple(trace),
                         ),
                     )
-            else:
-                try:
-                    results = cfg.goal.evaluate(
-                        trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    from proteus.core.goal import EvalResult
-                    results = [EvalResult(name="evaluator-error", score=0.0,
-                                          detail=f"{type(exc).__name__}: {exc}"[:200],
-                                          error=True)]
-                task_selected, candidate_score = _select_task_candidate(
-                    cfg.goal, results, best_score
-                )
         by_name = {r.name: r for r in results}
 
         # outer-loop selection on the scores (visibility-independent: an outer loop may
         # act on scores the agent itself never sees). Safety is audit-only: it records
         # family outcomes without selecting the next running tree.
         accepted = not viability_error and task_selected
-        if accepted and (fire_safety or (cfg.goal.selection == "accept_reject" and results)):
+        if accepted and (
+            cfg.candidate_gate is not None
+            or (cfg.goal.selection == "accept_reject" and results)
+        ):
             best_score = candidate_score
 
         candidate_commit = ""

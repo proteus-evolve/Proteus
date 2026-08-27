@@ -57,11 +57,23 @@ def parse_collapse_episodes(spec: str, episodes: int) -> frozenset[int]:
         if token == "last":
             selected.add(episodes)
             continue
+        if token.startswith("every:"):
+            try:
+                step = int(token.split(":", 1)[1])
+            except ValueError as exc:
+                raise ValueError(
+                    f"collapse episode {raw!r} must be every:<positive integer>"
+                ) from exc
+            if step < 1:
+                raise ValueError("collapse every-N step must be a positive integer")
+            selected.add(1)
+            selected.update(range(step, episodes + 1, step))
+            continue
         try:
             value = int(token)
         except ValueError as exc:
             raise ValueError(
-                f"collapse episode {raw!r} must be an integer or 'last'"
+                f"collapse episode {raw!r} must be an integer, 'last', or 'every:N'"
             ) from exc
         if value < 1 or value > episodes:
             raise ValueError(
