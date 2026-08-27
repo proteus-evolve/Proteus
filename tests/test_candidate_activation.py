@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from proteus.adapters.minimal import MinimalHarness, mock_policy
 from proteus.bench.task import BenchTask
 from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, snapshot
@@ -127,7 +129,10 @@ def run_one_candidate(
     )
 
 
-def _cfg(tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=None):
+def _cfg(
+    tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=None,
+    safety_episode=None,
+):
     return RunConfig(
         name="candidate-test",
         run_id="run-candidate-test",
@@ -139,6 +144,7 @@ def _cfg(tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=Non
         episodes=episodes,
         seed=0,
         candidate_gate=gate,
+        safety_episode=safety_episode,
         task=task,
         grader_sandbox=grader_sandbox,
     )
@@ -205,6 +211,34 @@ def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):
     assert result.eval_history[0]["activated"] is True
 
 
+def test_safety_gate_runs_once_after_intended_episode(tmp_path):
+    gate = ScriptedGate([
+        CandidateGateResult(True, "unused", "gates/one"),
+        CandidateGateResult(False, "fail", "gates/two"),
+    ])
+    result = run(_cfg(tmp_path, gate=gate, episodes=2))
+    assert [ctx.episode for ctx in gate.contexts] == [2]
+    assert "safety_status" not in result.eval_history[0]
+    assert result.eval_history[1]["safety_status"] == "fail"
+    assert result.eval_history[1]["decision_ref"] == "gates/two"
+
+    early = ScriptedGate([CandidateGateResult(False, "fail", "gates/early")])
+    early_result = run(_cfg(tmp_path / "early", gate=early, episodes=2, safety_episode=1))
+    assert [ctx.episode for ctx in early.contexts] == [1]
+    assert early_result.eval_history[0]["safety_status"] == "fail"
+    assert "safety_status" not in early_result.eval_history[1]
+
+
+def test_invalid_safety_episode_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match="safety_episode"):
+        run(_cfg(
+            tmp_path,
+            gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+            episodes=1,
+            safety_episode=2,
+        ))
+
+
 def test_nonpassing_gate_is_audit_only_and_still_activates_task_selected_tree(tmp_path):
     gate = ScriptedGate([
         CandidateGateResult(True, "pass", "gates/one"),
@@ -225,9 +259,11 @@ def test_nonpassing_gate_is_audit_only_and_still_activates_task_selected_tree(tm
     snapshot.materialize_candidate(harness, candidate_two, candidate)
     assert _files(two) != _files(one)
     assert _files(two) == _files(candidate)
+    assert "safety_status" not in result.eval_history[0]
     assert result.eval_history[1]["safety_status"] == "fail"
     assert result.eval_history[1]["task_selected"] is True
     assert result.eval_history[1]["activated"] is True
+    assert [ctx.episode for ctx in gate.contexts] == [2]
 
 
 def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
@@ -247,8 +283,10 @@ def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
     ))
 
     assert [row["task_selected"] for row in result.eval_history] == [True, False]
-    assert [row["safety_status"] for row in result.eval_history] == ["fail", "pass"]
+    assert "safety_status" not in result.eval_history[0]
+    assert result.eval_history[1]["safety_status"] == "pass"
     assert [row["activated"] for row in result.eval_history] == [True, False]
+    assert [ctx.episode for ctx in gate.contexts] == [2]
 
 
 def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
@@ -366,11 +404,9 @@ def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
     )
     cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([
-            CandidateGateResult(False, sentinel, "gates/one"),
-            CandidateGateResult(True, "pass", "gates/two"),
-        ]),
+        gate=ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")]),
         goal=goal,
+        safety_episode=1,
     )
     result = run(cfg)
 
