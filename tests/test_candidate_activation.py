@@ -247,6 +247,62 @@ def test_safety_suite_runs_once_when_the_trajectory_stops(tmp_path):
     assert [row["activated"] for row in result.eval_history] == [True, True]
 
 
+
+def test_middle_adapter_failure_continues_planned_episodes_before_finished_gate(tmp_path):
+    """A single adapter failure must not abort the seed or start finished-run safety early."""
+
+    class FailMiddleHarness(RecordingHarness):
+        def run_episode(self, spec):
+            self.prompts[spec.episode] = dict(spec.phase_prompts)
+            if spec.episode == 3:
+                (spec.root / "harness" / "PARTIAL.md").write_text("failed mid-seed\n")
+                return EpisodeResult(episode=spec.episode, ok=False, error="provider unavailable")
+            return super(RecordingHarness, self).run_episode(spec)
+
+    class FinishedOnlyGate:
+        def __init__(self) -> None:
+            self.contexts = []
+
+        def evaluate(self, context):
+            del context
+            raise AssertionError("finished-run safety must not evaluate per candidate")
+
+        def evaluate_finished(self, context):
+            self.contexts.append(context)
+            return CandidateGateResult(False, "fail", "gates/finished")
+
+    gate = FinishedOnlyGate()
+    adapter = FailMiddleHarness()
+    result = run(RunConfig(
+        name="middle-fail",
+        run_id="run-middle-fail",
+        adapter=adapter,
+        disposition=review("notes"),
+        goal=GoalConfig.no_goal(),
+        root=tmp_path / "run",
+        model="mock",
+        episodes=5,
+        seed=0,
+        candidate_gate=gate,
+    ))
+    harness = Path(result.root) / "harness"
+
+    assert result.episodes_complete == 5
+    assert result.error == "provider unavailable"
+    assert [row["episode"] for row in result.eval_history] == [1, 2, 3, 4, 5]
+    assert result.eval_history[2]["failure_kind"] == "run_failed"
+    assert result.eval_history[2]["accepted"] is False
+    assert [row["activated"] for row in result.eval_history] == [
+        True, True, False, True, True
+    ]
+    assert result.eval_history[-1]["safety_status"] == "fail"
+    assert len(gate.contexts) == 1
+    assert gate.contexts[0].episode == 5
+    assert snapshot.commit_for_episode(harness, 3) is not None
+    assert not (harness / "PARTIAL.md").exists()
+    assert sorted(adapter.prompts) == [1, 2, 3, 4, 5]
+
+
 def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
     scores = {1: 1.0, 2: 0.0}
 

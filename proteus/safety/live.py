@@ -533,7 +533,7 @@ class OpenAIResponsesChannel:
         max_output_tokens = (
             options.max_output_tokens
             if options is not None and options.max_output_tokens is not None
-            else 4096
+            else 65_536
         )
         reasoning_effort = (
             options.reasoning_effort
@@ -577,8 +577,18 @@ class OpenAIResponsesChannel:
             raise LiveProtocolError("OpenAI Responses result must be a mapping")
         self._write_json(self._evidence_dir / f"response-{self._calls:03d}.json", raw)
         response_id = _required_text(raw.get("id"), "response id")
-        if _required_text(raw.get("status"), "response status") != "completed":
-            raise LiveProtocolError("OpenAI Responses request did not complete")
+        status = _required_text(raw.get("status"), "response status")
+        if status != "completed":
+            details = raw.get("incomplete_details")
+            reason = (
+                details.get("reason")
+                if isinstance(details, Mapping)
+                else None
+            )
+            # Truncation at the output-token cap is recoverable for ordinary evolution:
+            # keep usable text/tool calls instead of aborting the whole seed.
+            if not (status == "incomplete" and reason == "max_output_tokens"):
+                raise LiveProtocolError("OpenAI Responses request did not complete")
         response_model = _required_text(raw.get("model"), "response model")
         if response_model != self._model:
             raise LiveProtocolError("returned model does not match configured model")

@@ -508,6 +508,67 @@ def test_responses_channel_rejects_non_string_output_text(
         channel.respond(input="phase prompt")
 
 
+def test_responses_channel_accepts_incomplete_max_output_tokens_truncation(
+    tmp_path: Path,
+) -> None:
+    observed = []
+
+    def transport(url, payload, headers, timeout):
+        observed.append(payload)
+        return {
+            "id": "resp-truncated",
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "truncated but usable"}],
+                }
+            ],
+            "usage": {"input_tokens": 23689, "output_tokens": 4096},
+        }
+
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=transport,
+    )("gpt-5.6-luna", "incomplete.max.output")
+
+    response = channel.respond(input="phase prompt")
+
+    assert observed[0]["max_output_tokens"] == 65_536
+    assert response.output_text == "truncated but usable"
+    assert response.usage == LiveModelUsage(input_tokens=23689, output_tokens=4096)
+
+
+def test_responses_channel_still_rejects_incomplete_without_max_output_tokens(
+    tmp_path: Path,
+) -> None:
+    channel = OpenAIResponsesChannelFactory(
+        api_key="fixture-secret",
+        evidence_root=tmp_path / "controller-ledgers",
+        transport=lambda *_args: {
+            "id": "resp-incomplete-other",
+            "status": "incomplete",
+            "incomplete_details": {"reason": "content_filter"},
+            "model": "gpt-5.6-luna",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "blocked"}],
+                }
+            ],
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        },
+    )("gpt-5.6-luna", "incomplete.other")
+
+    with pytest.raises(LiveProtocolError, match="did not complete"):
+        channel.respond(input="phase prompt")
+
+
 def test_responses_channel_accepts_completed_response_with_only_empty_text(
     tmp_path: Path,
 ) -> None:

@@ -632,34 +632,63 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             res = _run_adapter_episode(cfg, spec, run_id=run_id)
         except Exception as exc:  # noqa: BLE001 - a failed episode is a record, not a crash
             error = f"{type(exc).__name__}: {exc}"
+            res = None
+        if res is None or not res.ok:
+            if res is not None:
+                error = res.error
             try:
-                failed_commit = snapshot.preserve_failed_candidate(
-                    harness, last_checkpoint, ep,
-                    f"candidate {ep}: {cfg.name} [run failed: {type(exc).__name__}]",
+                label = (
+                    f"candidate {ep}: {cfg.name} [run failed]"
+                    if res is not None
+                    else f"candidate {ep}: {cfg.name} [run failed: {error.split(':', 1)[0]}]"
                 )
+                failed_commit = snapshot.preserve_failed_candidate(
+                    harness, last_checkpoint, ep, label,
+                )
+                # Count the failed attempt as a completed rejected episode so the seed
+                # keeps its planned length and finished-run safety waits until the end.
+                snapshot.commit(
+                    harness, f"episode {ep}: {cfg.name} [run failed; rolled back]"
+                )
+                last_checkpoint = snapshot.head(harness)
                 if staged_activation:
                     pending = _write_pending_candidate(
-                        cfg.root, commit=failed_commit, resume_episode=ep,
+                        cfg.root, commit=failed_commit, resume_episode=ep + 1,
                         reason="run_failed", error=error,
                     )
+                    repair_notice = _repair_notice(pending)
+                    if handoffs is not None:
+                        handoffs.set_controller_notice(repair_notice)
+                else:
+                    pending = None
+                    repair_notice = ""
             except Exception as restore_exc:  # noqa: BLE001
                 error += f"; automatic restore failed: {restore_exc}"
-            break
-        if not res.ok:
-            error = res.error
-            try:
-                failed_commit = snapshot.preserve_failed_candidate(
-                    harness, last_checkpoint, ep,
-                    f"candidate {ep}: {cfg.name} [run failed]",
+                break
+            checkpoint_fingerprint = cfg.adapter.disposition_fingerprint(harness)
+            done = ep
+            history_row = {
+                "episode": ep, "accepted": False, "results": [],
+                "counters": dict(res.counters or {}) if res is not None else {},
+                "candidate_commit": failed_commit,
+                "candidate_fingerprint": "",
+                "disposition_fingerprint": checkpoint_fingerprint,
+                "disposition_drift": False,
+                "failure_kind": "run_failed",
+                "error": error,
+                "task_selected": False,
+                "activated": False,
+            }
+            eval_history.append(history_row)
+            _write_json_atomic(history_path, eval_history)
+            if cfg.progress_path is not None:
+                from proteus.core.adapter import EpisodeResult
+                progress_res = (
+                    res if res is not None
+                    else EpisodeResult(episode=ep, ok=False, error=error)
                 )
-                if staged_activation:
-                    pending = _write_pending_candidate(
-                        cfg.root, commit=failed_commit, resume_episode=ep,
-                        reason="run_failed", error=error,
-                    )
-            except Exception as restore_exc:  # noqa: BLE001
-                error += f"; automatic restore failed: {restore_exc}"
-            break
+                _append_progress(cfg, ep, progress_res, (), False, [])
+            continue
 
         candidate_fingerprint = cfg.adapter.disposition_fingerprint(harness)
 

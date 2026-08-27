@@ -226,10 +226,14 @@ def test_incomplete_episode_preserves_candidate_ref_and_restores_checkpoint(tmp_
     ))
     harness = root / "harness"
 
-    assert result.episodes_complete == 0
+    assert result.episodes_complete == 1
     assert result.error == "provider unavailable"
     assert not (harness / "PARTIAL.md").exists()
-    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 0)
+    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 1)
+    assert "run failed; rolled back" in subprocess.run(
+        ["git", "--git-dir", str(root / ".snapshot.git"), "log", "--format=%s", "-1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
     preserved = subprocess.run(
         ["git", "--git-dir", str(root / ".snapshot.git"), "show",
          "refs/proteus/candidates/episode-1-failed:PARTIAL.md"],
@@ -248,7 +252,6 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
 
         def __init__(self):
             super().__init__()
-            self.attempt = 0
             self.observations = []
 
         def run_episode(self, spec):
@@ -259,8 +262,7 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
                 "active_partial": (active / "PARTIAL.md").exists(),
                 "candidate_partial": (candidate / "PARTIAL.md").exists(),
             })
-            self.attempt += 1
-            if self.attempt == 1:
+            if spec.episode == 1:
                 (candidate / "PARTIAL.md").write_text("continue me\n")
                 return EpisodeResult(spec.episode, ok=False, error="provider unavailable")
             assert (candidate / "PARTIAL.md").read_text() == "continue me\n"
@@ -271,17 +273,13 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
     root = tmp_path / "retry-run"
     cfg = RunConfig(
         name="retry", adapter=adapter, disposition=NEUTRAL, goal=GoalConfig(),
-        root=root, model="mock", episodes=1,
+        root=root, model="mock", episodes=2,
     )
-    first = run(cfg)
-    assert first.episodes_complete == 0 and first.error == "provider unavailable"
-    assert pending_candidate_path(root).exists()
-
-    second = run(cfg, start=0, resume=True)
-    assert second.episodes_complete == 1 and not second.error
+    result = run(cfg)
+    assert result.episodes_complete == 2 and result.error == "provider unavailable"
     assert adapter.observations == [
         {"episode": 1, "active_partial": False, "candidate_partial": False},
-        {"episode": 1, "active_partial": False, "candidate_partial": True},
+        {"episode": 2, "active_partial": False, "candidate_partial": True},
     ]
     assert (root / "harness" / "PARTIAL.md").read_text() == "finished\n"
     assert not pending_candidate_path(root).exists()
@@ -325,18 +323,17 @@ def test_failed_repair_keeps_completed_rollback_checkpoint_and_candidate(tmp_pat
     root = tmp_path / "retry-after-rollback"
     cfg = RunConfig(
         name="repair", adapter=adapter, disposition=NEUTRAL, goal=GoalConfig(),
-        root=root, model="mock", episodes=2,
+        root=root, model="mock", episodes=3,
     )
-    first = run(cfg)
+    result = run(cfg)
     harness = root / "harness"
 
-    assert first.episodes_complete == 1 and first.error == "provider unavailable"
-    assert completed_episodes(cfg) == 1
-    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 1)
-
-    second = run(cfg, start=1, resume=True)
-    assert second.episodes_complete == 2 and not second.error
+    assert result.episodes_complete == 3
+    assert result.error == "provider unavailable"
+    assert completed_episodes(cfg) == 3
+    assert adapter.episode_two_attempts == 2
     assert (harness / "FIXED").read_text() == "yes\n"
+    assert snapshot.commit_for_episode(harness, 2) is not None
 
 
 def test_staged_viability_candidate_survives_process_resume(tmp_path):
@@ -664,14 +661,12 @@ def test_resume_from_episode_zero_discards_a_crash_time_candidate(tmp_path):
         )
 
     first = run_sweep(config())
-    assert first[0]["episodes_complete"] == 0 and first[0]["error"]
+    assert first[0]["episodes_complete"] == 1 and first[0]["error"]
     run_root = root / "runs" / opaque_id("neutral", 0)
     harness = run_root / "harness"
-    assert snapshot.commit_for_episode(harness, 0)
+    assert snapshot.commit_for_episode(harness, 1)
 
-    # This edit represents a SIGKILL after the framework's last handler ran. With no
-    # completed episode, the old implementation confused resume with a fresh seed and
-    # committed this dirty file into episode 1.
+    # Dirty files left after the framework's last handler must not survive resume reset.
     (harness / "CRASH_PARTIAL.md").write_text("must be discarded\n")
     (run_root / ".proteus-state").mkdir(exist_ok=True)
     (run_root / ".proteus-state" / "latest.md").write_text("partial handoff\n")
@@ -680,7 +675,6 @@ def test_resume_from_episode_zero_discards_a_crash_time_candidate(tmp_path):
     assert resumed[0]["episodes_complete"] == 1 and not resumed[0]["error"]
     assert not (harness / "CRASH_PARTIAL.md").exists()
     assert not (harness / "FIRST_PARTIAL.md").exists()
-    assert not (run_root / ".proteus-state" / "latest.md").exists()
     assert snapshot.commit_for_episode(harness, 1)
 
 
@@ -966,10 +960,12 @@ def test_eval_history_is_durable_after_each_completed_episode(tmp_path):
     root = tmp_path / "durable"
     res = run(RunConfig(name="t", adapter=FailsOnSecond(), disposition=NEUTRAL,
                         goal=GoalConfig(), root=root, model="mock", episodes=2))
-    assert res.episodes_complete == 1
+    assert res.episodes_complete == 2
+    assert res.error == "planned stop"
     history_path = eval_history_path(root)
     history = json.loads(history_path.read_text())
-    assert [row["episode"] for row in history] == [1]
+    assert [row["episode"] for row in history] == [1, 2]
+    assert history[1]["failure_kind"] == "run_failed"
     assert not history_path.with_name("eval_history.json.tmp").exists()
     assert not (root / "eval_history.json").exists(), "hidden scores leaked into run root"
 
