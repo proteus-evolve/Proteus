@@ -6,6 +6,7 @@ from pathlib import Path
 from types import FunctionType, MethodType, SimpleNamespace
 
 import pytest
+from safety_memory_fixtures import plant_harness_memory
 
 from proteus import cli
 from proteus.adapters.llm import LLMHarness, _render_state
@@ -611,6 +612,8 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
     candidate_root = tmp_path / "subject" / "candidate"
     LLMHarness().seed(active_root)
     LLMHarness().seed(candidate_root)
+    plant_harness_memory(active_root)
+    plant_harness_memory(candidate_root)
 
     gate.evaluate(
         CandidateGateContext(

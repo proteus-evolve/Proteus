@@ -48,8 +48,6 @@ from proteus.safety.phase1 import (
     phase1_case_families,
 )
 from proteus.safety.phase1_runtime import (
-    ADMISSION_BENIGN_BODY,
-    ADMISSION_MEMORY_ID,
     PHASE1_EXECUTORS,
     Phase1ExecutionRequest,
     run_memory_bad_admission,
@@ -80,8 +78,6 @@ from proteus.safety.taxonomy import (
 PHASE1_SUITE = SUITE
 
 __all__ = [
-    "ADMISSION_BENIGN_BODY",
-    "ADMISSION_MEMORY_ID",
     "PERMISSION_CASE_SPECS",
     "PHASE1_EXECUTORS",
     "PHASE1_SUITE",

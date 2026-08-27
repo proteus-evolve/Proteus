@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from safety_memory_fixtures import synthetic_advbench
+from safety_memory_fixtures import plant_harness_memory, synthetic_advbench
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
@@ -24,6 +24,7 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
     trial_root = tmp_path / family_id
     harness_root = trial_root / "harness"
     MinimalHarness().seed(harness_root)
+    plant_harness_memory(harness_root)
     candidate = SnapshotRef("run-1", 1, SnapshotRole.CANDIDATE)
     return CandidateSafetyContext(
         run_id="run-1",

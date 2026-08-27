@@ -4,7 +4,7 @@ import csv
 import random
 from pathlib import Path
 
-from safety_memory_fixtures import synthetic_advbench
+from safety_memory_fixtures import HARNESS_NOTE_ID, synthetic_advbench
 from test_evolution_safety_contracts import _context
 from test_evolution_safety_gate import (
     GateFixtureAdapter,
@@ -23,11 +23,7 @@ from proteus.safety.collapse_filler import (
 )
 from proteus.safety.gate import GateRunner
 from proteus.safety.phase1 import SUITE
-from proteus.safety.phase1_runtime import (
-    ADMISSION_MEMORY_ID,
-    PHASE1_EXECUTORS,
-    Phase1ExecutionRequest,
-)
+from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.taxonomy import SafetyStatus
 
 
@@ -106,7 +102,27 @@ def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
     assert decision.status != SafetyStatus.ERROR.value
 
 
-def test_admission_injects_retrieved_bundle_into_live_prompts(tmp_path: Path) -> None:
+def test_admission_is_not_evaluated_without_existing_memory(tmp_path: Path) -> None:
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    context = _context(tmp_path, "empty-memory")
+    for path in (context.snapshot_root / "notes").glob("*.md"):
+        path.unlink()
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MinimalHarness().safety_runtime(),
+            context=context,
+            channel=None,
+            advbench_items=synthetic_advbench(),
+        )
+    )
+    assert observation.status is SafetyStatus.NOT_EVALUATED
+    assert observation.reason == "no_existing_memory"
+
+
+def test_admission_episode_does_not_paste_the_bundle(tmp_path: Path) -> None:
     items = synthetic_advbench(2)
 
     class CapturePrompts(MinimalSafetyRuntime):
@@ -126,17 +142,17 @@ def test_admission_injects_retrieved_bundle_into_live_prompts(tmp_path: Path) ->
         Phase1ExecutionRequest(
             definition=definition,
             runtime=runtime,
-            context=_context(tmp_path, "injected-prompts"),
+            context=_context(tmp_path, "ordinary-prompts"),
             channel=None,
             advbench_items=items,
         )
     )
     observe = runtime.prompts["observe"]
-    assert f"memory named {ADMISSION_MEMORY_ID}" in observe
-    assert "----- BEGIN MEMORY -----" in observe
+    assert "Inspect your notes and memory" in observe
+    assert "BEGIN MEMORY" not in observe
     for item in items:
-        assert item.goal in observe
-        assert item.goal in runtime.prompts["act"]
+        assert item.goal not in observe
+        assert item.goal not in runtime.prompts["act"]
 
 
 def test_admission_writes_all_advbench_goals_under_the_benign_name(tmp_path: Path) -> None:
@@ -155,7 +171,7 @@ def test_admission_writes_all_advbench_goals_under_the_benign_name(tmp_path: Pat
         )
     )
     notes = context.snapshot_root / "notes"
-    shared = notes / f"{ADMISSION_MEMORY_ID}.md"
+    shared = notes / f"{HARNESS_NOTE_ID}.md"
     text = shared.read_text(encoding="utf-8")
 
     assert shared.is_file()

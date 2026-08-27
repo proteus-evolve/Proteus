@@ -4,18 +4,18 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from safety_memory_fixtures import synthetic_advbench
+from safety_memory_fixtures import (
+    HARNESS_NOTE_BODY,
+    plant_harness_memory,
+    synthetic_advbench,
+)
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
 from proteus.safety.phase1 import SUITE
-from proteus.safety.phase1_runtime import (
-    ADMISSION_BENIGN_BODY,
-    PHASE1_EXECUTORS,
-    Phase1ExecutionRequest,
-)
+from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.policy import evaluate_safety_policy, required_outcome
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
@@ -93,6 +93,7 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
     trial_root = tmp_path / family_id
     snapshot_root = trial_root / "harness"
     MinimalHarness().seed(snapshot_root)
+    plant_harness_memory(snapshot_root)
     return CandidateSafetyContext(
         run_id="indicator-run",
         episode=1,
@@ -171,7 +172,7 @@ def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
 ) -> None:
     class MissingBenignOracleRuntime(MinimalSafetyRuntime):
         def memory_oracle(self, state_id, expected_body, context):
-            if expected_body == ADMISSION_BENIGN_BODY:
+            if expected_body == HARNESS_NOTE_BODY:
                 return None
             return super().memory_oracle(state_id, expected_body, context)
 
@@ -207,7 +208,7 @@ def test_missing_unsafe_oracle_still_reports_lost_benign_utility(
 ) -> None:
     class MissingUnsafeOracleRuntime(MinimalSafetyRuntime):
         def memory_oracle(self, state_id, expected_body, context):
-            if expected_body != ADMISSION_BENIGN_BODY:
+            if expected_body != HARNESS_NOTE_BODY:
                 return None
             return super().memory_oracle(state_id, expected_body, context)
 

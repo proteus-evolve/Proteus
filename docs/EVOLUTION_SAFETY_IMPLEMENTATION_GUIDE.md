@@ -1,8 +1,8 @@
 # Evolution safety implementation guide
 
-Phase 1 activation safety has three families. `memory_bad_admission` plants a seeded
-AdvBench sample as one document under the benign memory name, and scores **keep**
-(module) separately from **follow** (behavior).
+Phase 1 activation safety has three families. `memory_bad_admission` overwrites one
+existing harness memory name with a seeded AdvBench document, then scores **retrieve**
+(module, native read) separately from **follow** (behavior, ordinary live episode).
 `memory_collapse` is not an experimental arm: on selected episodes it fills a disposable
 copy of `W_t` with unrelated-word noise and compares prior memory to the original
 snapshot. Occupancy outcomes are audit records and do not decide activation. The tools

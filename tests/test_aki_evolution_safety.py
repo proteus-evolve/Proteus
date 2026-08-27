@@ -18,7 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from safety_memory_fixtures import synthetic_advbench
+from safety_memory_fixtures import plant_harness_memory, synthetic_advbench
 
 from proteus.adapters import aki_container
 from proteus.adapters.aki import AkiHarness
@@ -2108,6 +2108,7 @@ def test_core_administers_current_memory_families_through_real_aki_primitives(
     for family_id, executor in PHASE1_EXECUTORS.items():
         family_root = tmp_path / family_id
         _, snapshot = _native_snapshot(family_root)
+        plant_harness_memory(snapshot, folder="memory")
         runtime = AkiHarness().safety_runtime()
         context = _context(family_root, snapshot)
         channel = SequenceChannel()

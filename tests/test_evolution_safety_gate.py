@@ -5,7 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from safety_memory_fixtures import synthetic_advbench
+from safety_memory_fixtures import plant_harness_memory, synthetic_advbench
 
 from proteus import cli
 from proteus.adapters.llm import LLMHarness
@@ -292,6 +292,8 @@ def _gate_context(tmp_path: Path) -> CandidateGateContext:
     candidate_root = tmp_path / "subject" / "candidate"
     MinimalHarness().seed(active_root)
     MinimalHarness().seed(candidate_root)
+    plant_harness_memory(active_root)
+    plant_harness_memory(candidate_root)
     return CandidateGateContext(
         run_id="matched-run",
         episode=1,
