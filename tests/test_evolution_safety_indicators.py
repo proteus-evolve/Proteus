@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from safety_memory_fixtures import synthetic_advbench
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
@@ -99,27 +100,24 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
     )
 
 
-def test_restored_state_without_required_behavior_evidence_is_not_evaluated(
+def test_prior_memory_survives_occupancy_probe_without_exact_events(
     tmp_path: Path,
 ) -> None:
-    class RestoringRuntime(MinimalSafetyRuntime):
+    class SilentRuntime(MinimalSafetyRuntime):
         def run_safety_episode(self, prompts, context, channel):
             result = super().run_safety_episode(prompts, context, channel)
-            restored = context.snapshot_root / "notes" / "phase1-qualified-memory.md"
-            restored.write_text(
-                "scope=run\nqualification=controller-owned\nvalue=preserve\n",
-                encoding="utf-8",
-            )
             return replace(result, events=())
 
+    context = _context(tmp_path, "memory_collapse")
+    (context.snapshot_root / "notes" / "kept.md").write_text("keep me\n", encoding="utf-8")
     definition = next(
         item for item in SUITE.definitions() if item.family_id == "memory_collapse"
     )
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
             definition=definition,
-            runtime=RestoringRuntime(MinimalHarness()),
-            context=_context(tmp_path, definition.family_id),
+            runtime=SilentRuntime(MinimalHarness()),
+            context=context,
             channel=None,
         )
     )
@@ -129,11 +127,39 @@ def test_restored_state_without_required_behavior_evidence_is_not_evaluated(
         if cell.stratum is EvidenceStratum.REAL_EPISODE
     )
 
-    assert observation.status is SafetyStatus.NOT_EVALUATED
+    assert observation.status is SafetyStatus.PASS
     assert observation.statuses.recovery is SafetyStatus.PASS
-    assert observation.statuses.behavior is SafetyStatus.NOT_EVALUATED
-    assert real_episode.status is SafetyStatus.NOT_EVALUATED
-    assert real_episode.reason == "no_exact_proposal"
+    assert observation.statuses.behavior is SafetyStatus.PASS
+    assert real_episode.status is SafetyStatus.PASS
+    assert (context.snapshot_root / "notes" / "kept.md").read_text() == "keep me\n"
+
+
+def test_occupancy_probe_fails_when_prior_memory_is_removed(
+    tmp_path: Path,
+) -> None:
+    class DroppingRuntime(MinimalSafetyRuntime):
+        def run_safety_episode(self, prompts, context, channel):
+            result = super().run_safety_episode(prompts, context, channel)
+            (context.snapshot_root / "notes" / "kept.md").unlink()
+            return result
+
+    context = _context(tmp_path, "memory_collapse_drop")
+    (context.snapshot_root / "notes" / "kept.md").write_text("keep me\n", encoding="utf-8")
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=DroppingRuntime(MinimalHarness()),
+            context=context,
+            channel=None,
+        )
+    )
+
+    assert observation.status is SafetyStatus.FAIL
+    assert observation.statuses.behavior is SafetyStatus.FAIL
+    assert observation.statuses.recovery is SafetyStatus.FAIL
 
 
 def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
@@ -154,6 +180,7 @@ def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
             runtime=MissingBenignOracleRuntime(MinimalHarness()),
             context=_context(tmp_path, "unsafe-without-benign-oracle"),
             channel=None,
+            advbench_items=synthetic_advbench(),
         )
     )
     native = next(
@@ -176,7 +203,7 @@ def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
 ) -> None:
     class MissingUnsafeOracleRuntime(MinimalSafetyRuntime):
         def memory_oracle(self, state_id, expected_body, context):
-            if state_id == "phase1-unsafe-memory":
+            if state_id.startswith("advbench-"):
                 return None
             return super().memory_oracle(state_id, expected_body, context)
 
@@ -189,6 +216,7 @@ def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
             runtime=MissingUnsafeOracleRuntime(MinimalHarness()),
             context=_context(tmp_path, "benign-without-unsafe-oracle"),
             channel=None,
+            advbench_items=synthetic_advbench(),
         )
     )
     native = next(

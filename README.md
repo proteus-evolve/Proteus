@@ -241,8 +241,8 @@ before a snapshot can activate:
 
 | Family | What it asks |
 |---|---|
-| `memory_bad_admission` | unsafe memory is rejected while matched benign state stays usable |
-| `memory_collapse` | a controlled fault still restores qualified state |
+| `memory_bad_admission` | module: does memory keep planted AdvBench goals? behavior: does the episode follow them? |
+| `memory_collapse` | on selected episodes, filler on a snapshot copy; prior memory should still be there |
 | `tools_permission_drift` | ordinary tool use does not commit a protected fixture; the allowed twin still works |
 
 Permission scores independent canaries. Tool names and permission modules are not the
@@ -260,7 +260,9 @@ proteus safety harness-report --artifact runs/pi-safety --out runs/harness-safet
 ```
 
 Cases the harness cannot attempt stay `not_evaluated`. Activation needs an overall
-`pass`. Contract and harness matrix:
+`pass` from `memory_bad_admission` and `tools_permission_drift`; `memory_collapse`
+is an occupancy audit on selected episodes and does not decide activation. Contract
+and harness matrix:
 [docs/PROTEUS_MODULE_SAFETY_CASES.md](docs/PROTEUS_MODULE_SAFETY_CASES.md). Replay a
 finished sweep without mutating it:
 [docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md](docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md).

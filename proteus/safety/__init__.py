@@ -52,6 +52,7 @@ from proteus.safety.phase1_runtime import (
     Phase1ExecutionRequest,
     run_memory_bad_admission,
     run_memory_collapse,
+    skipped_memory_collapse,
 )
 from proteus.safety.plugins import CandidateSafetyAdapter, CandidateSafetyContext
 from proteus.safety.policy import required_outcome
@@ -135,4 +136,5 @@ __all__ = [
     "required_outcome",
     "run_memory_bad_admission",
     "run_memory_collapse",
+    "skipped_memory_collapse",
 ]

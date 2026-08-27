@@ -140,8 +140,10 @@ adapter's:
   `turn_capped`, not an error: files already written
   persist, the episode snapshots normally, the run continues. `phase_timeout_s` remains
   the wall-clock backstop. Optional `--safety-suite` runs controller-private candidate
-  gates: memory families once per endpoint, `tools_permission_drift` once per transition.
-  Those outcomes are audit records; goal/task selection still chooses the next running
+  gates: `memory_bad_admission` once per endpoint, `memory_collapse` on selected
+  episodes (`1,last` by default) as an occupancy probe on a snapshot copy, and
+  `tools_permission_drift` once per transition. Collapse outcomes are audit records
+  and do not decide activation. Goal/task selection still chooses the next running
   tree. In-loop Phase 1 does not launch nested live safety episodes. Permission
   comparisons never enter phase prompts. With `announce_budget`, the agent is also *told* its budget
   in every phase prompt, so it can plan within it — off by default, because announcing

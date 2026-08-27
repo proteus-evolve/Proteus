@@ -56,6 +56,7 @@ def derive_builtin_live_call_plan(
     ordinary_hard_limit: int,
     permission_supported_cases: int,
     include_memory_families: bool = False,
+    collapse_episode_count: int | None = None,
 ) -> LiveCallBudgetPlan:
     """Derive whole-run ordinary/safety caps from current runtime contracts."""
     if type(episodes) is not int or episodes < 1:
@@ -80,11 +81,16 @@ def derive_builtin_live_call_plan(
     permission_calls = 8 if name in {"aki", "pi"} else 2
     safety = permission_supported_cases * 2 * permission_calls * episodes
     if include_memory_families:
-        # Two memory families, two endpoints, one native safety episode each.
-        # Pi's capped 4-phase episode still emits ~16 controller responses; Aki's
-        # native loop is the same shape. Eight was enough to starve the last cell.
+        # Bad admission: two endpoints every episode. Collapse: two endpoints on
+        # selected episodes only (default 1 and last).
         memory_calls = 16 if name in {"pi", "aki"} else 8
-        safety += 2 * 2 * memory_calls * episodes
+        collapse_n = collapse_episode_count
+        if collapse_n is None:
+            collapse_n = 1 if episodes <= 1 else 2
+        if type(collapse_n) is not int or collapse_n < 0 or collapse_n > episodes:
+            raise ValueError("collapse episode count must fall within the run")
+        safety += 2 * memory_calls * episodes
+        safety += 2 * memory_calls * collapse_n
     return LiveCallBudgetPlan(name, ordinary, safety)
 
 

@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+import csv
+import random
+from pathlib import Path
+
+from safety_memory_fixtures import synthetic_advbench
+from test_evolution_safety_gate import (
+    GateFixtureAdapter,
+    RecordingPairedPermissionPolicyExecutor,
+    _gate_context,
+)
+
+from proteus.safety.advbench import SAMPLE_SIZE, AdvBenchItem, sample_advbench
+from proteus.safety.collapse_filler import (
+    MAX_TOKENS,
+    MIN_TOKENS,
+    generate_unrelated_document,
+    parse_collapse_episodes,
+)
+from proteus.safety.gate import GateRunner
+from proteus.safety.phase1 import SUITE
+from proteus.safety.taxonomy import SafetyStatus
+
+
+def test_advbench_sample_is_seeded_and_sized(tmp_path: Path) -> None:
+    catalog = tuple(
+        AdvBenchItem(goal=f"goal-{index}", target=f"target-{index}", index=index)
+        for index in range(40)
+    )
+    first = sample_advbench(catalog, n=SAMPLE_SIZE, seed=7)
+    second = sample_advbench(catalog, n=SAMPLE_SIZE, seed=7)
+    other = sample_advbench(catalog, n=SAMPLE_SIZE, seed=8)
+
+    assert len(first) == SAMPLE_SIZE
+    assert first == second
+    assert first != other
+
+
+def test_advbench_csv_loader_reads_goal_and_target(tmp_path: Path) -> None:
+    path = tmp_path / "harmful_behaviors.csv"
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=("goal", "target"))
+        writer.writeheader()
+        for index in range(24):
+            writer.writerow({"goal": f"goal {index}", "target": f"Sure, here is {index}"})
+    from proteus.safety.advbench import _records
+
+    items = _records(path)
+    assert len(items) == 24
+    assert items[0].goal == "goal 0"
+    assert items[3].target == "Sure, here is 3"
+
+
+def test_unrelated_filler_stays_in_token_range() -> None:
+    for seed in range(8):
+        text = generate_unrelated_document(random.Random(seed))
+        tokens = text.split()
+        assert MIN_TOKENS <= len(tokens) <= MAX_TOKENS
+        assert "write" not in text
+        assert "ignore" not in text
+
+
+def test_parse_collapse_episodes_accepts_last() -> None:
+    assert parse_collapse_episodes("1,last", 10) == frozenset({1, 10})
+    assert parse_collapse_episodes("last", 1) == frozenset({1})
+
+
+def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
+    adapter = GateFixtureAdapter()
+    gate = GateRunner(
+        adapter=adapter,
+        definitions=SUITE.definitions(),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=RecordingPairedPermissionPolicyExecutor(),
+        collapse_episodes=frozenset({9}),
+        advbench_items=synthetic_advbench(),
+    )
+
+    decision = gate.evaluate(_gate_context(tmp_path))
+    root = (tmp_path / "controller" / decision.decision_ref).parent
+    collapse = (
+        root / "families" / "memory_collapse" / "candidate.json"
+    ).read_text(encoding="utf-8")
+
+    assert "episode_not_selected" in collapse
+    assert ("memory_collapse", "candidate") not in adapter.memory_endpoint_calls
+    assert ("memory_bad_admission", "candidate") in adapter.memory_endpoint_calls
+    assert decision.status != SafetyStatus.ERROR.value

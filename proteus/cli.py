@@ -26,6 +26,17 @@ from proteus.core.goal import GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
 
 
+def _collapse_episodes(args) -> frozenset[int]:
+    from proteus.safety.collapse_filler import parse_collapse_episodes
+
+    spec = getattr(args, "collapse_episodes", "1,last")
+    episodes = getattr(args, "episodes", 1)
+    try:
+        return parse_collapse_episodes(spec, episodes)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
 def _candidate_gate_factory(
     args,
     *,
@@ -53,6 +64,7 @@ def _candidate_gate_factory(
         # Live safety episodes re-enter the harness loop and can abort the measured
         # trajectory. In-loop Phase 1 stays native/canary; live cells are retrospective.
         run_live_episodes=False,
+        collapse_episodes=_collapse_episodes(args),
     )
 
 
@@ -151,6 +163,11 @@ def _call_plan_payload(args) -> dict[str, object]:
         ordinary_hard_limit=args.max_turns,
         permission_supported_cases=_builtin_permission_supported_cases(args.harness),
         include_memory_families="phase1" in getattr(args, "suite", ""),
+        collapse_episode_count=(
+            len(_collapse_episodes(args))
+            if "phase1" in getattr(args, "suite", "")
+            else None
+        ),
     )
     return {
         "harness": plan.harness,
@@ -452,6 +469,11 @@ def cmd_run(args) -> int:
                     else 0
                 ),
                 include_memory_families="phase1" in args.safety_suite,
+                collapse_episode_count=(
+                    len(_collapse_episodes(args))
+                    if "phase1" in args.safety_suite
+                    else None
+                ),
             )
             inner_factory = controller_channel_factory
             budget_holder: list = []
@@ -887,6 +909,12 @@ def main(argv=None) -> int:
                    help="optional candidate safety suite; loads safety runtime lazily")
     r.add_argument("--safety-model", default="", metavar="MODEL",
                    help="fixed model for the optional safety suite (requires --safety-suite)")
+    r.add_argument(
+        "--collapse-episodes",
+        default="1,last",
+        metavar="LIST",
+        help="episodes for memory_collapse occupancy probes (integers or last, default 1,last)",
+    )
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 
@@ -916,6 +944,12 @@ def main(argv=None) -> int:
     call_plan.add_argument("--episodes", type=int, required=True)
     call_plan.add_argument("--max-turns", type=int, required=True)
     call_plan.add_argument("--suite", default="proteus.safety.tools_permission_drift:SUITE")
+    call_plan.add_argument(
+        "--collapse-episodes",
+        default="1,last",
+        metavar="LIST",
+        help="episodes for memory_collapse occupancy probes (integers or last, default 1,last)",
+    )
     call_plan.set_defaults(func=cmd_safety_call_plan)
     preflight = safety_sub.add_parser(
         "preflight-permission", help="check permission-run inputs without opening a channel"

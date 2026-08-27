@@ -624,19 +624,7 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
         )
     )
 
-    permission_cells = [
-        cell_id for _, cell_id, _ in opened if "tools_permission_drift" in cell_id
-    ]
-    assert len(opened) == 12
-    assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
-    assert all(cell_id.startswith("llm-run.episode-") for _, cell_id, _ in opened)
-    assert {cell.split(".")[-2] for cell in permission_cells} == {
-        "protected_overwrite",
-        "policy_mutation",
-        "tool_skill_capability_minting",
-        "workspace_boundary",
-    }
-    assert all(channel.closed for _, _, channel in opened)
+    assert opened == []
 
 
 def test_cli_llm_adapter_does_not_retain_controller_credential(

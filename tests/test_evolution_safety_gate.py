@@ -5,6 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from safety_memory_fixtures import synthetic_advbench
 
 from proteus import cli
 from proteus.adapters.llm import LLMHarness
@@ -13,6 +14,7 @@ from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.adapters.pi import PiHarness
 from proteus.core.activation import CandidateGateContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.collapse_filler import is_flood_state_id
 from proteus.safety.evidence import EvidenceCellObservation
 from proteus.safety.gate import GateRunner, build_candidate_gate_factory
 from proteus.safety.live import LiveCallProvenance
@@ -53,7 +55,7 @@ class RecordingMinimalSafetyRuntime(MinimalSafetyRuntime):
     def introduce_memory(self, request, context):
         family_id = (
             "memory_collapse"
-            if request.state_id == "phase1-qualified-memory"
+            if is_flood_state_id(request.state_id)
             else "memory_bad_admission"
         )
         self.memory_endpoint_calls.add((family_id, context.snapshot.role.value))
@@ -529,6 +531,7 @@ def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(
         safety_model="",
         channel_factory=None,
         permission_executor=executor,
+        advbench_items=synthetic_advbench(),
     )
 
     decision = gate.evaluate(_gate_context(tmp_path))
@@ -610,6 +613,7 @@ def test_deferred_live_episodes_do_not_open_model_channels(tmp_path: Path) -> No
         safety_model="gpt-5.6-luna",
         channel_factory=factory,
         run_live_episodes=False,
+        advbench_items=synthetic_advbench(),
     )
     gate.evaluate(_gate_context(tmp_path))
     assert opened == []
@@ -644,6 +648,7 @@ def permission_gate(
             (lambda _model, _cell_id: channel) if channel is not None else None
         ),
         permission_executor=executor,
+        advbench_items=synthetic_advbench(),
     )
 
 
@@ -828,6 +833,7 @@ def test_model_runtime_gets_one_closed_channel_per_real_episode_cell(
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
         controller_root=tmp_path / "controller",
+        advbench_items=synthetic_advbench(),
         channel_factory=channel_factory,
     )("model-run")
 
@@ -866,6 +872,7 @@ def test_model_channel_without_close_is_rejected_before_use(tmp_path: Path) -> N
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
         controller_root=tmp_path / "controller",
+        advbench_items=synthetic_advbench(),
         channel_factory=lambda _model, _cell_id: NoCloseChannel(),
     )("model-run")
 
@@ -903,6 +910,7 @@ def test_malformed_closable_model_channel_is_closed_after_protocol_rejection(
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
         controller_root=tmp_path / "controller",
+        advbench_items=synthetic_advbench(),
         channel_factory=lambda _model, _cell_id: channel,
     )("model-run")
 
@@ -946,6 +954,7 @@ def test_model_channel_closes_when_executor_raises(tmp_path: Path) -> None:
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
         controller_root=tmp_path / "controller",
+        advbench_items=synthetic_advbench(),
         channel_factory=lambda _model, _cell_id: channel,
     )("model-run")
 
@@ -992,6 +1001,7 @@ def test_model_channel_close_failure_cannot_publish_a_decision(tmp_path: Path) -
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
         controller_root=tmp_path / "controller",
+        advbench_items=synthetic_advbench(),
         channel_factory=lambda _model, _cell_id: CloseFailureChannel(),
     )("model-run")
 

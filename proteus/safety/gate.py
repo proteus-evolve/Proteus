@@ -13,7 +13,11 @@ from proteus.core.activation import CandidateGateContext, CandidateGateResult
 from proteus.core.episode import eval_history_path
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint, ProbeObservation
-from proteus.safety.indicators import MatchedFamilyObservations, derive_indicator_profile
+from proteus.safety.indicators import (
+    EvolutionSafetyIndicators,
+    MatchedFamilyObservations,
+    derive_indicator_profile,
+)
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.permission_adapter import PermissionPolicyAdapter, PermissionSnapshotContext
 from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
@@ -39,7 +43,11 @@ from proteus.safety.permission_executor import (
     reduce_permission_family,
 )
 from proteus.safety.phase1 import TOOLS_PERMISSION_DRIFT
-from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
+from proteus.safety.phase1_runtime import (
+    PHASE1_EXECUTORS,
+    Phase1ExecutionRequest,
+    skipped_memory_collapse,
+)
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.policy import (
     aggregate_required_outcomes,
@@ -561,6 +569,8 @@ class GateRunner:
         permission_adapter: PermissionPolicyAdapter | None = None,
         permission_executor: PairedPermissionPolicyExecutor | None = None,
         run_live_episodes: bool = True,
+        collapse_episodes: frozenset[int] = frozenset({1}),
+        advbench_items=None,
     ) -> None:
         self._adapter = adapter
         self._definitions = definitions
@@ -570,6 +580,8 @@ class GateRunner:
         self._run_live_episodes = run_live_episodes
         self._permission_adapter = permission_adapter
         self._permission_executor = permission_executor or PairedPermissionPolicyExecutor()
+        self._collapse_episodes = collapse_episodes
+        self._advbench_items = advbench_items
 
     def _collect_family(
         self,
@@ -605,12 +617,17 @@ class GateRunner:
             active_root=active_root,
         )
         runtime = _runtime_for(self._adapter)
+        skip_collapse = (
+            definition.family_id == "memory_collapse"
+            and context.episode not in self._collapse_episodes
+        )
         has_real_episode = any(
             cell.stratum.value == "real_episode" for cell in definition.declared_cells
         )
         channel = None
         if (
-            self._run_live_episodes
+            not skip_collapse
+            and self._run_live_episodes
             and runtime.kind is RuntimeKind.MODEL_MEDIATED
             and has_real_episode
         ):
@@ -633,12 +650,18 @@ class GateRunner:
         try:
             if channel is not None and not isinstance(channel, LiveModelChannel):
                 raise TypeError("live channel factory must implement LiveModelChannel")
-            observation = PHASE1_EXECUTORS[definition.family_id](
+            executor = (
+                skipped_memory_collapse
+                if skip_collapse
+                else PHASE1_EXECUTORS[definition.family_id]
+            )
+            observation = executor(
                 Phase1ExecutionRequest(
                     definition=definition,
                     runtime=runtime,
                     context=safety_context,
                     channel=channel,
+                    advbench_items=self._advbench_items,
                 )
             )
         finally:
@@ -800,7 +823,17 @@ class GateRunner:
             )
             results.append(permission)
             profile = derive_indicator_profile(tuple(pairs), permission)
-            decision = evaluate_safety_policy(profile)
+            # Occupancy probes are audit records on a disposable copy. They are not an
+            # experimental arm and do not decide activation.
+            decision = evaluate_safety_policy(
+                EvolutionSafetyIndicators(
+                    tuple(
+                        family
+                        for family in profile.families
+                        if family.family_id != "memory_collapse"
+                    )
+                )
+            )
             write_jsonl(staging / "results.jsonl", results)
             write_json(staging / "indicators.json", profile.to_dict())
             write_json(
@@ -832,6 +865,8 @@ def build_candidate_gate_factory(
     controller_root: Path,
     channel_factory: LiveChannelFactory | None = None,
     run_live_episodes: bool = True,
+    collapse_episodes: frozenset[int] = frozenset({1}),
+    advbench_items=None,
 ):
     """Preflight only the selected adapter before any sweep output is created."""
     _, definitions = _load_suite(suite_spec)
@@ -861,6 +896,8 @@ def build_candidate_gate_factory(
             channel_factory=channel_factory,
             permission_adapter=paired_adapter,
             run_live_episodes=run_live_episodes,
+            collapse_episodes=collapse_episodes,
+            advbench_items=advbench_items,
         )
 
     return factory

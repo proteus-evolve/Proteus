@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from safety_memory_fixtures import synthetic_advbench
+
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.activation import CandidateGateContext
@@ -95,6 +97,7 @@ def test_phase1_dispatches_current_memory_semantics_from_core(tmp_path: Path) ->
                 runtime=adapter.safety_runtime(),
                 context=_context(tmp_path, family_id),
                 channel=None,
+                advbench_items=synthetic_advbench(),
             )
         )
         statuses[family_id] = observation.status
@@ -106,11 +109,22 @@ def test_phase1_dispatches_current_memory_semantics_from_core(tmp_path: Path) ->
 
     assert statuses == {
         "memory_bad_admission": SafetyStatus.FAIL,
-        "memory_collapse": SafetyStatus.FAIL,
+        "memory_collapse": SafetyStatus.PASS,
     }
+    admission = PHASE1_EXECUTORS["memory_bad_admission"](
+        Phase1ExecutionRequest(
+            definition=definitions["memory_bad_admission"],
+            runtime=MinimalHarness().safety_runtime(),
+            context=_context(tmp_path, "admission-levels"),
+            channel=None,
+            advbench_items=synthetic_advbench(),
+        )
+    )
+    assert admission.statuses.module is SafetyStatus.FAIL
+    assert admission.statuses.behavior is SafetyStatus.PASS
 
 
-def test_terminal_generic_minimal_trace_is_not_behavior_evidence(
+def test_terminal_generic_minimal_trace_is_non_uptake_behavior_evidence(
     tmp_path: Path,
 ) -> None:
     family_id = "memory_bad_admission"
@@ -121,6 +135,7 @@ def test_terminal_generic_minimal_trace_is_not_behavior_evidence(
             runtime=MinimalHarness().safety_runtime(),
             context=_context(tmp_path, f"generic-trace-{family_id}"),
             channel=None,
+            advbench_items=synthetic_advbench(),
         )
     )
     real_episode = next(
@@ -128,12 +143,12 @@ def test_terminal_generic_minimal_trace_is_not_behavior_evidence(
         if cell.stratum is EvidenceStratum.REAL_EPISODE
     )
 
-    assert real_episode.status is SafetyStatus.NOT_EVALUATED
-    assert real_episode.reason == "no_exact_controlled_state_event"
-    assert observation.statuses.behavior is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.module is SafetyStatus.FAIL
+    assert real_episode.status is SafetyStatus.PASS
+    assert observation.statuses.behavior is SafetyStatus.PASS
     assert observation.unsafe_states
     assert all(
-        state.influenced_episode.name == "UNKNOWN"
+        state.influenced_episode.name == "FALSE"
         for state in observation.unsafe_states
     )
 
@@ -146,6 +161,7 @@ def test_pending_transition_is_not_completed_archive_lineage(tmp_path: Path) -> 
             runtime=MinimalHarness().safety_runtime(),
             context=_context(tmp_path, "pending-lineage"),
             channel=None,
+            advbench_items=synthetic_advbench(),
         )
     )
     archive = next(
@@ -221,12 +237,16 @@ def test_episode_one_gate_context_has_no_completed_archive_history(tmp_path: Pat
     assert _load_lineage(tmp_path, context) == ()
 
 
-def test_delivered_but_incomplete_fault_cannot_enter_restoration_evaluation(
+def test_incomplete_occupancy_filler_cannot_enter_collapse_evaluation(
     tmp_path: Path,
 ) -> None:
-    class IncompleteFaultRuntime(MinimalSafetyRuntime):
-        def inject_memory_fault(self, request, context):
-            return replace(super().inject_memory_fault(request, context), completed=False)
+    class IncompleteFillerRuntime(MinimalSafetyRuntime):
+        def introduce_memory(self, request, context):
+            return replace(
+                super().introduce_memory(request, context),
+                completed=False,
+                result_delivered=False,
+            )
 
     definition = next(
         item for item in SUITE.definitions() if item.family_id == "memory_collapse"
@@ -234,8 +254,8 @@ def test_delivered_but_incomplete_fault_cannot_enter_restoration_evaluation(
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
             definition=definition,
-            runtime=IncompleteFaultRuntime(MinimalHarness()),
-            context=_context(tmp_path, "incomplete-fault"),
+            runtime=IncompleteFillerRuntime(MinimalHarness()),
+            context=_context(tmp_path, "incomplete-filler"),
             channel=None,
         )
     )
@@ -245,7 +265,7 @@ def test_delivered_but_incomplete_fault_cannot_enter_restoration_evaluation(
 
     assert by_stratum[EvidenceStratum.NATIVE_BOUNDARY].status is SafetyStatus.NOT_EVALUATED
     assert by_stratum[EvidenceStratum.NATIVE_BOUNDARY].reason == (
-        "controlled_fault_not_completed"
+        "occupancy_filler_not_completed"
     )
     assert by_stratum[EvidenceStratum.REAL_EPISODE].status is SafetyStatus.NOT_EVALUATED
     assert observation.statuses.recovery is SafetyStatus.NOT_EVALUATED
@@ -270,3 +290,32 @@ def test_minimal_runtime_is_deterministic_and_returns_receipts_not_verdicts(
     assert (context.snapshot_root / "notes" / "controlled-state.md").read_text() == (
         "controller body"
     )
+
+
+def test_advbench_uptake_fails_behavior_while_keep_fails_module(tmp_path: Path) -> None:
+    items = synthetic_advbench(2)
+
+    class FollowingRuntime(MinimalSafetyRuntime):
+        def run_safety_episode(self, prompts, context, channel):
+            result = super().run_safety_episode(prompts, context, channel)
+            (context.snapshot_root / "notes" / "uptake.md").write_text(
+                items[0].target + "\n", encoding="utf-8"
+            )
+            return result
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=FollowingRuntime(MinimalHarness()),
+            context=_context(tmp_path, "uptake"),
+            channel=None,
+            advbench_items=items,
+        )
+    )
+
+    assert observation.statuses.module is SafetyStatus.FAIL
+    assert observation.statuses.behavior is SafetyStatus.FAIL
+    assert observation.status is SafetyStatus.FAIL

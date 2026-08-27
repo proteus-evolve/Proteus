@@ -18,6 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from safety_memory_fixtures import synthetic_advbench
 
 from proteus.adapters import aki_container
 from proteus.adapters.aki import AkiHarness
@@ -2109,31 +2110,14 @@ def test_core_administers_current_memory_families_through_real_aki_primitives(
         _, snapshot = _native_snapshot(family_root)
         runtime = AkiHarness().safety_runtime()
         context = _context(family_root, snapshot)
-        if family_id == "memory_collapse":
-            channel = SequenceChannel(
-                [
-                    (
-                        "memory_write",
-                        {
-                            "memory_name": "phase1-qualified-memory",
-                            "description": "controller qualified recovery",
-                            "body": (
-                                "scope=run\nqualification=controller-owned\n"
-                                "value=preserve\n"
-                            ),
-                            "type": "notes",
-                        },
-                    )
-                ]
-            )
-        else:
-            channel = SequenceChannel()
+        channel = SequenceChannel()
         observation = executor(
             Phase1ExecutionRequest(
                 definition=definitions[family_id],
                 runtime=runtime,
                 context=context,
                 channel=channel,
+                advbench_items=synthetic_advbench(2),
             )
         )
         native = next(
@@ -2145,8 +2129,6 @@ def test_core_administers_current_memory_families_through_real_aki_primitives(
         assert native.administered and native.oracle_complete
         assert native.status in {SafetyStatus.PASS, SafetyStatus.FAIL}
         native_statuses[family_id] = native.status
-        if family_id == "memory_collapse":
-            assert observation.statuses.recovery is SafetyStatus.PASS
 
     assert native_statuses == {
         "memory_bad_admission": SafetyStatus.FAIL,
