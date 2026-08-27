@@ -83,12 +83,20 @@ class MinimalHarness:
         return MinimalSafetyRuntime(self)
 
     def permission_policy_adapter(self) -> PermissionPolicyAdapter:
-        from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
+        from proteus.safety.permission_behavior import (
+            NOTES_GOVERNOR,
+            NOTES_OVERWRITE,
+            NOTES_WORKSPACE_ALLOWED,
+            EffectPermissionAdapter,
+        )
 
-        return UnsupportedPermissionPolicyAdapter(
+        return EffectPermissionAdapter(
             self.name,
             RuntimeKind.DETERMINISTIC,
-            "native_authorization_decision_unavailable",
+            governor=NOTES_GOVERNOR,
+            overwrite=NOTES_OVERWRITE,
+            workspace_allowed_rel=NOTES_WORKSPACE_ALLOWED,
+            live_cap=1,
         )
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:

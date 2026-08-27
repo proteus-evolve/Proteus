@@ -19,6 +19,22 @@ from proteus.safety.live import (
     LiveToolCall,
 )
 from proteus.safety.live_bridge import OpenAICompatibleBridge
+from proteus.safety.permission_behavior import (
+    BEHAVIORAL_CASE_IDS,
+    UNIVERSAL_EFFECT_CASE_IDS,
+    GovernorLayout,
+    behavioral_binding,
+    canary_ready_trace,
+    materialize_behavioral_fixtures,
+    observe_behavioral_canary,
+    ordinary_effect_prompts,
+    write_canary_oracle,
+)
+from proteus.safety.permission_cases import PermissionPolicyCaseSpec
+from proteus.safety.permission_evidence import (
+    PermissionCapabilityState,
+    PermissionCaseCapability,
+)
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     MemoryFaultRequest,
@@ -461,3 +477,120 @@ class PiSafetyRuntime:
     ) -> bool:
         path = self._memory_path(state_id, context)
         return path.is_file() and path.read_text(encoding="utf-8") == expected_body
+
+
+class _PiPermissionFixture:
+    def __init__(
+        self,
+        context,
+        case_spec,
+        binding,
+        targets: dict[str, Path],
+        governor_baseline: str = "",
+    ) -> None:
+        self.context = context
+        self.case_spec = case_spec
+        self.binding = binding
+        self.targets = targets
+        self.governor_baseline = governor_baseline
+        self.traces: dict[str, object] | None = None
+
+
+class PiPermissionPolicyAdapter:
+    """Score Pi on whether ordinary tool use committed protected effects."""
+
+    name = "pi"
+    kind = RuntimeKind.MODEL_MEDIATED
+    declared_supported_case_ids = BEHAVIORAL_CASE_IDS | UNIVERSAL_EFFECT_CASE_IDS
+    _governor = GovernorLayout("AGENTS.md", "notes/governor_control.md")
+
+    def __init__(self, harness: PiHarness) -> None:
+        self._harness = harness
+        self._fixtures: dict[int, _PiPermissionFixture] = {}
+
+    def live_call_cap(self, case_spec: PermissionPolicyCaseSpec) -> int:
+        return 8 if case_spec.case_id in self.declared_supported_case_ids else 0
+
+    def capability(self, case_spec: PermissionPolicyCaseSpec, snapshot_context):
+        if case_spec.case_id in self.declared_supported_case_ids:
+            return PermissionCaseCapability(
+                PermissionCapabilityState.SUPPORTED,
+                native_mechanism="ordinary_tool_effects",
+                missing_requirement="",
+            )
+        return PermissionCaseCapability(
+            PermissionCapabilityState.UNSUPPORTED,
+            native_mechanism="",
+            missing_requirement="ordinary_tool_effect_unavailable",
+        )
+
+    def bind(self, case_spec: PermissionPolicyCaseSpec, snapshot_context):
+        if case_spec.case_id not in self.declared_supported_case_ids:
+            return None
+        binding = behavioral_binding(case_spec, snapshot_context)
+        targets, baseline = materialize_behavioral_fixtures(
+            case_spec,
+            snapshot_context.snapshot_root,
+            snapshot_context.trial_root,
+            governor=self._governor,
+        )
+        self._fixtures[id(binding)] = _PiPermissionFixture(
+            snapshot_context, case_spec, binding, targets, baseline
+        )
+        return binding
+
+    def administer(self, binding, operation_spec, channel):
+        fixture = self._fixtures.get(id(binding))
+        if fixture is None:
+            raise RuntimeError("Pi permission binding is not owned by this adapter")
+        if fixture.traces is None:
+            if channel is not None:
+                self._attempt_episode(fixture, channel)
+            fixture.traces = {
+                operation.operation_id: canary_ready_trace(
+                    fixture.context.snapshot, fixture.case_spec, operation
+                )
+                for operation in (
+                    fixture.case_spec.protected,
+                    fixture.case_spec.allowed_control,
+                )
+            }
+        return fixture.traces[operation_spec.operation_id]
+
+    def observe_canary(self, binding, operation_spec):
+        fixture = self._fixtures.get(id(binding))
+        if fixture is None or operation_spec.operation_id not in fixture.targets:
+            raise RuntimeError("Pi permission canary has no bound fixture")
+        oracle = fixture.context.evidence_dir / (
+            f"{operation_spec.operation_id.replace('.', '-')}-canary.json"
+        )
+        observation = observe_behavioral_canary(
+            operation_spec,
+            fixture.targets[operation_spec.operation_id],
+            oracle.relative_to(fixture.context.artifact_root).as_posix(),
+            governor_baseline=fixture.governor_baseline,
+        )
+        write_canary_oracle(oracle, observation)
+        return observation
+
+    def _attempt_episode(self, fixture: _PiPermissionFixture, channel) -> None:
+        context = CandidateSafetyContext(
+            run_id=fixture.context.snapshot.run_id,
+            episode=max(1, fixture.context.snapshot.episode),
+            adapter_name=self.name,
+            snapshot=fixture.context.snapshot,
+            snapshot_root=fixture.context.snapshot_root,
+            trial_root=fixture.context.trial_root,
+            evidence_dir=fixture.context.evidence_dir,
+            artifact_root=fixture.context.artifact_root,
+        )
+        prompts = ordinary_effect_prompts(
+            fixture.case_spec,
+            fixture.targets,
+            fixture.context.snapshot_root,
+        )
+        try:
+            self._harness.safety_runtime().run_safety_episode(prompts, context, channel)
+        except Exception:  # noqa: BLE001 - canaries still decide the case
+            return
+

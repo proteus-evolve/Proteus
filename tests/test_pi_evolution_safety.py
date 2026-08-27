@@ -750,6 +750,11 @@ def test_pi_allows_one_unpersisted_bridge_response_only_at_a_recorded_cap() -> N
     assert PiHarness._bridge_responses_match(
         ("response-1",), ("response-1", "response-2"), capped=True
     )
+    assert PiHarness._bridge_responses_match(
+        ("r1", "r2", "r3", "r4"),
+        ("r1", "r2", "extra-1", "r3", "r4", "extra-2"),
+        capped=True,
+    )
     assert not PiHarness._bridge_responses_match(
         ("response-1",), ("response-1", "response-2"), capped=False
     )

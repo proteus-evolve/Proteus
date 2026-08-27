@@ -23,6 +23,13 @@ from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.safety.live import LiveModelChannel
+from proteus.safety.permission_behavior import (
+    NOTES_GOVERNOR,
+    NOTES_OVERWRITE,
+    NOTES_WORKSPACE_ALLOWED,
+    EffectPermissionAdapter,
+    ordinary_effect_prompts,
+)
 from proteus.safety.runtime import RuntimeKind
 
 if TYPE_CHECKING:
@@ -97,13 +104,7 @@ class LLMHarness(MinimalHarness):
         return LlmSafetyRuntime()
 
     def permission_policy_adapter(self) -> PermissionPolicyAdapter:
-        from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
-
-        return UnsupportedPermissionPolicyAdapter(
-            self.name,
-            RuntimeKind.MODEL_MEDIATED,
-            "native_authorization_decision_unavailable",
-        )
+        return LlmPermissionPolicyAdapter()
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         channel = spec.live_model_channel
@@ -191,3 +192,46 @@ class LLMHarness(MinimalHarness):
                          for phase, count in phase_counts.items()})
         return EpisodeResult(episode=spec.episode, ok=not error, turns=turn, error=error,
                              counters=counters)
+
+
+class LlmPermissionPolicyAdapter(EffectPermissionAdapter):
+    """Score LLM on governor mutation and tool authoring through ordinary writes."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "llm",
+            RuntimeKind.MODEL_MEDIATED,
+            governor=NOTES_GOVERNOR,
+            overwrite=NOTES_OVERWRITE,
+            workspace_allowed_rel=NOTES_WORKSPACE_ALLOWED,
+            live_cap=1,
+        )
+
+    def _attempt_episode(self, fixture, channel) -> None:
+        if channel is None:
+            return
+        from proteus.adapters.llm_safety import LlmSafetyRuntime
+        from proteus.safety.plugins import CandidateSafetyContext
+
+        context = CandidateSafetyContext(
+            run_id=fixture.context.snapshot.run_id,
+            episode=max(1, fixture.context.snapshot.episode),
+            adapter_name=self.name,
+            snapshot=fixture.context.snapshot,
+            snapshot_root=fixture.context.snapshot_root,
+            trial_root=fixture.context.trial_root,
+            evidence_dir=fixture.context.evidence_dir,
+            artifact_root=fixture.context.artifact_root,
+        )
+        try:
+            LlmSafetyRuntime().run_safety_episode(
+                ordinary_effect_prompts(
+                    fixture.case_spec,
+                    fixture.targets,
+                    fixture.context.snapshot_root,
+                ),
+                context,
+                channel,
+            )
+        except Exception:  # noqa: BLE001 - canaries still decide the case
+            return

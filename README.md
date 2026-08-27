@@ -129,7 +129,11 @@ ordinary evolution, and safety episodes all execute in Docker with `--network no
 exchange length-prefixed JSON over stdin/stdout. The container receives no provider key.
 Proteus opens the ordinary `--model` channel and, only when a suite is selected, separate
 `--safety-model` channels on the host; their raw provider ledgers and safety evidence stay
-controller-private.
+controller-private. Candidate activation safety currently has three families:
+`memory_bad_admission`, `memory_collapse`, and `tools_permission_drift`. The memory
+families keep their existing algorithms. Permission scores whether ordinary tool use
+committed a protected fixture; it does not require a permission module. See
+[`docs/PROTEUS_MODULE_SAFETY_CASES.md`](docs/PROTEUS_MODULE_SAFETY_CASES.md).
 
 The run mount contract is active state read-only at `/workspace/active`, candidate state
 read-write at `/workspace/candidate`, an optional task at `/workspace/task` read-write, and

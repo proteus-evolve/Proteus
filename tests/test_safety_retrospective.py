@@ -8,12 +8,18 @@ from pathlib import Path
 
 import pytest
 
+from proteus.adapters.aki import AkiHarness
 from proteus.adapters.dsh import DshHarness
 from proteus.adapters.llm import LLMHarness
 from proteus.adapters.minimal import MinimalHarness
 from proteus.cli import main
 from proteus.core import snapshot
 from proteus.safety.live import LiveCallProvenance, LiveModelResponse
+from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
+from proteus.safety.permission_executor import (
+    PairedPermissionPolicyExecutor,
+    TransitionPermissionRequest,
+)
 from proteus.safety.retrospective import LiveModelConfig, run_retrospective_phase1
 from proteus.safety.runtime import RuntimeKind
 
@@ -427,6 +433,16 @@ def test_all_executor_errors_are_attempted_but_not_administered(tmp_path: Path) 
         def safety_runtime():
             return BrokenRuntime()
 
+        @staticmethod
+        def permission_policy_adapter():
+            from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
+
+            return UnsupportedPermissionPolicyAdapter(
+                "broken",
+                RuntimeKind.DETERMINISTIC,
+                "native_authorization_decision_unavailable",
+            )
+
     summary = run_retrospective_phase1(
         sweep_root=_preserved_sweep(tmp_path),
         adapter=BrokenAdapter(),
@@ -643,3 +659,77 @@ def test_cli_returns_nonzero_for_incomplete_source_archive(tmp_path: Path) -> No
         "--out", str(output_root),
     ]) == 1
     assert json.loads((output_root / "manifest.json").read_text())["complete"] is False
+
+
+def test_retrospective_calls_same_paired_executor_once_per_transition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sweep = _preserved_sweep(tmp_path, episodes=3)
+    calls: list[TransitionPermissionRequest] = []
+    original = PairedPermissionPolicyExecutor.execute
+
+    def recording_execute(self, request):
+        calls.append(request)
+        return original(self, request)
+
+    monkeypatch.setattr(PairedPermissionPolicyExecutor, "execute", recording_execute)
+
+    run_retrospective_phase1(
+        sweep_root=sweep,
+        adapter=MinimalHarness(),
+        output_root=tmp_path / "retrospective-v2",
+        model_config=None,
+    )
+
+    assert len(calls) == 2
+    assert all(request.case_specs is PERMISSION_CASE_SPECS for request in calls)
+    assert all(request.active.source_root.is_relative_to(tmp_path) for request in calls)
+    assert all(
+        not request.active.source_root.is_relative_to(sweep) for request in calls
+    )
+
+
+def test_historical_snapshot_without_policy_stays_not_evaluated(tmp_path: Path) -> None:
+    sweep = _preserved_sweep(tmp_path, episodes=2)
+    run_root = sweep / "runs" / "run-native"
+    assert not list((run_root / "harness").rglob("permission_policy.py"))
+
+    class HistoricalAki:
+        name = "aki"
+
+        def safety_runtime(self):
+            return MinimalHarness().safety_runtime()
+
+        def permission_policy_adapter(self):
+            return AkiHarness().permission_policy_adapter()
+
+    summary = run_retrospective_phase1(
+        sweep_root=sweep,
+        adapter=HistoricalAki(),
+        output_root=tmp_path / "retrospective-v2",
+        model_config=None,
+    )
+    family = summary.permission_denominators
+    assert family.family_version == "2"
+    assert family.not_evaluated == family.attempted
+    assert not list((sweep / "runs").rglob("permission_policy.py"))
+
+
+def test_retrospective_never_reads_rewrites_or_counts_version1_artifacts(tmp_path: Path) -> None:
+    sweep = _preserved_sweep(tmp_path, episodes=1)
+    old = sweep / "legacy-tools-permission-drift-v1.json"
+    old.write_bytes(b'{"family_id":"tools_permission_drift","family_version":"1"}')
+    old_bytes = old.read_bytes()
+
+    summary = run_retrospective_phase1(
+        sweep_root=sweep,
+        adapter=MinimalHarness(),
+        output_root=tmp_path / "retrospective-v2",
+        model_config=None,
+    )
+
+    assert old.read_bytes() == old_bytes
+    assert summary.permission_denominators.family_version == "2"
+    manifest = json.loads((tmp_path / "retrospective-v2/manifest.json").read_text())
+    assert manifest["permission_denominators"]["family_version"] == "2"
+    assert "version1" not in json.dumps(manifest).lower()

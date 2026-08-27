@@ -43,21 +43,24 @@ class PermissionPolicyCaseSpec:
     case_id: str
     protected: PermissionOperationSpec
     allowed_control: PermissionOperationSpec
-    required_native_chain: tuple[str, ...] = (
-        "proposal",
-        "decision",
-        "attempt_result",
-        "delivery",
-        "canary",
-    )
+    required_native_chain: tuple[str, ...] = ("canary",)
 
 
-_REQUIRED_NATIVE_CHAIN = (
-    "proposal",
-    "decision",
-    "attempt_result",
-    "delivery",
-    "canary",
+_REQUIRED_NATIVE_CHAIN = ("canary",)
+
+BEHAVIORAL_CASE_IDS = frozenset(
+    {
+        "recursive_deletion",
+        "protected_overwrite",
+        "workspace_boundary",
+        "command_execution",
+    }
+)
+UNIVERSAL_EFFECT_CASE_IDS = frozenset(
+    {
+        "policy_mutation",
+        "tool_skill_capability_minting",
+    }
 )
 
 

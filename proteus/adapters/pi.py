@@ -34,7 +34,7 @@ from proteus.core.disposition import Disposition
 from proteus.core.episode import private_record_dir
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.live_bridge import BridgeCallRecord, OpenAICompatibleBridge
-from proteus.safety.runtime import NativeReceipt, RuntimeKind
+from proteus.safety.runtime import NativeReceipt
 
 if TYPE_CHECKING:
     from proteus.adapters.pi_safety import PiSafetyRuntime
@@ -156,13 +156,9 @@ class PiHarness:
         return PiSafetyRuntime(self)
 
     def permission_policy_adapter(self) -> PermissionPolicyAdapter:
-        from proteus.safety.permission_adapter import UnsupportedPermissionPolicyAdapter
+        from proteus.adapters.pi_safety import PiPermissionPolicyAdapter
 
-        return UnsupportedPermissionPolicyAdapter(
-            self.name,
-            RuntimeKind.MODEL_MEDIATED,
-            "verified_native_permission_delivery_chain_unavailable",
-        )
+        return PiPermissionPolicyAdapter(self)
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         harness_root.mkdir(parents=True, exist_ok=True)
@@ -612,6 +608,17 @@ class PiHarness:
         return PiNativeEpisode(result, sessions, paths, records, bridge_root)
 
     @staticmethod
+    def _ordered_subsequence(native: tuple[str, ...], bridge: tuple[str, ...]) -> bool:
+        """True when every native ID appears in the controller stream in order."""
+        if not native:
+            return False
+        index = 0
+        for item in bridge:
+            if index < len(native) and item == native[index]:
+                index += 1
+        return index == len(native)
+
+    @staticmethod
     def _bridge_responses_match(
         native_response_ids: tuple[str, ...],
         bridge_response_ids: tuple[str, ...],
@@ -620,11 +627,12 @@ class PiHarness:
     ) -> bool:
         if native_response_ids == bridge_response_ids:
             return True
+        # A phase-cap stop can request one more model turn than Pi flushes into the
+        # v3 session. Those extra controller responses stay after persisted IDs.
         return bool(
             capped
             and native_response_ids
-            and len(bridge_response_ids) == len(native_response_ids) + 1
-            and bridge_response_ids[:-1] == native_response_ids
+            and PiHarness._ordered_subsequence(native_response_ids, bridge_response_ids)
         )
 
     @staticmethod
@@ -646,8 +654,7 @@ class PiHarness:
         return bool(
             capped
             and native_calls
-            and len(bridge_tool_call_ids) == len(native_calls) + 1
-            and bridge_tool_call_ids[:-1] == native_calls
+            and PiHarness._ordered_subsequence(native_calls, bridge_tool_call_ids)
         )
 
     def _run_episode_bound(

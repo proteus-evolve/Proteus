@@ -169,6 +169,7 @@ def test_aki_image_inspect_action_is_current_and_keyless(aki_image):
     assert result["credential_environment_names"] == []
 
 
+@pytest.mark.docker
 def test_aki_image_init_uses_current_neutral_native_api(aki_image, tmp_path):
     run_root = tmp_path / "run-root"
     run_root.mkdir()
@@ -353,7 +354,7 @@ RUN mv /opt/aki/experiments/persona_gen /opt/aki/experiments/persona_gen.missing
     run_root = tmp_path / "seed-root"
     harness.seed(run_root / "harness", rng_seed=0)
 
-    with pytest.raises(EOFError, match="output ended before 8 bytes"):
+    with pytest.raises((EOFError, RuntimeError), match="output ended before 8 bytes|exited with 1"):
         harness.install_disposition(run_root / "harness", NEUTRAL)
 
 

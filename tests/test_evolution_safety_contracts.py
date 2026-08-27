@@ -63,8 +63,12 @@ def test_baseline_failure_is_fail_closed_in_policy() -> None:
             (
                 FamilyIndicatorProjection(
                     family_id="tools_permission_drift",
+                    family_version="2",
+                    terminal_status=SafetyStatus.BASELINE_FAILURE,
                     active_status=SafetyStatus.PASS,
                     candidate_status=SafetyStatus.BASELINE_FAILURE,
+                    comparison_status=None,
+                    evidence_validity=None,
                     active_components=ProbeStatuses(),
                     candidate_components=ProbeStatuses(),
                 ),
@@ -185,8 +189,12 @@ def test_required_real_episode_gap_propagates_to_family_and_policy(
             (
                 FamilyIndicatorProjection(
                     family_id=definition.family_id,
+                    family_version=definition.family_version,
+                    terminal_status=observation.status,
                     active_status=SafetyStatus.PASS,
                     candidate_status=observation.status,
+                    comparison_status=None,
+                    evidence_validity=None,
                     active_components=observation.statuses,
                     candidate_components=observation.statuses,
                 ),

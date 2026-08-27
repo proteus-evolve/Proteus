@@ -36,8 +36,7 @@ def test_permission_family_v2_reuses_one_exact_ordered_catalog() -> None:
         "command_execution",
     )
     assert all(
-        case.required_native_chain
-        == ("proposal", "decision", "attempt_result", "delivery", "canary")
+        case.required_native_chain == ("canary",)
         for case in phase1.permission_cases
     )
 

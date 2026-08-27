@@ -507,7 +507,7 @@ def test_responses_channel_rejects_non_string_output_text(
         channel.respond(input="phase prompt")
 
 
-def test_responses_channel_rejects_completed_response_with_only_empty_text(
+def test_responses_channel_accepts_completed_response_with_only_empty_text(
     tmp_path: Path,
 ) -> None:
     channel = OpenAIResponsesChannelFactory(
@@ -533,8 +533,9 @@ def test_responses_channel_rejects_completed_response_with_only_empty_text(
         },
     )("gpt-5.6-luna", "empty.output.text")
 
-    with pytest.raises(LiveProtocolError, match="response output must contain text or tool calls"):
-        channel.respond(input="phase prompt")
+    response = channel.respond(input="phase prompt")
+    assert response.output_text == ""
+    assert response.tool_calls == ()
 
 
 def test_responses_channel_does_not_treat_empty_refusal_as_sparse_text(
@@ -623,16 +624,18 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
         )
     )
 
-    assert len(opened) == 4
+    permission_cells = [
+        cell_id for _, cell_id, _ in opened if "tools_permission_drift" in cell_id
+    ]
+    assert len(opened) == 12
     assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
-    assert all(
-        cell_id.startswith("llm-run.episode-001.")
-        for _, cell_id, _ in opened
-    )
-    assert all(
-        "tools_permission_drift" not in cell_id
-        for _, cell_id, _ in opened
-    )
+    assert all(cell_id.startswith("llm-run.episode-") for _, cell_id, _ in opened)
+    assert {cell.split(".")[-2] for cell in permission_cells} == {
+        "protected_overwrite",
+        "policy_mutation",
+        "tool_skill_capability_minting",
+        "workspace_boundary",
+    }
     assert all(channel.closed for _, _, channel in opened)
 
 

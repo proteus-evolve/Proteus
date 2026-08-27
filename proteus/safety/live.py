@@ -8,6 +8,7 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -20,6 +21,166 @@ class LiveConfigurationError(ValueError):
 
 class LiveProtocolError(RuntimeError):
     """Raised when a live request or response violates the controller contract."""
+
+
+class LiveCallCategory(str, Enum):
+    ORDINARY = "ordinary"
+    SAFETY = "safety"
+
+
+@dataclass(frozen=True)
+class LiveCallBudgetPlan:
+    harness: str
+    ordinary_cap: int
+    safety_cap: int
+
+    def __post_init__(self) -> None:
+        if not self.harness.strip():
+            raise ValueError("live call plan requires a harness")
+        for label, value in (
+            ("ordinary", self.ordinary_cap),
+            ("safety", self.safety_cap),
+        ):
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{label} live-call cap must be a non-negative integer")
+
+    @property
+    def total_cap(self) -> int:
+        return self.ordinary_cap + self.safety_cap
+
+
+def derive_builtin_live_call_plan(
+    *,
+    harness: str,
+    episodes: int,
+    ordinary_hard_limit: int,
+    permission_supported_cases: int,
+    include_memory_families: bool = False,
+) -> LiveCallBudgetPlan:
+    """Derive whole-run ordinary/safety caps from current runtime contracts."""
+    if type(episodes) is not int or episodes < 1:
+        raise ValueError("live call plan episodes must be a positive integer")
+    if type(ordinary_hard_limit) is not int or ordinary_hard_limit < 0:
+        raise ValueError("ordinary hard limit must be a non-negative integer")
+    if type(permission_supported_cases) is not int or permission_supported_cases < 0:
+        raise ValueError("permission supported cases must be a non-negative integer")
+    name = harness.strip().lower()
+    if name == "minimal":
+        ordinary = 0
+    elif name == "llm":
+        ordinary = 4 * episodes
+    elif name == "pi":
+        ordinary = (ordinary_hard_limit + 4) * episodes
+    elif name == "dsh":
+        ordinary = (ordinary_hard_limit + 8) * episodes
+    elif name == "aki":
+        ordinary = ordinary_hard_limit * episodes
+    else:
+        raise ValueError(f"unsupported live-call plan harness: {harness}")
+    permission_calls = 8 if name in {"aki", "pi"} else 2
+    safety = permission_supported_cases * 2 * permission_calls * episodes
+    if include_memory_families:
+        # Two memory families, two endpoints, one native safety episode each.
+        # Pi's capped 4-phase episode still emits ~16 controller responses; Aki's
+        # native loop is the same shape. Eight was enough to starve the last cell.
+        memory_calls = 16 if name in {"pi", "aki"} else 8
+        safety += 2 * 2 * memory_calls * episodes
+    return LiveCallBudgetPlan(name, ordinary, safety)
+
+
+class ControllerLiveCallBudget:
+    """Claim ordinary and safety live calls before any provider request."""
+
+    def __init__(self, plan: LiveCallBudgetPlan, ledger_path: Path) -> None:
+        self._plan = plan
+        self._ledger_path = Path(ledger_path)
+        self._actual = {"ordinary": 0, "safety": 0, "total": 0}
+        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        self._write()
+
+    def wrap(
+        self,
+        channel: LiveModelChannel,
+        *,
+        category: LiveCallCategory,
+        cell_id: str,
+        channel_cap: int,
+    ) -> LiveModelChannel:
+        del cell_id
+        if type(channel_cap) is not int or channel_cap <= 0:
+            raise ValueError("live channel cap must be a positive integer")
+        return _BudgetedLiveChannel(self, channel, category, channel_cap)
+
+    def snapshot(self) -> Mapping[str, object]:
+        return {
+            "harness": self._plan.harness,
+            "call_budget": {
+                "ordinary_cap": self._plan.ordinary_cap,
+                "safety_cap": self._plan.safety_cap,
+                "total_cap": self._plan.total_cap,
+            },
+            "actual": dict(self._actual),
+            "actual_calls": dict(self._actual),
+        }
+
+    def claim(self, category: LiveCallCategory) -> None:
+        remaining_category = (
+            self._plan.ordinary_cap
+            if category is LiveCallCategory.ORDINARY
+            else self._plan.safety_cap
+        ) - self._actual[category.value]
+        remaining_total = self._plan.total_cap - self._actual["total"]
+        if remaining_category <= 0 or remaining_total <= 0:
+            raise LiveProtocolError(f"{category.value} live-call cap exhausted")
+        self._actual[category.value] += 1
+        self._actual["total"] += 1
+        self._write()
+
+    def _write(self) -> None:
+        self._ledger_path.write_text(
+            json.dumps(self.snapshot(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+
+class _BudgetedLiveChannel:
+    def __init__(
+        self,
+        budget: ControllerLiveCallBudget,
+        channel: LiveModelChannel,
+        category: LiveCallCategory,
+        channel_cap: int,
+    ) -> None:
+        self._budget = budget
+        self._channel = channel
+        self._category = category
+        self._channel_cap = channel_cap
+        self._claimed = 0
+
+    @property
+    def model(self) -> str:
+        return self._channel.model
+
+    def _claim(self) -> None:
+        if self._claimed >= self._channel_cap:
+            raise LiveProtocolError(
+                f"{self._category.value} live-call cap exhausted"
+            )
+        self._budget.claim(self._category)
+        self._claimed += 1
+
+    def respond(self, **kwargs):
+        self._claim()
+        return self._channel.respond(**kwargs)
+
+    def respond_bounded(self, **kwargs):
+        self._claim()
+        if hasattr(self._channel, "respond_bounded"):
+            return self._channel.respond_bounded(**kwargs)
+        return self._channel.respond(**kwargs)
+
+    def close(self) -> None:
+        self._channel.close()
 
 
 @dataclass(frozen=True)
@@ -464,6 +625,7 @@ class OpenAIResponsesChannel:
             raise LiveProtocolError("response output must be a sequence")
         text_parts: list[str] = []
         tool_calls: list[LiveToolCall] = []
+        saw_empty_message = False
         for item in value:
             if not isinstance(item, Mapping):
                 raise LiveProtocolError("response output items must be mappings")
@@ -484,6 +646,8 @@ class OpenAIResponsesChannel:
                             raise LiveProtocolError("output text must be non-empty text")
                         if output_text:
                             text_parts.append(output_text)
+                        else:
+                            saw_empty_message = True
                     elif part_type == "refusal":
                         text_parts.append(_required_text(part.get("refusal"), "refusal"))
                     else:
@@ -507,6 +671,11 @@ class OpenAIResponsesChannel:
                 continue
             raise LiveProtocolError(f"unsupported response output type: {item_type!r}")
         if not text_parts and not tool_calls:
+            # After a tool result the model may emit a completed message with empty
+            # text. That is a finished turn, not a missing response. Rejecting it
+            # aborted Aki permission trials that already had native proposals.
+            if saw_empty_message:
+                return "", ()
             raise LiveProtocolError("response output must contain text or tool calls")
         return "".join(text_parts), tuple(tool_calls)
 

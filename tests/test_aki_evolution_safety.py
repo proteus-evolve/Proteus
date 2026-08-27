@@ -272,12 +272,20 @@ class _InProcessPermissionContainer:
         snapshot = by_target["/workspace/candidate/harness"]
         outside = by_target["/workspace/permission-outside"]
         policy = _load_permission_policy(snapshot)
-        instruction = str(plan.payload["prompts"]["propose"])
-        operations = [
-            (tool, json.loads(arguments))
-            for tool, arguments in self._CALL.findall(instruction)
-        ]
-        channel.respond(input=[], tools=())
+        operations: list[tuple[str, dict[str, object]]] = []
+        for _ in range(12):
+            response = channel.respond(input=[], tools=())
+            operations.extend(
+                (call.name, dict(call.arguments)) for call in response.tool_calls
+            )
+            if len(operations) >= 2:
+                break
+        if not operations:
+            instruction = str(plan.payload["prompts"]["propose"])
+            operations = [
+                (tool, json.loads(arguments))
+                for tool, arguments in self._CALL.findall(instruction)
+            ]
         boundaries = []
         events = []
         for index, (tool, arguments) in enumerate(operations, start=1):
@@ -451,8 +459,7 @@ class _MissingFreshPolicyContainer(_InProcessPermissionContainer):
 class _ExtraFreshPolicyContainer(_InProcessPermissionContainer):
     def run_model_episode(self, **kwargs):
         result = super().run_model_episode(**kwargs)
-        prompt = str(kwargs["plan"].payload["prompts"]["propose"])
-        if prompt.count("file_write with") == 1:
+        if len(result.boundaries) == 1:
             return replace(result, boundaries=(*result.boundaries, result.boundaries[0]))
         return result
 
@@ -887,7 +894,37 @@ def test_real_aki_universal_agent_task_write_and_controller_normalization(
     ]
 
 
-def test_aki_declares_only_four_canonical_permission_routes(tmp_path: Path) -> None:
+def test_aki_behavioral_cases_do_not_need_a_permission_module(tmp_path: Path) -> None:
+    snapshot = tmp_path / "harness"
+    snapshot.mkdir()
+    context = PermissionSnapshotContext(
+        snapshot=SnapshotRef("aki", 1, SnapshotRole.CANDIDATE),
+        snapshot_root=snapshot,
+        trial_root=tmp_path / "trial",
+        evidence_dir=tmp_path / "evidence",
+        artifact_root=tmp_path,
+    )
+    adapter = AkiHarness().permission_policy_adapter()
+
+    assert adapter.capability(
+        next(case for case in PERMISSION_CASE_SPECS if case.case_id == "protected_overwrite"),
+        context,
+    ).state is PermissionCapabilityState.SUPPORTED
+    assert adapter.capability(
+        next(case for case in PERMISSION_CASE_SPECS if case.case_id == "policy_mutation"),
+        context,
+    ).state is PermissionCapabilityState.SUPPORTED
+    assert adapter.capability(
+        next(
+            case
+            for case in PERMISSION_CASE_SPECS
+            if case.case_id == "tool_skill_capability_minting"
+        ),
+        context,
+    ).state is PermissionCapabilityState.SUPPORTED
+
+
+def test_aki_declares_file_governor_and_minting_routes(tmp_path: Path) -> None:
     snapshot = tmp_path / "harness"
     snapshot.mkdir()
     (snapshot / "permission_policy.py").write_text("# snapshot policy\n", encoding="utf-8")
@@ -907,6 +944,7 @@ def test_aki_declares_only_four_canonical_permission_routes(tmp_path: Path) -> N
             "recursive_deletion",
             "protected_overwrite",
             "policy_mutation",
+            "tool_skill_capability_minting",
             "workspace_boundary",
         }
     )
@@ -919,21 +957,17 @@ def test_aki_declares_only_four_canonical_permission_routes(tmp_path: Path) -> N
         for case_id in adapter.declared_supported_case_ids
     )
     assert (
-        capabilities["tool_skill_capability_minting"].missing_requirement
-        == "effective_authored_capability_route_unavailable"
-    )
-    assert (
         capabilities["command_execution"].missing_requirement
-        == "canonical_shell_tool_unavailable"
+        == "ordinary_tool_effect_unavailable"
     )
     assert {
         case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS
     } == {
-        "recursive_deletion": 4,
-        "protected_overwrite": 4,
-        "policy_mutation": 8,
-        "tool_skill_capability_minting": 0,
-        "workspace_boundary": 4,
+        "recursive_deletion": 8,
+        "protected_overwrite": 8,
+        "policy_mutation": 12,
+        "tool_skill_capability_minting": 8,
+        "workspace_boundary": 8,
         "command_execution": 0,
     }
 
@@ -954,7 +988,7 @@ def test_aki_unsupported_cases_do_not_add_shell_or_import_authored_tools(
     unsupported = [
         case
         for case in PERMISSION_CASE_SPECS
-        if case.case_id in {"tool_skill_capability_minting", "command_execution"}
+        if case.case_id == "command_execution"
     ]
     channel = _PermissionChannel()
 
@@ -965,9 +999,16 @@ def test_aki_unsupported_cases_do_not_add_shell_or_import_authored_tools(
         capability.state is PermissionCapabilityState.UNSUPPORTED
         for capability in capabilities
     )
-    assert bindings == [None, None]
+    assert bindings == [None]
     assert channel.calls == 0
     assert "shell" not in adapter.declared_supported_case_ids
+    minting = next(
+        case
+        for case in PERMISSION_CASE_SPECS
+        if case.case_id == "tool_skill_capability_minting"
+    )
+    minting_binding = adapter.bind(minting, context)
+    assert minting_binding is not None
     assert not list((snapshot / "tools").glob("*.py"))
 
 
@@ -1063,9 +1104,9 @@ def test_aki_policy_mutation_oracle_compares_text_and_uses_fresh_agent(
 
 @pytest.mark.parametrize(
     "mutation",
-    ["duplicate", "unrelated", "wrong_rule", "wrong_allowed_rule", "bad_ordinal"],
+    ["duplicate", "wrong_rule", "wrong_allowed_rule", "bad_ordinal"],
 )
-def test_aki_primary_permission_run_rejects_wrong_boundary_multiset_or_rule(
+def test_aki_wrong_native_rule_metadata_does_not_override_canaries(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -1084,11 +1125,8 @@ def test_aki_primary_permission_run_rejects_wrong_boundary_multiset_or_rule(
 
     result = PairedPermissionPolicyExecutor().execute(request)
 
-    assert all(
-        case.comparison_status is not PermissionComparisonStatus.PASS
-        for case in result.cases
-        if case.case_id in AkiPermissionPolicyAdapter.declared_supported_case_ids
-    )
+    overwrite = next(case for case in result.cases if case.case_id == "protected_overwrite")
+    assert overwrite.comparison_status is PermissionComparisonStatus.PASS
     raw = json.loads(
         (
             request.artifact_root
@@ -1248,6 +1286,7 @@ def test_cli_routes_aki_ordinary_and_safety_calls_through_one_controller(
     assert len(observed) == 2
 
 
+@pytest.mark.docker
 def test_real_docker_ordinary_episode_uses_controller_luna_route(tmp_path: Path) -> None:
     """The real image keeps native supervision while Docker stdout stays protocol-only."""
     image = "proteus-env-aki-src:0.1.0"
@@ -1314,6 +1353,7 @@ def test_real_docker_ordinary_episode_uses_controller_luna_route(tmp_path: Path)
     assert trace_models == {"gpt-5.6-luna"}
 
 
+@pytest.mark.docker
 def test_real_docker_ordinary_candidate_writes_explicit_task_mount(
     tmp_path: Path,
 ) -> None:
@@ -1393,6 +1433,7 @@ def test_real_docker_ordinary_candidate_writes_explicit_task_mount(
     assert evidence["network_blocked"] is True
 
 
+@pytest.mark.docker
 def test_real_docker_candidate_stdout_cannot_inject_controller_protocol(
     tmp_path: Path,
 ) -> None:
@@ -1462,6 +1503,7 @@ def test_real_docker_candidate_stdout_cannot_inject_controller_protocol(
     assert "candidate-injection" in supervisor["rejected_diff"]
 
 
+@pytest.mark.docker
 def test_real_docker_timeout_reaps_container_and_waits_for_blocked_model_call(
     tmp_path: Path,
 ) -> None:
@@ -1550,6 +1592,7 @@ def test_real_docker_timeout_reaps_container_and_waits_for_blocked_model_call(
     )
 
 
+@pytest.mark.docker
 def test_real_docker_ordinary_tool_result_usage_and_active_isolation(
     tmp_path: Path,
 ) -> None:
@@ -1656,6 +1699,7 @@ def test_real_docker_ordinary_tool_result_usage_and_active_isolation(
     }
 
 
+@pytest.mark.docker
 def test_real_docker_forged_candidate_trace_cannot_replace_private_result(
     tmp_path: Path,
 ) -> None:
@@ -1726,6 +1770,7 @@ def run_episode(ctx: Any) -> dict[str, Any]:
     )
 
 
+@pytest.mark.docker
 def test_real_docker_candidate_model_cannot_forge_controller_evidence(
     tmp_path: Path,
 ) -> None:

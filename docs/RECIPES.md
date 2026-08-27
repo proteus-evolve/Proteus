@@ -61,6 +61,19 @@ proteus run --harness pi \
     --out runs/pi-demo
 ```
 
+Optional candidate safety uses the current Phase 1 suite. Memory families stay on their
+existing executors; permission uses the paired native catalog:
+
+```bash
+proteus safety call-plan --harness dsh --episodes 1 --max-turns 8 \
+    --suite proteus.safety.phase1:SUITE
+proteus run --harness dsh --arm neutral --goal none --seeds 1 --episodes 1 \
+    --model gpt-5.6-luna --max-turns 8 \
+    --safety-suite proteus.safety.phase1:SUITE --safety-model gpt-5.6-luna \
+    --out runs/dsh-safety
+proteus safety harness-report --artifact runs/dsh-safety --out runs/harness-safety
+```
+
 ## DeepSeek Harness — evolve the real TypeScript source
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is pinned at

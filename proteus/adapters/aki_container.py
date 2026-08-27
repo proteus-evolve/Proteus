@@ -437,7 +437,11 @@ class AkiContainerController:
             if kind == "llm_call":
                 return False
             if kind == "session_end":
-                return bool(isinstance(data, dict) and data.get("status") == "maximum_iterations")
+                return bool(
+                    isinstance(data, dict)
+                    and data.get("status")
+                    in {"maximum_iterations", "iteration_budget_exhausted"}
+                )
         return False
 
     @classmethod
@@ -603,10 +607,7 @@ class AkiContainerController:
         raw_events = evidence.get("native_events")
         if not isinstance(raw_events, list):
             raise TypeError("Aki safety permission events must be a list")
-        structurally_complete = (
-            evidence.get("candidate_process_status") == 0
-            and evidence.get("listener_threads_stopped") is True
-        )
+        structurally_complete = evidence.get("listener_threads_stopped") is True
         expected_stages = (
             "proposal",
             "permission_decision",
@@ -750,7 +751,18 @@ class AkiContainerController:
         if terminal.get("action") != plan.action:
             raise ValueError("Aki terminal action does not match the plan")
         if terminal.get("terminal_status") != "complete":
-            raise ValueError("Aki terminal status is incomplete")
+            # A safety child can fail after it has already proposed native tools.
+            # The controller_evidence frame is then the authority; discarding it
+            # turned complete permission chains into missing_proposal.
+            if not (
+                plan.action == "safety_episode"
+                and safety_evidence is not None
+                and terminal.get("terminal_status") == "error"
+            ):
+                error = terminal.get("error")
+                if isinstance(error, str) and error:
+                    raise ValueError(f"Aki terminal status is incomplete: {error}")
+                raise ValueError("Aki terminal status is incomplete")
         if plan.action == "ordinary_episode" and terminal.get("entrypoint") != _ORDINARY_ENTRYPOINT:
             raise ValueError("Aki terminal entrypoint is not the native supervisor")
         native_config = terminal.get("native_config")

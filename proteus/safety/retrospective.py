@@ -13,13 +13,21 @@ from proteus.core import snapshot
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import ProbeEndpoint, ProbeObservation
 from proteus.safety.live import LiveModelChannel
-from proteus.safety.phase1 import SUITE
+from proteus.safety.permission_adapter import PermissionPolicyAdapter
+from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
+from proteus.safety.permission_executor import (
+    PairedPermissionPolicyExecutor,
+    PermissionSnapshotSource,
+    TransitionPermissionRequest,
+)
+from proteus.safety.phase1 import SUITE, TOOLS_PERMISSION_DRIFT
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.publication import (
     AtomicRetrospectivePublication,
     write_json,
 )
+from proteus.safety.reporting import PermissionCaseDenominators, denominators_from_family
 from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord, RuntimeKind
 from proteus.safety.taxonomy import SafetyCaseFamilyDefinition, SafetyStatus
 from proteus.sweep import read_seed_records
@@ -55,6 +63,7 @@ class RetrospectiveSummary:
     transitions_not_evaluated: int
     transitions_errors: int
     family_outcomes: Mapping[str, Mapping[str, int]]
+    permission_denominators: PermissionCaseDenominators
     manifest_ref: str
     complete: bool
 
@@ -88,6 +97,57 @@ class _ArchiveInventory:
             self.checkpoint_pairs_seen == self.checkpoint_pairs_expected
             and not self.source_issues
         )
+
+
+def _permission_adapter_for(adapter) -> PermissionPolicyAdapter:
+    method = getattr(adapter, "permission_policy_adapter", None)
+    if not callable(method):
+        raise TypeError(
+            f"retrospective adapter {getattr(adapter, 'name', type(adapter).__name__)!r} "
+            "must implement permission_policy_adapter()"
+        )
+    permission_adapter = method()
+    if not isinstance(permission_adapter, PermissionPolicyAdapter):
+        raise TypeError(
+            "adapter permission_policy_adapter() does not implement PermissionPolicyAdapter"
+        )
+    return permission_adapter
+
+
+def _empty_permission_denominators() -> PermissionCaseDenominators:
+    return PermissionCaseDenominators(
+        family_id=TOOLS_PERMISSION_DRIFT.family_id,
+        family_version="2",
+        attempted=0,
+        supported=0,
+        administered=0,
+        evaluated=0,
+        passed=0,
+        failed=0,
+        baseline_failure=0,
+        not_evaluated=0,
+        invalid=0,
+        error=0,
+    )
+
+
+def _add_permission_denominators(
+    left: PermissionCaseDenominators, right: PermissionCaseDenominators
+) -> PermissionCaseDenominators:
+    return PermissionCaseDenominators(
+        family_id=left.family_id,
+        family_version=left.family_version,
+        attempted=left.attempted + right.attempted,
+        supported=left.supported + right.supported,
+        administered=left.administered + right.administered,
+        evaluated=left.evaluated + right.evaluated,
+        passed=left.passed + right.passed,
+        failed=left.failed + right.failed,
+        baseline_failure=left.baseline_failure + right.baseline_failure,
+        not_evaluated=left.not_evaluated + right.not_evaluated,
+        invalid=left.invalid + right.invalid,
+        error=left.error + right.error,
+    )
 
 
 def _runtime_for(adapter) -> HarnessSafetyRuntime:
@@ -439,6 +499,7 @@ def run_retrospective_phase1(
         if definition.family_id in PHASE1_EXECUTORS
     )
     runtime = _runtime_for(adapter)
+    permission_adapter = _permission_adapter_for(adapter)
     if runtime.kind is RuntimeKind.MODEL_MEDIATED and model_config is None:
         raise ValueError("model-mediated retrospective replay requires live model config")
     if runtime.kind is RuntimeKind.DETERMINISTIC and model_config is not None:
@@ -449,6 +510,8 @@ def run_retrospective_phase1(
     family_denominators: dict[str, defaultdict[str, int]] = {
         definition.family_id: defaultdict(int) for definition in definitions
     }
+    permission_denominators = _empty_permission_denominators()
+    permission_executor = PairedPermissionPolicyExecutor()
     attempted = 0
     administered = 0
     evaluated = 0
@@ -465,6 +528,13 @@ def run_retrospective_phase1(
             channel_factory = model_config.build_channel_factory(staging)
             if not callable(channel_factory):
                 raise TypeError("retrospective live channel factory builder returned non-callable")
+
+        def permission_channel_factory(model_name: str, cell_id: str, cap: int):
+            del cap
+            if channel_factory is None:
+                return None
+            return channel_factory(model_name, cell_id)
+
         for transition in transitions:
             record = transition.record
             transition_root = (
@@ -517,6 +587,44 @@ def run_retrospective_phase1(
                                 family_denominators[definition.family_id]["errors"] += 1
                                 transition_errors += 1
                 terminal["families"][definition.family_id] = family
+            permission_root = transition_root / "families" / TOOLS_PERMISSION_DRIFT.family_id
+            active_source = transition_root / "permission-sources" / "active" / "harness"
+            candidate_source = transition_root / "permission-sources" / "candidate" / "harness"
+            source_root = transition.run_root / "harness"
+            active_commit = snapshot.commit_for_episode(source_root, record.active.episode)
+            candidate_commit = snapshot.commit_for_episode(
+                source_root, record.candidate.episode
+            )
+            if active_commit is None or candidate_commit is None:
+                raise ValueError("missing preserved permission checkpoint")
+            snapshot.materialize(source_root, active_commit, active_source)
+            snapshot.materialize(source_root, candidate_commit, candidate_source)
+            permission = permission_executor.execute(
+                TransitionPermissionRequest(
+                    active=PermissionSnapshotSource(record.active, active_source),
+                    candidate=PermissionSnapshotSource(record.candidate, candidate_source),
+                    case_specs=PERMISSION_CASE_SPECS,
+                    adapter=permission_adapter,
+                    artifact_root=transition_root,
+                    safety_model=model,
+                    channel_factory=(
+                        permission_channel_factory if channel_factory is not None else None
+                    ),
+                )
+            )
+            permission_denominators = _add_permission_denominators(
+                permission_denominators, denominators_from_family(permission)
+            )
+            terminal["families"][TOOLS_PERMISSION_DRIFT.family_id] = {
+                "family_id": permission.family_id,
+                "family_version": permission.family_version,
+                "schema_version": permission.schema_version,
+                "comparison_status": permission.comparison_status.value,
+                "validity": permission.validity.value,
+                "terminal_status": permission.terminal_status.value,
+                "blockers": list(permission.blockers),
+                "cases": permission_root.as_posix(),
+            }
             expected_observations = len(definitions) * 2
             if (
                 len(transition_observations) == expected_observations
@@ -576,6 +684,20 @@ def run_retrospective_phase1(
                 "transitions_errors": errors,
                 "family_outcomes": frozen_outcomes,
                 "family_denominators": frozen_family_denominators,
+                "permission_denominators": {
+                    "family_id": permission_denominators.family_id,
+                    "family_version": permission_denominators.family_version,
+                    "attempted": permission_denominators.attempted,
+                    "supported": permission_denominators.supported,
+                    "administered": permission_denominators.administered,
+                    "evaluated": permission_denominators.evaluated,
+                    "passed": permission_denominators.passed,
+                    "failed": permission_denominators.failed,
+                    "baseline_failure": permission_denominators.baseline_failure,
+                    "not_evaluated": permission_denominators.not_evaluated,
+                    "invalid": permission_denominators.invalid,
+                    "error": permission_denominators.error,
+                },
                 "denominator_semantics": {
                     "attempted": "scheduled executor invocations or transitions",
                     "administered": "all required native-boundary observations administered",
@@ -599,6 +721,7 @@ def run_retrospective_phase1(
         transitions_not_evaluated=not_evaluated,
         transitions_errors=errors,
         family_outcomes={family: dict(statuses) for family, statuses in outcomes.items()},
+        permission_denominators=permission_denominators,
         manifest_ref=manifest_ref,
         complete=inventory.complete,
     )

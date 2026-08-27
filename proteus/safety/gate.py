@@ -15,7 +15,8 @@ from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint, ProbeObservation
 from proteus.safety.indicators import MatchedFamilyObservations, derive_indicator_profile
 from proteus.safety.live import LiveModelChannel
-from proteus.safety.permission_adapter import PermissionPolicyAdapter
+from proteus.safety.permission_adapter import PermissionPolicyAdapter, PermissionSnapshotContext
+from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
 from proteus.safety.permission_evidence import (
     CanaryObservation,
     NativeAttemptResult,
@@ -652,6 +653,52 @@ class GateRunner:
             artifact_root=artifact_root,
         )
 
+    def _write_permission_preflight(
+        self,
+        *,
+        adapter: PermissionPolicyAdapter,
+        context: CandidateGateContext,
+        staging: Path,
+    ) -> None:
+        supported: list[str] = []
+        unsupported: list[str] = []
+        for case_spec in PERMISSION_CASE_SPECS:
+            for snapshot, source in (
+                (context.active, context.active_root),
+                (context.candidate, context.candidate_root),
+            ):
+                snapshot_context = PermissionSnapshotContext(
+                    snapshot=snapshot,
+                    snapshot_root=source,
+                    trial_root=staging / "preflight-trials" / snapshot.role.value,
+                    evidence_dir=staging / "preflight-trials" / snapshot.role.value / "raw",
+                    artifact_root=staging,
+                )
+                capability = adapter.capability(case_spec, snapshot_context)
+                if capability.state.value == "supported":
+                    if case_spec.case_id not in supported:
+                        supported.append(case_spec.case_id)
+                elif case_spec.case_id not in unsupported:
+                    unsupported.append(case_spec.case_id)
+        payload = {
+            "suite_module": "proteus.safety.tools_permission_drift",
+            "suite_version": "2",
+            "family_id": TOOLS_PERMISSION_DRIFT.family_id,
+            "family_version": "2",
+            "schema_version": "2",
+            "adapter": adapter.name,
+            "runtime": adapter.kind.value,
+            "requested_model": self._safety_model,
+            "observed_models": (self._safety_model,) if self._safety_model else (),
+            "supported_case_ids": tuple(supported),
+            "unsupported_case_ids": tuple(unsupported),
+            "harness": getattr(self._adapter, "name", adapter.name),
+        }
+        write_json(
+            self._controller_root / "preflight" / "tools_permission_drift.json", payload
+        )
+        write_json(staging / "preflight" / "tools_permission_drift.json", payload)
+
     def evaluate(self, context: CandidateGateContext) -> CandidateGateResult:
         final_root = (
             self._controller_root
@@ -708,6 +755,11 @@ class GateRunner:
                 )
             permission_adapter = self._permission_adapter or _permission_adapter_for(
                 self._adapter
+            )
+            self._write_permission_preflight(
+                adapter=permission_adapter,
+                context=context,
+                staging=staging,
             )
 
             def permission_channel_factory(model: str, cell_id: str, cap: int):

@@ -632,41 +632,24 @@ def _dsh_permission_context(tmp_path: Path) -> PermissionSnapshotContext:
     )
 
 
-def test_dsh_declares_only_three_native_permission_routes(tmp_path: Path) -> None:
+def test_dsh_declares_all_six_ordinary_bash_routes(tmp_path: Path) -> None:
     adapter = DshHarness(sandbox=object()).permission_policy_adapter()
     context = _dsh_permission_context(tmp_path)
     capabilities = {
         case.case_id: adapter.capability(case, context)
         for case in PERMISSION_CASE_SPECS
     }
+    supported = {case.case_id for case in PERMISSION_CASE_SPECS}
 
-    assert adapter.declared_supported_case_ids == frozenset(
-        {"recursive_deletion", "protected_overwrite", "workspace_boundary"}
-    )
+    assert adapter.declared_supported_case_ids == supported
     assert {
         case_id
         for case_id, capability in capabilities.items()
         if capability.state is PermissionCapabilityState.SUPPORTED
-    } == {"recursive_deletion", "protected_overwrite", "workspace_boundary"}
-    assert all(
-        capabilities[case_id].missing_requirement
-        == "verified_native_permission_route_unavailable"
-        for case_id in (
-            "policy_mutation",
-            "tool_skill_capability_minting",
-            "command_execution",
-        )
-    )
+    } == supported
     assert {
         case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS
-    } == {
-        "recursive_deletion": 2,
-        "protected_overwrite": 2,
-        "policy_mutation": 0,
-        "tool_skill_capability_minting": 0,
-        "workspace_boundary": 2,
-        "command_execution": 0,
-    }
+    } == {case.case_id: 2 for case in PERMISSION_CASE_SPECS}
 
 
 def test_dsh_binding_preserves_operation_class_arguments_and_canaries(
@@ -1777,10 +1760,9 @@ def test_dsh_mount_or_missing_effect_without_native_policy_is_not_evaluated(
         sandbox=DshPermissionSandbox(missing_policy=True, missing_effect=True),
     )
 
-    assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert result.comparison_status is PermissionComparisonStatus.BASELINE_FAILURE
     assert result.validity is PermissionEvidenceValidity.VALID
     assert result.active_allowed is not None
-    assert result.active_allowed.decision is None
     assert result.active_allowed.canary is not None
     assert result.active_allowed.canary.observed
     assert not result.active_allowed.canary.effect_committed

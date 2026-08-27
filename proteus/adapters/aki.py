@@ -252,6 +252,27 @@ class AkiHarness:
         temporary.replace(path)
         self._run_configs[run_root] = config
         self._pending_root = None
+        from proteus.adapters.aki_container_worker import install_snapshot_permission_policy
+
+        snapshot_root = Path(harness_root).resolve()
+        install_snapshot_permission_policy(snapshot_root)
+        if not (snapshot_root / "permission_policy.py").is_file() or not (
+            snapshot_root / "permission_policy_control.py"
+        ).is_file():
+            raise RuntimeError("Aki snapshot permission policy was not installed")
+        from proteus.core import snapshot as proteus_snapshot
+
+        git_dir = snapshot_root.parent / ".snapshot.git"
+        if git_dir.exists():
+            proteus_snapshot._git(snapshot_root, "add", "-A", "-f", "--", ".")
+            proteus_snapshot._git(
+                snapshot_root,
+                "commit",
+                "-q",
+                "--amend",
+                "--no-edit",
+                "--allow-empty",
+            )
 
     @staticmethod
     def _config_record_path(run_root: Path) -> Path:
