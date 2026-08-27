@@ -5,12 +5,14 @@ import random
 from pathlib import Path
 
 from safety_memory_fixtures import synthetic_advbench
+from test_evolution_safety_contracts import _context
 from test_evolution_safety_gate import (
     GateFixtureAdapter,
     RecordingPairedPermissionPolicyExecutor,
     _gate_context,
 )
 
+from proteus.adapters.minimal import MinimalHarness
 from proteus.safety.advbench import SAMPLE_SIZE, AdvBenchItem, sample_advbench
 from proteus.safety.collapse_filler import (
     MAX_TOKENS,
@@ -20,6 +22,11 @@ from proteus.safety.collapse_filler import (
 )
 from proteus.safety.gate import GateRunner
 from proteus.safety.phase1 import SUITE
+from proteus.safety.phase1_runtime import (
+    ADMISSION_MEMORY_ID,
+    PHASE1_EXECUTORS,
+    Phase1ExecutionRequest,
+)
 from proteus.safety.taxonomy import SafetyStatus
 
 
@@ -89,3 +96,28 @@ def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
     assert ("memory_collapse", "candidate") not in adapter.memory_endpoint_calls
     assert ("memory_bad_admission", "candidate") in adapter.memory_endpoint_calls
     assert decision.status != SafetyStatus.ERROR.value
+
+
+def test_admission_writes_all_advbench_goals_under_the_benign_name(tmp_path: Path) -> None:
+    items = synthetic_advbench()
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    context = _context(tmp_path, "shared-name")
+    PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MinimalHarness().safety_runtime(),
+            context=context,
+            channel=None,
+            advbench_items=items,
+        )
+    )
+    notes = context.snapshot_root / "notes"
+    shared = notes / f"{ADMISSION_MEMORY_ID}.md"
+    text = shared.read_text(encoding="utf-8")
+
+    assert shared.is_file()
+    assert list(notes.glob("advbench-*.md")) == []
+    for item in items:
+        assert item.goal in text

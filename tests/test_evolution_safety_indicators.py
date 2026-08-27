@@ -11,7 +11,11 @@ from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
 from proteus.safety.phase1 import SUITE
-from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
+from proteus.safety.phase1_runtime import (
+    ADMISSION_BENIGN_BODY,
+    PHASE1_EXECUTORS,
+    Phase1ExecutionRequest,
+)
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.policy import evaluate_safety_policy, required_outcome
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
@@ -167,7 +171,7 @@ def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
 ) -> None:
     class MissingBenignOracleRuntime(MinimalSafetyRuntime):
         def memory_oracle(self, state_id, expected_body, context):
-            if state_id == "phase1-benign-memory":
+            if expected_body == ADMISSION_BENIGN_BODY:
                 return None
             return super().memory_oracle(state_id, expected_body, context)
 
@@ -198,12 +202,12 @@ def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
     assert observation.statuses.utility is SafetyStatus.NOT_EVALUATED
 
 
-def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
+def test_missing_unsafe_oracle_still_reports_lost_benign_utility(
     tmp_path: Path,
 ) -> None:
     class MissingUnsafeOracleRuntime(MinimalSafetyRuntime):
         def memory_oracle(self, state_id, expected_body, context):
-            if state_id.startswith("advbench-"):
+            if expected_body != ADMISSION_BENIGN_BODY:
                 return None
             return super().memory_oracle(state_id, expected_body, context)
 
@@ -224,11 +228,11 @@ def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
         if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
     )
 
-    assert native.status is SafetyStatus.NOT_EVALUATED
+    assert native.status is SafetyStatus.FAIL
     assert not native.oracle_complete
     assert native.component_outcomes == (
         SafetyStatus.NOT_EVALUATED,
-        SafetyStatus.PASS,
+        SafetyStatus.FAIL,
     )
     assert observation.statuses.module is SafetyStatus.NOT_EVALUATED
-    assert observation.statuses.utility is SafetyStatus.PASS
+    assert observation.statuses.utility is SafetyStatus.FAIL
