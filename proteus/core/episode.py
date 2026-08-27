@@ -383,6 +383,7 @@ def _evaluate_checkpoint_safety(
     """Audit one durable checkpoint while isolating controller-level failure."""
     if cfg.safety_runner is None:
         return None
+    legacy_mode = False
     try:
         evaluate_checkpoint = getattr(cfg.safety_runner, "evaluate_checkpoint", None)
         if callable(evaluate_checkpoint):
@@ -400,6 +401,7 @@ def _evaluate_checkpoint_safety(
         evaluate_settled = getattr(cfg.safety_runner, "evaluate_settled_episode", None)
         if not callable(evaluate_settled):
             raise TypeError("safety runner has no settled checkpoint evaluator")
+        legacy_mode = True
         with TemporaryDirectory(prefix="proteus-settled-safety-") as temporary:
             snapshot_root = Path(temporary) / "settled"
             snapshot.materialize(harness, checkpoint_commit, snapshot_root)
@@ -414,10 +416,22 @@ def _evaluate_checkpoint_safety(
                 snapshot_commit=checkpoint_commit,
                 episodes_target=cfg.episodes,
             ))
-        if not isinstance(getattr(legacy, "decision_ref", None), str):
-            raise TypeError("post-episode safety runner returned no artifact reference")
-        return SimpleNamespace(artifact_ref=legacy.decision_ref, complete=True)
+        status = getattr(legacy, "status", None)
+        decision_ref = getattr(legacy, "decision_ref", None)
+        if not isinstance(status, str) or not isinstance(decision_ref, str):
+            raise TypeError("post-episode safety runner returned malformed metadata")
+        return SimpleNamespace(
+            artifact_ref=decision_ref,
+            complete=True,
+            legacy_status=status,
+        )
     except Exception as exc:  # noqa: BLE001 - safety never stops ordinary evolution
+        if legacy_mode:
+            return SimpleNamespace(
+                artifact_ref="",
+                complete=False,
+                legacy_status="error",
+            )
         return _controller_error_record(
             cfg.safety_runner,
             run_id=run_id,
@@ -439,6 +453,43 @@ def _attach_safety(row: dict, record) -> None:
         return
     row["safety_ref"] = artifact_ref
     row["safety_complete"] = complete
+    legacy_status = getattr(record, "legacy_status", None)
+    if isinstance(legacy_status, str):
+        row["safety_status"] = legacy_status
+
+
+def _initialize_legacy_safety_baseline(
+    cfg: RunConfig,
+    *,
+    run_id: str,
+    harness: Path,
+) -> None:
+    """Initialize W_0 only for the retained runner that owns legacy baseline artifacts."""
+    if cfg.safety_runner is None:
+        return
+    if callable(getattr(cfg.safety_runner, "evaluate_checkpoint", None)):
+        return
+    if not callable(getattr(cfg.safety_runner, "evaluate_settled_episode", None)):
+        return
+    has_baseline = getattr(cfg.safety_runner, "has_baseline", None)
+    if not callable(has_baseline):
+        return
+    try:
+        if has_baseline(run_id):
+            return
+    except Exception:  # noqa: BLE001 - safety initialization never stops evolution
+        return
+    checkpoint_commit = snapshot.commit_for_episode(harness, 0)
+    if checkpoint_commit is None:
+        return
+    _evaluate_checkpoint_safety(
+        cfg,
+        run_id=run_id,
+        harness=harness,
+        episode=0,
+        checkpoint_commit=checkpoint_commit,
+        trace=(),
+    )
 
 
 def _reconcile_checkpoint_safety(
@@ -665,6 +716,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     done = start
     last_checkpoint = snapshot.head(harness)  # gapless episode mapping, including rollbacks
     last_accepted = last_checkpoint            # same valid tree at start/resume
+    _initialize_legacy_safety_baseline(cfg, run_id=run_id, harness=harness)
     reconciled_safety = _reconcile_checkpoint_safety(
         cfg,
         run_id=run_id,

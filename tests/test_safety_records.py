@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from proteus.safety.records import (
-    EpisodeSafetyRecord,
     FamilyExecutionRecord,
     SafetyExecutionStatus,
     SettledEpisodeSafetyContext,
