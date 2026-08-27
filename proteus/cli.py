@@ -61,9 +61,6 @@ def _candidate_gate_factory(
         safety_model=args.safety_model,
         controller_root=controller_root,
         channel_factory=channel_factory,
-        # Live safety episodes re-enter the harness loop and can abort the measured
-        # trajectory. In-loop Phase 1 stays native/canary; live cells are retrospective.
-        run_live_episodes=False,
         collapse_episodes=_collapse_episodes(args),
     )
 

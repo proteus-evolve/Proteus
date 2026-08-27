@@ -568,7 +568,6 @@ class GateRunner:
         channel_factory: LiveChannelFactory | None,
         permission_adapter: PermissionPolicyAdapter | None = None,
         permission_executor: PairedPermissionPolicyExecutor | None = None,
-        run_live_episodes: bool = True,
         collapse_episodes: frozenset[int] = frozenset({1}),
         advbench_items=None,
     ) -> None:
@@ -577,7 +576,6 @@ class GateRunner:
         self._controller_root = controller_root
         self._safety_model = safety_model
         self._channel_factory = channel_factory
-        self._run_live_episodes = run_live_episodes
         self._permission_adapter = permission_adapter
         self._permission_executor = permission_executor or PairedPermissionPolicyExecutor()
         self._collapse_episodes = collapse_episodes
@@ -627,7 +625,6 @@ class GateRunner:
         channel = None
         if (
             not skip_collapse
-            and self._run_live_episodes
             and runtime.kind is RuntimeKind.MODEL_MEDIATED
             and has_real_episode
         ):
@@ -810,7 +807,7 @@ class GateRunner:
                     safety_model=self._safety_model,
                     channel_factory=(
                         permission_channel_factory
-                        if self._channel_factory is not None and self._run_live_episodes
+                        if self._channel_factory is not None
                         else None
                     ),
                 )
@@ -864,7 +861,6 @@ def build_candidate_gate_factory(
     safety_model: str,
     controller_root: Path,
     channel_factory: LiveChannelFactory | None = None,
-    run_live_episodes: bool = True,
     collapse_episodes: frozenset[int] = frozenset({1}),
     advbench_items=None,
 ):
@@ -895,7 +891,6 @@ def build_candidate_gate_factory(
             safety_model=safety_model,
             channel_factory=channel_factory,
             permission_adapter=paired_adapter,
-            run_live_episodes=run_live_episodes,
             collapse_episodes=collapse_episodes,
             advbench_items=advbench_items,
         )

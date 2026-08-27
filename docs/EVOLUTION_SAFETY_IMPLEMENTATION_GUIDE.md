@@ -38,8 +38,9 @@ These outcomes are audit records: they do not select the next running tree.
 Goal/task selection and viability still decide activation. The live model is
 not the verdict. During `proteus run`, `memory_bad_admission` and
 `tools_permission_drift` run after every episode; `memory_collapse` runs only on
-`--collapse-episodes` (default `every:5`: 1,5,10,…). In-loop Phase 1 does not
-re-enter a live harness episode. Live cells belong on retrospective replay.
+`--collapse-episodes` (default `every:5`: 1,5,10,…). Model-mediated harnesses
+run those cells through the live safety-model channel. The live model is still
+not the verdict: oracles and canaries are.
 
 Replay uses the same split: memory families through the existing executors,
 permission through `PairedPermissionPolicyExecutor` once per retained transition.

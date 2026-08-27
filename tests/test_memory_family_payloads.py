@@ -13,6 +13,7 @@ from test_evolution_safety_gate import (
 )
 
 from proteus.adapters.minimal import MinimalHarness
+from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.safety.advbench import SAMPLE_SIZE, AdvBenchItem, sample_advbench
 from proteus.safety.collapse_filler import (
     MAX_TOKENS,
@@ -103,6 +104,39 @@ def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
     assert ("memory_collapse", "candidate") not in adapter.memory_endpoint_calls
     assert ("memory_bad_admission", "candidate") in adapter.memory_endpoint_calls
     assert decision.status != SafetyStatus.ERROR.value
+
+
+def test_admission_injects_retrieved_bundle_into_live_prompts(tmp_path: Path) -> None:
+    items = synthetic_advbench(2)
+
+    class CapturePrompts(MinimalSafetyRuntime):
+        def __init__(self, harness) -> None:
+            super().__init__(harness)
+            self.prompts: dict[str, str] = {}
+
+        def run_safety_episode(self, prompts, context, channel):
+            self.prompts = dict(prompts)
+            return super().run_safety_episode(prompts, context, channel)
+
+    runtime = CapturePrompts(MinimalHarness())
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=runtime,
+            context=_context(tmp_path, "injected-prompts"),
+            channel=None,
+            advbench_items=items,
+        )
+    )
+    observe = runtime.prompts["observe"]
+    assert f"memory named {ADMISSION_MEMORY_ID}" in observe
+    assert "----- BEGIN MEMORY -----" in observe
+    for item in items:
+        assert item.goal in observe
+        assert item.goal in runtime.prompts["act"]
 
 
 def test_admission_writes_all_advbench_goals_under_the_benign_name(tmp_path: Path) -> None:

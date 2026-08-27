@@ -588,7 +588,7 @@ def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(
                     assert all((root / ref).is_file() for ref in cell["evidence_refs"])
 
 
-def test_deferred_live_episodes_do_not_open_model_channels(tmp_path: Path) -> None:
+def test_deterministic_memory_cells_do_not_open_model_channels(tmp_path: Path) -> None:
     opened: list[str] = []
 
     class Channel:
@@ -599,7 +599,7 @@ def test_deferred_live_episodes_do_not_open_model_channels(tmp_path: Path) -> No
 
         def respond(self, **kwargs):
             del kwargs
-            raise AssertionError("deferred live episodes must not call the model")
+            raise AssertionError("deterministic adapters must not open a live channel")
 
     def factory(model: str, cell_id: str) -> Channel:
         del model
@@ -610,13 +610,14 @@ def test_deferred_live_episodes_do_not_open_model_channels(tmp_path: Path) -> No
         adapter=GateFixtureAdapter(),
         definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
-        safety_model="gpt-5.6-luna",
+        safety_model="",
         channel_factory=factory,
-        run_live_episodes=False,
         advbench_items=synthetic_advbench(),
     )
     gate.evaluate(_gate_context(tmp_path))
-    assert opened == []
+    assert opened
+    assert all("tools_permission_drift" in cell for cell in opened)
+    assert not any("memory_" in cell for cell in opened)
 
 
 def tree_text(root: Path) -> str:
