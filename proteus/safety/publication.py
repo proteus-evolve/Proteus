@@ -1,4 +1,4 @@
-"""Atomic publication for one activation-safety gate attempt."""
+"""Atomic publication for controller-owned safety artifacts."""
 
 from __future__ import annotations
 
@@ -10,14 +10,16 @@ from enum import Enum
 from pathlib import Path
 
 
-class AtomicGatePublication:
-    def __init__(self, final_root: Path, *, label: str = "safety gate") -> None:
+class AtomicSafetyPublication:
+    """Publish one complete safety artifact tree with an atomic rename."""
+
+    def __init__(self, final_root: Path, *, label: str = "safety artifact") -> None:
         self.final_root = Path(final_root)
         self._label = label
         self.staging_root: Path | None = None
         self._published = False
 
-    def __enter__(self) -> AtomicGatePublication:  # noqa: PYI034 - Python 3.10 support
+    def __enter__(self) -> AtomicSafetyPublication:  # noqa: PYI034 - Python 3.10 support
         if self.final_root.exists():
             raise FileExistsError(f"{self._label} already exists: {self.final_root}")
         parent = self.final_root.parent
@@ -45,7 +47,14 @@ class AtomicGatePublication:
         return False
 
 
-class AtomicRetrospectivePublication(AtomicGatePublication):
+class AtomicGatePublication(AtomicSafetyPublication):
+    """Retain the publication name consumed by the legacy activation gate."""
+
+    def __init__(self, final_root: Path, *, label: str = "safety gate") -> None:
+        super().__init__(final_root, label=label)
+
+
+class AtomicRetrospectivePublication(AtomicSafetyPublication):
     """Publish one immutable-snapshot replay without sharing a gate namespace."""
 
     def __init__(self, final_root: Path) -> None:
