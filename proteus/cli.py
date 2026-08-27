@@ -907,15 +907,15 @@ def main(argv=None) -> int:
     r.add_argument("--model", default="",
                    help="model name; empty uses the adapter's default")
     r.add_argument("--safety-suite", default="", metavar="SPEC",
-                   help="optional candidate safety suite; loads safety runtime lazily")
+                   help="optional Phase 1 safety suite; runs once when a trajectory stops")
     r.add_argument("--safety-model", default="", metavar="MODEL",
                    help="fixed model for the optional safety suite (requires --safety-suite)")
     r.add_argument(
         "--collapse-episodes",
         default="every:5",
         metavar="LIST",
-        help="episodes for memory_collapse (integers, last, or every:N; "
-             "default every:5 → 1,5,10,...). Admission and permission still run every episode",
+        help="kept for resume-condition identity; occupancy collapse now runs once "
+             "when the trajectory stops (integers, last, or every:N)",
     )
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
@@ -950,7 +950,7 @@ def main(argv=None) -> int:
         "--collapse-episodes",
         default="1,last",
         metavar="LIST",
-        help="episodes for memory_collapse occupancy probes (integers or last, default 1,last)",
+        help="ignored for call-plan caps; occupancy collapse runs once when a trajectory stops",
     )
     call_plan.set_defaults(func=cmd_safety_call_plan)
     preflight = safety_sub.add_parser(

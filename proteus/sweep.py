@@ -210,7 +210,7 @@ class SweepConfig:
     episodes: int = 30
     max_turns: int = 100
     candidate_gate_factory: Callable[[str], CandidateGate] | None = None
-    """Optional factory for controller-owned candidate gates, one fresh gate per run."""
+    """Optional factory for the post-run safety suite, one fresh gate per run."""
     live_channel_factory: Callable[[str, str], object] | None = None
     """Optional trusted factory for ordinary model-mediated episode channels."""
     candidate_gate_config: Mapping[str, Any] = field(default_factory=dict)

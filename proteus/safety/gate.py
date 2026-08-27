@@ -1,4 +1,8 @@
-"""Declared-cell scheduling for controller-owned activation safety."""
+"""Declared-cell scheduling for controller-owned activation safety.
+
+`proteus run` calls ``evaluate_finished`` once after a trajectory stops. Direct
+``evaluate`` remains for unit tests and retrospective replay.
+"""
 
 from __future__ import annotations
 
@@ -47,6 +51,7 @@ from proteus.safety.phase1_runtime import (
     PHASE1_EXECUTORS,
     Phase1ExecutionRequest,
     skipped_memory_collapse,
+    skipped_memory_family,
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.policy import (
@@ -589,6 +594,8 @@ class GateRunner:
         context: CandidateGateContext,
         lineage: tuple[LogicalTransitionRecord, ...],
         artifact_root: Path,
+        skip: bool = False,
+        always_collapse: bool = False,
     ) -> ProbeObservation:
         source = (
             context.active_root
@@ -598,6 +605,51 @@ class GateRunner:
         snapshot = context.active if endpoint is ProbeEndpoint.ACTIVE else context.candidate
         trial_root = artifact_root / "trials" / definition.family_id / endpoint.value
         snapshot_root = trial_root / "harness"
+        runtime = _runtime_for(self._adapter)
+        skip_collapse = (
+            definition.family_id == "memory_collapse"
+            and not always_collapse
+            and context.episode not in self._collapse_episodes
+        )
+        if skip:
+            safety_context = CandidateSafetyContext(
+                run_id=context.run_id,
+                episode=context.episode,
+                adapter_name=self._adapter.name,
+                snapshot=snapshot,
+                snapshot_root=source,
+                trial_root=trial_root,
+                evidence_dir=trial_root / "raw-evidence",
+                events=context.events,
+                lineage=lineage,
+                artifact_root=artifact_root,
+                active_root=context.active_root,
+                goal_text=context.goal_text,
+            )
+            observation = skipped_memory_family(
+                Phase1ExecutionRequest(
+                    definition=definition,
+                    runtime=runtime,
+                    context=safety_context,
+                    channel=None,
+                    advbench_items=self._advbench_items,
+                ),
+                reason="finished_run",
+            )
+            validated = _validate_observation(
+                observation,
+                definition=definition,
+                snapshot=snapshot,
+                endpoint=endpoint,
+                runtime=runtime,
+                artifact_root=artifact_root,
+            )
+            return _project_cell_evidence(
+                validated,
+                definition=definition,
+                endpoint=endpoint,
+                artifact_root=artifact_root,
+            )
         shutil.copytree(source, snapshot_root)
         active_root = trial_root.parent / f".{endpoint.value}-logical-active" / "harness"
         shutil.copytree(context.active_root, active_root)
@@ -614,11 +666,6 @@ class GateRunner:
             artifact_root=artifact_root,
             active_root=active_root,
             goal_text=context.goal_text,
-        )
-        runtime = _runtime_for(self._adapter)
-        skip_collapse = (
-            definition.family_id == "memory_collapse"
-            and context.episode not in self._collapse_episodes
         )
         has_real_episode = any(
             cell.stratum.value == "real_episode" for cell in definition.declared_cells
@@ -726,7 +773,27 @@ class GateRunner:
         )
         write_json(staging / "preflight" / "tools_permission_drift.json", payload)
 
-    def evaluate(self, context: CandidateGateContext) -> CandidateGateResult:
+    def evaluate_finished(self, context: CandidateGateContext) -> CandidateGateResult:
+        """Probe the running tree once after evolution stops.
+
+        Memory families run on the finished snapshot only. Permission still compares
+        the episode-0 seed to that tree. Occupancy collapse always runs.
+        """
+        return self.evaluate(
+            context,
+            memory_endpoints=(ProbeEndpoint.CANDIDATE,),
+            always_collapse=True,
+        )
+
+    def evaluate(
+        self,
+        context: CandidateGateContext,
+        *,
+        memory_endpoints: tuple[ProbeEndpoint, ...] | None = None,
+        always_collapse: bool = False,
+    ) -> CandidateGateResult:
+        if memory_endpoints is None:
+            memory_endpoints = (ProbeEndpoint.ACTIVE, ProbeEndpoint.CANDIDATE)
         final_root = (
             self._controller_root
             / "safety-gates"
@@ -760,6 +827,8 @@ class GateRunner:
                     context=context,
                     lineage=lineage,
                     artifact_root=staging,
+                    skip=ProbeEndpoint.ACTIVE not in memory_endpoints,
+                    always_collapse=always_collapse,
                 )
                 candidate = self._collect_family(
                     definition=definition,
@@ -767,6 +836,8 @@ class GateRunner:
                     context=context,
                     lineage=lineage,
                     artifact_root=staging,
+                    skip=ProbeEndpoint.CANDIDATE not in memory_endpoints,
+                    always_collapse=always_collapse,
                 )
                 pair = MatchedFamilyObservations(
                     active, candidate, definition.family_version

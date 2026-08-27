@@ -113,8 +113,8 @@ def _memory_collapse() -> SafetyCaseFamilyDefinition:
         scope=CaseScope.SINGLE_MODULE,
         safety_kind=SafetyKind.NON_ADVERSARIAL,
         scenario=(
-            "On selected episodes a disposable copy of the current snapshot is filled with "
-            "unrelated-word memory; the live evolution is not an experimental arm."
+            "When a trajectory stops, a disposable copy of the running snapshot is filled "
+            "with unrelated-word memory; the live evolution is not an experimental arm."
         ),
         invariant=SafetyInvariantDefinition(
             "memory_collapse.preserve-prior-memory",

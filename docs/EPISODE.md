@@ -139,12 +139,12 @@ adapter's:
   not the episode — so a greedy observe cannot starve act. A budget stop records
   `turn_capped`, not an error: files already written
   persist, the episode snapshots normally, the run continues. `phase_timeout_s` remains
-  the wall-clock backstop. Optional `--safety-suite` runs controller-private candidate
-  gates after each ordinary episode: `memory_bad_admission` and `tools_permission_drift`
-  every episode, `memory_collapse` only on `--collapse-episodes` (default `every:5`,
-  so 1,5,10,15,20 on a 20-episode run). Outcomes are audit records and do not decide
-  activation. Goal/task selection still chooses the next running tree. Phase 1 memory
-  and permission cells use the live safety model when the harness is model-mediated.
+  the wall-clock backstop. Optional `--safety-suite` runs after the trajectory stops
+  (planned episode count or an earlier halt), once, on the running tree: admission
+  and occupancy collapse probe that finished snapshot; permission compares episode 0
+  to it. Outcomes are audit records and do not decide activation. Goal/task selection
+  still chooses the next running tree. Phase 1 memory and permission cells use the
+  live safety model when the harness is model-mediated.
   Permission comparisons never enter ordinary evolution prompts. With `announce_budget`, the agent is also *told* its budget
   in every phase prompt, so it can plan within it — off by default, because announcing
   changes behaviour, and recorded in the manifest. The phase-aware protocol below is the

@@ -58,7 +58,12 @@ def derive_builtin_live_call_plan(
     include_memory_families: bool = False,
     collapse_episode_count: int | None = None,
 ) -> LiveCallBudgetPlan:
-    """Derive whole-run ordinary/safety caps from current runtime contracts."""
+    """Derive whole-run ordinary/safety caps from current runtime contracts.
+
+    Ordinary caps scale with episode count. Safety caps do not: the suite runs once
+    when a trajectory stops. ``collapse_episode_count`` is accepted for callers and
+    ignored.
+    """
     if type(episodes) is not int or episodes < 1:
         raise ValueError("live call plan episodes must be a positive integer")
     if type(ordinary_hard_limit) is not int or ordinary_hard_limit < 0:
@@ -78,19 +83,14 @@ def derive_builtin_live_call_plan(
         ordinary = ordinary_hard_limit * episodes
     else:
         raise ValueError(f"unsupported live-call plan harness: {harness}")
+    del collapse_episode_count
     permission_calls = 8 if name in {"aki", "pi"} else 2
-    safety = permission_supported_cases * 2 * permission_calls * episodes
+    # Phase 1 runs once when a trajectory stops, not on every candidate.
+    safety = permission_supported_cases * 2 * permission_calls
     if include_memory_families:
-        # Bad admission: two endpoints every episode. Collapse: two endpoints on
-        # selected episodes only (default 1 and last).
         memory_calls = 16 if name in {"pi", "aki"} else 8
-        collapse_n = collapse_episode_count
-        if collapse_n is None:
-            collapse_n = 1 if episodes <= 1 else 2
-        if type(collapse_n) is not int or collapse_n < 0 or collapse_n > episodes:
-            raise ValueError("collapse episode count must fall within the run")
-        safety += 2 * memory_calls * episodes
-        safety += 2 * memory_calls * collapse_n
+        # One finished-run probe of the running tree: admission + occupancy collapse.
+        safety += 2 * memory_calls
     return LiveCallBudgetPlan(name, ordinary, safety)
 
 

@@ -556,6 +556,39 @@ def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(
     assert not (root / "families/tools_permission_drift/active.json").exists()
     assert not (root / "families/tools_permission_drift/candidate.json").exists()
 
+
+def test_finished_run_probes_memory_on_the_running_tree_only(tmp_path: Path) -> None:
+    adapter = GateFixtureAdapter()
+    executor = RecordingPairedPermissionPolicyExecutor()
+    gate = GateRunner(
+        adapter=adapter,
+        definitions=SUITE.definitions(),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=executor,
+        collapse_episodes=frozenset({9}),
+        advbench_items=synthetic_advbench(),
+    )
+
+    decision = gate.evaluate_finished(_gate_context(tmp_path))
+    root = (tmp_path / "controller" / decision.decision_ref).parent
+    active_admission = json.loads(
+        (root / "families" / "memory_bad_admission" / "active.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert executor.execute_calls == 1
+    assert adapter.memory_endpoint_calls == {
+        ("memory_bad_admission", "candidate"),
+        ("memory_collapse", "candidate"),
+    }
+    assert active_admission["reason"] == "finished_run"
+    assert "episode_not_selected" not in (
+        root / "families" / "memory_collapse" / "candidate.json"
+    ).read_text(encoding="utf-8")
+
     published = [
         json.loads(line)
         for line in (root / "results.jsonl").read_text(encoding="utf-8").splitlines()

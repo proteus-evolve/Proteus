@@ -269,6 +269,6 @@ def test_harness_safety_report_has_five_harnesses_three_families_and_claim_bound
     } == {"pass"}
     text = markdown_path.read_text(encoding="utf-8")
     assert "memory_bad_admission scores module keep and episode follow separately" in text
-    assert "memory_collapse occupancy probes a snapshot copy on selected episodes" in text
+    assert "memory_collapse occupancy probes a snapshot copy when the trajectory stops" in text
     assert "fewer than six valid permission passes blocks activation" in text
     assert "live model is not the policy authority" in text

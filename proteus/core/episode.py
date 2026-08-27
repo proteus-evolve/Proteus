@@ -22,6 +22,7 @@ import json
 import shutil
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Callable, Mapping
 
 from proteus.core import snapshot
@@ -196,7 +197,7 @@ class RunConfig:
     OUTSIDE `root`: the subject agent can read its own run root, and a progress record
     carries the condition label and HIDDEN evaluator scores."""
     candidate_gate: CandidateGate | None = None
-    """Optional controller-only gate. Ordinary runs do not construct or import safety code."""
+    """Optional controller-only safety suite. Runs once after the trajectory stops."""
     live_channel_factory: Callable[[str, str], object] | None = None
     """Trusted controller factory for one ephemeral ordinary model channel per episode."""
 
@@ -354,9 +355,11 @@ def _evaluate_gate(gate: CandidateGate, context: CandidateGateContext) -> Candid
     """A crashed or malformed gate records error without exposing its detail to the subject.
 
     The result is audit evidence. Activation still follows task selection and viability.
+    Finished-run gates probe the trajectory once after evolution stops.
     """
     try:
-        result = gate.evaluate(context)
+        evaluate = getattr(gate, "evaluate_finished", gate.evaluate)
+        result = evaluate(context)
     except Exception:  # noqa: BLE001 - controller failure must not leak into the subject
         return CandidateGateResult(False, "error", "")
     if (
@@ -367,6 +370,42 @@ def _evaluate_gate(gate: CandidateGate, context: CandidateGateContext) -> Candid
     ):
         return CandidateGateResult(False, "invalid", "")
     return result
+
+
+def _evaluate_finished_run_safety(
+    cfg: RunConfig,
+    *,
+    run_id: str,
+    harness: Path,
+    last_accepted: str,
+    done: int,
+    events: tuple,
+) -> CandidateGateResult | None:
+    """Run the optional safety suite once on the tree evolution actually left behind."""
+    if cfg.candidate_gate is None or done < 1:
+        return None
+    seed = snapshot.commit_for_episode(harness, 0)
+    if seed is None:
+        return CandidateGateResult(False, "error", "")
+    with TemporaryDirectory(prefix="proteus-finished-safety-") as temporary:
+        root = Path(temporary)
+        seed_root = root / "seed"
+        final_root = root / "final"
+        snapshot.materialize(harness, seed, seed_root)
+        snapshot.materialize(harness, last_accepted, final_root)
+        return _evaluate_gate(
+            cfg.candidate_gate,
+            CandidateGateContext(
+                run_id=run_id,
+                episode=done,
+                active=SnapshotRef(run_id, 0, SnapshotRole.ACTIVE),
+                candidate=SnapshotRef(run_id, done, SnapshotRole.CANDIDATE),
+                active_root=seed_root,
+                candidate_root=final_root,
+                events=tuple(events),
+                goal_text=cfg.goal.text or "",
+            ),
+        )
 
 
 def completed_episodes(cfg: RunConfig) -> int:
@@ -554,6 +593,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         handoffs = HandoffStore(cfg.root)
     error = ""
     done = start
+    last_trace: tuple = ()
     last_checkpoint = snapshot.head(harness)  # gapless episode mapping, including rollbacks
     last_accepted = last_checkpoint            # same valid tree at start/resume
     for ep in range(start + 1, cfg.episodes + 1):
@@ -639,12 +679,12 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                 viability_error = f"{type(exc).__name__}: {exc}"
 
         # Evaluate a viable candidate before normal activation. With no gate, retain the
-        # current-main path exactly. A gated run freezes first and gives the task evaluator
-        # and controller independent copies so neither can change the candidate being judged.
+        # current-main path exactly. A gated run still freezes first so the task evaluator
+        # inspects an independent copy. Safety is not part of this boundary: the suite
+        # runs once after the trajectory stops.
         results = []
         task_selected = not viability_error
         candidate_score: float | None = None
-        safety_result: CandidateGateResult | None = None
         frozen_candidate: SnapshotRef | None = None
         if not viability_error:
             if cfg.candidate_gate is None:
@@ -665,7 +705,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     harness, run_id=run_id, episode=ep, label=cfg.name
                 )
                 with materialized_transition(harness, last_accepted, frozen_candidate) as (
-                    active_root, task_candidate_root, gate_candidate_root
+                    active_root, task_candidate_root, _gate_candidate_root
                 ):
                     try:
                         results = cfg.goal.evaluate(
@@ -685,24 +725,11 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     task_selected, candidate_score = _select_task_candidate(
                         cfg.goal, results, best_score
                     )
-                    safety_result = _evaluate_gate(
-                        cfg.candidate_gate,
-                        CandidateGateContext(
-                            run_id=run_id,
-                            episode=ep,
-                            active=SnapshotRef(run_id, ep - 1, SnapshotRole.ACTIVE),
-                            candidate=frozen_candidate,
-                            active_root=active_root,
-                            candidate_root=gate_candidate_root,
-                            events=tuple(trace),
-                            goal_text=cfg.goal.text or "",
-                        ),
-                    )
         by_name = {r.name: r for r in results}
 
         # outer-loop selection on the scores (visibility-independent: an outer loop may
-        # act on scores the agent itself never sees). Safety is audit-only: it records
-        # family outcomes without selecting the next running tree.
+        # act on scores the agent itself never sees). Safety is audit-only and runs
+        # after the trajectory stops, not on this candidate.
         accepted = not viability_error and task_selected
         if accepted and (
             cfg.candidate_gate is not None
@@ -779,13 +806,8 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                        "error": viability_error,
                        "task_selected": task_selected,
                        "activated": accepted}
-        if safety_result is not None:
-            history_row.update({
-                "candidate_score": candidate_score,
-                "safety_status": safety_result.status,
-                "decision_ref": safety_result.decision_ref,
-            })
         eval_history.append(history_row)
+        last_trace = tuple(trace)
         # The snapshot and experiment state are two halves of one durable checkpoint.
         # Persist after every episode, atomically. A crash in the tiny interval after the
         # git commit but before this replace is detected by the strict resume guard above
@@ -813,6 +835,20 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             _append_progress(cfg, ep, progress_res, trace, accepted, results)
 
     if not history_path.exists():
+        _write_json_atomic(history_path, eval_history)
+    safety_result = _evaluate_finished_run_safety(
+        cfg,
+        run_id=run_id,
+        harness=harness,
+        last_accepted=last_accepted,
+        done=done,
+        events=last_trace,
+    )
+    if safety_result is not None and eval_history:
+        eval_history[-1].update({
+            "safety_status": safety_result.status,
+            "decision_ref": safety_result.decision_ref,
+        })
         _write_json_atomic(history_path, eval_history)
     return RunResult(name=cfg.name, episodes_complete=done, root=str(cfg.root),
                      error=error, eval_history=eval_history, counters=totals)

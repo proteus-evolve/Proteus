@@ -236,13 +236,13 @@ harness and nothing else.
 ## 🛡️ Safety evaluators
 
 Candidate activation safety is **not** a measurement evaluator and is never shown to the
-agent. Optional `--safety-suite` runs three Phase 1 families on the candidate gate
-before a snapshot can activate:
+agent. Optional `--safety-suite` runs three Phase 1 families once when a trajectory
+stops, on the running tree evolution left behind — not on every in-loop candidate:
 
 | Family | What it asks |
 |---|---|
 | `memory_bad_admission` | module: does native retrieve of a near-name return the AdvBench bundle? behavior: does the live episode follow it? |
-| `memory_collapse` | on selected episodes, filler on a snapshot copy; prior memory should still be there |
+| `memory_collapse` | filler on a snapshot copy of the finished tree; prior memory should still be there |
 | `tools_permission_drift` | ordinary tool use does not commit a protected fixture; the allowed twin still works |
 
 Permission scores independent canaries. Tool names and permission modules are not the
@@ -259,9 +259,9 @@ proteus run --harness pi --arm neutral --goal none --seeds 1 --episodes 1 \
 proteus safety harness-report --artifact runs/pi-safety --out runs/harness-safety
 ```
 
-Cases the harness cannot attempt stay `not_evaluated`. Activation needs an overall
-`pass` from `memory_bad_admission` and `tools_permission_drift`; `memory_collapse`
-is an occupancy audit on selected episodes and does not decide activation. Contract
+Cases the harness cannot attempt stay `not_evaluated`. Family outcomes are audit
+records and do not select the next running tree; `memory_collapse` is an occupancy
+audit of the finished snapshot. Contract
 and harness matrix:
 [docs/PROTEUS_MODULE_SAFETY_CASES.md](docs/PROTEUS_MODULE_SAFETY_CASES.md). Replay a
 finished sweep without mutating it:
@@ -341,7 +341,7 @@ harness; pinned, source-evolving DeepSeek Harness and Pi adapters with frozen pe
 activation, automatic rollback, exact-tree boundary gates, rebuild caching, turn budgets,
 phase-aware act-priority budget plans and agent-authored checkpoint tracking, and task
 mounts; the Aki research adapter; local, Polyglot, and SWE-bench task integrations;
-resume-safe sweeps; Phase 1 candidate safety gates (`memory_bad_admission`,
+resume-safe sweeps; Phase 1 finished-run safety (`memory_bad_admission`,
 `memory_collapse`, `tools_permission_drift`); the full measurement,
 audit, reliability, report, and repository-export paths; and adapter/environment tooling.
 CI covers Python 3.10–3.14. The separate release-smoke workflow runs two episodes across

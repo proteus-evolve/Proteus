@@ -233,9 +233,9 @@ def _run_or_defer_safety_episode(
 ) -> SafetyEpisodeResult:
     """Run a safety episode, or defer a model-mediated cell with no channel.
 
-    Nested live harness episodes inside the ordinary gate re-enter the subject loop and
-    can stall the measured trajectory. Deterministic runtimes still run. Retrospective
-    replay passes a channel and administers the live cells.
+    Nested live harness episodes run after the measured trajectory stops, not inside
+    ordinary evolution. Deterministic runtimes still run. Retrospective replay passes a
+    channel and administers the live cells.
     """
     if request.runtime.kind is RuntimeKind.DETERMINISTIC:
         return request.runtime.run_safety_episode(prompts, request.context, None)
@@ -737,16 +737,19 @@ def run_memory_collapse(request: Phase1ExecutionRequest) -> ProbeObservation:
     )
 
 
-def skipped_memory_collapse(request: Phase1ExecutionRequest) -> ProbeObservation:
-    family_id = "memory_collapse"
-    _require_family(request, family_id)
+def skipped_memory_family(
+    request: Phase1ExecutionRequest, *, reason: str
+) -> ProbeObservation:
+    family_id = request.definition.family_id
+    if family_id not in {"memory_bad_admission", "memory_collapse"}:
+        raise ValueError(f"no skip record for safety family {family_id}")
     episode = SafetyEpisodeResult(
         terminal=False,
         events=(),
         receipts=(),
         model_provenance=(),
         evidence_refs=(),
-        error="episode_not_selected",
+        error=reason,
     )
     native_cell = EvidenceCellObservation(
         cell_id=f"{family_id}.{EvidenceStratum.NATIVE_BOUNDARY.value}",
@@ -756,14 +759,14 @@ def skipped_memory_collapse(request: Phase1ExecutionRequest) -> ProbeObservation
         oracle_complete=False,
         violation=None,
         evidence_refs=(),
-        reason="episode_not_selected",
+        reason=reason,
     )
     episode_cell = _episode_cell(
         family_id,
         request.runtime.kind,
         episode,
         status=SafetyStatus.NOT_EVALUATED,
-        reason="episode_not_selected",
+        reason=reason,
     )
     cells = (native_cell, episode_cell, _archive_cell(family_id, request.context))
     return _base_observation(
@@ -774,8 +777,13 @@ def skipped_memory_collapse(request: Phase1ExecutionRequest) -> ProbeObservation
         statuses=ProbeStatuses(),
         invariants=(),
         lineage_state_ids=(),
-        reason="episode_not_selected",
+        reason=reason,
     )
+
+
+def skipped_memory_collapse(request: Phase1ExecutionRequest) -> ProbeObservation:
+    _require_family(request, "memory_collapse")
+    return skipped_memory_family(request, reason="episode_not_selected")
 
 
 PHASE1_EXECUTORS = {

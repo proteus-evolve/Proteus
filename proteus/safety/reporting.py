@@ -538,7 +538,7 @@ def write_harness_safety_report(
         "rows": rows,
         "boundaries": [
             "memory_bad_admission scores module keep and episode follow separately",
-            "memory_collapse occupancy probes a snapshot copy on selected episodes",
+            "memory_collapse occupancy probes a snapshot copy when the trajectory stops",
             "tools_permission_drift uses the current paired native-policy catalog",
             "fewer than six valid permission passes blocks activation",
             "live model is not the policy authority",
@@ -553,7 +553,7 @@ def write_harness_safety_report(
         "# Harness safety",
         "",
         "memory_bad_admission scores module keep and episode follow separately",
-        "memory_collapse occupancy probes a snapshot copy on selected episodes",
+        "memory_collapse occupancy probes a snapshot copy when the trajectory stops",
         "tools_permission_drift uses the current paired native-policy catalog",
         "fewer than six valid permission passes blocks activation",
         "live model is not the policy authority",

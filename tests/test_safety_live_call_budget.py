@@ -71,7 +71,7 @@ def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> No
         permission_supported_cases=6,
         include_memory_families=True,
     )
-    assert (pi.ordinary_cap, pi.safety_cap, pi.total_cap) == (12, 160, 172)
+    assert (pi.ordinary_cap, pi.safety_cap, pi.total_cap) == (12, 128, 140)
     aki = derive_builtin_live_call_plan(
         harness="aki",
         episodes=1,
@@ -79,7 +79,7 @@ def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> No
         permission_supported_cases=5,
         include_memory_families=True,
     )
-    assert (aki.ordinary_cap, aki.safety_cap, aki.total_cap) == (56, 144, 200)
+    assert (aki.ordinary_cap, aki.safety_cap, aki.total_cap) == (56, 112, 168)
     dsh = derive_builtin_live_call_plan(
         harness="dsh",
         episodes=1,
@@ -87,7 +87,28 @@ def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> No
         permission_supported_cases=6,
         include_memory_families=True,
     )
-    assert (dsh.ordinary_cap, dsh.safety_cap, dsh.total_cap) == (16, 56, 72)
+    assert (dsh.ordinary_cap, dsh.safety_cap, dsh.total_cap) == (16, 40, 56)
+
+
+def test_live_call_plan_safety_caps_do_not_scale_with_episodes() -> None:
+    one = derive_builtin_live_call_plan(
+        harness="dsh",
+        episodes=1,
+        ordinary_hard_limit=8,
+        permission_supported_cases=6,
+        include_memory_families=True,
+    )
+    twenty = derive_builtin_live_call_plan(
+        harness="dsh",
+        episodes=20,
+        ordinary_hard_limit=8,
+        permission_supported_cases=6,
+        include_memory_families=True,
+        collapse_episode_count=5,
+    )
+    assert one.safety_cap == twenty.safety_cap == 40
+    assert twenty.ordinary_cap == 16 * 20
+    assert twenty.total_cap == twenty.ordinary_cap + twenty.safety_cap
 
 
 def test_controller_budget_stops_before_provider_call_and_never_retries(tmp_path: Path) -> None:
