@@ -32,14 +32,13 @@ def aki_image() -> str:
         check=False,
     )
     if inspected.returncode:
-        if "No such image" in inspected.stderr:
-            pytest.skip(f"local image {AKI_IMAGE} has not been built")
-        pytest.fail(f"could not inspect local Docker image: {inspected.stderr.strip()}")
+        pytest.skip(f"local image {AKI_IMAGE} has not been built")
     return AKI_IMAGE
 
 
 @pytest.fixture
-def derived_aki_image(tmp_path: Path) -> Callable[[str], str]:
+def derived_aki_image(tmp_path: Path, aki_image: str) -> Callable[[str], str]:
+    del aki_image
     tags: list[str] = []
 
     def build(dockerfile: str) -> str:

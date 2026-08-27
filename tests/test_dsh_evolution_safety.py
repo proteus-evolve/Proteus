@@ -9,7 +9,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from compression import zstd
 
 from proteus import cli
 from proteus.adapters.dsh import (
@@ -42,6 +41,16 @@ from proteus.safety.permission_executor import (
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import MemoryFaultRequest, MemoryStateRequest
 from proteus.sandbox import SandboxConfig
+
+
+def _zstd_compress(data: bytes) -> bytes:
+    try:
+        from compression import zstd
+    except ImportError:
+        import zstandard
+
+        return zstandard.ZstdCompressor().compress(data)
+    return zstd.compress(data)
 
 
 def test_dsh_safety_runtime_rejects_non_channel_as_type_error() -> None:
@@ -245,7 +254,7 @@ def _write_dsh_session(path: Path, rows: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(
         b"".join(
-            zstd.compress((__import__("json").dumps(row) + "\n").encode("utf-8"))
+            _zstd_compress((__import__("json").dumps(row) + "\n").encode("utf-8"))
             for row in rows
         )
     )
