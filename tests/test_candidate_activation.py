@@ -161,7 +161,8 @@ def test_candidate_requires_task_selection_and_six_valid_permission_passes(
         permission_cases=(PermissionComparisonStatus.PASS,) * 5
         + (PermissionComparisonStatus.NOT_EVALUATED,),
     )
-    assert result.eval_history[0]["accepted"] is False
+    assert result.eval_history[0]["accepted"] is True
+    assert result.eval_history[0]["activated"] is True
     assert result.eval_history[0]["safety_status"] == "not_evaluated"
 
 
@@ -204,7 +205,7 @@ def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):
     assert result.eval_history[0]["activated"] is True
 
 
-def test_nonpassing_gate_preserves_candidate_and_restores_active_tree(tmp_path):
+def test_nonpassing_gate_is_audit_only_and_still_activates_task_selected_tree(tmp_path):
     gate = ScriptedGate([
         CandidateGateResult(True, "pass", "gates/one"),
         CandidateGateResult(False, "fail", "gates/two"),
@@ -218,17 +219,18 @@ def test_nonpassing_gate_preserves_candidate_and_restores_active_tree(tmp_path):
     assert active_one is not None and active_two is not None and candidate_two is not None
     one = tmp_path / "one"
     two = tmp_path / "two"
-    rejected = tmp_path / "rejected"
+    candidate = tmp_path / "candidate"
     snapshot.materialize(harness, active_one, one)
     snapshot.materialize(harness, active_two, two)
-    snapshot.materialize_candidate(harness, candidate_two, rejected)
-    assert _files(two) == _files(one)
-    assert _files(rejected) != _files(one)
+    snapshot.materialize_candidate(harness, candidate_two, candidate)
+    assert _files(two) != _files(one)
+    assert _files(two) == _files(candidate)
     assert result.eval_history[1]["safety_status"] == "fail"
-    assert result.eval_history[1]["activated"] is False
+    assert result.eval_history[1]["task_selected"] is True
+    assert result.eval_history[1]["activated"] is True
 
 
-def test_rejected_gate_does_not_advance_accept_reject_score_baseline(tmp_path):
+def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
     scores = {1: 1.0, 2: 0.0}
 
     def evaluator(_trace, context):
@@ -244,8 +246,9 @@ def test_rejected_gate_does_not_advance_accept_reject_score_baseline(tmp_path):
         goal=GoalConfig.single(Goal("task", evaluator=evaluator), selection="accept_reject"),
     ))
 
-    assert [row["task_selected"] for row in result.eval_history] == [True, True]
-    assert [row["activated"] for row in result.eval_history] == [False, True]
+    assert [row["task_selected"] for row in result.eval_history] == [True, False]
+    assert [row["safety_status"] for row in result.eval_history] == ["fail", "pass"]
+    assert [row["activated"] for row in result.eval_history] == [True, False]
 
 
 def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
@@ -293,7 +296,7 @@ def test_snapshot_refs_are_logical_and_candidate_materialization_uses_them(tmp_p
     assert (destination / "STATE.md").is_file()
 
 
-def test_gate_rejection_removes_ignored_candidate_files_from_live_harness(tmp_path):
+def test_task_rejection_removes_ignored_candidate_files_from_live_harness(tmp_path):
     class IgnoredCandidateHarness(RecordingHarness):
         def run_episode(self, spec):
             result = super().run_episode(spec)
@@ -301,9 +304,13 @@ def test_gate_rejection_removes_ignored_candidate_files_from_live_harness(tmp_pa
             (spec.root / "harness" / "ignored.txt").write_text("candidate", encoding="utf-8")
             return result
 
+    def evaluator(_trace, _context):
+        raise RuntimeError("grader unavailable")
+
     cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([CandidateGateResult(False, "fail", "gates/one")]),
+        gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+        goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
         episodes=1,
     )
     cfg.adapter = IgnoredCandidateHarness()
@@ -315,6 +322,8 @@ def test_gate_rejection_removes_ignored_candidate_files_from_live_harness(tmp_pa
     snapshot.materialize_candidate(harness, candidate, preserved)
     assert (preserved / "ignored.txt").read_text(encoding="utf-8") == "candidate"
     assert not (harness / "ignored.txt").exists()
+    assert result.eval_history[0]["task_selected"] is False
+    assert result.eval_history[0]["activated"] is False
 
 
 def test_resume_uses_only_previously_activated_scores_as_its_selection_baseline(tmp_path):
@@ -341,8 +350,9 @@ def test_resume_uses_only_previously_activated_scores_as_its_selection_baseline(
     )
     resumed = run(resumed_cfg, start=first.episodes_complete, resume=True)
 
-    assert [row["activated"] for row in resumed.eval_history] == [False, True]
-    assert resumed.eval_history[1]["task_selected"] is True
+    assert [row["activated"] for row in resumed.eval_history] == [True, False]
+    assert resumed.eval_history[0]["safety_status"] == "fail"
+    assert resumed.eval_history[1]["task_selected"] is False
 
 
 def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
@@ -369,7 +379,8 @@ def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
     assert "not kept" not in observe
     assert sentinel not in observe
     assert result.eval_history[0]["task_selected"] is True
-    assert result.eval_history[0]["activated"] is False
+    assert result.eval_history[0]["safety_status"] == sentinel
+    assert result.eval_history[0]["activated"] is True
 
 
 def test_resume_after_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):

@@ -351,10 +351,13 @@ def _select_task_candidate(
 
 
 def _evaluate_gate(gate: CandidateGate, context: CandidateGateContext) -> CandidateGateResult:
-    """A crashed or malformed gate fails closed without exposing its detail to the subject."""
+    """A crashed or malformed gate records error without exposing its detail to the subject.
+
+    The result is audit evidence. Activation still follows task selection and viability.
+    """
     try:
         result = gate.evaluate(context)
-    except Exception:  # noqa: BLE001 - controller failure must never activate a candidate
+    except Exception:  # noqa: BLE001 - controller failure must not leak into the subject
         return CandidateGateResult(False, "error", "")
     if (
         not isinstance(result, CandidateGateResult)
@@ -698,9 +701,10 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         accepted = not viability_error
         if cfg.candidate_gate is not None and not viability_error:
             assert safety_result is not None
-            accepted = task_selected and safety_result.allowed and safety_result.status == "pass"
-            # A rejected candidate's score is not an incumbent. This includes task-selected
-            # candidates denied by safety, so a later lower task score remains eligible.
+            # Safety is audit-only: it records family outcomes without selecting the
+            # next running tree. Goal/task selection (and viability) still decide
+            # activation, so a safety fail cannot freeze a goal run on the seed.
+            accepted = task_selected
             if accepted:
                 best_score = candidate_score
         elif accepted:
