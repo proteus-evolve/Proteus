@@ -93,19 +93,11 @@ def structural_step(surfaces, name: str = "structural-step"):
     """
 
     def evaluate(trace: Sequence[ActionEvent], ctx: GoalContext) -> EvalResult:
-        from proteus.measure import distance
-        root = Path(ctx.harness_root)
-        if ctx.active_harness_root:
-            prev = Path(ctx.active_harness_root)
-            deltas = distance.compare(prev, root, surfaces)
-            moved = sum(d.added + d.dropped + d.revised for d in deltas.values())
-            parts = [f"{s}: +{d.added}/-{d.dropped}/~{d.revised}"
-                     for s, d in deltas.items() if d.added or d.dropped or d.revised]
-            return EvalResult(name=name, score=float(moved),
-                              detail="; ".join(parts) or "no structural change")
         import tempfile
 
         from proteus.core import snapshot
+        from proteus.measure import distance
+        root = Path(ctx.harness_root)
         prev_sha = snapshot.commit_for_episode(root, ctx.episode - 1)
         if prev_sha is None:
             return EvalResult(name=name, score=0.0, detail="no previous snapshot")

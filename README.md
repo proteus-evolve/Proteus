@@ -26,7 +26,6 @@
   <a href="docs/RECIPES.md">Recipes</a> •
   <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
   <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
-  <a href="#-safety-evaluators">Safety evaluators</a> •
   <a href="docs/releases/v0.3.0.md">v0.3.0 Notes</a> •
   <a href="environments/README.md">Environments</a> •
   <a href="#-measurement">Measurement</a>
@@ -101,7 +100,7 @@ An installed action preference measurably shifts what the harness grows — and 
 | `llm` | the same harness driven by a live model — any OpenAI-compatible endpoint, DeepSeek by default | an API key |
 | `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), headless profile, in a prepared container | Docker + a DeepSeek key |
 | `pi` | [Pi](https://github.com/badlogic/pi-mono) — Mario Zechner's minimal coding harness (4 tools, native AGENTS.md + skills) | Docker + a DeepSeek key |
-| `aki` | the Aki research harness (the paper's apparatus), contained in a source-built network-disabled image | Docker + the local image + a host controller key for live runs |
+| `aki` | the Aki research harness (the paper's apparatus) | the research checkout |
 | yours | `--harness <module>:<Class>` — no registration | your adapter |
 
 `dsh` and `pi` are the source-evolving third-party integrations. At seed time each adapter
@@ -114,34 +113,6 @@ running harness remains healthy. The source is therefore a
 measured, snapshotted `loop` surface alongside instructions, notes, tools, and skills. The
 adapters still leave the upstream repositories untouched: they arrange the run copy,
 launch one prepared container per phase, and parse the harness's own session logs.
-
-Aki uses a stricter contained runtime. Build its private checkout into the pinned local
-image once, then verify the exact image before running:
-
-```bash
-AKI_HARNESS_SRC=/absolute/path/to/Aki environments/aki-src/build.sh
-environments/aki-src/verify-image.sh
-```
-
-`AKI_HARNESS_SRC` is build input only; Aki runs do not import or execute that host checkout.
-The CLI requires `proteus-env-aki-src:0.1.0` (or the exact image selected by `--env`) to
-already exist locally before it opens a model channel or seeds a run. Initialization,
-ordinary evolution, and safety episodes all execute in Docker with `--network none` and
-exchange length-prefixed JSON over stdin/stdout. The container receives no provider key.
-Proteus opens the ordinary `--model` channel and, only when a suite is selected, separate
-`--safety-model` channels on the host; their raw provider ledgers and safety evidence stay
-controller-private. The families those channels evaluate are
-[Safety evaluators](#-safety-evaluators).
-
-The run mount contract is active state read-only at `/workspace/active`, candidate state
-read-write at `/workspace/candidate`, an optional task at `/workspace/task` read-write, and
-ephemeral handoff state at `/state`. No Proteus checkout, `.env`, Docker socket, or private
-controller artifact is mounted. Post-run existing-output analysis with `proteus measure`,
-`proteus audit`, or `proteus reliability` is image-free: these commands parse finished
-traces and snapshots without executing Aki code.
-Passing the offline image verifier and deterministic Docker smokes establishes only the
-mechanism and containment boundary; claims about a model such as `gpt-5.6-luna` require a
-separately authorized live run with that exact model and fresh artifacts.
 
 ## 🏗️ How it works
 
@@ -233,38 +204,6 @@ A self-editing agent writes and runs its own code, so an application-level file 
 cannot contain it — Proteus runs real harnesses in a container whose filesystem holds the
 harness and nothing else.
 
-## 🛡️ Safety evaluators
-
-Candidate activation safety is **not** a measurement evaluator and is never shown to the
-agent. Optional `--safety-suite` runs three Phase 1 families on the candidate gate
-before a snapshot can activate:
-
-| Family | What it asks |
-|---|---|
-| `memory_bad_admission` | unsafe memory is rejected while matched benign state stays usable |
-| `memory_collapse` | a controlled fault still restores qualified state |
-| `tools_permission_drift` | ordinary tool use does not commit a protected fixture; the allowed twin still works |
-
-Permission scores independent canaries. Tool names and permission modules are not the
-verdict. `--safety-model` is separate from ordinary `--model` and never enters phase
-prompts.
-
-```bash
-proteus safety call-plan --harness pi --episodes 1 --max-turns 8 \
-    --suite proteus.safety.phase1:SUITE
-proteus run --harness pi --arm neutral --goal none --seeds 1 --episodes 1 \
-    --model gpt-5.6-luna --max-turns 8 \
-    --safety-suite proteus.safety.phase1:SUITE --safety-model gpt-5.6-luna \
-    --out runs/pi-safety
-proteus safety harness-report --artifact runs/pi-safety --out runs/harness-safety
-```
-
-Cases the harness cannot attempt stay `not_evaluated`. Activation needs an overall
-`pass`. Contract and harness matrix:
-[docs/PROTEUS_MODULE_SAFETY_CASES.md](docs/PROTEUS_MODULE_SAFETY_CASES.md). Replay a
-finished sweep without mutating it:
-[docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md](docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md).
-
 ## 🔌 Onboard your harness
 
 The input is a **repository** — a git URL or local path:
@@ -288,8 +227,8 @@ the default output is the current directory (or choose an explicit `--dest`).
 ## 📦 Prepared environments
 
 `environments/` contains two environment shapes. Manifest-backed environments pair a
-`Dockerfile` or prebuilt image with `environment.toml`; the built-in `dsh-src/`, `pi-src/`,
-and `aki-src/` images are instead built from pinned upstream source checkouts, because the image
+`Dockerfile` or prebuilt image with `environment.toml`; the built-in `dsh-src/` and
+`pi-src/` images are instead built from pinned upstream source checkouts, because the image
 must contain the exact source and toolchain that the adapter later extracts and rebuilds.
 In both shapes evolving state lives in mounts, never in a per-run image. Conventions:
 [environments/README.md](environments/README.md); design notes:
@@ -339,8 +278,7 @@ harness; pinned, source-evolving DeepSeek Harness and Pi adapters with frozen pe
 activation, automatic rollback, exact-tree boundary gates, rebuild caching, turn budgets,
 phase-aware act-priority budget plans and agent-authored checkpoint tracking, and task
 mounts; the Aki research adapter; local, Polyglot, and SWE-bench task integrations;
-resume-safe sweeps; Phase 1 candidate safety gates (`memory_bad_admission`,
-`memory_collapse`, `tools_permission_drift`); the full measurement,
+resume-safe sweeps; the full measurement,
 audit, reliability, report, and repository-export paths; and adapter/environment tooling.
 CI covers Python 3.10–3.14. The separate release-smoke workflow runs two episodes across
 the public release set (`minimal`, `llm`, `dsh`, `pi`), exercises the benchmark path, and

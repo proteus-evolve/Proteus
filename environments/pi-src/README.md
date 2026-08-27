@@ -8,24 +8,22 @@ source hash changes (build outputs cached on `/state`), and execs the built CLI.
 untouched copy boots in seconds via the pristine-hash fast path; a broken edit exits 97
 with the build log tail — that is the adapter's viability gate.
 
-Rebuild from the pinned source commit, base image, package lock, and checked-in model-data
-bundle:
+Rebuild (pin the tag you mean to study):
 
 ```bash
-environments/pi-src/build.sh
-environments/pi-src/verify-image.sh proteus-env-pi-src:0.84.2
+PI_BUILD_ROOT="$(mktemp -d)"
+PI_CONTEXT="$PI_BUILD_ROOT/pi-mono"
+git clone --depth 1 --branch v0.84.2 \
+    https://github.com/badlogic/pi-mono "$PI_CONTEXT"
+# hydrate the model catalogs in the context — the one network fetch, pinned at bake time
+docker run --rm -v "$PI_CONTEXT:/opt/src" -w /opt/src --network host node:24-slim \
+    sh -c 'npm ci --no-audit --no-fund && npm run hydrate:model-data'
+docker run --rm -v "$PI_CONTEXT:/opt/src" --entrypoint sh node:24-slim \
+    -c 'rm -rf /opt/src/node_modules /opt/src/packages/*/dist /opt/src/packages/*/*/dist'
+cp environments/pi-src/boot.sh "$PI_CONTEXT/.proteus-boot.sh"
+docker build -f environments/pi-src/Dockerfile \
+    -t proteus-env-pi-src:0.84.2 "$PI_CONTEXT"
 ```
-
-`model-data-v0.84.2.tar` is the complete catalog consumed by Pi's offline build, including
-its generation manifest. The build never calls a model-catalog endpoint. `npm ci` remains
-bound by Pi's pinned `package-lock.json`, and the Docker base is pinned in the Dockerfile.
-
-The catalog exposes an upstream v0.84.2 TypeScript inference bug because Cloudflare has no
-current completions models. The Dockerfile temporarily supplies the explicit provider API
-union for compilation. Type parameters are erased from JavaScript; the original upstream
-source is restored and byte-compared before `/opt/pi-source.tar` is created. The verification
-script checks the pinned source identity, restored source in both `/opt/src` and the staged
-tar, the boot tree identity, and the native CLI version.
 
 Attribution: pi-mono (github.com/badlogic/pi-mono), MIT.
 

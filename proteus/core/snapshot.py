@@ -12,8 +12,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 
@@ -79,23 +77,6 @@ def commit(work_tree: Path, message: str) -> str:
     return head(work_tree)
 
 
-class SnapshotRole(str, Enum):
-    ACTIVE = "active"
-    CANDIDATE = "candidate"
-
-
-@dataclass(frozen=True)
-class SnapshotRef:
-    """Public logical identity for a frozen snapshot, without exposing its Git revision."""
-
-    run_id: str
-    episode: int
-    role: SnapshotRole
-
-    def to_dict(self) -> dict[str, object]:
-        return {"run_id": self.run_id, "episode": self.episode, "role": self.role.value}
-
-
 def head(work_tree: Path) -> str:
     try:
         return _git(work_tree, "rev-parse", "HEAD").strip()
@@ -157,57 +138,6 @@ def commit_for_episode(work_tree: Path, episode: int) -> str | None:
         if subject.startswith(f"episode {episode}:"):
             return sha
     return None
-
-
-def freeze_candidate(work_tree: Path, *, run_id: str, episode: int, label: str) -> SnapshotRef:
-    """Commit a candidate before either evaluator or gate can inspect it."""
-    commit(work_tree, f"candidate {episode}: {label} [run_id={run_id}]")
-    return SnapshotRef(run_id=run_id, episode=episode, role=SnapshotRole.CANDIDATE)
-
-
-def _candidate_record(work_tree: Path, episode: int) -> tuple[SnapshotRef, str] | None:
-    git_dir = work_tree.parent / ".snapshot.git"
-    log = subprocess.run(
-        ["git", "--git-dir", str(git_dir), "log", "--format=%H %s"],
-        capture_output=True, text=True, check=True,
-    ).stdout
-    prefix = f"candidate {episode}:"
-    marker = " [run_id="
-    for line in log.splitlines():
-        sha, _, subject = line.partition(" ")
-        if not subject.startswith(prefix) or not subject.endswith("]"):
-            continue
-        _, separator, run_id = subject.rpartition(marker)
-        if separator and run_id[:-1]:
-            return (
-                SnapshotRef(run_id=run_id[:-1], episode=episode, role=SnapshotRole.CANDIDATE),
-                sha,
-            )
-    return None
-
-
-def candidate_for_episode(work_tree: Path, episode: int) -> SnapshotRef | None:
-    """Discover a retained candidate by its logical identity."""
-    record = _candidate_record(work_tree, episode)
-    return record[0] if record is not None else None
-
-
-def candidate_commit(work_tree: Path, candidate: SnapshotRef) -> str:
-    """Resolve a logical candidate ref inside this run's private snapshot repository."""
-    record = _candidate_record(work_tree, candidate.episode)
-    if record is None or record[0] != candidate:
-        raise ValueError("candidate snapshot is not available for this work tree")
-    return record[1]
-
-
-def materialize_candidate(work_tree: Path, candidate: SnapshotRef, dest: Path) -> None:
-    """Materialize a candidate by logical identity without exposing its Git revision."""
-    materialize(work_tree, candidate_commit(work_tree, candidate), dest)
-
-
-def restore_candidate(work_tree: Path, candidate: SnapshotRef) -> None:
-    """Restore the exact frozen candidate tree while retaining its history commit."""
-    restore(work_tree, candidate_commit(work_tree, candidate))
 
 
 def restore(work_tree: Path, sha: str) -> None:

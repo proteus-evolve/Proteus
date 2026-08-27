@@ -53,9 +53,6 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = [
-    "docker: tests that inspect, build, or run Docker",
-]
 
 [tool.ruff.lint]
 # The package targets 3.10+, but `tests/run_offline.py` — the no-pytest path — has to
