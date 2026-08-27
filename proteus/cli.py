@@ -37,7 +37,32 @@ def _collapse_episodes(args) -> frozenset[int]:
         raise SystemExit(str(exc)) from exc
 
 
-def _candidate_gate_factory(
+def _collapse_schedule(args):
+    """Prefer EveryN for every:N so CLI and programmatic schedules are the same object."""
+    from proteus.safety.collapse_filler import parse_collapse_episodes
+    from proteus.safety.schedule import EveryN, ExplicitEpisodes
+
+    spec = getattr(args, "collapse_episodes", "every:5")
+    episodes = getattr(args, "episodes", 1)
+    tokens = [raw.strip().lower() for raw in spec.split(",") if raw.strip()]
+    if len(tokens) == 1 and tokens[0].startswith("every:"):
+        try:
+            step = int(tokens[0].split(":", 1)[1])
+        except ValueError as exc:
+            raise SystemExit(
+                f"collapse episode {spec!r} must be every:<positive integer>"
+            ) from exc
+        try:
+            return EveryN(step)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    try:
+        return ExplicitEpisodes(parse_collapse_episodes(spec, episodes))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def _safety_runner_factory(
     args,
     *,
     adapter_factory,
@@ -53,16 +78,25 @@ def _candidate_gate_factory(
         if args.safety_model:
             raise ValueError("--safety-model requires --safety-suite")
         return None
-    from proteus.safety.gate import build_candidate_gate_factory
+    from proteus.safety.gate import build_safety_runner_factory
 
-    return build_candidate_gate_factory(
+    post_episode_factory = build_safety_runner_factory(
         adapter_factory=adapter_factory,
         suite_spec=args.safety_suite,
         safety_model=args.safety_model,
         controller_root=controller_root,
         channel_factory=channel_factory,
-        collapse_episodes=_collapse_episodes(args),
+        collapse_schedule=_collapse_schedule(args),
+        episodes_target=getattr(args, "episodes", 1),
     )
+
+    def factory(run_id: str, seed: int):
+        # Temporary seam while the concrete v3 family plugins replace the existing
+        # post-episode runner. The public sweep seam already carries the recorded seed.
+        del seed
+        return post_episode_factory(run_id)
+
+    return factory
 
 
 def _controller_live_channel_factory(args, controller_root: Path):
@@ -504,7 +538,7 @@ def cmd_run(args) -> int:
                     channel_cap=channel_cap,
                 )
 
-        candidate_gate_factory = _candidate_gate_factory(
+        safety_runner_factory = _safety_runner_factory(
             args,
             adapter_factory=factory,
             controller_root=root,
@@ -548,8 +582,8 @@ def cmd_run(args) -> int:
         announce_budget=args.announce_budget,
         on_existing=args.on_existing,
         live_channel_factory=ordinary_channel_factory,
-        candidate_gate_factory=candidate_gate_factory,
-        candidate_gate_config=(
+        safety_runner_factory=safety_runner_factory,
+        safety_runner_config=(
             {
                 "suite": args.safety_suite,
                 "model": args.safety_model,
@@ -907,15 +941,15 @@ def main(argv=None) -> int:
     r.add_argument("--model", default="",
                    help="model name; empty uses the adapter's default")
     r.add_argument("--safety-suite", default="", metavar="SPEC",
-                   help="optional Phase 1 safety suite; runs once when a trajectory stops")
+                   help="optional Phase 1 safety suite; runs after every settled episode")
     r.add_argument("--safety-model", default="", metavar="MODEL",
                    help="fixed model for the optional safety suite (requires --safety-suite)")
     r.add_argument(
         "--collapse-episodes",
         default="every:5",
         metavar="LIST",
-        help="kept for resume-condition identity; occupancy collapse now runs once "
-             "when the trajectory stops (integers, last, or every:N)",
+        help="occupancy collapse family schedule: integers, last, or every:N "
+             "(every:N includes episode 1, then every N; default every:5)",
     )
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
@@ -950,7 +984,8 @@ def main(argv=None) -> int:
         "--collapse-episodes",
         default="1,last",
         metavar="LIST",
-        help="ignored for call-plan caps; occupancy collapse runs once when a trajectory stops",
+        help="occupancy collapse family schedule for call-plan caps: integers, last, "
+             "or every:N (every:N includes episode 1, then every N)",
     )
     call_plan.set_defaults(func=cmd_safety_call_plan)
     preflight = safety_sub.add_parser(

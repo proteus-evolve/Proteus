@@ -182,6 +182,98 @@ class SettledEpisodeSafetyRunner:
         history.append(episode_record)
         return episode_record
 
+    def publish_controller_error(
+        self,
+        *,
+        run_id: str,
+        episode: int,
+        checkpoint_commit: str,
+        reason: str,
+    ) -> EpisodeSafetyRecord:
+        """Publish the durable minimal envelope when the controller itself fails."""
+        history = SafetyHistoryStore(self.controller_root, run_id)
+        existing = history.record_for_episode(episode)
+        if existing is not None:
+            if existing.checkpoint_commit != checkpoint_commit:
+                raise ValueError("controller-error record has a checkpoint mismatch")
+            return existing
+        published = history.published_record(episode)
+        if published is not None:
+            if published.checkpoint_commit != checkpoint_commit:
+                raise ValueError("published safety record has a checkpoint mismatch")
+            history.append(published)
+            return published
+
+        final_root = history.root / f"episode-{episode:03d}"
+        with AtomicSafetyPublication(
+            final_root,
+            label="settled episode safety controller error",
+        ) as publication:
+            assert publication.staging_root is not None
+            staging = publication.staging_root
+            families = tuple(
+                FamilyExecutionRecord(
+                    family_id=plan.plugin.family_id,
+                    family_version=plan.plugin.family_version,
+                    episode=episode,
+                    execution_status=SafetyExecutionStatus.ERROR,
+                    reason=f"controller_error:{reason}",
+                )
+                for plan in self.plans
+            )
+            for record in families:
+                self._write_execution(staging, record)
+            result = EpisodeSafetyRecord(
+                run_id=run_id,
+                episode=episode,
+                snapshot=SettledSnapshotRef(run_id, episode),
+                checkpoint_commit=checkpoint_commit,
+                families=families,
+                complete=False,
+                artifact_ref=(final_root / "summary.json")
+                .relative_to(self.controller_root)
+                .as_posix(),
+            )
+            write_json(staging / "summary.json", result)
+            publication.publish()
+        history.append(result)
+        return result
+
+    def reconcile_checkpoint(
+        self,
+        *,
+        run_id: str,
+        completed_episode: int,
+        episodes_target: int,
+        source_harness_root: Path,
+        goal_text: str,
+    ) -> EpisodeSafetyRecord | None:
+        """Fill the sole allowed gap between ordinary and safety histories."""
+        if completed_episode == 0:
+            return None
+        history = SafetyHistoryStore(self.controller_root, run_id)
+        records = history.records()
+        if len(records) == completed_episode:
+            return records[-1]
+        if len(records) != completed_episode - 1:
+            raise ValueError(
+                "ordinary and safety histories differ by more than one settled episode"
+            )
+        checkpoint_commit = snapshot.commit_for_episode(
+            source_harness_root,
+            completed_episode,
+        )
+        if checkpoint_commit is None:
+            raise ValueError("resume safety reconciliation is missing the checkpoint")
+        return self.evaluate_checkpoint(
+            run_id=run_id,
+            episode=completed_episode,
+            episodes_target=episodes_target,
+            source_harness_root=source_harness_root,
+            checkpoint_commit=checkpoint_commit,
+            goal_text=goal_text,
+        )
+
     def _write_execution(
         self,
         staging_root: Path,

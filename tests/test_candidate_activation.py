@@ -1,27 +1,18 @@
-"""Candidate-gated activation keeps current-main's transaction semantics."""
+"""Task-candidate activation remains independent of post-settlement safety."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 from proteus.adapters.minimal import MinimalHarness, mock_policy
 from proteus.bench.task import BenchTask
 from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, snapshot
-from proteus.core.activation import CandidateGateResult
 from proteus.core.episode import RunConfig, pending_candidate_path, run
 from proteus.core.goal import EvalResult
-from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
-from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
-from proteus.safety.permission_evidence import (
-    PermissionCapabilityState,
-    PermissionCaseCapability,
-    PermissionCaseComparison,
-    PermissionComparisonStatus,
-    PermissionEvidenceValidity,
-)
-from proteus.safety.permission_executor import reduce_permission_family
-from proteus.safety.policy import evaluate_safety_policy
+from proteus.safety.permission_evidence import PermissionComparisonStatus
+from proteus.safety.records import EpisodeSafetyRecord, SettledSnapshotRef
 
 
 class RecordingHarness(MinimalHarness):
@@ -34,41 +25,50 @@ class RecordingHarness(MinimalHarness):
         return super().run_episode(spec)
 
 
-class ScriptedGate:
-    def __init__(self, outcomes: list[CandidateGateResult]) -> None:
+@dataclass(frozen=True)
+class SafetyOutcome:
+    artifact_ref: str
+    complete: bool = True
+
+
+class ScriptedSafetyRunner:
+    def __init__(self, outcomes: list[SafetyOutcome]) -> None:
         self.outcomes = outcomes
         self.contexts = []
 
-    def evaluate(self, context):
-        self.contexts.append(context)
-        return self.outcomes[context.episode - 1]
+    def evaluate_checkpoint(
+        self,
+        *,
+        run_id,
+        episode,
+        episodes_target,
+        source_harness_root,
+        checkpoint_commit,
+        goal_text,
+    ):
+        del episodes_target, goal_text
+        assert snapshot.commit_for_episode(source_harness_root, episode) == checkpoint_commit
+        self.contexts.append(
+            SimpleNamespace(
+                episode=episode,
+                snapshot=SettledSnapshotRef(run_id, episode),
+                checkpoint_commit=checkpoint_commit,
+            )
+        )
+        outcome = self.outcomes[episode - 1]
+        return EpisodeSafetyRecord(
+            run_id=run_id,
+            episode=episode,
+            snapshot=SettledSnapshotRef(run_id, episode),
+            checkpoint_commit=checkpoint_commit,
+            families=(),
+            complete=outcome.complete,
+            artifact_ref=outcome.artifact_ref,
+        )
 
 
-def _permission_comparison(case_spec, status):
-    supported = PermissionCaseCapability(
-        PermissionCapabilityState.SUPPORTED, "fixture-native-policy", ""
-    )
-    active = SnapshotRef("run-candidate-test", 0, SnapshotRole.ACTIVE)
-    candidate = SnapshotRef("run-candidate-test", 1, SnapshotRole.CANDIDATE)
-    return PermissionCaseComparison(
-        family_id="tools_permission_drift",
-        family_version="2",
-        schema_version="2",
-        active_snapshot=active,
-        candidate_snapshot=candidate,
-        case_id=case_spec.case_id,
-        case_spec=case_spec,
-        active_capability=supported,
-        candidate_capability=supported,
-        active_protected=None,
-        active_allowed=None,
-        candidate_protected=None,
-        candidate_allowed=None,
-        validity=PermissionEvidenceValidity.VALID,
-        comparison_status=status,
-        reasons=(),
-        evidence_refs=(),
-    )
+def _settled(contexts):
+    return [ctx.episode for ctx in contexts]
 
 
 def run_one_candidate(
@@ -77,37 +77,18 @@ def run_one_candidate(
     task_selected: bool,
     permission_cases: tuple[PermissionComparisonStatus, ...],
 ):
-    family = reduce_permission_family(
-        cases=tuple(
-            _permission_comparison(case_spec, status)
-            for case_spec, status in zip(
-                PERMISSION_CASE_SPECS, permission_cases, strict=True
-            )
-        )
-    )
-    profile = EvolutionSafetyIndicators(
-        (
-            FamilyIndicatorProjection(
-                family_id=family.family_id,
-                family_version=family.family_version,
-                terminal_status=family.terminal_status,
-                active_status=None,
-                candidate_status=None,
-                comparison_status=family.comparison_status,
-                evidence_validity=family.validity,
-                active_components=None,
-                candidate_components=None,
-                blockers=family.blockers,
-            ),
-        )
-    )
-    decision = evaluate_safety_policy(profile)
-    gate = ScriptedGate(
-        [
-            CandidateGateResult(
-                decision.allowed, decision.status.value, "gates/permission"
-            )
-        ]
+    if any(
+        status is PermissionComparisonStatus.FAIL
+        or status is PermissionComparisonStatus.BASELINE_FAILURE
+        for status in permission_cases
+    ):
+        status = "fail"
+    elif any(status is PermissionComparisonStatus.NOT_EVALUATED for status in permission_cases):
+        status = "not_evaluated"
+    else:
+        status = "pass"
+    gate = ScriptedSafetyRunner(
+        [SafetyOutcome(f"safety/permission/{status}")]
     )
 
     def evaluator(_trace, _context):
@@ -127,7 +108,16 @@ def run_one_candidate(
     )
 
 
-def _cfg(tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=None):
+def _cfg(
+    tmp_path,
+    *,
+    gate=None,
+    safety_runner=None,
+    goal=None,
+    task=None,
+    episodes=2,
+    grader_sandbox=None,
+):
     return RunConfig(
         name="candidate-test",
         run_id="run-candidate-test",
@@ -138,7 +128,7 @@ def _cfg(tmp_path, *, gate, goal=None, task=None, episodes=2, grader_sandbox=Non
         model="mock",
         episodes=episodes,
         seed=0,
-        candidate_gate=gate,
+        safety_runner=safety_runner if safety_runner is not None else gate,
         task=task,
         grader_sandbox=grader_sandbox,
     )
@@ -163,11 +153,10 @@ def test_candidate_requires_task_selection_and_six_valid_permission_passes(
     )
     assert result.eval_history[0]["accepted"] is True
     assert result.eval_history[0]["activated"] is True
-    assert result.eval_history[0]["safety_status"] == "not_evaluated"
+    assert result.eval_history[0]["safety_ref"] == "safety/permission/not_evaluated"
 
 
-def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):
-    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
+def test_task_evaluator_uses_frozen_candidate_without_safety_runner(tmp_path):
     seen = {}
     grader = object()
 
@@ -187,7 +176,7 @@ def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):
 
     result = run(_cfg(
         tmp_path,
-        gate=gate,
+        safety_runner=None,
         goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
         task=task,
         episodes=1,
@@ -201,55 +190,54 @@ def test_gate_uses_frozen_candidate_and_complete_private_task_view(tmp_path):
     assert seen["task_content"] == "seeded"
     assert seen["grader"] is grader
     assert not (harness / "task-only-mutation.txt").exists()
-    assert [ctx.episode for ctx in gate.contexts] == [1]
+    assert result.eval_history[0]["safety_ref"] == ""
+    assert result.eval_history[0]["safety_complete"] is True
     assert result.eval_history[0]["activated"] is True
 
 
 def test_nonpassing_gate_is_audit_only_and_still_activates_task_selected_tree(tmp_path):
-    gate = ScriptedGate([
-        CandidateGateResult(True, "pass", "gates/one"),
-        CandidateGateResult(False, "fail", "gates/two"),
+    gate = ScriptedSafetyRunner([
+        SafetyOutcome("gates/one-pass"),
+        SafetyOutcome("gates/two-fail"),
     ])
     result = run(_cfg(tmp_path, gate=gate))
     harness = Path(result.root) / "harness"
     active_one = snapshot.commit_for_episode(harness, 1)
     active_two = snapshot.commit_for_episode(harness, 2)
-    candidate_two = snapshot.candidate_for_episode(harness, 2)
 
-    assert active_one is not None and active_two is not None and candidate_two is not None
+    assert active_one is not None and active_two is not None
     one = tmp_path / "one"
     two = tmp_path / "two"
-    candidate = tmp_path / "candidate"
     snapshot.materialize(harness, active_one, one)
     snapshot.materialize(harness, active_two, two)
-    snapshot.materialize_candidate(harness, candidate_two, candidate)
     assert _files(two) != _files(one)
-    assert _files(two) == _files(candidate)
-    assert "safety_status" not in result.eval_history[0]
-    assert result.eval_history[1]["safety_status"] == "fail"
+    assert result.eval_history[0]["safety_ref"] == "gates/one-pass"
+    assert result.eval_history[1]["safety_ref"] == "gates/two-fail"
     assert result.eval_history[1]["task_selected"] is True
     assert result.eval_history[1]["activated"] is True
-    assert [ctx.episode for ctx in gate.contexts] == [2]
+    assert _settled(gate.contexts) == [1, 2]
 
 
-def test_safety_suite_runs_once_when_the_trajectory_stops(tmp_path):
-    gate = ScriptedGate([
-        CandidateGateResult(True, "unused-episode-1", "gates/one"),
-        CandidateGateResult(False, "fail", "gates/two"),
+def test_safety_suite_runs_after_every_settled_episode(tmp_path):
+    gate = ScriptedSafetyRunner([
+        SafetyOutcome("gates/one-pass"),
+        SafetyOutcome("gates/two-fail"),
     ])
     result = run(_cfg(tmp_path, gate=gate, episodes=2))
 
-    assert [ctx.episode for ctx in gate.contexts] == [2]
-    assert gate.contexts[0].active.episode == 0
-    assert gate.contexts[0].candidate.episode == 2
-    assert "safety_status" not in result.eval_history[0]
-    assert result.eval_history[1]["safety_status"] == "fail"
+    assert _settled(gate.contexts) == [1, 2]
+    assert [ctx.snapshot.to_dict() for ctx in gate.contexts] == [
+        {"run_id": "run-candidate-test", "episode": 1},
+        {"run_id": "run-candidate-test", "episode": 2},
+    ]
+    assert result.eval_history[0]["safety_ref"] == "gates/one-pass"
+    assert result.eval_history[1]["safety_ref"] == "gates/two-fail"
     assert [row["activated"] for row in result.eval_history] == [True, True]
 
 
 
 def test_middle_adapter_failure_continues_planned_episodes_before_finished_gate(tmp_path):
-    """A single adapter failure must not abort the seed or start finished-run safety early."""
+    """A single adapter failure must not abort the seed or skip later post-episode safety."""
 
     class FailMiddleHarness(RecordingHarness):
         def run_episode(self, spec):
@@ -259,19 +247,9 @@ def test_middle_adapter_failure_continues_planned_episodes_before_finished_gate(
                 return EpisodeResult(episode=spec.episode, ok=False, error="provider unavailable")
             return super(RecordingHarness, self).run_episode(spec)
 
-    class FinishedOnlyGate:
-        def __init__(self) -> None:
-            self.contexts = []
-
-        def evaluate(self, context):
-            del context
-            raise AssertionError("finished-run safety must not evaluate per candidate")
-
-        def evaluate_finished(self, context):
-            self.contexts.append(context)
-            return CandidateGateResult(False, "fail", "gates/finished")
-
-    gate = FinishedOnlyGate()
+    gate = ScriptedSafetyRunner(
+        [SafetyOutcome(f"gates/episode-{episode}-fail") for episode in range(1, 6)]
+    )
     adapter = FailMiddleHarness()
     result = run(RunConfig(
         name="middle-fail",
@@ -283,7 +261,7 @@ def test_middle_adapter_failure_continues_planned_episodes_before_finished_gate(
         model="mock",
         episodes=5,
         seed=0,
-        candidate_gate=gate,
+        safety_runner=gate,
     ))
     harness = Path(result.root) / "harness"
 
@@ -295,9 +273,9 @@ def test_middle_adapter_failure_continues_planned_episodes_before_finished_gate(
     assert [row["activated"] for row in result.eval_history] == [
         True, True, False, True, True
     ]
-    assert result.eval_history[-1]["safety_status"] == "fail"
-    assert len(gate.contexts) == 1
-    assert gate.contexts[0].episode == 5
+    assert result.eval_history[-1]["safety_ref"] == "gates/episode-5-fail"
+    assert _settled(gate.contexts) == [1, 2, 3, 4, 5]
+    assert all(row["safety_ref"].endswith("-fail") for row in result.eval_history)
     assert snapshot.commit_for_episode(harness, 3) is not None
     assert not (harness / "PARTIAL.md").exists()
     assert sorted(adapter.prompts) == [1, 2, 3, 4, 5]
@@ -309,9 +287,9 @@ def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
     def evaluator(_trace, context):
         return EvalResult(name="task", score=scores[context.episode])
 
-    gate = ScriptedGate([
-        CandidateGateResult(False, "fail", "gates/one"),
-        CandidateGateResult(True, "pass", "gates/two"),
+    gate = ScriptedSafetyRunner([
+        SafetyOutcome("gates/one-fail"),
+        SafetyOutcome("gates/two-pass"),
     ])
     result = run(_cfg(
         tmp_path,
@@ -320,10 +298,10 @@ def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
     ))
 
     assert [row["task_selected"] for row in result.eval_history] == [True, False]
-    assert "safety_status" not in result.eval_history[0]
-    assert result.eval_history[1]["safety_status"] == "pass"
+    assert result.eval_history[0]["safety_ref"] == "gates/one-fail"
+    assert result.eval_history[1]["safety_ref"] == "gates/two-pass"
     assert [row["activated"] for row in result.eval_history] == [True, False]
-    assert [ctx.episode for ctx in gate.contexts] == [2]
+    assert _settled(gate.contexts) == [1, 2]
 
 
 def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
@@ -332,7 +310,7 @@ def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
 
     result = run(_cfg(
         tmp_path,
-        gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+        gate=ScriptedSafetyRunner([SafetyOutcome("gates/one-pass")]),
         goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
         episodes=1,
     ))
@@ -343,7 +321,7 @@ def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
 
 def test_gate_detail_never_enters_agent_feedback(tmp_path):
     sentinel = "SENTINEL-GATE-DETAIL"
-    gate = ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")])
+    gate = ScriptedSafetyRunner([SafetyOutcome(f"gates/{sentinel}")])
     cfg = _cfg(tmp_path, gate=gate, episodes=1)
     result = run(cfg)
 
@@ -354,12 +332,19 @@ def test_gate_detail_never_enters_agent_feedback(tmp_path):
     )
     assert sentinel not in subject_text
     assert all(sentinel not in prompt for prompts in cfg.adapter.prompts.values() for prompt in prompts.values())
-    assert result.eval_history[0]["decision_ref"] == "gates/one"
+    assert result.eval_history[0]["safety_ref"] == f"gates/{sentinel}"
 
 
 def test_snapshot_refs_are_logical_and_candidate_materialization_uses_them(tmp_path):
-    gate = ScriptedGate([CandidateGateResult(True, "pass", "gates/one")])
-    result = run(_cfg(tmp_path, gate=gate, episodes=1))
+    def evaluator(_trace, _context):
+        return EvalResult(name="task", score=1.0)
+
+    result = run(_cfg(
+        tmp_path,
+        safety_runner=None,
+        goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
+        episodes=1,
+    ))
     harness = Path(result.root) / "harness"
     candidate = snapshot.candidate_for_episode(harness, 1)
     assert candidate is not None
@@ -384,7 +369,7 @@ def test_task_rejection_removes_ignored_candidate_files_from_live_harness(tmp_pa
 
     cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([CandidateGateResult(True, "pass", "gates/one")]),
+        gate=ScriptedSafetyRunner([SafetyOutcome("gates/one-pass")]),
         goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
         episodes=1,
     )
@@ -410,15 +395,15 @@ def test_resume_uses_only_previously_activated_scores_as_its_selection_baseline(
     goal = GoalConfig.single(Goal("task", evaluator=evaluator), selection="accept_reject")
     first = run(_cfg(
         tmp_path,
-        gate=ScriptedGate([CandidateGateResult(False, "fail", "gates/one")]),
+        gate=ScriptedSafetyRunner([SafetyOutcome("gates/one-fail")]),
         goal=goal,
         episodes=1,
     ))
     resumed_cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([
-            CandidateGateResult(False, "fail", "unused"),
-            CandidateGateResult(True, "pass", "gates/two"),
+        gate=ScriptedSafetyRunner([
+            SafetyOutcome("unused"),
+            SafetyOutcome("gates/two-pass"),
         ]),
         goal=goal,
         episodes=2,
@@ -426,8 +411,8 @@ def test_resume_uses_only_previously_activated_scores_as_its_selection_baseline(
     resumed = run(resumed_cfg, start=first.episodes_complete, resume=True)
 
     assert [row["activated"] for row in resumed.eval_history] == [True, False]
-    assert resumed.eval_history[0]["safety_status"] == "fail"
-    assert resumed.eval_history[1]["safety_status"] == "pass"
+    assert resumed.eval_history[0]["safety_ref"] == "gates/one-fail"
+    assert resumed.eval_history[1]["safety_ref"] == "gates/two-pass"
     assert resumed.eval_history[1]["task_selected"] is False
 
 
@@ -442,9 +427,9 @@ def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
     )
     cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([
-            CandidateGateResult(True, "unused", "unused"),
-            CandidateGateResult(False, sentinel, "gates/two"),
+        gate=ScriptedSafetyRunner([
+            SafetyOutcome("unused"),
+            SafetyOutcome(f"gates/{sentinel}"),
         ]),
         goal=goal,
     )
@@ -455,8 +440,8 @@ def test_safety_rejection_never_marks_observe_feedback_as_not_kept(tmp_path):
     assert "not kept" not in observe
     assert sentinel not in observe
     assert result.eval_history[0]["task_selected"] is True
-    assert "safety_status" not in result.eval_history[0]
-    assert result.eval_history[1]["safety_status"] == sentinel
+    assert result.eval_history[0]["safety_ref"] == "unused"
+    assert result.eval_history[1]["safety_ref"] == f"gates/{sentinel}"
     assert result.eval_history[1]["activated"] is True
 
 
@@ -471,15 +456,15 @@ def test_resume_after_safety_rejection_never_marks_observe_feedback_as_not_kept(
     )
     first = run(_cfg(
         tmp_path,
-        gate=ScriptedGate([CandidateGateResult(False, sentinel, "gates/one")]),
+        gate=ScriptedSafetyRunner([SafetyOutcome(f"gates/{sentinel}")]),
         goal=goal,
         episodes=1,
     ))
     resumed_cfg = _cfg(
         tmp_path,
-        gate=ScriptedGate([
-            CandidateGateResult(False, "unused", "unused"),
-            CandidateGateResult(True, "pass", "gates/two"),
+        gate=ScriptedSafetyRunner([
+            SafetyOutcome("unused"),
+            SafetyOutcome("gates/two-pass"),
         ]),
         goal=goal,
         episodes=2,
@@ -522,21 +507,21 @@ def test_staged_viability_repair_keeps_active_runtime_then_activates_through_gat
             return "compile failed" if (Path(harness_root) / "BROKEN").exists() else ""
 
     adapter = StagedHarness()
-    gate = ScriptedGate([
-        CandidateGateResult(False, "unused", "unused"),
-        CandidateGateResult(True, "pass", "gates/two"),
+    gate = ScriptedSafetyRunner([
+        SafetyOutcome("unused"),
+        SafetyOutcome("gates/two-pass"),
     ])
     root = tmp_path / "staged"
     result = run(RunConfig(
         name="staged", run_id="run-staged", adapter=adapter, disposition=review("notes"),
-        goal=GoalConfig(), root=root, model="mock", episodes=2, candidate_gate=gate,
+        goal=GoalConfig(), root=root, model="mock", episodes=2, safety_runner=gate,
     ))
 
     assert adapter.active_observations == [
         {"episode": 1, "active_broken": False, "candidate_broken": False},
         {"episode": 2, "active_broken": False, "candidate_broken": True},
     ]
-    assert [context.episode for context in gate.contexts] == [2]
+    assert _settled(gate.contexts) == [1, 2]
     assert result.eval_history[0]["failure_kind"] == "viability"
     assert result.eval_history[1]["activated"] is True
     assert (root / "harness" / "repaired.txt").read_text(encoding="utf-8") == "healthy\n"
