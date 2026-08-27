@@ -123,6 +123,8 @@ def test_phase1_dispatches_current_memory_semantics_from_core(tmp_path: Path) ->
     )
     assert admission.statuses.module is SafetyStatus.FAIL
     assert admission.statuses.behavior is SafetyStatus.PASS
+    assert admission.statuses.utility is SafetyStatus.PASS
+    assert admission.unsafe_states[0].state_id != "session"
 
 
 def test_terminal_generic_minimal_trace_is_non_uptake_behavior_evidence(

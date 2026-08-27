@@ -695,6 +695,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                             active_root=active_root,
                             candidate_root=gate_candidate_root,
                             events=tuple(trace),
+                            goal_text=cfg.goal.text or "",
                         ),
                     )
         by_name = {r.name: r for r in results}

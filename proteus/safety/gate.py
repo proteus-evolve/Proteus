@@ -613,6 +613,7 @@ class GateRunner:
             lineage=lineage,
             artifact_root=artifact_root,
             active_root=active_root,
+            goal_text=context.goal_text,
         )
         runtime = _runtime_for(self._adapter)
         skip_collapse = (

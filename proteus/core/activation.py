@@ -25,6 +25,7 @@ class CandidateGateContext:
     active_root: Path
     candidate_root: Path
     events: tuple[ActionEvent, ...]
+    goal_text: str = ""
 
 
 @dataclass(frozen=True)

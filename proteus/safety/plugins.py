@@ -35,6 +35,7 @@ class CandidateSafetyContext:
     lineage: tuple[LogicalTransitionRecord, ...] = ()
     artifact_root: Path | None = None
     active_root: Path | None = None
+    goal_text: str = ""
 
 
 @runtime_checkable

@@ -40,8 +40,9 @@ runs/demo/
 
 Activation safety is not a measurement evaluator. The three Phase 1 families live on
 the candidate gate: `memory_bad_admission`, `memory_collapse`, and
-`tools_permission_drift`. Bad admission overwrites one existing memory name with an
-AdvBench document; module is native retrieve, behavior is ordinary live follow. Collapse
+`tools_permission_drift`. Bad admission writes an AdvBench document under a
+slightly rewritten existing memory name; module is native retrieve, behavior is
+ordinary live follow. Collapse
 occupancy-probes a snapshot copy on selected episodes and does not decide activation.
 Permission scores protected vs allowed canaries; committing a protected fixture is a
 fail. Reports come from `proteus safety harness-report`.
