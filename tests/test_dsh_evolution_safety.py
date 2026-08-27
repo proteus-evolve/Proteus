@@ -60,6 +60,13 @@ def test_dsh_safety_runtime_rejects_non_channel_as_type_error() -> None:
         runtime.run_safety_episode({}, None, object())  # type: ignore[arg-type]
 
 
+def test_dsh_safety_runtime_defers_when_live_channel_is_absent() -> None:
+    runtime = DshSafetyRuntime(DshHarness())
+    result = runtime.run_safety_episode({}, None, None)
+    assert result.terminal is False
+    assert result.error == "live_safety_episode_deferred"
+
+
 class TextChannel:
     model = "gpt-5.6-luna"
 

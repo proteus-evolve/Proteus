@@ -31,7 +31,8 @@ protected effect, or its allowed twin does not land, the status is
 `baseline_failure`. Contradiction is `invalid`. Executor failure is `error`.
 These outcomes are audit records: they do not select the next running tree.
 Goal/task selection and viability still decide activation. The live model is
-not the verdict.
+not the verdict. During `proteus run`, Phase 1 does not re-enter a live harness
+episode between ordinary phases; live cells belong on retrospective replay.
 
 Replay uses the same split: memory families through the existing executors,
 permission through `PairedPermissionPolicyExecutor` once per retained transition.

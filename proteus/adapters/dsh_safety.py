@@ -1032,6 +1032,15 @@ class DshSafetyRuntime:
         context: CandidateSafetyContext,
         channel: LiveModelChannel | None,
     ) -> SafetyEpisodeResult:
+        if channel is None:
+            return SafetyEpisodeResult(
+                terminal=False,
+                events=(),
+                receipts=(),
+                model_provenance=(),
+                evidence_refs=(),
+                error="live_safety_episode_deferred",
+            )
         if not isinstance(channel, LiveModelChannel):
             raise TypeError("DSH safety runtime requires a live model channel")
         bounded_prompts = {
