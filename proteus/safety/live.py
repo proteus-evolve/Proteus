@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
+_TRANSPORT_ATTEMPTS = 3
+_TRANSIENT_HTTP_STATUS = frozenset({429, 500, 502, 503, 504})
 
 
 class LiveConfigurationError(ValueError):
@@ -21,6 +24,10 @@ class LiveConfigurationError(ValueError):
 
 class LiveProtocolError(RuntimeError):
     """Raised when a live request or response violates the controller contract."""
+
+
+class _TransientTransportError(Exception):
+    """Retryable Responses transport failure; never shown to the subject."""
 
 
 class LiveCallCategory(str, Enum):
@@ -361,6 +368,29 @@ def common_repository_root(start: Path) -> Path:
     raise LiveConfigurationError("cannot locate the common repository root")
 
 
+def _http_error_payload(exc: urllib.error.HTTPError) -> dict[str, object]:
+    raw = exc.read().decode("utf-8", errors="replace")
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError:
+        body = {"error": {"type": "http_error", "message": raw[:200]}}
+    if not isinstance(body, dict):
+        body = {"error": {"type": "http_error", "message": "non-object error body"}}
+    body["http_status"] = int(exc.code)
+    return body
+
+
+def _http_error_message(payload: Mapping[str, object]) -> str:
+    status = payload.get("http_status")
+    err = payload.get("error")
+    if isinstance(err, Mapping):
+        kind = str(err.get("code") or err.get("type") or "error")
+        detail = str(err.get("message") or "").strip()[:180]
+        suffix = f"{kind}: {detail}" if detail else kind
+        return f"OpenAI Responses HTTP {status}: {suffix}"
+    return f"OpenAI Responses HTTP {status}"
+
+
 def _stdlib_responses_transport(
     url: str,
     payload: Mapping[str, object],
@@ -373,8 +403,18 @@ def _stdlib_responses_transport(
         headers=dict(headers),
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        decoded = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            decoded = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        payload = _http_error_payload(exc)
+        if int(exc.code) in _TRANSIENT_HTTP_STATUS:
+            raise _TransientTransportError(_http_error_message(payload)) from None
+        raise LiveProtocolError(_http_error_message(payload)) from None
+    except urllib.error.URLError as exc:
+        # Connection resets and DNS blips are retryable; do not leak resolver details.
+        del exc
+        raise _TransientTransportError("OpenAI Responses request failed") from None
     if not isinstance(decoded, Mapping):
         raise LiveProtocolError("OpenAI Responses result must be a mapping")
     return decoded
@@ -559,20 +599,41 @@ class OpenAIResponsesChannel:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        try:
-            raw = (
-                self._transport(RESPONSES_URL, payload, headers, self._timeout_s)
-                if bounded_timeout_s is None
-                else self._bounded_transport(
-                    payload=payload,
-                    headers=headers,
-                    timeout_s=bounded_timeout_s,
+        raw: Mapping[str, object] | None = None
+        last_timeout: TimeoutError | None = None
+        for attempt in range(_TRANSPORT_ATTEMPTS):
+            try:
+                raw = (
+                    self._transport(RESPONSES_URL, payload, headers, self._timeout_s)
+                    if bounded_timeout_s is None
+                    else self._bounded_transport(
+                        payload=payload,
+                        headers=headers,
+                        timeout_s=bounded_timeout_s,
+                    )
                 )
-            )
-        except TimeoutError:
-            raise
-        except Exception:  # noqa: BLE001 - never expose transport details or credentials
-            raise LiveProtocolError("OpenAI Responses request failed") from None
+                break
+            except TimeoutError as exc:
+                last_timeout = exc
+                if attempt + 1 < _TRANSPORT_ATTEMPTS:
+                    continue
+                raise
+            except _TransientTransportError:
+                if attempt + 1 < _TRANSPORT_ATTEMPTS:
+                    continue
+                raise LiveProtocolError("OpenAI Responses request failed") from None
+            except LiveProtocolError:
+                raise
+            except Exception:  # noqa: BLE001 - never expose transport details or credentials
+                if attempt + 1 < _TRANSPORT_ATTEMPTS:
+                    continue
+                raise LiveProtocolError("OpenAI Responses request failed") from None
+        else:
+            if last_timeout is not None:
+                raise last_timeout
+            raise LiveProtocolError("OpenAI Responses request failed")
+        if raw is None:
+            raise LiveProtocolError("OpenAI Responses request failed")
         if not isinstance(raw, Mapping):
             raise LiveProtocolError("OpenAI Responses result must be a mapping")
         self._write_json(self._evidence_dir / f"response-{self._calls:03d}.json", raw)
