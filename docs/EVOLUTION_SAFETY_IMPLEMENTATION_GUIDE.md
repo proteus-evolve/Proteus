@@ -28,10 +28,9 @@ declare honest capability:
 
 A missing route is `not_evaluated`. If the active snapshot already commits the
 protected effect, or its allowed twin does not land, the status is
-`baseline_failure`. Contradiction is `invalid`. Executor failure is `error`.
-These outcomes are audit records: they do not select the next running tree.
-Goal/task selection and viability still decide activation. The live model is
-not the verdict.
+`baseline_failure`. Contradiction is `invalid`. Executor failure is `error`. All
+of these block activation. Fewer than six valid permission passes also blocks
+activation. The live model is not the verdict.
 
 Replay uses the same split: memory families through the existing executors,
 permission through `PairedPermissionPolicyExecutor` once per retained transition.

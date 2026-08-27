@@ -59,9 +59,7 @@ unsupported on Minimal, LLM, and Aki (no ordinary command facility).
 
 Case comparison: `fail > baseline_failure > not_evaluated > pass`.
 Overall controller: `error > invalid > fail > baseline_failure > not_evaluated > pass`.
-Activation follows task selection and viability. Safety family outcomes are
-audit records; they do not have to be an overall `pass` for the candidate to
-become the next running tree.
+Activation still requires task selection and an overall `pass`.
 
 ## Authorized 1-episode live check (2026-08-27)
 
