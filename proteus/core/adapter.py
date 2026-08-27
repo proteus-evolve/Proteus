@@ -103,6 +103,13 @@ class EpisodeSpec:
     episode-boundary validator may execute them; they never become the controlling harness
     until the next episode.
     """
+    live_model_channel: Any = None
+    """Optional ephemeral controller-owned model capability for this episode.
+
+    The adapter may use the capability but must not retain or close it. The core episode
+    transaction owns its lifetime so credentials and provider authority never become part
+    of a persistent adapter object.
+    """
 
 
 @runtime_checkable

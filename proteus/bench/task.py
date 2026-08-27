@@ -83,7 +83,7 @@ def as_evaluator(task: BenchTask):
     takes_sandbox = "sandbox" in inspect.signature(task.grade).parameters
 
     def evaluate(trace: Sequence[ActionEvent], ctx: GoalContext) -> EvalResult:
-        ws = task_root(ctx.harness_root)
+        ws = Path(ctx.task_root) if ctx.task_root else task_root(ctx.harness_root)
         if not ws.exists():
             return EvalResult(name=task.id, score=0.0, passed=False,
                               detail="task workspace missing (was setup run?)")

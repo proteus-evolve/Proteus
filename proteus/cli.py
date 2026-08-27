@@ -14,13 +14,173 @@ plugs in the reference research harness.
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
-from proteus.core.disposition import NEUTRAL, record, review
 from proteus.core.budget import make_budget_plan
+from proteus.core.disposition import NEUTRAL, record, review
 from proteus.core.goal import GoalConfig
 from proteus.sweep import SweepConfig, run_sweep
+
+
+def _candidate_gate_factory(
+    args,
+    *,
+    adapter_factory,
+    controller_root: Path,
+    channel_factory=None,
+):
+    """Load safety only for an explicitly safety-gated run.
+
+    Normal Minimal/benchmark runs must remain usable while optional safety providers are
+    absent or have unavailable live dependencies, so the import belongs behind the CLI flag.
+    """
+    if not args.safety_suite:
+        if args.safety_model:
+            raise ValueError("--safety-model requires --safety-suite")
+        return None
+    from proteus.safety.gate import build_candidate_gate_factory
+
+    return build_candidate_gate_factory(
+        adapter_factory=adapter_factory,
+        suite_spec=args.safety_suite,
+        safety_model=args.safety_model,
+        controller_root=controller_root,
+        channel_factory=channel_factory,
+    )
+
+
+def _controller_live_channel_factory(args, controller_root: Path):
+    """Create the trusted ordinary/safety model controller outside adapter objects."""
+    if args.harness not in {"llm", "pi", "dsh", "aki"}:
+        return None
+    if args.harness == "aki" and not _pi_controller_model(getattr(args, "model", "")):
+        raise ValueError(
+            "Aki ordinary episodes require --model selecting a host-owned OpenAI controller"
+        )
+    if (
+        args.harness in {"pi", "dsh", "aki"}
+        and not getattr(args, "safety_suite", "")
+        and not _pi_controller_model(getattr(args, "model", ""))
+    ):
+        return None
+    from proteus.safety.live import (
+        OpenAIResponsesChannelFactory,
+        common_repository_root,
+    )
+
+    return OpenAIResponsesChannelFactory.from_repository(
+        repository_root=common_repository_root(Path.cwd()),
+        evidence_root=controller_root / "live-model-ledgers",
+    )
+
+
+def _pi_controller_model(model: str) -> bool:
+    """Whether an explicit container-harness model uses the OpenAI controller."""
+    value = model.strip().lower()
+    return value.startswith(("gpt-", "o1", "o3", "o4"))
+
+
+_BUILTIN_PERMISSION_SUPPORT = {
+    "minimal": 4,
+    "llm": 4,
+    "pi": 6,
+    "dsh": 6,
+    "aki": 5,
+}
+
+
+def _local_image_exists(harness: str) -> bool:
+    """Return whether the pinned local image exists. Never prints image or credential payloads."""
+    name = harness.strip().lower()
+    if name in {"minimal", "llm"}:
+        return True
+    tags = {
+        "pi": os.environ.get("PROTEUS_PI_IMAGE", "proteus-env-pi-src:0.84.2"),
+        "dsh": os.environ.get("PROTEUS_DSH_IMAGE", "proteus-env-dsh-src:0.1.0-rc.7"),
+        "aki": os.environ.get("PROTEUS_AKI_IMAGE", "proteus-env-aki-src:0.1.0"),
+    }
+    image = tags.get(name)
+    if not image:
+        return False
+    try:
+        completed = subprocess.run(
+            ["docker", "image", "inspect", image],
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return completed.returncode == 0
+
+
+def _repository_openai_key_is_present() -> bool:
+    """Return whether repository-root .env has a non-empty OPENAI_API_KEY without printing it."""
+    from proteus.safety.live import (
+        LiveConfigurationError,
+        common_repository_root,
+        load_repository_openai_key,
+    )
+
+    try:
+        load_repository_openai_key(common_repository_root(Path.cwd()))
+    except LiveConfigurationError:
+        return False
+    return True
+
+
+def _builtin_permission_supported_cases(harness: str) -> int:
+    name = harness.strip().lower()
+    if name in _BUILTIN_PERMISSION_SUPPORT:
+        return _BUILTIN_PERMISSION_SUPPORT[name]
+    return 0
+
+
+def _call_plan_payload(args) -> dict[str, object]:
+    from proteus.safety.live import derive_builtin_live_call_plan
+
+    plan = derive_builtin_live_call_plan(
+        harness=args.harness,
+        episodes=args.episodes,
+        ordinary_hard_limit=args.max_turns,
+        permission_supported_cases=_builtin_permission_supported_cases(args.harness),
+        include_memory_families="phase1" in getattr(args, "suite", ""),
+    )
+    return {
+        "harness": plan.harness,
+        "ordinary_cap": plan.ordinary_cap,
+        "safety_cap": plan.safety_cap,
+        "total_cap": plan.total_cap,
+    }
+
+
+def _ordinary_live_channel_factory(args, controller_factory):
+    """Keep empty/default container models on their established provider paths."""
+    if (
+        args.harness in {"pi", "dsh", "aki"}
+        and not _pi_controller_model(getattr(args, "model", ""))
+    ):
+        return None
+    return controller_factory
+
+
+def _validate_run_model_configuration(args) -> None:
+    """Reject incomplete Aki model routing before adapters or credentials are opened."""
+    if args.harness != "aki":
+        return
+    if not _pi_controller_model(getattr(args, "model", "")):
+        raise ValueError(
+            "Aki ordinary episodes require --model selecting a host-owned OpenAI controller"
+        )
+    safety_suite = getattr(args, "safety_suite", "")
+    safety_model = getattr(args, "safety_model", "")
+    if safety_suite and not safety_model.strip():
+        raise ValueError("Aki safety episodes require --safety-model")
+    if safety_model and not safety_suite:
+        raise ValueError("--safety-model requires --safety-suite")
 
 
 def _load_seed_records(root: Path) -> list[dict]:
@@ -120,6 +280,14 @@ def _harness_factory(args):
             call["sandbox"] = sandbox()
         return cls(**call)
     return make
+
+
+def _preflight_run_harness(factory) -> None:
+    """Run an adapter's selected-run preflight before opening model capabilities."""
+    adapter = factory()
+    preflight = getattr(adapter, "preflight", None)
+    if callable(preflight):
+        preflight()
 
 
 def _arm(spec: str):
@@ -251,7 +419,80 @@ def cmd_run(args) -> int:
         raise SystemExit(str(exc)) from None
     if args.checkpoint_turns and not args.announce_budget:
         raise SystemExit("--checkpoint-turns requires --announce-budget")
+    try:
+        _validate_run_model_configuration(args)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+    root = Path(args.out).expanduser()
     factory = _harness_factory(args)
+    try:
+        _preflight_run_harness(factory)
+        controller_channel_factory = _controller_live_channel_factory(args, root)
+        if (
+            controller_channel_factory is not None
+            and args.safety_suite
+            and args.harness in _BUILTIN_PERMISSION_SUPPORT
+        ):
+            from proteus.safety.live import (
+                ControllerLiveCallBudget,
+                LiveCallCategory,
+                derive_builtin_live_call_plan,
+            )
+
+            plan = derive_builtin_live_call_plan(
+                harness=args.harness,
+                episodes=args.episodes,
+                ordinary_hard_limit=args.max_turns,
+                permission_supported_cases=(
+                    _builtin_permission_supported_cases(args.harness)
+                    if args.safety_suite
+                    else 0
+                ),
+                include_memory_families="phase1" in args.safety_suite,
+            )
+            inner_factory = controller_channel_factory
+            budget_holder: list = []
+
+            def controller_channel_factory(model: str, cell_id: str):
+                if not budget_holder:
+                    budget_holder.append(
+                        ControllerLiveCallBudget(plan, root / "call-budget.json")
+                    )
+                category = (
+                    LiveCallCategory.SAFETY
+                    if any(
+                        name in cell_id
+                        for name in (
+                            "tools_permission_drift",
+                            "memory_bad_admission",
+                            "memory_collapse",
+                        )
+                    )
+                    else LiveCallCategory.ORDINARY
+                )
+                channel_cap = (
+                    max(plan.safety_cap, 1)
+                    if category is LiveCallCategory.SAFETY
+                    else max(plan.ordinary_cap, 1)
+                )
+                return budget_holder[0].wrap(
+                    inner_factory(model, cell_id),
+                    category=category,
+                    cell_id=cell_id,
+                    channel_cap=channel_cap,
+                )
+
+        candidate_gate_factory = _candidate_gate_factory(
+            args,
+            adapter_factory=factory,
+            controller_root=root,
+            channel_factory=controller_channel_factory,
+        )
+        ordinary_channel_factory = _ordinary_live_channel_factory(
+            args, controller_channel_factory
+        )
+    except (ImportError, TypeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
     parsed = [_evaluator(e, factory) for e in (args.evaluator or ())]
     evaluators = tuple(spec for spec, _ in parsed)
     tasks = [task for _, task in parsed if task is not None]
@@ -264,7 +505,7 @@ def cmd_run(args) -> int:
         arms=[_arm(a) for a in args.arm],
         seeds=args.seeds,
         goal=_goal(args.goal, evaluators),
-        root=Path(args.out).expanduser(),
+        root=root,
         model=args.model,
         episodes=args.episodes,
         max_turns=args.max_turns,
@@ -284,10 +525,16 @@ def cmd_run(args) -> int:
         checkpoint_turns=args.checkpoint_turns,
         announce_budget=args.announce_budget,
         on_existing=args.on_existing,
+        live_channel_factory=ordinary_channel_factory,
+        candidate_gate_factory=candidate_gate_factory,
+        candidate_gate_config=(
+            {"suite": args.safety_suite, "model": args.safety_model}
+            if args.safety_suite else {}
+        ),
     )
     try:
         records = run_sweep(cfg)
-    except (FileExistsError, ValueError) as exc:
+    except (FileExistsError, ImportError, ValueError) as exc:
         raise SystemExit(str(exc)) from None
     done = sum(r["episodes_complete"] for r in records)
     print(f"ran {len(records)} seeds, {done} episodes -> {args.out}")
@@ -460,6 +707,110 @@ def cmd_watch(args) -> int:
     return 0
 
 
+def cmd_safety_call_plan(args) -> int:
+    """Print the exact ordinary/safety call plan without credentials or output."""
+    print(json.dumps(_call_plan_payload(args), sort_keys=True))
+    return 0
+
+
+def cmd_safety_preflight_permission(args) -> int:
+    """Check permission-run inputs without creating channels, containers, or output."""
+    from proteus.safety.gate import _load_suite
+    from proteus.safety.phase1 import TOOLS_PERMISSION_DRIFT
+    from proteus.safety.tools_permission_drift import SUITE as ISOLATED_SUITE
+
+    output = Path(args.out).expanduser()
+    if output.exists():
+        raise SystemExit("permission preflight output path already exists")
+    if args.model != "gpt-5.6-luna" or args.safety_model != "gpt-5.6-luna":
+        raise SystemExit("permission preflight requires gpt-5.6-luna")
+    allowed_suites = {
+        "proteus.safety.tools_permission_drift:SUITE",
+        "proteus.safety.phase1:SUITE",
+    }
+    if args.suite not in allowed_suites:
+        raise SystemExit("permission preflight requires the Phase 1 or isolated version-2 suite")
+    _, definitions = _load_suite(args.suite)
+    family = next(
+        item for item in definitions if item.family_id == TOOLS_PERMISSION_DRIFT.family_id
+    )
+    if family is not TOOLS_PERMISSION_DRIFT or ISOLATED_SUITE.version != "2":
+        raise SystemExit("permission preflight requires tools_permission_drift version 2")
+    if args.harness in {"pi", "dsh", "aki"} and not _local_image_exists(args.harness):
+        raise SystemExit("pinned local image is not available")
+    if args.harness in {"llm", "pi", "dsh", "aki"} and not _repository_openai_key_is_present():
+        raise SystemExit("repository OpenAI key is not present")
+    print(json.dumps(_call_plan_payload(args), sort_keys=True))
+    return 0
+
+
+def cmd_safety_audit_permission(args) -> int:
+    from proteus.safety.publication import json_value
+    from proteus.safety.reporting import audit_permission_artifact
+
+    audit = audit_permission_artifact(Path(args.root).expanduser())
+    out = Path(args.out).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(json_value(audit), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"wrote {out}")
+    return 0 if audit.complete else 1
+
+
+def cmd_safety_harness_report(args) -> int:
+    from proteus.safety.reporting import write_harness_safety_report
+
+    json_path, markdown_path = write_harness_safety_report(
+        artifact_roots=tuple(Path(root).expanduser() for root in args.artifact),
+        output_root=Path(args.out).expanduser(),
+    )
+    print(f"wrote {json_path} and {markdown_path}")
+    return 0
+
+
+def cmd_safety_retrospective(args) -> int:
+    """Replay preserved checkpoints without turning historical evidence into activation."""
+    from proteus.safety.retrospective import LiveModelConfig, run_retrospective_phase1
+    from proteus.safety.runtime import RuntimeKind
+
+    adapter = _adapter_factory(args.harness)()
+    runtime = adapter.safety_runtime() if callable(getattr(adapter, "safety_runtime", None)) else None
+    if runtime is None:
+        raise SystemExit(f"harness {args.harness!r} does not implement safety_runtime()")
+    model_config = None
+    if runtime.kind is RuntimeKind.MODEL_MEDIATED:
+        if not args.model:
+            raise SystemExit("model-mediated retrospective replay requires --model")
+        from proteus.safety.live import OpenAIResponsesChannelFactory, common_repository_root
+
+        model_config = LiveModelConfig(
+            model=args.model,
+            build_channel_factory=lambda artifact_root: (
+                OpenAIResponsesChannelFactory.from_repository(
+                    repository_root=common_repository_root(Path.cwd()),
+                    evidence_root=artifact_root / "live-model-ledgers",
+                )
+            ),
+        )
+    elif args.model:
+        raise SystemExit("deterministic retrospective replay does not use --model")
+    try:
+        summary = run_retrospective_phase1(
+            sweep_root=Path(args.sweep).expanduser(),
+            adapter=adapter,
+            output_root=Path(args.out).expanduser(),
+            model_config=model_config,
+            run_id=args.run_id,
+            active_episode=args.active_episode,
+        )
+    except (FileExistsError, TypeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
+    print(
+        f"replayed {summary.transitions_administered}/{summary.transitions_attempted} "
+        f"preserved transitions -> {args.out}"
+    )
+    return 0 if summary.complete else 1
+
+
 def cmd_repo(args) -> int:
     from proteus.report import export_repo, push_repo
     if args.repo_cmd == "export":
@@ -529,6 +880,10 @@ def main(argv=None) -> int:
                         "resume unfinished seeds, or overwrite them")
     r.add_argument("--model", default="",
                    help="model name; empty uses the adapter's default")
+    r.add_argument("--safety-suite", default="", metavar="SPEC",
+                   help="optional candidate safety suite; loads safety runtime lazily")
+    r.add_argument("--safety-model", default="", metavar="MODEL",
+                   help="fixed model for the optional safety suite (requires --safety-suite)")
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)
 
@@ -538,6 +893,50 @@ def main(argv=None) -> int:
     m.add_argument("--travel", action="store_true",
                    help="also compute per-surface path length over episode snapshots")
     m.set_defaults(func=cmd_measure)
+
+    safety = sub.add_parser("safety", help="controller-owned safety operations")
+    safety_sub = safety.add_subparsers(dest="safety_cmd", required=True)
+    retrospective = safety_sub.add_parser(
+        "retrospective", help="replay retained transitions without activation"
+    )
+    retrospective.add_argument("--harness", required=True)
+    retrospective.add_argument("--sweep", required=True, help="existing sweep root")
+    retrospective.add_argument("--out", required=True, help="new retrospective artifact root")
+    retrospective.add_argument("--model", default="", help="required for model-mediated runtimes")
+    retrospective.add_argument("--run-id", default=None, help="logical run ID for one pair")
+    retrospective.add_argument(
+        "--active-episode", type=int, default=None, help="active episode for one pair"
+    )
+    retrospective.set_defaults(func=cmd_safety_retrospective)
+    call_plan = safety_sub.add_parser("call-plan", help="print ordinary/safety live-call caps")
+    call_plan.add_argument("--harness", required=True)
+    call_plan.add_argument("--episodes", type=int, required=True)
+    call_plan.add_argument("--max-turns", type=int, required=True)
+    call_plan.add_argument("--suite", default="proteus.safety.tools_permission_drift:SUITE")
+    call_plan.set_defaults(func=cmd_safety_call_plan)
+    preflight = safety_sub.add_parser(
+        "preflight-permission", help="check permission-run inputs without opening a channel"
+    )
+    preflight.add_argument("--harness", required=True)
+    preflight.add_argument("--model", required=True)
+    preflight.add_argument("--safety-model", required=True)
+    preflight.add_argument("--suite", required=True)
+    preflight.add_argument("--episodes", type=int, required=True)
+    preflight.add_argument("--max-turns", type=int, required=True)
+    preflight.add_argument("--out", required=True)
+    preflight.set_defaults(func=cmd_safety_preflight_permission)
+    audit_permission = safety_sub.add_parser(
+        "audit-permission", help="audit a version-2 permission artifact root"
+    )
+    audit_permission.add_argument("--root", required=True)
+    audit_permission.add_argument("--out", required=True)
+    audit_permission.set_defaults(func=cmd_safety_audit_permission)
+    harness_report = safety_sub.add_parser(
+        "harness-report", help="write the three-family harness safety report"
+    )
+    harness_report.add_argument("--artifact", action="append", required=True)
+    harness_report.add_argument("--out", required=True)
+    harness_report.set_defaults(func=cmd_safety_harness_report)
 
     a = sub.add_parser("audit", help="escape and awareness evidence for a finished sweep")
     a.add_argument("--out", required=True)

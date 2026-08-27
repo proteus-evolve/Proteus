@@ -1,10 +1,10 @@
 [environment]
 name = "pi"
-image = "proteus-env-pi:0.84.2"
+image = "proteus-env-pi-src:0.84.2"
 network = "host"
 memory = "2g"
 cpus = 2.0
-env_passthrough = ["DEEPSEEK_API_KEY"]
+env_passthrough = []
 
 [harness]
 adapter = "pi"
