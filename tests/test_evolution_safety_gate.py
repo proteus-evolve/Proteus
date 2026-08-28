@@ -12,11 +12,11 @@ from proteus.adapters.llm import LLMHarness
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.adapters.pi import PiHarness
-from proteus.core.activation import CandidateGateContext
+from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.collapse_filler import is_flood_state_id
 from proteus.safety.evidence import EvidenceCellObservation
-from proteus.safety.gate import GateRunner, build_candidate_gate_factory
+from proteus.safety.gate import PostEpisodeSafetyRunner, build_safety_runner_factory
 from proteus.safety.live import LiveCallProvenance
 from proteus.safety.permission_adapter import PermissionSnapshotContext
 from proteus.safety.permission_behavior import UNIVERSAL_EFFECT_CASE_IDS
@@ -33,12 +33,11 @@ from proteus.safety.permission_evidence import (
     NativeProposal,
     PermissionCapabilityState,
     PermissionCaseCapability,
-    PermissionComparisonStatus,
 )
-from proteus.safety.permission_executor import PairedPermissionPolicyExecutor
+from proteus.safety.permission_executor import SnapshotPermissionExecutor
 from proteus.safety.phase1 import SUITE, TOOLS_PERMISSION_DRIFT
-from proteus.safety.publication import write_json
 from proteus.safety.runtime import RuntimeKind
+from proteus.safety.schedule import EveryEpisode, ExplicitEpisodes, SafetySuiteSchedule
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
 
 _NOTES_SUPPORTED = UNIVERSAL_EFFECT_CASE_IDS | {
@@ -93,23 +92,20 @@ class GatePermissionAdapter:
                 "raw",
             )
 
+        snap = snapshot_context.snapshot
         return NativePermissionBinding(
             case_spec.case_id,
-            f"fixture-native-policy:{snapshot_context.snapshot.role.value}",
+            f"fixture-native-policy:{snap.run_id}:{snap.episode}:{snap.role.value}",
             operation_binding(case_spec.protected),
             operation_binding(case_spec.allowed_control),
         )
 
     @staticmethod
     def administer(binding, operation_spec, channel):
-        endpoint = binding.native_mechanism.rsplit(":", 1)[-1]
-        snapshot = SnapshotRef(
-            "matched-run",
-            0 if endpoint == "active" else 1,
-            SnapshotRole.ACTIVE if endpoint == "active" else SnapshotRole.CANDIDATE,
-        )
+        _prefix, run_id, episode, role = binding.native_mechanism.split(":", 3)
+        snapshot = SnapshotRef(run_id, int(episode), SnapshotRole(role))
         allowed = operation_spec.operation_id == binding.allowed_control.operation_id
-        correlation = f"{endpoint}-{operation_spec.operation_id}"
+        correlation = f"{snapshot.role.value}-{operation_spec.operation_id}"
         if channel is not None and hasattr(channel, "requests"):
             channel.respond(
                 input=f"administer {operation_spec.operation_id}",
@@ -199,7 +195,7 @@ class RecordingChannel:
         pass
 
 
-class ExplodingAfterCaseExecutor(PairedPermissionPolicyExecutor):
+class ExplodingAfterCaseExecutor(SnapshotPermissionExecutor):
     def __init__(self, *, case_number: int) -> None:
         self.case_number = case_number
 
@@ -207,18 +203,17 @@ class ExplodingAfterCaseExecutor(PairedPermissionPolicyExecutor):
         for case_spec in request.case_specs[: self.case_number]:
             path = (
                 request.artifact_root
-                / "families"
                 / "tools_permission_drift"
                 / "cases"
                 / case_spec.case_id
-                / "comparison.json"
+                / "result.json"
             )
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("{}\n", encoding="utf-8")
         raise RuntimeError("controlled case failure")
 
 
-class RecordingPairedPermissionPolicyExecutor(PairedPermissionPolicyExecutor):
+class RecordingSnapshotPermissionExecutor(SnapshotPermissionExecutor):
     def __init__(self, mutation=None) -> None:
         self.execute_calls = 0
         self.mutation = mutation
@@ -229,79 +224,26 @@ class RecordingPairedPermissionPolicyExecutor(PairedPermissionPolicyExecutor):
         return self.mutation(request, result) if self.mutation is not None else result
 
 
-def _rewrite_permission_artifacts(request, family) -> None:
-    for case in family.cases:
-        write_json(
-            request.artifact_root
-            / "families/tools_permission_drift/cases"
-            / case.case_id
-            / "comparison.json",
-            case,
-        )
-    write_json(
-        request.artifact_root / "families/tools_permission_drift/family.json",
-        family,
+def _every_family_schedule() -> SafetySuiteSchedule:
+    return SafetySuiteSchedule(
+        memory_bad_admission=EveryEpisode(),
+        memory_collapse=EveryEpisode(),
+        tools_permission_drift=EveryEpisode(),
     )
 
 
-def _missing_case_artifact(request, family):
-    path = (
-        request.artifact_root
-        / "families/tools_permission_drift/cases/recursive_deletion/comparison.json"
-    )
-    path.unlink()
-    return family
-
-
-def _garbled_case_artifact(request, family):
-    path = (
-        request.artifact_root
-        / "families/tools_permission_drift/cases/recursive_deletion/comparison.json"
-    )
-    path.write_text("{not-json\n", encoding="utf-8")
-    return family
-
-
-def _wrong_transition_artifacts(request, family):
-    wrong_active = SnapshotRef("wrong-run", 99, SnapshotRole.ACTIVE)
-    wrong_cases = tuple(
-        replace(case, active_snapshot=wrong_active) for case in family.cases
-    )
-    wrong_family = replace(
-        family,
-        active_snapshot=wrong_active,
-        cases=wrong_cases,
-    )
-    _rewrite_permission_artifacts(request, wrong_family)
-    return wrong_family
-
-
-def _forged_pass_family(request, family):
-    incomplete = replace(
-        family.cases[0],
-        comparison_status=PermissionComparisonStatus.NOT_EVALUATED,
-        reasons=("candidate_protected_missing_delivery",),
-    )
-    forged = replace(family, cases=(incomplete, *family.cases[1:]))
-    _rewrite_permission_artifacts(request, forged)
-    return forged
-
-
-def _gate_context(tmp_path: Path) -> CandidateGateContext:
-    active_root = tmp_path / "subject" / "active"
-    candidate_root = tmp_path / "subject" / "candidate"
-    MinimalHarness().seed(active_root)
-    MinimalHarness().seed(candidate_root)
-    plant_harness_memory(active_root)
-    plant_harness_memory(candidate_root)
-    return CandidateGateContext(
+def _gate_context(tmp_path: Path) -> SettledEpisodeSafetyContext:
+    snapshot_root = tmp_path / "subject" / "settled"
+    MinimalHarness().seed(snapshot_root)
+    plant_harness_memory(snapshot_root)
+    return SettledEpisodeSafetyContext(
         run_id="matched-run",
         episode=1,
-        active=SnapshotRef("matched-run", 0, SnapshotRole.ACTIVE),
-        candidate=SnapshotRef("matched-run", 1, SnapshotRole.CANDIDATE),
-        active_root=active_root,
-        candidate_root=candidate_root,
-        events=(),
+        snapshot_ref=SnapshotRef("matched-run", 1, SnapshotRole.ACTIVE),
+        snapshot_root=snapshot_root,
+        trace=(),
+        episodes_target=1,
+        snapshot_commit="commit-1",
     )
 
 
@@ -488,7 +430,7 @@ def test_isolated_suite_opens_channels_only_for_notes_surface_cases(
         opened.append(cell_id)
         return SilentChannel()
 
-    gate = GateRunner(
+    gate = PostEpisodeSafetyRunner(
         adapter=harness,
         definitions=(TOOLS_PERMISSION_DRIFT,),
         controller_root=tmp_path / "controller",
@@ -496,131 +438,101 @@ def test_isolated_suite_opens_channels_only_for_notes_surface_cases(
         channel_factory=recording_factory,
     )
 
-    result = gate.evaluate(_gate_context(tmp_path))
+    result = gate.evaluate_settled_episode(_gate_context(tmp_path))
     family = json.loads(
         (
             tmp_path
             / "controller"
             / result.decision_ref
-        ).parent.joinpath("families/tools_permission_drift/family.json").read_text(
+        ).parent.joinpath("tools_permission_drift/result.json").read_text(
             encoding="utf-8"
         )
     )
-    statuses = {case["case_id"]: case["comparison_status"] for case in family["cases"]}
+    statuses = {
+        case["current"]["case_id"]: case["current"]["protected_effect_committed"]
+        for case in family["cases"]
+    }
 
     assert {cell for cell in opened if "tools_permission_drift" in cell}
     assert all(
         "recursive_deletion" not in cell and "command_execution" not in cell
         for cell in opened
     )
-    assert statuses["recursive_deletion"] == "not_evaluated"
-    assert statuses["command_execution"] == "not_evaluated"
-    assert statuses["protected_overwrite"] == "baseline_failure"
-    assert statuses["workspace_boundary"] == "baseline_failure"
-    assert statuses["policy_mutation"] == "baseline_failure"
-    assert statuses["tool_skill_capability_minting"] == "baseline_failure"
+    assert statuses["recursive_deletion"] is None
+    assert statuses["command_execution"] is None
+    assert statuses["protected_overwrite"] is False
+    assert statuses["workspace_boundary"] is False
+    assert statuses["policy_mutation"] is False
+    assert statuses["tool_skill_capability_minting"] is False
 
 
-def test_gate_schedules_permission_once_per_transition_and_memory_per_endpoint(
+def test_gate_schedules_permission_and_memory_once_on_settled_snapshot(
     tmp_path: Path,
 ) -> None:
     adapter = GateFixtureAdapter()
-    executor = RecordingPairedPermissionPolicyExecutor()
-    gate = GateRunner(
+    executor = RecordingSnapshotPermissionExecutor()
+    gate = PostEpisodeSafetyRunner(
         adapter=adapter,
         definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
         safety_model="",
         channel_factory=None,
         permission_executor=executor,
+        schedule=SafetySuiteSchedule(
+            memory_bad_admission=EveryEpisode(),
+            memory_collapse=EveryEpisode(),
+            tools_permission_drift=EveryEpisode(),
+        ),
         advbench_items=synthetic_advbench(),
     )
 
-    decision = gate.evaluate(_gate_context(tmp_path))
+    decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
 
     assert executor.execute_calls == 1
     assert adapter.memory_endpoint_calls == {
         ("memory_bad_admission", "active"),
-        ("memory_bad_admission", "candidate"),
         ("memory_collapse", "active"),
-        ("memory_collapse", "candidate"),
     }
     root = (tmp_path / "controller" / decision.decision_ref).parent
-    assert len(
-        list(
-            (root / "families/tools_permission_drift/cases").glob(
-                "*/comparison.json"
-            )
-        )
-    ) == 6
-    assert not (root / "families/tools_permission_drift/active.json").exists()
-    assert not (root / "families/tools_permission_drift/candidate.json").exists()
+    assert (root / "tools_permission_drift" / "result.json").is_file()
+    assert not (root / "memory_bad_admission" / "active.json").exists()
+    assert not (root / "memory_bad_admission" / "candidate.json").exists()
+    assert decision.decision_ref.endswith("indicators.json")
 
 
 def test_finished_run_probes_memory_on_the_running_tree_only(tmp_path: Path) -> None:
     adapter = GateFixtureAdapter()
-    executor = RecordingPairedPermissionPolicyExecutor()
-    gate = GateRunner(
+    executor = RecordingSnapshotPermissionExecutor()
+    gate = PostEpisodeSafetyRunner(
         adapter=adapter,
         definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
         safety_model="",
         channel_factory=None,
         permission_executor=executor,
-        collapse_episodes=frozenset({9}),
+        schedule=SafetySuiteSchedule(
+            memory_bad_admission=EveryEpisode(),
+            memory_collapse=ExplicitEpisodes({9}),
+            tools_permission_drift=EveryEpisode(),
+        ),
         advbench_items=synthetic_advbench(),
     )
 
-    decision = gate.evaluate_finished(_gate_context(tmp_path))
+    decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
     root = (tmp_path / "controller" / decision.decision_ref).parent
-    active_admission = json.loads(
-        (root / "families" / "memory_bad_admission" / "active.json").read_text(
-            encoding="utf-8"
-        )
+    collapse = json.loads(
+        (root / "memory_collapse" / "result.json").read_text(encoding="utf-8")
+    )
+    admission = json.loads(
+        (root / "memory_bad_admission" / "result.json").read_text(encoding="utf-8")
     )
 
     assert executor.execute_calls == 1
-    assert adapter.memory_endpoint_calls == {
-        ("memory_bad_admission", "candidate"),
-        ("memory_collapse", "candidate"),
-    }
-    assert active_admission["reason"] == "finished_run"
-    assert "episode_not_selected" not in (
-        root / "families" / "memory_collapse" / "candidate.json"
-    ).read_text(encoding="utf-8")
-
-    published = [
-        json.loads(line)
-        for line in (root / "results.jsonl").read_text(encoding="utf-8").splitlines()
-    ]
-    assert len(published) == 5
-    permission = [
-        item for item in published if item["family_id"] == "tools_permission_drift"
-    ]
-    assert len(permission) == 1
-    assert "endpoint" not in permission[0]
-    assert permission[0]["comparison_status"] == "pass"
-
-    by_memory_endpoint = {
-        (item["family_id"], item["endpoint"]): item
-        for item in published
-        if "endpoint" in item
-    }
-    for definition in SUITE.definitions():
-        if definition.family_id == "tools_permission_drift":
-            continue
-        declared = [cell.cell_id for cell in definition.declared_cells]
-        for endpoint in ("active", "candidate"):
-            observation = by_memory_endpoint[(definition.family_id, endpoint)]
-            assert [cell["cell_id"] for cell in observation["cells"]] == declared
-            for cell in observation["cells"]:
-                if cell["status"] in {SafetyStatus.PASS.value, SafetyStatus.FAIL.value}:
-                    assert cell["evidence_refs"]
-                    assert all(
-                        f"/{cell['cell_id']}/" in f"/{ref}"
-                        for ref in cell["evidence_refs"]
-                    )
-                    assert all((root / ref).is_file() for ref in cell["evidence_refs"])
+    assert adapter.memory_endpoint_calls == {("memory_bad_admission", "active")}
+    assert collapse["execution"]["schedule_status"] == "not_scheduled"
+    assert admission["execution"]["schedule_status"] == "evaluated"
+    assert (root / "indicators.json").is_file()
+    assert (root / "manifest.json").is_file()
 
 
 def test_deterministic_memory_cells_do_not_open_model_channels(tmp_path: Path) -> None:
@@ -641,7 +553,7 @@ def test_deterministic_memory_cells_do_not_open_model_channels(tmp_path: Path) -
         opened.append(cell_id)
         return Channel()
 
-    gate = GateRunner(
+    gate = PostEpisodeSafetyRunner(
         adapter=GateFixtureAdapter(),
         definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
@@ -649,7 +561,7 @@ def test_deterministic_memory_cells_do_not_open_model_channels(tmp_path: Path) -
         channel_factory=factory,
         advbench_items=synthetic_advbench(),
     )
-    gate.evaluate(_gate_context(tmp_path))
+    gate.evaluate_settled_episode(_gate_context(tmp_path))
     assert opened
     assert all("tools_permission_drift" in cell for cell in opened)
     assert not any("memory_" in cell for cell in opened)
@@ -671,11 +583,11 @@ def permission_gate(
     tmp_path: Path,
     *,
     channel: RecordingChannel | None = None,
-    executor: PairedPermissionPolicyExecutor | None = None,
+    executor: SnapshotPermissionExecutor | None = None,
     adapter: GateFixtureAdapter | None = None,
-) -> GateRunner:
+) -> PostEpisodeSafetyRunner:
     adapter = adapter or GateFixtureAdapter()
-    return GateRunner(
+    return PostEpisodeSafetyRunner(
         adapter=adapter,
         definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
@@ -693,10 +605,9 @@ def test_permission_status_and_counterpart_evidence_never_enter_candidate_channe
 ) -> None:
     channel = RecordingChannel()
     context = _gate_context(tmp_path)
-    active_before = tree_text(context.active_root)
-    candidate_before = tree_text(context.candidate_root)
+    before = tree_text(context.snapshot_root)
 
-    decision = permission_gate(tmp_path, channel=channel).evaluate(context)
+    decision = permission_gate(tmp_path, channel=channel).evaluate_settled_episode(context)
 
     forbidden = {
         "baseline_failure",
@@ -710,51 +621,28 @@ def test_permission_status_and_counterpart_evidence_never_enter_candidate_channe
         not any(word in request_text(request) for word in forbidden)
         for request in channel.requests
     )
-    assert tree_text(context.active_root) == active_before
-    assert tree_text(context.candidate_root) == candidate_before
+    assert tree_text(context.snapshot_root) == before
     assert not any(
-        path.name == "comparison.json" for path in context.candidate_root.rglob("*")
+        path.name == "comparison.json" for path in context.snapshot_root.rglob("*")
     )
-    assert decision.decision_ref.startswith("safety-gates/")
+    assert decision.decision_ref.startswith("safety/")
 
 
-def test_gate_failure_publishes_neither_family_nor_decision(tmp_path: Path) -> None:
+def test_gate_failure_publishes_complete_episode_with_permission_error(
+    tmp_path: Path,
+) -> None:
     gate = permission_gate(
         tmp_path, executor=ExplodingAfterCaseExecutor(case_number=3)
     )
 
-    with pytest.raises(RuntimeError, match="controlled case failure"):
-        gate.evaluate(_gate_context(tmp_path))
+    record = gate.evaluate_settled_episode(_gate_context(tmp_path))
 
-    final = tmp_path / "controller/safety-gates/matched-run/episode-001"
-    assert not final.exists()
-    assert list((final.parent / ".failed").glob("episode-001-*"))
-
-
-@pytest.mark.parametrize(
-    "mutation",
-    [
-        _missing_case_artifact,
-        _garbled_case_artifact,
-        _wrong_transition_artifacts,
-        _forged_pass_family,
-    ],
-    ids=["missing-case", "garbled-json", "wrong-transition", "forged-pass"],
-)
-def test_gate_rejects_incomplete_or_mismatched_staged_permission_evidence(
-    tmp_path: Path,
-    mutation,
-) -> None:
-    executor = RecordingPairedPermissionPolicyExecutor(mutation)
-    gate = permission_gate(tmp_path, executor=executor)
-
-    with pytest.raises(ValueError, match="staged permission evidence"):
-        gate.evaluate(_gate_context(tmp_path))
-
-    final = tmp_path / "controller/safety-gates/matched-run/episode-001"
-    assert executor.execute_calls == 1
-    assert not final.exists()
-    assert list((final.parent / ".failed").glob("episode-001-*"))
+    final = tmp_path / "controller/safety/matched-run/episodes/episode-001"
+    assert final.exists()
+    payload = json.loads((final / "indicators.json").read_text(encoding="utf-8"))
+    assert payload["tools_permission_drift"]["execution"]["schedule_status"] == "error"
+    assert payload["memory_bad_admission"]["execution"]["schedule_status"] == "evaluated"
+    assert record.decision_ref.endswith("indicators.json")
 
 
 def test_malformed_selected_runtime_uses_clean_cli_preflight(
@@ -864,18 +752,19 @@ def test_model_runtime_gets_one_closed_channel_per_real_episode_cell(
         channels.append(channel)
         return channel
 
-    gate = build_candidate_gate_factory(
+    gate = build_safety_runner_factory(
         adapter_factory=ModelHarness,
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
         controller_root=tmp_path / "controller",
         advbench_items=synthetic_advbench(),
         channel_factory=channel_factory,
+        schedule=_every_family_schedule(),
     )("model-run")
 
-    gate.evaluate(_gate_context(tmp_path))
+    gate.evaluate_settled_episode(_gate_context(tmp_path))
 
-    assert len(channels) == 16
+    assert len(channels) == 8
     assert all(
         ".real_episode." in channel.cell_id
         or ".tools_permission_drift." in channel.cell_id
@@ -903,7 +792,7 @@ def test_model_channel_without_close_is_rejected_before_use(tmp_path: Path) -> N
             del input, instructions, tools
             raise AssertionError("malformed channel must be rejected before use")
 
-    gate = build_candidate_gate_factory(
+    gate = build_safety_runner_factory(
         adapter_factory=ModelHarness,
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
@@ -912,10 +801,9 @@ def test_model_channel_without_close_is_rejected_before_use(tmp_path: Path) -> N
         channel_factory=lambda _model, _cell_id: NoCloseChannel(),
     )("model-run")
 
-    with pytest.raises(TypeError, match="must implement LiveModelChannel"):
-        gate.evaluate(_gate_context(tmp_path))
-
-    assert not (tmp_path / "controller" / "safety-gates" / "matched-run" / "episode-001").exists()
+    record = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    assert record.status == "error"
+    assert (tmp_path / "controller" / "safety" / "matched-run" / "episodes" / "episode-001").exists()
 
 
 def test_malformed_closable_model_channel_is_closed_after_protocol_rejection(
@@ -941,7 +829,7 @@ def test_malformed_closable_model_channel_is_closed_after_protocol_rejection(
             self.closed = True
 
     channel = MalformedClosableChannel()
-    gate = build_candidate_gate_factory(
+    gate = build_safety_runner_factory(
         adapter_factory=ModelHarness,
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
@@ -950,8 +838,8 @@ def test_malformed_closable_model_channel_is_closed_after_protocol_rejection(
         channel_factory=lambda _model, _cell_id: channel,
     )("model-run")
 
-    with pytest.raises(TypeError, match="must implement LiveModelChannel"):
-        gate.evaluate(_gate_context(tmp_path))
+    record = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    assert record.status == "error"
 
     assert channel.closed
 
@@ -985,7 +873,7 @@ def test_model_channel_closes_when_executor_raises(tmp_path: Path) -> None:
             self.closed = True
 
     channel = Channel()
-    gate = build_candidate_gate_factory(
+    gate = build_safety_runner_factory(
         adapter_factory=ModelHarness,
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
@@ -994,10 +882,12 @@ def test_model_channel_closes_when_executor_raises(tmp_path: Path) -> None:
         channel_factory=lambda _model, _cell_id: channel,
     )("model-run")
 
-    with pytest.raises(RuntimeError, match="executor failed"):
-        gate.evaluate(_gate_context(tmp_path))
-
+    record = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    assert record.status == "error"
     assert channel.closed
+    assert (
+        tmp_path / "controller" / "safety" / "matched-run" / "episodes" / "episode-001"
+    ).exists()
 
 
 def test_model_channel_close_failure_cannot_publish_a_decision(tmp_path: Path) -> None:
@@ -1032,7 +922,7 @@ def test_model_channel_close_failure_cannot_publish_a_decision(tmp_path: Path) -
         def close(self) -> None:
             raise RuntimeError("channel close failed")
 
-    gate = build_candidate_gate_factory(
+    gate = build_safety_runner_factory(
         adapter_factory=ModelHarness,
         suite_spec="proteus.safety.phase1:SUITE",
         safety_model="gpt-5.6-luna",
@@ -1041,7 +931,8 @@ def test_model_channel_close_failure_cannot_publish_a_decision(tmp_path: Path) -
         channel_factory=lambda _model, _cell_id: CloseFailureChannel(),
     )("model-run")
 
-    with pytest.raises(RuntimeError, match="channel close failed"):
-        gate.evaluate(_gate_context(tmp_path))
-
-    assert not (tmp_path / "controller" / "safety-gates" / "matched-run" / "episode-001").exists()
+    record = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    assert record.status == "error"
+    assert (
+        tmp_path / "controller" / "safety" / "matched-run" / "episodes" / "episode-001"
+    ).exists()

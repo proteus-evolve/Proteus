@@ -15,6 +15,7 @@ from proteus.adapters.pi_safety import PiSafetyRuntime
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelResponse,
@@ -532,10 +533,11 @@ def _pi_safety_context(tmp_path: Path) -> CandidateSafetyContext:
         run_id="pi-run",
         episode=1,
         adapter_name="pi",
-        snapshot=SnapshotRef("pi-run", 1, SnapshotRole.CANDIDATE),
+        snapshot=SnapshotRef("pi-run", 1, SnapshotRole.ACTIVE),
         snapshot_root=harness_root,
         trial_root=trial_root,
         evidence_dir=trial_root / "raw-evidence",
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(),
         artifact_root=tmp_path,

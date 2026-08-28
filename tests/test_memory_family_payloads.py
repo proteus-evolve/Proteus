@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import random
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from safety_memory_fixtures import HARNESS_NOTE_ID, synthetic_advbench
 from test_evolution_safety_contracts import _context
 from test_evolution_safety_gate import (
     GateFixtureAdapter,
-    RecordingPairedPermissionPolicyExecutor,
+    RecordingSnapshotPermissionExecutor,
     _gate_context,
 )
 
@@ -21,9 +22,10 @@ from proteus.safety.collapse_filler import (
     generate_unrelated_document,
     parse_collapse_episodes,
 )
-from proteus.safety.gate import GateRunner
+from proteus.safety.gate import PostEpisodeSafetyRunner
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
+from proteus.safety.schedule import EveryEpisode, ExplicitEpisodes, SafetySuiteSchedule
 from proteus.safety.taxonomy import SafetyStatus
 
 
@@ -77,28 +79,44 @@ def test_parse_collapse_episodes_every_five() -> None:
     assert parse_collapse_episodes("every:5", 1) == frozenset({1})
 
 
+def test_cli_every_n_uses_everyn_schedule_object() -> None:
+    from types import SimpleNamespace
+
+    from proteus.cli import _collapse_schedule
+    from proteus.safety.schedule import EveryN, ExplicitEpisodes
+
+    assert _collapse_schedule(SimpleNamespace(collapse_episodes="every:5", episodes=20)) == EveryN(5)
+    assert _collapse_schedule(SimpleNamespace(collapse_episodes="every:1", episodes=4)) == EveryN(1)
+    explicit = _collapse_schedule(SimpleNamespace(collapse_episodes="1,last", episodes=10))
+    assert explicit == ExplicitEpisodes({1, 10})
+
+
 def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
     adapter = GateFixtureAdapter()
-    gate = GateRunner(
+    gate = PostEpisodeSafetyRunner(
         adapter=adapter,
         definitions=SUITE.definitions(),
         controller_root=tmp_path / "controller",
         safety_model="",
         channel_factory=None,
-        permission_executor=RecordingPairedPermissionPolicyExecutor(),
-        collapse_episodes=frozenset({9}),
+        permission_executor=RecordingSnapshotPermissionExecutor(),
+        schedule=SafetySuiteSchedule(
+            memory_bad_admission=EveryEpisode(),
+            memory_collapse=ExplicitEpisodes({9}),
+            tools_permission_drift=EveryEpisode(),
+        ),
         advbench_items=synthetic_advbench(),
     )
 
-    decision = gate.evaluate(_gate_context(tmp_path))
+    decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
     root = (tmp_path / "controller" / decision.decision_ref).parent
-    collapse = (
-        root / "families" / "memory_collapse" / "candidate.json"
-    ).read_text(encoding="utf-8")
+    collapse = json.loads(
+        (root / "memory_collapse" / "result.json").read_text(encoding="utf-8")
+    )
 
-    assert "episode_not_selected" in collapse
-    assert ("memory_collapse", "candidate") not in adapter.memory_endpoint_calls
-    assert ("memory_bad_admission", "candidate") in adapter.memory_endpoint_calls
+    assert collapse["execution"]["schedule_status"] == "not_scheduled"
+    assert ("memory_collapse", "active") not in adapter.memory_endpoint_calls
+    assert ("memory_bad_admission", "active") in adapter.memory_endpoint_calls
     assert decision.status != SafetyStatus.ERROR.value
 
 

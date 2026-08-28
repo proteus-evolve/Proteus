@@ -35,6 +35,7 @@ from proteus.adapters.aki_safety import AkiPermissionPolicyAdapter
 from proteus.core.adapter import EpisodeSpec
 from proteus.core.disposition import NEUTRAL
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelRequestOptions,
@@ -95,10 +96,11 @@ def _context(tmp_path: Path, snapshot: Path) -> CandidateSafetyContext:
         run_id="aki-native-run",
         episode=1,
         adapter_name="aki",
-        snapshot=SnapshotRef("aki-native-run", 1, SnapshotRole.CANDIDATE),
+        snapshot=SnapshotRef("aki-native-run", 1, SnapshotRole.ACTIVE),
         snapshot_root=snapshot,
         trial_root=trial_root,
         evidence_dir=trial_root / "raw-evidence",
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(
             LogicalTransitionRecord(
@@ -1558,7 +1560,7 @@ def test_real_docker_timeout_reaps_container_and_waits_for_blocked_model_call(
                     live_model_channel=channel,
                 )
             )
-        except BaseException as exc:
+        except BaseException as exc:  # noqa: BLE001 - capture every thread failure for cleanup assertions.
             failures.append(exc)
 
     runner = threading.Thread(target=run_episode, name="test-real-aki-timeout")

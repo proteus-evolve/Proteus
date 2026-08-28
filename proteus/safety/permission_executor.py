@@ -612,3 +612,245 @@ class PairedPermissionPolicyExecutor:
             reasons=(f"{type(exc).__name__}: {exc}",),
             evidence_refs=(),
         )
+
+
+
+@dataclass(frozen=True)
+class SnapshotPermissionRequest:
+    source: PermissionSnapshotSource
+    case_specs: tuple[PermissionPolicyCaseSpec, ...]
+    adapter: PermissionPolicyAdapter
+    artifact_root: Path
+    safety_model: str
+    channel_factory: PermissionChannelFactory | None
+
+
+@dataclass(frozen=True)
+class PermissionCaseEvaluation:
+    """One permission case measured on a single settled snapshot."""
+
+    case_id: str
+    case_spec: PermissionPolicyCaseSpec
+    snapshot: SnapshotRef
+    capability: PermissionCaseCapability
+    protected: NativePermissionTrace | None
+    allowed: NativePermissionTrace | None
+    protected_effect_committed: bool | None
+    allowed_effect_committed: bool | None
+    validity: PermissionEvidenceValidity
+    reasons: tuple[str, ...]
+    evidence_refs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SnapshotPermissionFamily:
+    snapshot: SnapshotRef
+    cases: tuple[PermissionCaseEvaluation, ...]
+    validity: PermissionEvidenceValidity
+
+
+def _committed_or_none(trace: NativePermissionTrace | None) -> bool | None:
+    if not _canary_observed(trace):
+        return None
+    return _effect_committed(trace)
+
+
+class SnapshotPermissionExecutor:
+    """Administer protected/allowed operations on one settled snapshot."""
+
+    def execute(self, request: SnapshotPermissionRequest) -> SnapshotPermissionFamily:
+        evaluations: list[PermissionCaseEvaluation] = []
+        for case_spec in request.case_specs:
+            evaluation = self._execute_case(request, case_spec)
+            evaluations.append(evaluation)
+            _write_json(
+                request.artifact_root
+                / "tools_permission_drift"
+                / "cases"
+                / case_spec.case_id
+                / "result.json",
+                evaluation,
+            )
+        validity = (
+            PermissionEvidenceValidity.ERROR
+            if any(item.validity is PermissionEvidenceValidity.ERROR for item in evaluations)
+            else PermissionEvidenceValidity.INVALID
+            if any(item.validity is PermissionEvidenceValidity.INVALID for item in evaluations)
+            else PermissionEvidenceValidity.VALID
+        )
+        family = SnapshotPermissionFamily(
+            snapshot=request.source.snapshot,
+            cases=tuple(evaluations),
+            validity=validity,
+        )
+        _write_json(request.artifact_root / "tools_permission_drift" / "result.json", family)
+        return family
+
+    def _execute_case(
+        self, request: SnapshotPermissionRequest, case_spec: PermissionPolicyCaseSpec
+    ) -> PermissionCaseEvaluation:
+        try:
+            call_cap = request.adapter.live_call_cap(case_spec)
+            declared_supported = case_spec.case_id in request.adapter.declared_supported_case_ids
+            if (
+                type(call_cap) is not int
+                or (declared_supported and call_cap <= 0)
+                or (not declared_supported and call_cap != 0)
+            ):
+                raise ValueError(
+                    "permission adapter live-call cap contradicts declared support"
+                )
+            with TemporaryDirectory(prefix="proteus-permission-settled-") as temporary:
+                context = self._context(request, case_spec, Path(temporary))
+                capability = request.adapter.capability(case_spec, context)
+                if capability.state is PermissionCapabilityState.UNSUPPORTED:
+                    return self._case_result(
+                        request, case_spec, capability, None, None, None
+                    )
+                binding = request.adapter.bind(case_spec, context)
+                if binding is None or not _binding_matches(case_spec, binding):
+                    return self._case_result(
+                        request, case_spec, capability, binding, None, None
+                    )
+                protected, allowed = self._administer(
+                    request, case_spec, binding, call_cap
+                )
+                return self._case_result(
+                    request, case_spec, capability, binding, protected, allowed
+                )
+        except Exception as exc:  # noqa: BLE001 - adapter failures stay private evidence
+            return PermissionCaseEvaluation(
+                case_id=case_spec.case_id,
+                case_spec=case_spec,
+                snapshot=request.source.snapshot,
+                capability=PermissionCaseCapability(
+                    PermissionCapabilityState.UNSUPPORTED, "", "execution error"
+                ),
+                protected=None,
+                allowed=None,
+                protected_effect_committed=None,
+                allowed_effect_committed=None,
+                validity=PermissionEvidenceValidity.ERROR,
+                reasons=(f"{type(exc).__name__}: {exc}",),
+                evidence_refs=(),
+            )
+
+    def _context(
+        self,
+        request: SnapshotPermissionRequest,
+        case_spec: PermissionPolicyCaseSpec,
+        temporary_root: Path,
+    ) -> PermissionSnapshotContext:
+        snapshot_root = temporary_root / "harness"
+        shutil.copytree(request.source.source_root, snapshot_root)
+        trial_root = (
+            request.artifact_root
+            / "trials"
+            / "tools_permission_drift"
+            / case_spec.case_id
+            / "settled"
+        )
+        evidence_dir = trial_root / "raw"
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        return PermissionSnapshotContext(
+            snapshot=request.source.snapshot,
+            snapshot_root=snapshot_root,
+            trial_root=trial_root,
+            evidence_dir=evidence_dir,
+            artifact_root=request.artifact_root,
+        )
+
+    def _administer(
+        self,
+        request: SnapshotPermissionRequest,
+        case_spec: PermissionPolicyCaseSpec,
+        binding: NativePermissionBinding,
+        call_cap: int,
+    ) -> tuple[NativePermissionTrace, NativePermissionTrace]:
+        channel = None
+        snapshot = request.source.snapshot
+        try:
+            if request.channel_factory is not None:
+                channel = request.channel_factory(
+                    request.safety_model,
+                    (
+                        f"{snapshot.run_id}.episode-{snapshot.episode:03d}."
+                        f"tools_permission_drift.{case_spec.case_id}.settled"
+                    ),
+                    call_cap,
+                )
+                if not isinstance(channel, LiveModelChannel):
+                    raise TypeError("live channel factory must implement LiveModelChannel")
+                channel = CappedPermissionChannel(channel, cap=call_cap)
+            protected = request.adapter.administer(binding, case_spec.protected, channel)
+            allowed = request.adapter.administer(
+                binding, case_spec.allowed_control, channel
+            )
+            protected = replace(
+                protected,
+                canary=request.adapter.observe_canary(binding, case_spec.protected),
+            )
+            allowed = replace(
+                allowed,
+                canary=request.adapter.observe_canary(
+                    binding, case_spec.allowed_control
+                ),
+            )
+            return protected, allowed
+        finally:
+            if channel is not None:
+                channel.close()
+
+    def _case_result(
+        self,
+        request: SnapshotPermissionRequest,
+        case_spec: PermissionPolicyCaseSpec,
+        capability: PermissionCaseCapability,
+        binding: NativePermissionBinding | None,
+        protected: NativePermissionTrace | None,
+        allowed: NativePermissionTrace | None,
+    ) -> PermissionCaseEvaluation:
+        reasons: list[str] = []
+        if capability.state is PermissionCapabilityState.UNSUPPORTED:
+            reasons.append(f"unsupported:{capability.missing_requirement}")
+            validity = PermissionEvidenceValidity.VALID
+        elif binding is None:
+            reasons.append("missing_binding")
+            validity = PermissionEvidenceValidity.VALID
+        elif not _binding_matches(case_spec, binding):
+            reasons.append("binding_semantics_mismatch")
+            validity = PermissionEvidenceValidity.INVALID
+        else:
+            validity = PermissionEvidenceValidity.VALID
+            for prefix, trace, operation in (
+                ("protected", protected, case_spec.protected),
+                ("allowed", allowed, case_spec.allowed_control),
+            ):
+                if trace is None:
+                    reasons.append(f"{prefix}_missing_trace")
+                    continue
+                trace_validity, trace_reasons = _validate_trace(
+                    trace,
+                    expected_snapshot=request.source.snapshot,
+                    expected_case=case_spec,
+                    expected_operation=operation,
+                    expected_binding=(
+                        binding.protected if prefix == "protected" else binding.allowed_control
+                    ),
+                )
+                if trace_validity is PermissionEvidenceValidity.INVALID:
+                    validity = PermissionEvidenceValidity.INVALID
+                reasons.extend(f"{prefix}_{reason}" for reason in trace_reasons)
+        return PermissionCaseEvaluation(
+            case_id=case_spec.case_id,
+            case_spec=case_spec,
+            snapshot=request.source.snapshot,
+            capability=capability,
+            protected=protected,
+            allowed=allowed,
+            protected_effect_committed=_committed_or_none(protected),
+            allowed_effect_committed=_committed_or_none(allowed),
+            validity=validity,
+            reasons=tuple(reasons),
+            evidence_refs=_comparison_refs(protected, allowed),
+        )

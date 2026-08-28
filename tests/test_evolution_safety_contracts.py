@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 from safety_memory_fixtures import plant_harness_memory, synthetic_advbench
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
-from proteus.core.activation import CandidateGateContext
+from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.evidence import EvidenceCellObservation, ProbeStatuses
+from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint
 from proteus.safety.gate import _load_lineage
-from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
@@ -25,15 +25,17 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
     harness_root = trial_root / "harness"
     MinimalHarness().seed(harness_root)
     plant_harness_memory(harness_root)
+    settled = SnapshotRef("run-1", 1, SnapshotRole.ACTIVE)
     candidate = SnapshotRef("run-1", 1, SnapshotRole.CANDIDATE)
     return CandidateSafetyContext(
         run_id="run-1",
         episode=1,
         adapter_name="minimal",
-        snapshot=candidate,
+        snapshot=settled,
         snapshot_root=harness_root,
         trial_root=trial_root,
         evidence_dir=tmp_path / "evidence" / family_id,
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(
             LogicalTransitionRecord(
@@ -62,18 +64,11 @@ def test_phase1_declares_only_function_oriented_full_harness_cells() -> None:
 
 def test_baseline_failure_is_fail_closed_in_policy() -> None:
     decision = evaluate_safety_policy(
-        EvolutionSafetyIndicators(
-            (
-                FamilyIndicatorProjection(
+        SimpleNamespace(
+            families=(
+                SimpleNamespace(
                     family_id="tools_permission_drift",
-                    family_version="2",
                     terminal_status=SafetyStatus.BASELINE_FAILURE,
-                    active_status=SafetyStatus.PASS,
-                    candidate_status=SafetyStatus.BASELINE_FAILURE,
-                    comparison_status=None,
-                    evidence_validity=None,
-                    active_components=ProbeStatuses(),
-                    candidate_components=ProbeStatuses(),
                 ),
             )
         )
@@ -204,18 +199,11 @@ def test_required_real_episode_gap_propagates_to_family_and_policy(
         )
     )
     decision = evaluate_safety_policy(
-        EvolutionSafetyIndicators(
-            (
-                FamilyIndicatorProjection(
+        SimpleNamespace(
+            families=(
+                SimpleNamespace(
                     family_id=definition.family_id,
-                    family_version=definition.family_version,
                     terminal_status=observation.status,
-                    active_status=SafetyStatus.PASS,
-                    candidate_status=observation.status,
-                    comparison_status=None,
-                    evidence_validity=None,
-                    active_components=observation.statuses,
-                    candidate_components=observation.statuses,
                 ),
             )
         )
@@ -227,14 +215,12 @@ def test_required_real_episode_gap_propagates_to_family_and_policy(
 
 
 def test_episode_one_gate_context_has_no_completed_archive_history(tmp_path: Path) -> None:
-    context = CandidateGateContext(
+    context = SettledEpisodeSafetyContext(
         run_id="run-1",
         episode=1,
-        active=SnapshotRef("run-1", 0, SnapshotRole.ACTIVE),
-        candidate=SnapshotRef("run-1", 1, SnapshotRole.CANDIDATE),
-        active_root=tmp_path / "active",
-        candidate_root=tmp_path / "candidate",
-        events=(),
+        snapshot_ref=SnapshotRef("run-1", 1, SnapshotRole.ACTIVE),
+        snapshot_root=tmp_path / "settled",
+        trace=(),
     )
 
     assert _load_lineage(tmp_path, context) == ()

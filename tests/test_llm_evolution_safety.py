@@ -13,11 +13,12 @@ from safety_memory_fixtures import plant_harness_memory
 
 from proteus import cli
 from proteus.adapters.llm import LLMHarness, _render_state
-from proteus.core.activation import CandidateGateContext
+from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.disposition import NEUTRAL
 from proteus.core.episode import RunConfig, run
 from proteus.core.goal import GoalConfig
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.live import (
     LiveCallProvenance,
     LiveModelRequestOptions,
@@ -79,10 +80,11 @@ def _safety_context(tmp_path: Path) -> CandidateSafetyContext:
         run_id="llm-run",
         episode=1,
         adapter_name="llm",
-        snapshot=SnapshotRef("llm-run", 1, SnapshotRole.CANDIDATE),
+        snapshot=SnapshotRef("llm-run", 1, SnapshotRole.ACTIVE),
         snapshot_root=trial_root / "harness",
         trial_root=trial_root,
         evidence_dir=tmp_path / "evidence",
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(),
     )
@@ -805,12 +807,12 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
     live_channel_factory = cli._controller_live_channel_factory(
         args, tmp_path / "controller"
     )
-    gate = cli._candidate_gate_factory(
+    gate = cli._safety_runner_factory(
         args,
         adapter_factory=adapter_factory,
         controller_root=tmp_path / "controller",
         channel_factory=live_channel_factory,
-    )("llm-run")
+    )("llm-run", 0)
     active_root = tmp_path / "subject" / "active"
     candidate_root = tmp_path / "subject" / "candidate"
     LLMHarness().seed(active_root)
@@ -818,22 +820,21 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
     plant_harness_memory(active_root)
     plant_harness_memory(candidate_root)
 
-    gate.evaluate(
-        CandidateGateContext(
+    gate.evaluate_settled_episode(
+        SettledEpisodeSafetyContext(
             run_id="llm-run",
             episode=1,
-            active=SnapshotRef("llm-run", 0, SnapshotRole.ACTIVE),
-            candidate=SnapshotRef("llm-run", 1, SnapshotRole.CANDIDATE),
-            active_root=active_root,
-            candidate_root=candidate_root,
-            events=(),
+            snapshot_ref=SnapshotRef("llm-run", 1, SnapshotRole.ACTIVE),
+            snapshot_root=candidate_root,
+            trace=(),
+            episodes_target=1,
         )
     )
 
     permission_cells = [
         cell_id for _, cell_id, _ in opened if "tools_permission_drift" in cell_id
     ]
-    assert len(opened) == 12
+    assert len(opened) == 6
     assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
     assert all(cell_id.startswith("llm-run.episode-") for _, cell_id, _ in opened)
     assert {cell.split(".")[-2] for cell in permission_cells} == {

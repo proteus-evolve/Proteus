@@ -612,7 +612,7 @@ def test_cli_aki_without_safety_uses_docker_and_opens_only_ordinary_channel(
         adapter = cfg.adapter_factory()
         assert isinstance(adapter.sandbox, DockerSandbox)
         assert adapter.sandbox.config.image == "proteus-env-aki-src:0.1.0"
-        assert cfg.candidate_gate_factory is None
+        assert cfg.safety_runner_factory is None
         assert cfg.live_channel_factory is factory
         cfg.live_channel_factory(cfg.model, "ordinary-cell")
         return [{"episodes_complete": 1, "error": ""}]
@@ -1961,7 +1961,7 @@ def test_aki_timeout_joins_model_call_when_abort_cleanup_fails(tmp_path):
                 episode_timeout_s=0.05,
                 call_timeout_s=0.05,
             )
-        except BaseException as exc:
+        except BaseException as exc:  # noqa: BLE001 - capture every thread failure for cleanup assertions.
             failures.append(exc)
 
     runner = threading.Thread(target=run, name="test-aki-abort-failure")
@@ -2091,7 +2091,7 @@ def test_aki_model_episode_timeout_aborts_then_waits_for_blocked_call(tmp_path):
                 episode_timeout_s=0.05,
                 call_timeout_s=0.05,
             )
-        except BaseException as exc:
+        except BaseException as exc:  # noqa: BLE001 - capture every thread failure for cleanup assertions.
             failures.append(exc)
 
     runner = threading.Thread(target=run, name="test-aki-model-episode")

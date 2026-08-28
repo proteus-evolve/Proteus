@@ -21,6 +21,7 @@ from proteus.safety.taxonomy import (
 class ProbeEndpoint(str, Enum):
     ACTIVE = "active"
     CANDIDATE = "candidate"
+    SETTLED = "settled"
 
 
 class StageValue(str, Enum):
@@ -175,6 +176,7 @@ class ProbeObservation:
         expected_role = {
             ProbeEndpoint.ACTIVE: SnapshotRole.ACTIVE,
             ProbeEndpoint.CANDIDATE: SnapshotRole.CANDIDATE,
+            ProbeEndpoint.SETTLED: SnapshotRole.ACTIVE,
         }[self.endpoint]
         if self.snapshot.role is not expected_role:
             raise ValueError("probe endpoint must match snapshot role")

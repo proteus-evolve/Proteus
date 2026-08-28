@@ -7,9 +7,9 @@ import pytest
 
 from proteus import cli
 from proteus.adapters.minimal import MinimalHarness
-from proteus.core.activation import CandidateGateContext
+from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.gate import GateRunner
+from proteus.safety.gate import PostEpisodeSafetyRunner
 from proteus.safety.live import (
     ControllerLiveCallBudget,
     LiveCallBudgetPlan,
@@ -40,11 +40,11 @@ class CountingChannel:
 @pytest.mark.parametrize(
     ("harness", "turns", "supported", "ordinary", "safety", "total"),
     [
-        ("minimal", 20, 4, 0, 16, 16),
-        ("llm", 20, 4, 4, 16, 20),
-        ("pi", 8, 6, 12, 96, 108),
-        ("dsh", 8, 6, 16, 24, 40),
-        ("aki", 56, 5, 56, 80, 136),
+        ("minimal", 20, 4, 0, 32, 32),
+        ("llm", 20, 4, 4, 32, 36),
+        ("pi", 8, 6, 12, 192, 204),
+        ("dsh", 8, 6, 16, 48, 64),
+        ("aki", 56, 5, 56, 160, 216),
     ],
 )
 def test_live_call_plan_derives_exact_whole_run_caps(
@@ -71,7 +71,7 @@ def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> No
         permission_supported_cases=6,
         include_memory_families=True,
     )
-    assert (pi.ordinary_cap, pi.safety_cap, pi.total_cap) == (12, 128, 140)
+    assert (pi.ordinary_cap, pi.safety_cap, pi.total_cap) == (12, 256, 268)
     aki = derive_builtin_live_call_plan(
         harness="aki",
         episodes=1,
@@ -79,7 +79,7 @@ def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> No
         permission_supported_cases=5,
         include_memory_families=True,
     )
-    assert (aki.ordinary_cap, aki.safety_cap, aki.total_cap) == (56, 112, 168)
+    assert (aki.ordinary_cap, aki.safety_cap, aki.total_cap) == (56, 224, 280)
     dsh = derive_builtin_live_call_plan(
         harness="dsh",
         episodes=1,
@@ -87,10 +87,10 @@ def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> No
         permission_supported_cases=6,
         include_memory_families=True,
     )
-    assert (dsh.ordinary_cap, dsh.safety_cap, dsh.total_cap) == (16, 40, 56)
+    assert (dsh.ordinary_cap, dsh.safety_cap, dsh.total_cap) == (16, 80, 96)
 
 
-def test_live_call_plan_safety_caps_do_not_scale_with_episodes() -> None:
+def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
     one = derive_builtin_live_call_plan(
         harness="dsh",
         episodes=1,
@@ -106,7 +106,8 @@ def test_live_call_plan_safety_caps_do_not_scale_with_episodes() -> None:
         include_memory_families=True,
         collapse_episode_count=5,
     )
-    assert one.safety_cap == twenty.safety_cap == 40
+    assert one.safety_cap == 80
+    assert twenty.safety_cap == 720
     assert twenty.ordinary_cap == 16 * 20
     assert twenty.total_cap == twenty.ordinary_cap + twenty.safety_cap
 
@@ -162,19 +163,16 @@ class TwoTurnChannel:
         return None
 
 
-def _gate_context(tmp_path: Path) -> CandidateGateContext:
-    active = tmp_path / "active"
-    candidate = tmp_path / "candidate"
-    active.mkdir()
-    candidate.mkdir()
-    return CandidateGateContext(
+def _gate_context(tmp_path: Path) -> SettledEpisodeSafetyContext:
+    settled = tmp_path / "settled"
+    settled.mkdir()
+    return SettledEpisodeSafetyContext(
         run_id="matched-run",
         episode=1,
-        active=SnapshotRef("matched-run", 0, SnapshotRole.ACTIVE),
-        candidate=SnapshotRef("matched-run", 1, SnapshotRole.CANDIDATE),
-        active_root=active,
-        candidate_root=candidate,
-        events=(),
+        snapshot_ref=SnapshotRef("matched-run", 1, SnapshotRole.ACTIVE),
+        snapshot_root=settled,
+        trace=(),
+        episodes_target=1,
     )
 
 
@@ -187,7 +185,7 @@ def test_preflight_manifest_precedes_any_safety_channel(tmp_path: Path) -> None:
         events.append(f"channel:{cell}:{cap}")
         return TwoTurnChannel(model)
 
-    GateRunner(
+    PostEpisodeSafetyRunner(
         adapter=type("Harness", (), {
             "name": "preflight",
             "safety_runtime": lambda self: MinimalHarness().safety_runtime(),
@@ -198,7 +196,7 @@ def test_preflight_manifest_precedes_any_safety_channel(tmp_path: Path) -> None:
         safety_model="gpt-5.6-luna",
         channel_factory=channel_factory,
         permission_adapter=adapter,
-    ).evaluate(_gate_context(tmp_path))
+    ).evaluate_settled_episode(_gate_context(tmp_path))
 
     assert events[0] == "capability:active:recursive_deletion"
     assert "preflight_written" in events
@@ -258,7 +256,7 @@ def test_call_plan_cli_needs_no_credential_output_or_channel(
         "proteus.safety.tools_permission_drift:SUITE",
     ]) == 0
     assert json.loads(capsys.readouterr().out) == {
-        "harness": "dsh", "ordinary_cap": 16, "safety_cap": 24, "total_cap": 40
+        "harness": "dsh", "ordinary_cap": 16, "safety_cap": 48, "total_cap": 64
     }
     assert not list(tmp_path.iterdir())
 

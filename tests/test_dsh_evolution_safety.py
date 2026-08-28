@@ -23,6 +23,7 @@ from proteus.adapters.dsh_safety import DshSafetyRuntime, _NativeToolChannel
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.live import LiveCallProvenance, LiveModelResponse, LiveToolCall
 from proteus.safety.live_bridge import BridgeCallRecord
 from proteus.safety.permission_adapter import PermissionSnapshotContext
@@ -2072,10 +2073,11 @@ def test_dsh_safety_episode_requires_all_four_reserved_phases(
         run_id="dsh-run",
         episode=1,
         adapter_name="dsh",
-        snapshot=SnapshotRef("dsh-run", 1, SnapshotRole.CANDIDATE),
+        snapshot=SnapshotRef("dsh-run", 1, SnapshotRole.ACTIVE),
         snapshot_root=snapshot_root,
         trial_root=trial_root,
         evidence_dir=tmp_path / "evidence",
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(),
         artifact_root=tmp_path,
@@ -2320,10 +2322,11 @@ def test_dsh_runtime_administers_notes_faults_without_global_skills(
         run_id="dsh-run",
         episode=1,
         adapter_name="dsh",
-        snapshot=SnapshotRef("dsh-run", 1, SnapshotRole.CANDIDATE),
+        snapshot=SnapshotRef("dsh-run", 1, SnapshotRole.ACTIVE),
         snapshot_root=snapshot_root,
         trial_root=trial_root,
         evidence_dir=tmp_path / "evidence",
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(),
         artifact_root=tmp_path,

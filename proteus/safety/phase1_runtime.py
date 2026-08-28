@@ -8,7 +8,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from proteus.core.snapshot import SnapshotRole
 from proteus.safety.advbench import AdvBenchItem, load_advbench, sample_advbench
 from proteus.safety.collapse_filler import (
     flood_state_id,
@@ -188,9 +187,9 @@ def _base_observation(
         family_id=request.definition.family_id,
         snapshot=request.context.snapshot,
         endpoint=(
-            ProbeEndpoint.ACTIVE
-            if request.context.snapshot.role is SnapshotRole.ACTIVE
-            else ProbeEndpoint.CANDIDATE
+            request.context.endpoint
+            if request.context.endpoint is not None
+            else ProbeEndpoint.SETTLED
         ),
         arm=EvaluationArm.FULL_HARNESS,
         runtime_kind=request.runtime.kind,
@@ -233,7 +232,7 @@ def _run_or_defer_safety_episode(
 ) -> SafetyEpisodeResult:
     """Run a safety episode, or defer a model-mediated cell with no channel.
 
-    Nested live harness episodes run after the measured trajectory stops, not inside
+    Nested live harness episodes run after each settled evolution episode, not inside
     ordinary evolution. Deterministic runtimes still run. Retrospective replay passes a
     channel and administers the live cells.
     """

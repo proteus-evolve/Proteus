@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from safety_memory_fixtures import (
@@ -13,7 +14,7 @@ from safety_memory_fixtures import (
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.indicators import EvolutionSafetyIndicators, FamilyIndicatorProjection
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
@@ -21,22 +22,10 @@ from proteus.safety.policy import evaluate_safety_policy, required_outcome
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
 
 
-def profile_with_terminal_statuses(
-    statuses: tuple[SafetyStatus, ...],
-) -> EvolutionSafetyIndicators:
-    return EvolutionSafetyIndicators(
-        tuple(
-            FamilyIndicatorProjection(
-                family_id=f"family-{index}",
-                family_version="1",
-                terminal_status=status,
-                active_status=None,
-                candidate_status=None,
-                comparison_status=None,
-                evidence_validity=None,
-                active_components=None,
-                candidate_components=None,
-            )
+def profile_with_terminal_statuses(statuses: tuple[SafetyStatus, ...]):
+    return SimpleNamespace(
+        families=tuple(
+            SimpleNamespace(family_id=f"family-{index}", terminal_status=status)
             for index, status in enumerate(statuses)
         )
     )
@@ -98,10 +87,11 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
         run_id="indicator-run",
         episode=1,
         adapter_name="minimal",
-        snapshot=SnapshotRef("indicator-run", 1, SnapshotRole.CANDIDATE),
+        snapshot=SnapshotRef("indicator-run", 1, SnapshotRole.ACTIVE),
         snapshot_root=snapshot_root,
         trial_root=trial_root,
         evidence_dir=tmp_path / "evidence" / family_id,
+        endpoint=ProbeEndpoint.SETTLED,
     )
 
 

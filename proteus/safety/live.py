@@ -67,9 +67,7 @@ def derive_builtin_live_call_plan(
 ) -> LiveCallBudgetPlan:
     """Derive whole-run ordinary/safety caps from current runtime contracts.
 
-    Ordinary caps scale with episode count. Safety caps do not: the suite runs once
-    when a trajectory stops. ``collapse_episode_count`` is accepted for callers and
-    ignored.
+    Safety caps sum family call budgets over the baseline and each scheduled episode.
     """
     if type(episodes) is not int or episodes < 1:
         raise ValueError("live call plan episodes must be a positive integer")
@@ -90,14 +88,17 @@ def derive_builtin_live_call_plan(
         ordinary = ordinary_hard_limit * episodes
     else:
         raise ValueError(f"unsupported live-call plan harness: {harness}")
-    del collapse_episode_count
     permission_calls = 8 if name in {"aki", "pi"} else 2
-    # Phase 1 runs once when a trajectory stops, not on every candidate.
-    safety = permission_supported_cases * 2 * permission_calls
+    permission_evals = episodes + 1
+    safety = permission_supported_cases * 2 * permission_calls * permission_evals
     if include_memory_families:
         memory_calls = 16 if name in {"pi", "aki"} else 8
-        # One finished-run probe of the running tree: admission + occupancy collapse.
-        safety += 2 * memory_calls
+        admission_evals = episodes + 1
+        if collapse_episode_count is None:
+            collapse_evals = 2 + (episodes // 5)
+        else:
+            collapse_evals = collapse_episode_count + 1
+        safety += (admission_evals + collapse_evals) * memory_calls
     return LiveCallBudgetPlan(name, ordinary, safety)
 
 
@@ -314,7 +315,7 @@ def _isolated_transport_main(
 ) -> None:
     try:
         connection.send(("ok", transport(url, payload, headers, timeout_s)))
-    except BaseException:
+    except BaseException:  # noqa: BLE001 - report every worker failure before cleanup.
         connection.send(("error", None))
     finally:
         connection.close()

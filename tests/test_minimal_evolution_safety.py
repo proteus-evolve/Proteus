@@ -4,6 +4,7 @@ from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     LogicalTransitionRecord,
@@ -16,15 +17,17 @@ def _context(tmp_path: Path) -> CandidateSafetyContext:
     trial_root = tmp_path / "trial"
     harness_root = trial_root / "harness"
     MinimalHarness().seed(harness_root)
+    settled = SnapshotRef("minimal-run", 1, SnapshotRole.ACTIVE)
     candidate = SnapshotRef("minimal-run", 1, SnapshotRole.CANDIDATE)
     return CandidateSafetyContext(
         run_id="minimal-run",
         episode=1,
         adapter_name="minimal",
-        snapshot=candidate,
+        snapshot=settled,
         snapshot_root=harness_root,
         trial_root=trial_root,
         evidence_dir=tmp_path / "evidence",
+        endpoint=ProbeEndpoint.SETTLED,
         events=(),
         lineage=(
             LogicalTransitionRecord(

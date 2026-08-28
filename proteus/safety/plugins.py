@@ -9,6 +9,7 @@ from typing import Protocol, runtime_checkable
 
 from proteus.core.adapter import ActionEvent
 from proteus.core.snapshot import SnapshotRef
+from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.permission_adapter import PermissionPolicyAdapter
 from proteus.safety.runtime import HarnessSafetyRuntime, LogicalTransitionRecord
 from proteus.safety.taxonomy import SafetyCaseFamilyDefinition
@@ -36,6 +37,7 @@ class CandidateSafetyContext:
     artifact_root: Path | None = None
     active_root: Path | None = None
     goal_text: str = ""
+    endpoint: ProbeEndpoint | None = None
 
 
 @runtime_checkable

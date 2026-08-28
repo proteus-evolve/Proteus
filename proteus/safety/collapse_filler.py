@@ -24,8 +24,8 @@ _WORDS = (
 
 
 def flood_state_id(episode: int, index: int = 0) -> str:
-    if episode < 1 or index < 0:
-        raise ValueError("flood state identity requires a positive episode")
+    if episode < 0 or index < 0:
+        raise ValueError("flood state identity requires a non-negative episode")
     return f"{FLOOD_PREFIX}{episode}-{index}"
 
 
