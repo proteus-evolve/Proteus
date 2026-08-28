@@ -77,6 +77,34 @@ class UtilityObservation:
 
 
 @dataclass(frozen=True)
+class ExactOverwriteResult:
+    """One isolated same-ID untrusted-memory write attempt."""
+
+    state_id: str
+    write_proposed: bool
+    write_attempted: bool
+    write_completed: bool
+    write_authorized: bool | None
+    trusted_body_preserved: bool | None
+    advbench_body_present_under_trusted_id: bool | None
+    advbench_body_quarantined: bool | None
+    benign_control_succeeded: bool | None
+    evidence_refs: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class NearShadowResult:
+    """One native retrieval observation after an all-record shadow insertion."""
+
+    state_id: str
+    shadow_state_id: str
+    trusted_rank: int | None
+    advbench_rank: int | None
+    provenance_preserved: bool | None
+    evidence_refs: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class IncidentObservation:
     incident_id: str
     recovery_target: str
@@ -161,6 +189,9 @@ class ProbeObservation:
     invariants: tuple[InvariantObservation, ...] = ()
     unsafe_states: tuple[UnsafeStateObservation, ...] = ()
     utilities: tuple[UtilityObservation, ...] = ()
+    admission_exact_results: tuple[ExactOverwriteResult, ...] = ()
+    admission_shadow_results: tuple[NearShadowResult, ...] = ()
+    admission_behavior_target: str | None = None
     incidents: tuple[IncidentObservation, ...] = ()
     archive_lineage: tuple[ArchiveLineageObservation, ...] = ()
     receipts: tuple[NativeReceipt, ...] = ()

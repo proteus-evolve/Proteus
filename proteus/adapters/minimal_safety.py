@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -10,8 +11,10 @@ from proteus.core.adapter import EpisodeSpec
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     MemoryFaultRequest,
+    MemoryQueryHit,
     MemoryStateRequest,
     NativeReceipt,
+    OrdinaryMemoryRecord,
     RuntimeKind,
     SafetyEpisodeResult,
 )
@@ -25,6 +28,7 @@ class MinimalSafetyRuntime:
 
     def __init__(self, harness) -> None:
         self._harness = harness
+        self._unsafe_memory_ids: dict[Path, set[str]] = {}
 
     @staticmethod
     def _safe_name(value: str) -> str:
@@ -73,8 +77,84 @@ class MinimalSafetyRuntime:
                     "result_delivered": True,
                 },
             )
+        tracked = self._unsafe_memory_ids.setdefault(context.snapshot_root.resolve(), set())
+        if completed and request.unsafe:
+            tracked.add(request.state_id)
+        elif completed:
+            tracked.discard(request.state_id)
         return NativeReceipt(
             operation_id, True, attempted, completed, True, None, refs
+        )
+
+    def enumerate_ordinary_memory(
+        self, context: CandidateSafetyContext
+    ) -> tuple[OrdinaryMemoryRecord, ...]:
+        """Inventory Minimal's native notes, excluding controller-introduced state."""
+        entries = self._native_memory_entries(context)
+        unsafe_ids = self._unsafe_memory_ids.get(context.snapshot_root.resolve(), set())
+        ordinary = [
+            (state_id, body)
+            for state_id, body in entries
+            if state_id not in unsafe_ids and not state_id.startswith("collapse-anchor-")
+        ]
+        refs = self._record(
+            context,
+            "memory-enumeration",
+            {
+                "operation_id": "memory-enumeration",
+                "state_ids": [state_id for state_id, _body in ordinary],
+                "source": "ordinary",
+                "trust": "trusted",
+            },
+        )
+        return tuple(
+            OrdinaryMemoryRecord(
+                state_id=state_id,
+                body=body,
+                source="ordinary",
+                trust="trusted",
+                lookup_query=f"What does {state_id.replace('-', ' ').replace('_', ' ')} say?",
+                evidence_ref=refs[0],
+            )
+            for state_id, body in ordinary
+        )
+
+    def query_memory(
+        self, query: str, limit: int, context: CandidateSafetyContext
+    ) -> tuple[MemoryQueryHit, ...]:
+        """Resolve native notes with exact-name preference and stable ranked evidence."""
+        if type(limit) is not int or limit < 1:
+            raise ValueError("memory query limit must be positive")
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("memory query must be non-empty text")
+        query_terms = _words(query)
+        unsafe_ids = self._unsafe_memory_ids.get(context.snapshot_root.resolve(), set())
+        ranked = sorted(
+            self._native_memory_entries(context),
+            key=lambda entry: (
+                -_query_score(query_terms, entry[0]),
+                entry[0],
+            ),
+        )[:limit]
+        refs = self._record(
+            context,
+            "memory-query",
+            {
+                "operation_id": "memory-query",
+                "query": query,
+                "limit": limit,
+                "state_ids": [state_id for state_id, _body in ranked],
+            },
+        )
+        return tuple(
+            MemoryQueryHit(
+                state_id=state_id,
+                rank=rank,
+                source="untrusted" if state_id in unsafe_ids else "ordinary",
+                trust="untrusted" if state_id in unsafe_ids else "trusted",
+                evidence_ref=refs[0],
+            )
+            for rank, (state_id, _body) in enumerate(ranked, 1)
         )
 
     def read_memory(
@@ -183,3 +263,31 @@ class MinimalSafetyRuntime:
     ) -> bool:
         path = self._memory_path(state_id, context)
         return path.is_file() and path.read_text(encoding="utf-8") == expected_body
+
+    @staticmethod
+    def _native_memory_entries(
+        context: CandidateSafetyContext,
+    ) -> tuple[tuple[str, str], ...]:
+        notes = context.snapshot_root / "notes"
+        if not notes.is_dir():
+            return ()
+        return tuple(
+            (path.stem, path.read_text(encoding="utf-8"))
+            for path in sorted(notes.glob("*.md"))
+        )
+
+
+def _words(text: str) -> tuple[str, ...]:
+    return tuple(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _query_score(query_terms: tuple[str, ...], state_id: str) -> int:
+    state_terms = _words(state_id.replace("-", " ").replace("_", " "))
+    if not state_terms:
+        return 0
+    exact_sequence = any(
+        query_terms[index : index + len(state_terms)] == state_terms
+        for index in range(len(query_terms) - len(state_terms) + 1)
+    )
+    overlap = len(set(query_terms) & set(state_terms))
+    return (100 if exact_sequence else 0) + overlap

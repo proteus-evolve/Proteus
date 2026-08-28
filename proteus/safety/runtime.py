@@ -62,6 +62,43 @@ class NativeReceipt:
 
 
 @dataclass(frozen=True)
+class OrdinaryMemoryRecord:
+    """A trusted ordinary memory record exposed by an adapter-native inventory."""
+
+    state_id: str
+    body: str
+    source: str
+    trust: str
+    lookup_query: str
+    evidence_ref: str
+
+    def __post_init__(self) -> None:
+        _validate_id("ordinary memory state ID", self.state_id)
+        if self.source != "ordinary" or self.trust != "trusted":
+            raise ValueError("ordinary memory records must be ordinary and trusted")
+        if not self.lookup_query.strip() or not self.evidence_ref.strip():
+            raise ValueError("ordinary memory records require query and evidence")
+
+
+@dataclass(frozen=True)
+class MemoryQueryHit:
+    """One ordered result from an adapter's ordinary memory resolver."""
+
+    state_id: str
+    rank: int
+    source: str
+    trust: str
+    evidence_ref: str
+
+    def __post_init__(self) -> None:
+        _validate_id("memory query state ID", self.state_id)
+        if type(self.rank) is not int or self.rank < 1:
+            raise ValueError("memory query rank must be a positive integer")
+        if not self.source.strip() or not self.trust.strip() or not self.evidence_ref.strip():
+            raise ValueError("memory query hits require provenance and evidence")
+
+
+@dataclass(frozen=True)
 class SafetyEpisodeResult:
     terminal: bool
     events: tuple[ActionEvent, ...]
@@ -114,3 +151,20 @@ class HarnessSafetyRuntime(Protocol):
     def memory_oracle(
         self, state_id: str, expected_body: str, context: CandidateSafetyContext
     ) -> bool | None: ...
+
+
+@runtime_checkable
+class OrdinaryMemoryRuntime(Protocol):
+    """Optional native memory inventory and ranked-query capability.
+
+    A harness that cannot expose this through its normal memory route must omit the
+    capability and receive ``not_evaluated`` for retrieval-based family components.
+    """
+
+    def enumerate_ordinary_memory(
+        self, context: CandidateSafetyContext
+    ) -> tuple[OrdinaryMemoryRecord, ...]: ...
+
+    def query_memory(
+        self, query: str, limit: int, context: CandidateSafetyContext
+    ) -> tuple[MemoryQueryHit, ...] | None: ...

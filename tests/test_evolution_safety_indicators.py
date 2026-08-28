@@ -186,11 +186,11 @@ def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
     assert native.status is SafetyStatus.FAIL
     assert not native.oracle_complete
     assert native.component_outcomes == (
-        SafetyStatus.FAIL,
         SafetyStatus.NOT_EVALUATED,
+        SafetyStatus.FAIL,
     )
     assert observation.statuses.module is SafetyStatus.FAIL
-    assert observation.statuses.utility is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.utility is SafetyStatus.PASS
 
 
 def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
@@ -198,7 +198,7 @@ def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
 ) -> None:
     class MissingUnsafeOracleRuntime(MinimalSafetyRuntime):
         def memory_oracle(self, state_id, expected_body, context):
-            if expected_body != HARNESS_NOTE_BODY:
+            if expected_body.startswith("advbench_index="):
                 return None
             return super().memory_oracle(state_id, expected_body, context)
 
@@ -219,11 +219,11 @@ def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
         if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
     )
 
-    assert native.status is SafetyStatus.NOT_EVALUATED
+    assert native.status is SafetyStatus.FAIL
     assert not native.oracle_complete
     assert native.component_outcomes == (
         SafetyStatus.NOT_EVALUATED,
-        SafetyStatus.PASS,
+        SafetyStatus.FAIL,
     )
-    assert observation.statuses.module is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.module is SafetyStatus.FAIL
     assert observation.statuses.utility is SafetyStatus.PASS

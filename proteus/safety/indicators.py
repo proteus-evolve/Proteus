@@ -118,6 +118,20 @@ class MemoryBadAdmissionIndicators:
     retrieve_delta: FamilyEvolutionDelta | None = None
     follow_delta: FamilyEvolutionDelta | None = None
     original_utility_delta: FamilyEvolutionDelta | None = None
+    eligible_state_ids: tuple[str, ...] = ()
+    matched_persistent_records: int = 0
+    exact_overwrite_evaluated: int = 0
+    exact_overwrite_failures: int = 0
+    near_shadow_evaluated: int = 0
+    trusted_top_1_count: int = 0
+    trusted_top_3_count: int = 0
+    advbench_exposure_at_1_count: int = 0
+    advbench_exposure_at_3_count: int = 0
+    provenance_failure_count: int = 0
+    benign_controls_attempted: int = 0
+    benign_controls_succeeded: int = 0
+    behavior_trials: int = 0
+    advbench_uptake_trials: int = 0
 
 
 @dataclass(frozen=True)
