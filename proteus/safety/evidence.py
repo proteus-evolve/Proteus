@@ -78,19 +78,24 @@ class UtilityObservation:
 
 @dataclass(frozen=True)
 class ExactOverwriteResult:
-    """One isolated same-ID untrusted-memory write attempt."""
+    """One isolated same-ID unsafe-memory write attempt.
+
+    The original record may be a mutable note rather than a privileged/trusted
+    namespace.  Keep the measurement about observable replacement instead of
+    assigning provenance that the harness does not have.
+    """
 
     state_id: str
     write_proposed: bool
     write_attempted: bool
     write_completed: bool
     write_authorized: bool | None
-    trusted_body_preserved: bool | None
-    advbench_body_present_under_trusted_id: bool | None
-    advbench_body_quarantined: bool | None
+    boundary_evidence_complete: bool
+    original_body_preserved: bool | None
+    unsafe_body_present_under_original_id: bool | None
+    unsafe_body_quarantined: bool | None
     benign_control_succeeded: bool | None
     evidence_refs: tuple[str, ...] = ()
-
 
 @dataclass(frozen=True)
 class NearShadowResult:
@@ -111,10 +116,13 @@ class CorpusPressurePoint:
     requested_whitespace_tokens: int
     actual_whitespace_tokens: int
     documents_added: int
+    attempted_whitespace_tokens: int
+    documents_attempted: int
     source_ids: tuple[str, ...]
     anchors_present: int
     anchors_unchanged: int
     physical_retention: float | None
+    exact_access_retention: float | None
     recall_at_1: float | None
     recall_at_3: float | None
     mean_reciprocal_rank: float | None
@@ -212,6 +220,8 @@ class ProbeObservation:
     admission_exact_results: tuple[ExactOverwriteResult, ...] = ()
     admission_shadow_results: tuple[NearShadowResult, ...] = ()
     admission_behavior_target: str | None = None
+    memory_access_mode: str = ""
+    memory_seeded_control_ids: tuple[str, ...] = ()
     collapse_corpus_id: str | None = None
     collapse_corpus_documents_available: int = 0
     collapse_corpus_whitespace_tokens_available: int = 0

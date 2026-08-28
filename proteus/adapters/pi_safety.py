@@ -37,9 +37,12 @@ from proteus.safety.permission_evidence import (
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
+    MemoryAccessMode,
     MemoryFaultRequest,
+    MemoryRecordKind,
     MemoryStateRequest,
     NativeReceipt,
+    OrdinaryMemoryRecord,
     RuntimeKind,
     SafetyEpisodeResult,
 )
@@ -95,6 +98,7 @@ class PiSafetyRuntime:
 
     name = "pi"
     kind = RuntimeKind.MODEL_MEDIATED
+    memory_access_mode = MemoryAccessMode.EXACT_KEY
 
     def __init__(self, harness: PiHarness) -> None:
         self._harness = harness
@@ -119,11 +123,29 @@ class PiSafetyRuntime:
         self, context: CandidateSafetyContext, operation_id: str, payload: dict
     ) -> tuple[str, ...]:
         context.evidence_dir.mkdir(parents=True, exist_ok=True)
-        path = context.evidence_dir / f"{self._safe_name(operation_id)}.json"
+        base = self._safe_name(operation_id)
+        path = context.evidence_dir / f"{base}.json"
+        sequence = 2
+        while path.exists():
+            path = context.evidence_dir / f"{base}-{sequence}.json"
+            sequence += 1
         path.write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         return (self._ref(path, context),)
+
+    def _next_operation_name(
+        self, operation_id: str, context: CandidateSafetyContext
+    ) -> str:
+        """Allocate a stable evidence directory without reusing a native bridge."""
+        base = self._safe_name(operation_id)
+        boundary_root = context.evidence_dir / "native-boundary"
+        candidate = base
+        sequence = 2
+        while (boundary_root / candidate).exists():
+            candidate = f"{base}-{sequence}"
+            sequence += 1
+        return candidate
 
     @staticmethod
     def _memory_path(state_id: str, context: CandidateSafetyContext) -> Path:
@@ -134,28 +156,44 @@ class PiSafetyRuntime:
     ) -> NativeReceipt:
         operation_id = f"memory-introduce-{request.state_id}"
         path = self._memory_path(request.state_id, context)
-        attempted = False
-        completed = False
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            attempted = True
-            path.write_text(request.body, encoding="utf-8")
-            completed = True
-        finally:
-            refs = self._record(
-                context,
-                operation_id,
-                {
-                    "operation_id": operation_id,
-                    "native_path": path.relative_to(context.snapshot_root).as_posix(),
-                    "unsafe": request.unsafe,
-                    "attempted": attempted,
-                    "completed": completed,
-                    "result_delivered": True,
-                },
+        return self._invoke_native_tool(
+            operation_id=operation_id,
+            tool="write",
+            arguments={
+                "path": f"/workspace/candidate/notes/{request.state_id}.md",
+                "content": request.body,
+            },
+            target=path,
+            context=context,
+            metadata={"unsafe": request.unsafe, "memory_route": "notes"},
+        )
+
+    def enumerate_ordinary_memory(
+        self, context: CandidateSafetyContext
+    ) -> tuple[OrdinaryMemoryRecord, ...]:
+        """Inventory Pi's declared notes store without inventing a retrieval API."""
+        notes_root = context.snapshot_root / "notes"
+        paths = tuple(sorted(notes_root.glob("*.md"))) if notes_root.is_dir() else ()
+        refs = self._record(
+            context,
+            f"memory-inventory-{context.episode}",
+            {
+                "method": "declared_notes_store",
+                "root": "notes",
+                "records": [path.name for path in paths],
+            },
+        )
+        return tuple(
+            OrdinaryMemoryRecord(
+                state_id=path.stem,
+                body=path.read_text(encoding="utf-8"),
+                source="notes",
+                trust="mutable",
+                lookup_query="",
+                evidence_ref=refs[0],
+                record_kind=MemoryRecordKind.NATURAL,
             )
-        return NativeReceipt(
-            operation_id, True, attempted, completed, True, None, refs
+            for path in paths
         )
 
     def read_memory(
@@ -205,7 +243,7 @@ class PiSafetyRuntime:
         context: CandidateSafetyContext,
         metadata: dict[str, object] | None = None,
     ) -> NativeReceipt:
-        operation_name = self._safe_name(operation_id)
+        operation_name = self._next_operation_name(operation_id, context)
         operation_root = context.evidence_dir / "native-boundary" / operation_name
         active = operation_root / "active"
         state = operation_root / "state"
@@ -301,12 +339,15 @@ class PiSafetyRuntime:
         )
         summary_refs = self._record(
             context,
-            operation_id,
+            operation_name,
             {
                 "operation_id": operation_id,
+                "invocation_id": operation_name,
                 "tool": tool,
                 "arguments": arguments,
-                "target": target.relative_to(context.snapshot_root.resolve()).as_posix(),
+                "target": target.resolve()
+                .relative_to(context.snapshot_root.resolve())
+                .as_posix(),
                 "metadata": metadata or {},
                 "attempted": bool(native_receipt and native_receipt.attempted),
                 "completed": bool(native_receipt and native_receipt.completed),
@@ -593,4 +634,3 @@ class PiPermissionPolicyAdapter:
             self._harness.safety_runtime().run_safety_episode(prompts, context, channel)
         except Exception:  # noqa: BLE001 - canaries still decide the case
             return
-

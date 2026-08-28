@@ -55,9 +55,12 @@ from proteus.safety.permission_evidence import (
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
+    MemoryAccessMode,
     MemoryFaultRequest,
+    MemoryRecordKind,
     MemoryStateRequest,
     NativeReceipt,
+    OrdinaryMemoryRecord,
     RuntimeKind,
     SafetyEpisodeResult,
 )
@@ -75,6 +78,15 @@ class _AkiPermissionFixture:
     result: AkiWorkerResult | None = None
     fresh_result: AkiWorkerResult | None = None
     traces: dict[str, NativePermissionTrace] | None = None
+
+
+@dataclass(frozen=True)
+class _NativeOperationExecution:
+    """One controller-owned native operation and the evidence it produced."""
+
+    receipt: NativeReceipt
+    boundary: BoundaryRecord | None
+    invocation_id: str
 
 
 class AkiPermissionPolicyAdapter:
@@ -777,12 +789,14 @@ class AkiSafetyRuntime:
 
     name = "aki"
     kind = RuntimeKind.MODEL_MEDIATED
+    memory_access_mode = MemoryAccessMode.EXACT_KEY
 
     def __init__(self, harness) -> None:
         self._harness = harness
         self._worker = harness.container
         self._memory: dict[str, MemoryStateRequest] = {}
         self._faulted: dict[str, MemoryStateRequest] = {}
+        self._invocation_counts: dict[str, int] = {}
 
     @staticmethod
     def _container_payload(plan: AkiWorkerPlan) -> dict[str, object]:
@@ -904,18 +918,33 @@ class AkiSafetyRuntime:
         )
         return (self._ref(path, context),)
 
-    def _run_native_operation(
+    def _next_invocation_id(self, operation_id: str) -> str:
+        """Return an evidence-unique ID while retaining the logical operation ID."""
+        count = self._invocation_counts.get(operation_id, 0) + 1
+        self._invocation_counts[operation_id] = count
+        return operation_id if count == 1 else f"{operation_id}-{count}"
+
+    def _execute_native_operation(
         self,
         *,
         operation_id: str,
         tool: str,
         arguments: dict[str, object],
         context: CandidateSafetyContext,
-    ) -> NativeReceipt:
-        channel = _NativeBoundaryChannel(operation_id, tool, arguments)
+    ) -> _NativeOperationExecution:
+        """Execute one native operation and retain its completed boundary result.
+
+        ``operation_id`` names the logical probe operation and is retained on the
+        returned receipt.  An operation may be repeated within one safety run, so
+        the worker call, trial directory, and evidence filename receive a distinct
+        invocation ID; otherwise later probes overwrite the first operation's
+        evidence.
+        """
+        invocation_id = self._next_invocation_id(operation_id)
+        channel = _NativeBoundaryChannel(invocation_id, tool, arguments)
         result = self._run_worker(
             context=context,
-            trial_name=f"operation-{self._safe_name(operation_id)}",
+            trial_name=f"operation-{self._safe_name(invocation_id)}",
             plan=AkiWorkerPlan(
                 episode=context.episode,
                 model=channel.model,
@@ -924,7 +953,7 @@ class AkiSafetyRuntime:
             channel=channel,
         )
         boundary = next(
-            (item for item in result.boundaries if item.call_id == operation_id), None
+            (item for item in result.boundaries if item.call_id == invocation_id), None
         )
         claim_events = self._episode_events(result) if result.terminal else ()
         chain = [
@@ -946,9 +975,10 @@ class AkiSafetyRuntime:
         ]
         refs = self._record(
             context,
-            operation_id,
+            invocation_id,
             {
                 "operation_id": operation_id,
+                "invocation_id": invocation_id,
                 "native_tool": tool,
                 "native_arguments": arguments,
                 "chain": chain,
@@ -972,15 +1002,35 @@ class AkiSafetyRuntime:
                 "error": result.error,
             },
         )
-        return NativeReceipt(
-            operation_id=operation_id,
-            proposed=bool(boundary and boundary.proposed),
-            attempted=bool(boundary and boundary.attempted),
-            completed=bool(boundary and boundary.completed),
-            result_delivered=bool(boundary and boundary.result_delivered),
-            authorized=boundary.authorized if boundary else None,
-            evidence_refs=refs,
+        return _NativeOperationExecution(
+            receipt=NativeReceipt(
+                operation_id=operation_id,
+                proposed=bool(boundary and boundary.proposed),
+                attempted=bool(boundary and boundary.attempted),
+                completed=bool(boundary and boundary.completed),
+                result_delivered=bool(boundary and boundary.result_delivered),
+                authorized=boundary.authorized if boundary else None,
+                evidence_refs=refs,
+            ),
+            boundary=boundary,
+            invocation_id=invocation_id,
         )
+
+    def _run_native_operation(
+        self,
+        *,
+        operation_id: str,
+        tool: str,
+        arguments: dict[str, object],
+        context: CandidateSafetyContext,
+    ) -> NativeReceipt:
+        """Run a native operation when callers only need lifecycle evidence."""
+        return self._execute_native_operation(
+            operation_id=operation_id,
+            tool=tool,
+            arguments=arguments,
+            context=context,
+        ).receipt
 
     def introduce_memory(
         self, request: MemoryStateRequest, context: CandidateSafetyContext
@@ -1007,6 +1057,183 @@ class AkiSafetyRuntime:
             arguments={"memory_name": state_id},
             context=context,
         )
+
+    @staticmethod
+    def _native_memory_list_entries(result: object) -> tuple[dict[str, object], ...]:
+        """Validate the exact ``memory_list`` output before native reads.
+
+        The inventory is authoritative only when a subsequently delivered
+        ``memory_read`` agrees with the metadata returned here.  The snapshot is
+        used solely to confirm Aki listed a direct child of its memory root.
+        """
+        if not isinstance(result, Mapping) or result.get("success") is not True:
+            raise RuntimeError("native Aki memory_list result is unsuccessful")
+        data = result.get("data")
+        if not isinstance(data, Mapping):
+            raise RuntimeError("native Aki memory_list result data is malformed")
+        memories = data.get("memories")
+        count = data.get("count")
+        if not isinstance(memories, list) or type(count) is not int:
+            raise RuntimeError("native Aki memory_list result lacks memories/count")
+        if count != len(memories):
+            raise RuntimeError("native Aki memory_list count does not match entries")
+
+        entries: list[dict[str, object]] = []
+        names: set[str] = set()
+        for entry in memories:
+            if not isinstance(entry, Mapping):
+                raise RuntimeError("native Aki memory_list entry is malformed")
+            name = entry.get("name")
+            filename = entry.get("filename")
+            description = entry.get("description")
+            updated_at = entry.get("updated_at")
+            source = entry.get("source")
+            trust = entry.get("trust")
+            content_role = entry.get("content_role")
+            if (
+                not isinstance(name, str)
+                or not name
+                or name in {".", ".."}
+                or "/" in name
+                or "\\" in name
+                or Path(name).name != name
+            ):
+                raise RuntimeError("native Aki memory_list entry name is not path-free")
+            if name in names:
+                raise RuntimeError("native Aki memory_list contains duplicate names")
+            if filename != f"{name}.md":
+                raise RuntimeError("native Aki memory_list filename does not match name")
+            if not isinstance(description, str):
+                raise RuntimeError("native Aki memory_list entry lacks description")
+            if not isinstance(updated_at, str):
+                raise RuntimeError("native Aki memory_list entry lacks updated_at")
+            if not isinstance(source, str) or not source.strip():
+                raise RuntimeError("native Aki memory_list entry lacks source")
+            if not isinstance(trust, str) or not trust.strip():
+                raise RuntimeError("native Aki memory_list entry lacks trust")
+            if not isinstance(content_role, str) or not content_role.strip():
+                raise RuntimeError("native Aki memory_list entry lacks content_role")
+            names.add(name)
+            entries.append(dict(entry))
+        return tuple(entries)
+
+    @staticmethod
+    def _native_memory_read_body(
+        result: object,
+        listed: Mapping[str, object],
+    ) -> tuple[str, str, str]:
+        """Validate a native ``memory_read`` result against its native listing."""
+        if not isinstance(result, Mapping) or result.get("success") is not True:
+            raise RuntimeError("native Aki memory_read result is unsuccessful")
+        data = result.get("data")
+        if not isinstance(data, Mapping):
+            raise RuntimeError("native Aki memory_read result data is malformed")
+        for field in (
+            "name",
+            "description",
+            "updated_at",
+            "source",
+            "trust",
+            "content_role",
+        ):
+            if data.get(field) != listed[field]:
+                raise RuntimeError(f"native Aki memory_read {field} does not match list")
+        body = data.get("body")
+        if not isinstance(body, str):
+            raise RuntimeError("native Aki memory_read result lacks a string body")
+        return body, str(data["source"]), str(data["trust"])
+
+    def enumerate_ordinary_memory(
+        self, context: CandidateSafetyContext
+    ) -> tuple[OrdinaryMemoryRecord, ...]:
+        """Inventory Aki's native, exact-name long-term-memory surface.
+
+        Aki's ``memory_list`` is the ordinary discovery route and ``memory_read``
+        resolves records by name.  Membership, bodies, and authority labels all
+        come from those authenticated native results; snapshot files only prove
+        that each listed exact-name record belongs to the measured snapshot.
+        """
+        native_list_execution = self._execute_native_operation(
+            operation_id="memory-list",
+            tool="memory_list",
+            arguments={},
+            context=context,
+        )
+        native_list = native_list_execution.receipt
+        if not native_list.completed or not native_list.result_delivered:
+            raise RuntimeError("native Aki memory_list did not complete")
+        if native_list_execution.boundary is None:
+            raise RuntimeError("native Aki memory_list boundary is missing")
+        entries = self._native_memory_list_entries(native_list_execution.boundary.result)
+        memory_root = context.snapshot_root / "memory"
+        listed_files: list[tuple[dict[str, object], Path]] = []
+        for entry in entries:
+            filename = str(entry["filename"])
+            path = memory_root / filename
+            if path.parent != memory_root or not path.is_file():
+                raise RuntimeError(f"native Aki memory_list file is missing: {filename}")
+            listed_files.append((entry, path))
+        native_reads: list[tuple[dict[str, object], str, str, str, _NativeOperationExecution]] = []
+        for entry, _path in listed_files:
+            state_id = str(entry["name"])
+            native_read_execution = self._execute_native_operation(
+                operation_id=f"memory-read-{state_id}",
+                tool="memory_read",
+                arguments={"memory_name": state_id},
+                context=context,
+            )
+            native_read = native_read_execution.receipt
+            if not native_read.completed or not native_read.result_delivered:
+                raise RuntimeError(f"native Aki memory_read did not complete: {state_id}")
+            if native_read_execution.boundary is None:
+                raise RuntimeError(f"native Aki memory_read boundary is missing: {state_id}")
+            body, source, trust = self._native_memory_read_body(
+                native_read_execution.boundary.result,
+                entry,
+            )
+            native_reads.append((entry, body, source, trust, native_read_execution))
+        inventory_id = self._next_invocation_id("ordinary-memory-inventory")
+        summary_refs = self._record(
+            context,
+            inventory_id,
+            {
+                "operation_id": "ordinary-memory-inventory",
+                "invocation_id": inventory_id,
+                "native_list_operation_id": native_list.operation_id,
+                "native_list_invocation_id": native_list_execution.invocation_id,
+                "native_list_completed": native_list.completed,
+                "native_list_result_delivered": native_list.result_delivered,
+                "native_list_evidence_refs": native_list.evidence_refs,
+                "memory_root_present": memory_root.is_dir(),
+                "memory_files": [path.name for _, path in listed_files],
+                "native_memory_entries": entries,
+                "native_memory_reads": [
+                    {
+                        "operation_id": execution.receipt.operation_id,
+                        "invocation_id": execution.invocation_id,
+                        "completed": execution.receipt.completed,
+                        "result_delivered": execution.receipt.result_delivered,
+                        "evidence_refs": execution.receipt.evidence_refs,
+                    }
+                    for _, _, _, _, execution in native_reads
+                ],
+            },
+        )
+        summary_ref = summary_refs[0]
+        records: list[OrdinaryMemoryRecord] = []
+        for entry, body, source, trust, _execution in native_reads:
+            records.append(
+                OrdinaryMemoryRecord(
+                    state_id=str(entry["name"]),
+                    body=body,
+                    source=source,
+                    trust=trust,
+                    lookup_query="",
+                    evidence_ref=summary_ref,
+                    record_kind=MemoryRecordKind.NATURAL,
+                )
+            )
+        return tuple(records)
 
     def inject_memory_fault(
         self, request: MemoryFaultRequest, context: CandidateSafetyContext

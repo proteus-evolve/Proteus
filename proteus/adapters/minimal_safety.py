@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict
 from pathlib import Path
 
 from proteus.core.adapter import EpisodeSpec
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
+    MemoryAccessMode,
     MemoryFaultRequest,
-    MemoryQueryHit,
     MemoryStateRequest,
     NativeReceipt,
     OrdinaryMemoryRecord,
@@ -25,6 +24,7 @@ class MinimalSafetyRuntime:
 
     name = "minimal"
     kind = RuntimeKind.DETERMINISTIC
+    memory_access_mode = MemoryAccessMode.EXACT_KEY
 
     def __init__(self, harness) -> None:
         self._harness = harness
@@ -39,8 +39,14 @@ class MinimalSafetyRuntime:
         self, context: CandidateSafetyContext, operation_id: str, payload: dict
     ) -> tuple[str, ...]:
         context.evidence_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"{self._safe_name(operation_id)}.json"
+        base = self._safe_name(operation_id)
+        filename = f"{base}.json"
         path = context.evidence_dir / filename
+        sequence = 2
+        while path.exists():
+            filename = f"{base}-{sequence}.json"
+            path = context.evidence_dir / filename
+            sequence += 1
         path.write_text(json.dumps(payload, indent=1, sort_keys=True), encoding="utf-8")
         if context.artifact_root is not None:
             return (path.relative_to(context.artifact_root).as_posix(),)
@@ -89,7 +95,7 @@ class MinimalSafetyRuntime:
     def enumerate_ordinary_memory(
         self, context: CandidateSafetyContext
     ) -> tuple[OrdinaryMemoryRecord, ...]:
-        """Inventory Minimal's native notes, excluding controller-introduced state."""
+        """Inventory Minimal's native notes, excluding unsafe controller state."""
         entries = self._native_memory_entries(context)
         unsafe_ids = self._unsafe_memory_ids.get(context.snapshot_root.resolve(), set())
         ordinary = [
@@ -103,58 +109,19 @@ class MinimalSafetyRuntime:
             {
                 "operation_id": "memory-enumeration",
                 "state_ids": [state_id for state_id, _body in ordinary],
-                "source": "ordinary",
-                "trust": "trusted",
+                "source": "notes",
+                "trust": "mutable",
             },
         )
         return tuple(
             OrdinaryMemoryRecord(
                 state_id=state_id,
                 body=body,
-                source="ordinary",
-                trust="trusted",
-                lookup_query=f"What does {state_id.replace('-', ' ').replace('_', ' ')} say?",
+                source="notes",
+                trust="mutable",
                 evidence_ref=refs[0],
             )
             for state_id, body in ordinary
-        )
-
-    def query_memory(
-        self, query: str, limit: int, context: CandidateSafetyContext
-    ) -> tuple[MemoryQueryHit, ...]:
-        """Resolve native notes with exact-name preference and stable ranked evidence."""
-        if type(limit) is not int or limit < 1:
-            raise ValueError("memory query limit must be positive")
-        if not isinstance(query, str) or not query.strip():
-            raise ValueError("memory query must be non-empty text")
-        query_terms = _words(query)
-        unsafe_ids = self._unsafe_memory_ids.get(context.snapshot_root.resolve(), set())
-        ranked = sorted(
-            self._native_memory_entries(context),
-            key=lambda entry: (
-                -_query_score(query_terms, entry[0]),
-                entry[0],
-            ),
-        )[:limit]
-        refs = self._record(
-            context,
-            "memory-query",
-            {
-                "operation_id": "memory-query",
-                "query": query,
-                "limit": limit,
-                "state_ids": [state_id for state_id, _body in ranked],
-            },
-        )
-        return tuple(
-            MemoryQueryHit(
-                state_id=state_id,
-                rank=rank,
-                source="untrusted" if state_id in unsafe_ids else "ordinary",
-                trust="untrusted" if state_id in unsafe_ids else "trusted",
-                evidence_ref=refs[0],
-            )
-            for rank, (state_id, _body) in enumerate(ranked, 1)
         )
 
     def read_memory(
@@ -275,19 +242,3 @@ class MinimalSafetyRuntime:
             (path.stem, path.read_text(encoding="utf-8"))
             for path in sorted(notes.glob("*.md"))
         )
-
-
-def _words(text: str) -> tuple[str, ...]:
-    return tuple(re.findall(r"[a-z0-9]+", text.lower()))
-
-
-def _query_score(query_terms: tuple[str, ...], state_id: str) -> int:
-    state_terms = _words(state_id.replace("-", " ").replace("_", " "))
-    if not state_terms:
-        return 0
-    exact_sequence = any(
-        query_terms[index : index + len(state_terms)] == state_terms
-        for index in range(len(query_terms) - len(state_terms) + 1)
-    )
-    overlap = len(set(query_terms) & set(state_terms))
-    return (100 if exact_sequence else 0) + overlap

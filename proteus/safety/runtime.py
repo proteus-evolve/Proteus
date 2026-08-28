@@ -20,6 +20,20 @@ class RuntimeKind(str, Enum):
     MODEL_MEDIATED = "model_mediated"
 
 
+class MemoryAccessMode(str, Enum):
+    """How an adapter's ordinary memory is resolved through its native route."""
+
+    EXACT_KEY = "exact_key"
+    RANKED_QUERY = "ranked_query"
+
+
+class MemoryRecordKind(str, Enum):
+    """Whether an inventory record predates a safety measurement or seeds one."""
+
+    NATURAL = "natural"
+    SEEDED_CONTROL = "seeded_control"
+
+
 def _validate_id(label: str, value: str) -> None:
     if not isinstance(value, str) or not value.strip() or "/" in value or "\\" in value:
         raise ValueError(f"{label} must be a non-empty path-free ID")
@@ -63,21 +77,22 @@ class NativeReceipt:
 
 @dataclass(frozen=True)
 class OrdinaryMemoryRecord:
-    """A trusted ordinary memory record exposed by an adapter-native inventory."""
+    """An adapter-authentic ordinary memory record exposed by native inventory."""
 
     state_id: str
     body: str
     source: str
     trust: str
-    lookup_query: str
     evidence_ref: str
+    lookup_query: str | None = None
+    record_kind: MemoryRecordKind = MemoryRecordKind.NATURAL
 
     def __post_init__(self) -> None:
         _validate_id("ordinary memory state ID", self.state_id)
-        if self.source != "ordinary" or self.trust != "trusted":
-            raise ValueError("ordinary memory records must be ordinary and trusted")
-        if not self.lookup_query.strip() or not self.evidence_ref.strip():
-            raise ValueError("ordinary memory records require query and evidence")
+        if not self.source.strip() or not self.trust.strip() or not self.evidence_ref.strip():
+            raise ValueError("ordinary memory records require source, trust, and evidence")
+        if self.lookup_query is not None and not self.lookup_query.strip():
+            object.__setattr__(self, "lookup_query", None)
 
 
 @dataclass(frozen=True)
@@ -154,16 +169,19 @@ class HarnessSafetyRuntime(Protocol):
 
 
 @runtime_checkable
-class OrdinaryMemoryRuntime(Protocol):
-    """Optional native memory inventory and ranked-query capability.
+class MemoryInventoryRuntime(Protocol):
+    """Optional adapter-native ordinary-memory inventory capability."""
 
-    A harness that cannot expose this through its normal memory route must omit the
-    capability and receive ``not_evaluated`` for retrieval-based family components.
-    """
+    memory_access_mode: MemoryAccessMode
 
     def enumerate_ordinary_memory(
         self, context: CandidateSafetyContext
     ) -> tuple[OrdinaryMemoryRecord, ...]: ...
+
+
+@runtime_checkable
+class RankedMemoryRuntime(MemoryInventoryRuntime, Protocol):
+    """An inventory runtime whose normal route supports ranked retrieval."""
 
     def query_memory(
         self, query: str, limit: int, context: CandidateSafetyContext

@@ -133,6 +133,9 @@ class MemoryBadAdmissionIndicators:
     benign_controls_succeeded: int = 0
     behavior_trials: int = 0
     advbench_uptake_trials: int = 0
+    access_mode: str = ""
+    seeded_control_ids: tuple[str, ...] = ()
+    near_shadow_applicability: str = "not_evaluated"
 
 
 @dataclass(frozen=True)
@@ -145,15 +148,19 @@ class MemoryCollapseIndicators:
     ordinary_memory_bytes: int = 0
     points: tuple[CorpusPressurePoint, ...] = ()
     physical_retention_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
+    exact_access_retention_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
     retrieval_retention_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
     pressure_utility_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
     first_physical_loss_tokens: int | None = None
+    first_exact_access_loss_tokens: int | None = None
     first_retrieval_loss_tokens: int | None = None
     behavioral_answers_correct: int | None = None
     behavioral_questions: int = 0
     physical_delta: FamilyEvolutionDelta | None = None
+    exact_access_delta: FamilyEvolutionDelta | None = None
     retrieval_delta: FamilyEvolutionDelta | None = None
     utility_delta: FamilyEvolutionDelta | None = None
+    access_mode: str = ""
 
 
 @dataclass(frozen=True)

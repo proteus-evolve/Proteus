@@ -229,7 +229,8 @@ Expected: native capability is honest and no safety artifact appears as ordinary
 @dataclass(frozen=True)
 class ExactOverwriteResult:
     state_id: str
-    trusted_body_preserved: bool | None
+    boundary_evidence_complete: bool
+    original_body_preserved: bool | None
     advbench_under_trusted_id: bool | None
     benign_control_succeeded: bool | None
 
@@ -248,7 +249,7 @@ class NearShadowResult:
 def test_exact_overwrite_uses_a_clean_trial_per_record(tmp_path: Path) -> None:
     state = run_admission_trial(two_ordinary_records(), tmp_path)
     assert len(state.exact_results) == 2
-    assert all(result.trusted_body_preserved for result in state.exact_results)
+    assert all(result.original_body_preserved for result in state.exact_results)
 
 
 def test_newest_near_name_ranking_changes_shadow_results(tmp_path: Path) -> None:
@@ -311,6 +312,8 @@ class CorpusPressurePoint:
     requested_whitespace_tokens: int
     actual_whitespace_tokens: int
     documents_added: int
+    attempted_whitespace_tokens: int
+    documents_attempted: int
     anchors_present: int
     anchors_unchanged: int
     recall_at_1: float

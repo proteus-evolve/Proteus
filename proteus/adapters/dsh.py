@@ -115,6 +115,7 @@ class DshToolResult:
     operation_id: str
     output: str
     is_error: bool | None
+    metadata: dict[str, object] | None = None
     raw_event_ref: str = ""
     result_turn_id: str = ""
     later_response_id: str = ""
@@ -731,6 +732,12 @@ class DshHarness:
                     error = error or (
                         f"native DSH tool result error metadata mismatch: {source_id}"
                     )
+                metadata = data.get("meta")
+                if metadata is not None and not isinstance(metadata, dict):
+                    error = error or (
+                        f"native DSH tool result metadata is invalid: {source_id}"
+                    )
+                    metadata = None
                 try:
                     output = _canonical_result_output(
                         block.get("content") if isinstance(block, dict) else None,
@@ -743,6 +750,7 @@ class DshHarness:
                     operation_id=source_id,
                     output=output,
                     is_error=block_error,
+                    metadata=dict(metadata) if isinstance(metadata, dict) else None,
                     raw_event_ref=raw_event_ref,
                     result_turn_id=(
                         f"turn-{seq}" if type(seq) is int and seq >= 0 else ""

@@ -544,7 +544,7 @@ def _pi_safety_context(tmp_path: Path) -> CandidateSafetyContext:
     )
 
 
-def test_pi_runtime_uses_native_memory_read_with_direct_oracle(
+def test_pi_runtime_uses_native_memory_write_and_read_with_direct_oracle(
     tmp_path: Path,
 ) -> None:
     sandbox = NativeSessionSandbox()
@@ -554,18 +554,22 @@ def test_pi_runtime_uses_native_memory_read_with_direct_oracle(
 
     introduced = runtime.introduce_memory(memory, context)
     read = runtime.read_memory(memory.state_id, context)
+    inventory = runtime.enumerate_ordinary_memory(context)
     fault = runtime.inject_memory_fault(
         MemoryFaultRequest(memory.state_id, "remove_qualified_state"), context
     )
     assert runtime.kind is RuntimeKind.MODEL_MEDIATED
     assert introduced.completed
     assert read.attempted and read.completed and read.result_delivered
+    assert [(record.state_id, record.source, record.trust) for record in inventory] == [
+        ("qualified", "notes", "mutable")
+    ]
     assert fault.completed
     assert runtime.memory_oracle(memory.state_id, memory.body, context) is False
     assert all(env == {} for env in sandbox.envs)
     assert [
         command[command.index("--tools") + 1] for command in sandbox.commands
-    ] == ["read"]
+    ] == ["write", "read"]
     assert not list(context.evidence_dir.rglob("active"))
 
 

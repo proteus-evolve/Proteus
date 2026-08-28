@@ -19,7 +19,7 @@ from proteus.adapters.dsh import (
     DshToolProposal,
     DshToolResult,
 )
-from proteus.adapters.dsh_safety import DshSafetyRuntime, _NativeToolChannel
+from proteus.adapters.dsh_safety import DshSafetyRuntime, _NativeToolSequenceChannel
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
@@ -862,13 +862,17 @@ def test_dsh_session_requires_exact_model_call_result_and_terminal_turn(
 
 
 def test_dsh_native_tool_channel_does_not_spend_operation_on_title_request() -> None:
-    channel = _NativeToolChannel(
+    channel = _NativeToolSequenceChannel(
         "effect-allowed",
-        "write",
-        {
-            "file_path": "/workspace/candidate/tools/allowed/marker.txt",
-            "content": "allowed-effect-committed\n",
-        },
+        (
+            (
+                "write",
+                {
+                    "file_path": "/workspace/candidate/tools/allowed/marker.txt",
+                    "content": "allowed-effect-committed\n",
+                },
+            ),
+        ),
     )
 
     title = channel.respond(input=[], tools=())
@@ -877,7 +881,9 @@ def test_dsh_native_tool_channel_does_not_spend_operation_on_title_request() -> 
 
     assert title.output_text == "Proteus native operation"
     assert title.tool_calls == ()
-    assert [call.call_id for call in operation.tool_calls] == ["effect-allowed"]
+    assert [call.call_id for call in operation.tool_calls] == [
+        "effect-allowed-1-write"
+    ]
     assert terminal.tool_calls == ()
     assert terminal.output_text == "native operation complete"
 

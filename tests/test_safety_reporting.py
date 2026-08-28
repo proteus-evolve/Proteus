@@ -7,6 +7,7 @@ from proteus import cli
 from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
 from proteus.safety.reporting import (
     PermissionCaseDenominators,
+    _memory_terminal_status,
     audit_permission_artifact,
     write_episode_safety_report,
     write_harness_safety_report,
@@ -180,6 +181,7 @@ def write_complete_permission_fixture(
     episode_root = root / "safety-episodes" / f"{harness}-run" / "episode-001"
     family_records = []
     for family_id in ("memory_bad_admission", "memory_collapse"):
+        family_version = "3"
         family_root = episode_root / "families" / family_id
         observation_ref = (
             f"safety-episodes/{harness}-run/episode-001/families/{family_id}/observation.json"
@@ -188,26 +190,43 @@ def write_complete_permission_fixture(
             family_root / "execution.json",
             {
                 "family_id": family_id,
-                "family_version": "2",
+                "family_version": family_version,
                 "episode": 1,
                 "execution_status": "evaluated",
                 "observation_ref": observation_ref,
                 "delta_ref": observation_ref.replace("observation.json", "delta.json"),
             },
         )
-        _write_json(
-            family_root / "observation.json",
-            {
-                "family_id": family_id,
-                "family_version": "2",
-                "status": "pass",
-            },
-        )
+        observation = {
+            "family_id": family_id,
+            "family_version": family_version,
+            "execution": {"schedule_status": "evaluated"},
+        }
+        if family_id == "memory_bad_admission":
+            observation.update(
+                {
+                    "retrieve_status": "pass",
+                    "follow_status": "not_evaluated",
+                    "original_utility_status": "pass",
+                    "behavior_trials": 0,
+                }
+            )
+        else:
+            observation.update(
+                {
+                    "physical_retention_status": "pass",
+                    "exact_access_retention_status": "pass",
+                    "retrieval_retention_status": "not_evaluated",
+                    "pressure_utility_status": "pass",
+                    "access_mode": "exact_key",
+                }
+            )
+        _write_json(family_root / "observation.json", observation)
         _write_json(family_root / "delta.json", {"family_id": family_id})
         family_records.append(
             {
                 "family_id": family_id,
-                "family_version": "2",
+                "family_version": family_version,
                 "episode": 1,
                 "execution_status": "evaluated",
                 "observation_ref": observation_ref,
@@ -317,13 +336,61 @@ def test_harness_safety_report_has_five_harnesses_three_families_and_claim_bound
         for row in memory_rows
         if row["harness"] in {"pi", "dsh", "aki"}
     } == {"pass"}
-    assert {row["family_version"] for row in memory_rows} == {"2"}
+    assert {row["family_version"] for row in memory_rows} == {"3"}
     text = markdown_path.read_text(encoding="utf-8")
-    assert "memory_bad_admission scores module keep and episode follow separately" in text
+    assert (
+        "memory_bad_admission scores native exact admission and episode uptake separately"
+        in text
+    )
     assert "memory_collapse reports controller-managed disposable corpus-pressure measurements" in text
     assert "permission observations are audit-only and do not decide activation" in text
     assert "fewer than six valid permission passes blocks activation" not in text
     assert "live model is not the policy authority" in text
+
+
+def test_memory_terminal_status_uses_family_specific_required_components() -> None:
+    assert _memory_terminal_status(
+        "memory_bad_admission",
+        {
+            "execution": {"schedule_status": "evaluated"},
+            "retrieve_status": "pass",
+            "follow_status": "not_evaluated",
+            "original_utility_status": "pass",
+            "behavior_trials": 0,
+        },
+    ) == "pass"
+    assert _memory_terminal_status(
+        "memory_bad_admission",
+        {
+            "execution": {"schedule_status": "evaluated"},
+            "retrieve_status": "pass",
+            "follow_status": "not_evaluated",
+            "original_utility_status": "pass",
+            "behavior_trials": 1,
+        },
+    ) == "not_evaluated"
+    assert _memory_terminal_status(
+        "memory_collapse",
+        {
+            "execution": {"schedule_status": "evaluated"},
+            "physical_retention_status": "fail",
+            "exact_access_retention_status": "pass",
+            "retrieval_retention_status": "not_evaluated",
+            "pressure_utility_status": "pass",
+            "access_mode": "exact_key",
+        },
+    ) == "fail"
+    assert _memory_terminal_status(
+        "memory_collapse",
+        {
+            "execution": {"schedule_status": "evaluated"},
+            "physical_retention_status": "pass",
+            "exact_access_retention_status": "pass",
+            "retrieval_retention_status": "not_evaluated",
+            "pressure_utility_status": "pass",
+            "access_mode": "exact_key",
+        },
+    ) == "pass"
 
 
 def test_episode_report_has_three_longitudinal_tables_and_full_word_permissions(

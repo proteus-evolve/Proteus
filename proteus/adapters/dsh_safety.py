@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from threading import Lock
 
-from proteus.adapters.dsh import DshHarness, DshSessionEvidence
+from proteus.adapters.dsh import DshHarness, DshSessionEvidence, DshToolResult
 from proteus.adapters.dsh_model_bridge import (
     OBSERVER_CONTAINER_PATH,
     OBSERVER_OUTPUT_CONTAINER_PATH,
@@ -54,9 +54,12 @@ from proteus.safety.permission_evidence import (
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
+    MemoryAccessMode,
     MemoryFaultRequest,
+    MemoryRecordKind,
     MemoryStateRequest,
     NativeReceipt,
+    OrdinaryMemoryRecord,
     RuntimeKind,
     SafetyEpisodeResult,
 )
@@ -64,15 +67,44 @@ from proteus.safety.runtime import (
 BOUNDARY_MODEL = "proteus-boundary-control"
 
 
-class _NativeToolChannel:
-    """One controller-issued DSH tool call; never model evidence."""
+def _sequence_prerequisites_completed(
+    session: DshSessionEvidence,
+    result_index: int,
+) -> bool:
+    """Require every operation before the selected result to finish successfully."""
+    receipt_by_operation = {
+        receipt.operation_id: receipt for receipt in session.receipts
+    }
+    return all(
+        (receipt := receipt_by_operation.get(proposal.operation_id)) is not None
+        and receipt.proposed
+        and receipt.attempted
+        and receipt.completed
+        and receipt.result_delivered
+        for proposal in session.proposals[:result_index]
+    )
+
+
+class _NativeToolSequenceChannel:
+    """Controller-issued native calls that must share one DSH session.
+
+    DSH's normal file policy treats an overwrite differently from a new file: the
+    existing file has to be observed in the same session before a write may replace
+    it.  This channel deliberately emits only the fixed sequence supplied by the
+    controller; it is not an ordinary-agent model channel.
+    """
 
     model = BOUNDARY_MODEL
 
-    def __init__(self, operation_id: str, tool: str, arguments: dict[str, object]) -> None:
+    def __init__(
+        self,
+        operation_id: str,
+        operations: tuple[tuple[str, dict[str, object]], ...],
+    ) -> None:
+        if not operations:
+            raise ValueError("native DSH operation sequence cannot be empty")
         self._operation_id = operation_id
-        self._tool = tool
-        self._arguments = arguments
+        self._operations = operations
         self._requests = 0
         self._operation_turns = 0
         self._closed = False
@@ -95,23 +127,27 @@ class _NativeToolChannel:
             configured_model=self.model,
             response_model=self.model,
         )
+        tool_calls: tuple[LiveToolCall, ...] = ()
+        if has_tools and operation_turn <= len(self._operations):
+            tool, arguments = self._operations[operation_turn - 1]
+            tool_calls = (
+                LiveToolCall(
+                    call_id=f"{self._operation_id}-{operation_turn}-{tool}",
+                    name=tool,
+                    arguments=arguments,
+                ),
+            )
         return LiveModelResponse(
             response_id=provenance.response_id,
             model=self.model,
             output_text=(
                 "Proteus native operation"
                 if not has_tools
-                else "native operation complete" if operation_turn > 1 else ""
+                else "native operation complete"
+                if operation_turn > len(self._operations)
+                else ""
             ),
-            tool_calls=(
-                LiveToolCall(
-                    call_id=self._operation_id,
-                    name=self._tool,
-                    arguments=self._arguments,
-                ),
-            )
-            if has_tools and operation_turn == 1
-            else (),
+            tool_calls=tool_calls,
             provenance=provenance,
         )
 
@@ -797,6 +833,7 @@ class DshSafetyRuntime:
 
     name = "dsh"
     kind = RuntimeKind.MODEL_MEDIATED
+    memory_access_mode = MemoryAccessMode.EXACT_KEY
 
     def __init__(self, harness: DshHarness) -> None:
         self._harness = harness
@@ -827,6 +864,32 @@ class DshSafetyRuntime:
         )
         return (self._ref(path, context),)
 
+    def _record_unique(
+        self, context: CandidateSafetyContext, operation_id: str, payload: dict
+    ) -> tuple[str, ...]:
+        """Record repeated controller observations without replacing prior evidence."""
+        context.evidence_dir.mkdir(parents=True, exist_ok=True)
+        base = self._safe_name(operation_id)
+        candidate = base
+        sequence = 2
+        while (context.evidence_dir / f"{candidate}.json").exists():
+            candidate = f"{base}-{sequence}"
+            sequence += 1
+        return self._record(context, candidate, payload)
+
+    def _next_operation_name(
+        self, operation_id: str, context: CandidateSafetyContext
+    ) -> str:
+        """Allocate a stable evidence directory without reusing a native bridge."""
+        base = self._safe_name(operation_id)
+        boundary_root = context.evidence_dir / "native-boundary"
+        candidate = base
+        sequence = 2
+        while (boundary_root / candidate).exists():
+            candidate = f"{base}-{sequence}"
+            sequence += 1
+        return candidate
+
     @staticmethod
     def _memory_path(state_id: str, context: CandidateSafetyContext) -> Path:
         return context.snapshot_root / "notes" / f"{state_id}.md"
@@ -835,28 +898,140 @@ class DshSafetyRuntime:
         self, request: MemoryStateRequest, context: CandidateSafetyContext
     ) -> NativeReceipt:
         operation_id = f"memory-introduce-{request.state_id}"
-        path = self._memory_path(request.state_id, context)
-        attempted = False
-        completed = False
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            attempted = True
-            path.write_text(request.body, encoding="utf-8")
-            completed = True
-        finally:
-            refs = self._record(
-                context,
-                operation_id,
-                {
-                    "operation_id": operation_id,
-                    "native_path": path.relative_to(context.snapshot_root).as_posix(),
-                    "unsafe": request.unsafe,
-                    "attempted": attempted,
-                    "completed": completed,
-                    "result_delivered": True,
-                },
+        target = self._memory_path(request.state_id, context)
+        write_arguments = {
+            "file_path": f"/workspace/candidate/notes/{request.state_id}.md",
+            "content": request.body,
+        }
+        if not target.is_file():
+            return self._invoke_native_tool(
+                operation_id=operation_id,
+                tool="write",
+                arguments=write_arguments,
+                target=target,
+                context=context,
+                metadata={"unsafe": request.unsafe},
             )
-        return NativeReceipt(operation_id, True, attempted, completed, True, None, refs)
+
+        # DSH permits replacement only after its ordinary native read has observed the
+        # existing note in this session.  A standalone denied write is not an admission
+        # test: it would make the protected result pass without exercising the route.
+        return self._invoke_native_tool_sequence(
+            operation_id=operation_id,
+            operations=(
+                (
+                    "read",
+                    {"file_path": write_arguments["file_path"]},
+                    target,
+                    {"purpose": "observe-existing-memory"},
+                ),
+                ("write", write_arguments, target, {"unsafe": request.unsafe}),
+            ),
+            result_index=1,
+            context=context,
+        )
+
+    def enumerate_ordinary_memory(
+        self, context: CandidateSafetyContext
+    ) -> tuple[OrdinaryMemoryRecord, ...]:
+        """Inventory DSH's top-level note files without fabricating retrieval ranks."""
+
+        notes_root = context.snapshot_root / "notes"
+        receipt: NativeReceipt | None = None
+        native_result: DshToolResult | None = None
+        if notes_root.is_dir():
+            receipt, native_result = self._invoke_native_tool_with_result(
+                operation_id="memory-enumerate-notes",
+                tool="glob",
+                arguments={
+                    "pattern": "candidate/notes/*.md",
+                    "path": "/workspace",
+                },
+                target=notes_root,
+                context=context,
+            )
+            if (
+                not receipt.completed
+                or not receipt.result_delivered
+                or native_result is None
+                or native_result.is_error is not False
+            ):
+                raise RuntimeError("native DSH notes inventory did not complete")
+
+        native_paths: tuple[str, ...] = ()
+        if notes_root.is_dir():
+            assert native_result is not None
+            metadata = native_result.metadata
+            if not isinstance(metadata, dict) or set(metadata) != {
+                "shape",
+                "paths",
+                "truncated",
+                "total",
+            }:
+                raise RuntimeError("native DSH notes inventory metadata is malformed")
+            raw_paths = metadata.get("paths")
+            total = metadata.get("total")
+            if (
+                metadata.get("shape") != "paths"
+                or metadata.get("truncated") is not False
+                or not isinstance(raw_paths, list)
+                or not all(isinstance(item, str) and item for item in raw_paths)
+                or type(total) is not int
+                or total != len(raw_paths)
+                or len(raw_paths) != len(set(raw_paths))
+            ):
+                raise RuntimeError("native DSH notes inventory is incomplete")
+            native_paths = tuple(raw_paths)
+            visible_output = "\n".join(native_paths) if native_paths else "No files found"
+            if native_result.output != f"text:{visible_output}":
+                raise RuntimeError("native DSH notes inventory output disagrees with metadata")
+
+        records: list[tuple[str, str]] = []
+        for native_path in native_paths:
+            prefix = "candidate/notes/"
+            if not native_path.startswith(prefix):
+                raise RuntimeError("native DSH notes inventory escaped the notes surface")
+            relative = Path(native_path.removeprefix(prefix))
+            if (
+                len(relative.parts) != 1
+                or relative.suffix != ".md"
+                or not relative.stem.strip()
+            ):
+                raise RuntimeError("native DSH notes inventory returned a non-record path")
+            path = notes_root / relative
+            if not path.is_file() or path.parent != notes_root:
+                raise RuntimeError("native DSH notes inventory disagrees with the snapshot")
+            try:
+                body = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                raise RuntimeError("native DSH note body is unavailable") from exc
+            records.append((relative.stem, body))
+
+        summary_refs = self._record_unique(
+            context,
+            "memory-enumerate-notes-summary",
+            {
+                "notes_root": notes_root.relative_to(context.snapshot_root).as_posix(),
+                "notes_directory_present": notes_root.is_dir(),
+                "native_receipt_refs": list(receipt.evidence_refs) if receipt else [],
+                "native_receipt_completed": receipt.completed if receipt else False,
+                "native_paths": list(native_paths),
+                "state_ids": [state_id for state_id, _ in records],
+            },
+        )
+        summary_ref = summary_refs[0]
+        return tuple(
+            OrdinaryMemoryRecord(
+                state_id=state_id,
+                body=body,
+                source="notes",
+                trust="mutable",
+                lookup_query="",
+                evidence_ref=summary_ref,
+                record_kind=MemoryRecordKind.NATURAL,
+            )
+            for state_id, body in records
+        )
 
     def read_memory(
         self, state_id: str, context: CandidateSafetyContext
@@ -906,14 +1081,73 @@ class DshSafetyRuntime:
         context: CandidateSafetyContext,
         metadata: dict[str, object] | None = None,
     ) -> NativeReceipt:
-        operation_name = self._safe_name(operation_id)
+        receipt, _result = self._invoke_native_tool_with_result(
+            operation_id=operation_id,
+            tool=tool,
+            arguments=arguments,
+            target=target,
+            context=context,
+            metadata=metadata,
+        )
+        return receipt
+
+    def _invoke_native_tool_with_result(
+        self,
+        *,
+        operation_id: str,
+        tool: str,
+        arguments: dict[str, object],
+        target: Path,
+        context: CandidateSafetyContext,
+        metadata: dict[str, object] | None = None,
+    ) -> tuple[NativeReceipt, DshToolResult | None]:
+        return self._invoke_native_tool_sequence_with_result(
+            operation_id=operation_id,
+            operations=((tool, arguments, target, metadata),),
+            result_index=0,
+            context=context,
+        )
+
+    def _invoke_native_tool_sequence(
+        self,
+        *,
+        operation_id: str,
+        operations: tuple[tuple[str, dict[str, object], Path, dict[str, object] | None], ...],
+        result_index: int,
+        context: CandidateSafetyContext,
+    ) -> NativeReceipt:
+        receipt, _result = self._invoke_native_tool_sequence_with_result(
+            operation_id=operation_id,
+            operations=operations,
+            result_index=result_index,
+            context=context,
+        )
+        return receipt
+
+    def _invoke_native_tool_sequence_with_result(
+        self,
+        *,
+        operation_id: str,
+        operations: tuple[tuple[str, dict[str, object], Path, dict[str, object] | None], ...],
+        result_index: int,
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, DshToolResult | None]:
+        if not 0 <= result_index < len(operations):
+            raise ValueError("native DSH selected result must belong to the sequence")
+        selected_tool, selected_arguments, selected_target, selected_metadata = operations[
+            result_index
+        ]
+        operation_name = self._next_operation_name(operation_id, context)
         operation_root = context.evidence_dir / "native-boundary" / operation_name
         active = operation_root / "active"
         state = operation_root / "state"
         state.mkdir(parents=True, exist_ok=True)
         shutil.copytree(context.snapshot_root, active)
         (active / "candidate").mkdir(exist_ok=True)
-        channel = _NativeToolChannel(operation_name, tool, arguments)
+        channel = _NativeToolSequenceChannel(
+            operation_name,
+            tuple((tool, arguments) for tool, arguments, _target, _metadata in operations),
+        )
         error = ""
         session = None
         records = ()
@@ -932,7 +1166,7 @@ class DshSafetyRuntime:
                         "headless",
                         "--patch",
                         "/proteus/bridge/cordis.patch.yml",
-                        "Execute the single controller-administered native operation.",
+                        "Execute the controller-administered native operations in order.",
                     ],
                     env={"DSH_PERMISSION_MODE": self._harness.permission_mode},
                     timeout_s=self._harness.phase_timeout_s,
@@ -971,7 +1205,37 @@ class DshSafetyRuntime:
         channel.close()
         shutil.rmtree(active, ignore_errors=True)
 
-        native_receipt = session.receipts[0] if session and session.receipts else None
+        expected_operations = tuple(
+            (
+                tool,
+                json.dumps(arguments, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+            )
+            for tool, arguments, _target, _metadata in operations
+        )
+        if session is not None and not error:
+            observed_operations = tuple(
+                (proposal.name, proposal.arguments) for proposal in session.proposals
+            )
+            if observed_operations != expected_operations:
+                error = "native DSH operations do not match the controller sequence"
+        selected_native_id = (
+            session.proposals[result_index].operation_id
+            if session is not None and len(session.proposals) > result_index
+            else ""
+        )
+        receipt_by_operation = {
+            receipt.operation_id: receipt for receipt in session.receipts
+        } if session is not None else {}
+        result_by_operation = {
+            result.operation_id: result for result in session.results
+        } if session is not None else {}
+        native_receipt = receipt_by_operation.get(selected_native_id)
+        if (
+            session is not None
+            and not error
+            and not _sequence_prerequisites_completed(session, result_index)
+        ):
+            error = "native DSH prerequisite operation did not complete"
         native_response_ids = session.response_ids if session else ()
         bridge_response_ids = self._harness._bridge_agent_response_ids(
             records, bridge_root
@@ -991,15 +1255,50 @@ class DshSafetyRuntime:
             self._ref(path, context) for path in sorted(bridge_root.glob("*.json"))
         )
         session_refs = native_receipt.evidence_refs if native_receipt else ()
+        native_result = result_by_operation.get(selected_native_id) if not error else None
+        operation_evidence = []
+        for index, (tool, arguments, target, metadata) in enumerate(operations):
+            native_id = (
+                session.proposals[index].operation_id
+                if session is not None and len(session.proposals) > index
+                else ""
+            )
+            operation_receipt = receipt_by_operation.get(native_id)
+            operation_result = result_by_operation.get(native_id)
+            operation_evidence.append(
+                {
+                    "tool": tool,
+                    "arguments": arguments,
+                    "target": target.resolve()
+                    .relative_to(context.snapshot_root.resolve())
+                    .as_posix(),
+                    "metadata": metadata or {},
+                    "attempted": bool(operation_receipt and operation_receipt.attempted),
+                    "completed": bool(operation_receipt and operation_receipt.completed),
+                    "result_delivered": bool(
+                        operation_receipt and operation_receipt.result_delivered
+                    ),
+                    "native_tool_call_id": native_id,
+                    "native_result_ref": (
+                        operation_result.raw_event_ref if operation_result is not None else ""
+                    ),
+                    "native_result_metadata": (
+                        operation_result.metadata if operation_result is not None else None
+                    ),
+                }
+            )
         summary_refs = self._record(
             context,
-            operation_id,
+            operation_name,
             {
                 "operation_id": operation_id,
-                "tool": tool,
-                "arguments": arguments,
-                "target": target.relative_to(context.snapshot_root.resolve()).as_posix(),
-                "metadata": metadata or {},
+                "invocation_id": operation_name,
+                "tool": selected_tool,
+                "arguments": selected_arguments,
+                "target": selected_target.resolve()
+                .relative_to(context.snapshot_root.resolve())
+                .as_posix(),
+                "metadata": selected_metadata or {},
                 "attempted": bool(native_receipt and native_receipt.attempted),
                 "completed": bool(native_receipt and native_receipt.completed),
                 "result_delivered": bool(
@@ -1008,11 +1307,18 @@ class DshSafetyRuntime:
                 "native_tool_call_id": (
                     native_receipt.operation_id if native_receipt else ""
                 ),
+                "native_result_ref": (
+                    native_result.raw_event_ref if native_result is not None else ""
+                ),
+                "native_result_metadata": (
+                    native_result.metadata if native_result is not None else None
+                ),
+                "native_operations": operation_evidence,
                 "bridge": [asdict(record) for record in records],
                 "error": error,
             },
         )
-        return NativeReceipt(
+        receipt = NativeReceipt(
             operation_id=operation_id,
             proposed=True,
             attempted=bool(native_receipt and native_receipt.attempted),
@@ -1025,6 +1331,7 @@ class DshSafetyRuntime:
                 dict.fromkeys(session_refs + bridge_refs + summary_refs)
             ),
         )
+        return receipt, native_result
 
     def run_safety_episode(
         self,

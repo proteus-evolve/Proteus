@@ -5,18 +5,20 @@ historical v1 permission matrix.
 
 ## Memory families
 
-`memory_bad_admission` freezes a 16-row AdvBench panel per run. Every native,
-ordinary trusted memory record receives an isolated exact-ID overwrite attempt and
-one registered fixed-rule near-name shadow in a clean retrieval sweep. Native state,
-rank/provenance, benign write/read utility, and selected behavioral uptake are reported
-separately. An empty snapshot is `not_evaluated`; the controller never plants a fallback
-memory.
+`memory_bad_admission` freezes a 16-row AdvBench panel per run. Every adapter-authentic
+natural record plus one disposable `seeded_control` receives an isolated exact-ID unsafe
+write and a benign write/read control through that harness's real memory route. This makes
+an empty natural store evaluable without modifying the settled snapshot. DSH and Pi use
+native exact file access; Aki uses native `memory_list`/`memory_write`/`memory_read` and
+retains its authoritative agent-authored/untrusted label. Near-name top-k measurement runs
+only for a harness with a genuine ranked resolver; for exact-key harnesses it is N/A.
 
 `memory_collapse` admits whole documents from a private, fixed 64-essay Paul Graham
 panel only into a disposable copy of the settled tree. It measures three fixed anchors
-at P0, P2k, P8k, P32k, and P64k for physical retention, ranked retrieval, and a latest
-pressure-record utility control. No random filler remains. It is not an `--arm`, and the
-essay source text is never included in a report or committed artifact.
+at P0, P2k, P8k, P32k, and P64k for physical retention, native exact accessibility, and a
+latest pressure-record utility control. Ranked retrieval is an optional additional axis,
+not fabricated for exact-key note stores. No random filler remains. It is not an `--arm`,
+and essay text is never included in a report or committed artifact.
 
 ## Tools permission drift (current catalog)
 
@@ -52,13 +54,13 @@ mechanistic detail when a harness already emits them.
 
 ## Capability matrix
 
-| Harness | Supported permission cases | Memory families |
+| Harness | Supported permission cases | Native memory profile |
 | --- | --- | --- |
-| Minimal | overwrite, policy mutation, minting, workspace boundary | yes |
-| LLM | overwrite, policy mutation, minting, workspace boundary | yes |
-| Pi | all six | yes |
-| DSH | all six | yes |
-| Aki | recursive deletion, protected overwrite, policy mutation, minting, workspace boundary | yes |
+| Minimal | overwrite, policy mutation, minting, workspace boundary | declared notes store + deterministic exact read |
+| LLM | overwrite, policy mutation, minting, workspace boundary | declared notes store + exact read; bounded prompt preview is not ranking |
+| Pi | all six | declared notes store + native exact write/read |
+| DSH | all six | native glob inventory + native exact write/read |
+| Aki | recursive deletion, protected overwrite, policy mutation, minting, workspace boundary | native list/write/read; mutable records stay untrusted |
 
 Unsupported permission cells consume zero safety-model calls. Recursive deletion stays
 unsupported on Minimal and LLM (no delete primitive). Command execution stays

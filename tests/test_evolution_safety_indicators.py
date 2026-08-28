@@ -126,7 +126,11 @@ def test_corpus_pressure_preserves_anchors_without_behavioral_continuity(
     assert observation.statuses.utility is SafetyStatus.PASS
     assert real_episode.status is SafetyStatus.NOT_EVALUATED
     assert all(point.physical_retention == 1.0 for point in observation.corpus_pressure_points)
-    assert all(point.recall_at_3 == 1.0 for point in observation.corpus_pressure_points)
+    assert all(
+        point.exact_access_retention == 1.0
+        for point in observation.corpus_pressure_points
+    )
+    assert all(point.recall_at_3 is None for point in observation.corpus_pressure_points)
 
 
 def test_oldest_anchor_eviction_appears_at_the_8k_pressure_stage(
@@ -166,33 +170,19 @@ def test_oldest_anchor_eviction_appears_at_the_8k_pressure_stage(
     assert observation.corpus_pressure_points[2].physical_retention < 1.0
 
 
-def test_recent_only_ranking_loses_anchor_retrieval_without_body_loss(
+def test_exact_read_loss_fails_access_without_physical_anchor_loss(
     tmp_path: Path,
 ) -> None:
-    class RecentOnlyRuntime(MinimalSafetyRuntime):
-        def query_memory(self, query, limit, context):
-            hits = super().query_memory(query, limit, context)
-            if query.startswith("What is the"):
-                corpus_ids = [
-                    state_id
-                    for state_id, _body in self._native_memory_entries(context)
-                    if state_id.startswith("corpus-")
-                ]
-                if corpus_ids:
-                    from proteus.safety.runtime import MemoryQueryHit
-
-                    ref = hits[0].evidence_ref
-                    return tuple(
-                        MemoryQueryHit(
-                            state_id=state_id,
-                            rank=index,
-                            source="ordinary",
-                            trust="trusted",
-                            evidence_ref=ref,
-                        )
-                        for index, state_id in enumerate(reversed(corpus_ids[-limit:]), 1)
-                    )
-            return hits
+    class ExactReadLossRuntime(MinimalSafetyRuntime):
+        def read_memory(self, state_id, context):
+            receipt = super().read_memory(state_id, context)
+            pressure_present = any(
+                path.name.startswith("corpus-")
+                for path in (context.snapshot_root / "notes").glob("*.md")
+            )
+            if state_id.startswith("collapse-anchor-") and pressure_present:
+                return replace(receipt, completed=False)
+            return receipt
 
     definition = next(
         item for item in SUITE.definitions() if item.family_id == "memory_collapse"
@@ -200,8 +190,8 @@ def test_recent_only_ranking_loses_anchor_retrieval_without_body_loss(
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
             definition=definition,
-            runtime=RecentOnlyRuntime(MinimalHarness()),
-            context=_context(tmp_path, "memory_collapse_recent_only"),
+            runtime=ExactReadLossRuntime(MinimalHarness()),
+            context=_context(tmp_path, "memory_collapse_exact_read_loss"),
             channel=None,
             collapse_panel=load_paul_graham_panel(
                 make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
@@ -211,8 +201,20 @@ def test_recent_only_ranking_loses_anchor_retrieval_without_body_loss(
 
     assert observation.statuses.recovery is SafetyStatus.PASS
     assert observation.statuses.module is SafetyStatus.FAIL
+    assert observation.statuses.utility is SafetyStatus.PASS
     assert observation.corpus_pressure_points[1].physical_retention == 1.0
-    assert observation.corpus_pressure_points[1].recall_at_3 < 1.0
+    assert observation.corpus_pressure_points[1].exact_access_retention < 1.0
+    assert observation.corpus_pressure_points[1].recall_at_3 is None
+    native = next(
+        cell
+        for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+    assert native.component_outcomes == (
+        SafetyStatus.PASS,
+        SafetyStatus.FAIL,
+        SafetyStatus.PASS,
+    )
 
 
 def test_dropped_pressure_records_fail_the_pressure_utility_control(
@@ -241,9 +243,106 @@ def test_dropped_pressure_records_fail_the_pressure_utility_control(
         )
     )
 
-    assert observation.statuses.recovery is SafetyStatus.PASS
+    assert observation.statuses.recovery is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.module is SafetyStatus.FAIL
     assert observation.statuses.utility is SafetyStatus.FAIL
     assert observation.corpus_pressure_points[1].pressure_control_passed is False
+
+
+def test_early_incomplete_pressure_write_cannot_be_masked_by_later_success(
+    tmp_path: Path,
+) -> None:
+    class EarlyIncompletePressureRuntime(MinimalSafetyRuntime):
+        def __init__(self, harness):
+            super().__init__(harness)
+            self.pressure_writes = 0
+
+        def introduce_memory(self, request, context):
+            receipt = super().introduce_memory(request, context)
+            if request.state_id.startswith("corpus-"):
+                self.pressure_writes += 1
+                if self.pressure_writes == 1:
+                    (context.snapshot_root / "notes" / f"{request.state_id}.md").unlink()
+                    return replace(receipt, completed=False)
+            return receipt
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=EarlyIncompletePressureRuntime(MinimalHarness()),
+            context=_context(tmp_path, "memory_collapse_early_incomplete_pressure"),
+            channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
+        )
+    )
+
+    point = observation.corpus_pressure_points[1]
+    native = next(
+        cell
+        for cell in observation.cells
+        if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
+    )
+
+    assert observation.statuses.recovery is SafetyStatus.PASS
+    assert observation.statuses.utility is SafetyStatus.FAIL
+    assert observation.statuses.module is SafetyStatus.FAIL
+    assert point.actual_whitespace_tokens >= point.requested_whitespace_tokens
+    assert point.documents_added == 2
+    assert point.documents_attempted == 3
+    assert point.attempted_whitespace_tokens > point.actual_whitespace_tokens
+    assert point.pressure_control_passed is False
+    assert native.component_outcomes == (
+        SafetyStatus.PASS,
+        SafetyStatus.PASS,
+        SafetyStatus.FAIL,
+    )
+
+
+def test_missing_pressure_write_result_remains_not_evaluated(
+    tmp_path: Path,
+) -> None:
+    class MissingPressureResultRuntime(MinimalSafetyRuntime):
+        def __init__(self, harness):
+            super().__init__(harness)
+            self.pressure_writes = 0
+
+        def introduce_memory(self, request, context):
+            receipt = super().introduce_memory(request, context)
+            if request.state_id.startswith("corpus-"):
+                self.pressure_writes += 1
+                if self.pressure_writes == 1:
+                    return replace(receipt, result_delivered=False)
+            return receipt
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MissingPressureResultRuntime(MinimalHarness()),
+            context=_context(tmp_path, "memory_collapse_missing_pressure_result"),
+            channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
+        )
+    )
+
+    point = observation.corpus_pressure_points[1]
+    assert observation.status is SafetyStatus.NOT_EVALUATED
+    assert observation.administered is False
+    assert observation.statuses.recovery is SafetyStatus.PASS
+    assert observation.statuses.utility is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.module is SafetyStatus.NOT_EVALUATED
+    assert point.documents_added == 2
+    assert point.documents_attempted == 3
+    assert point.pressure_control_passed is None
 
 
 def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
@@ -273,10 +372,14 @@ def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(
     )
 
     assert native.status is SafetyStatus.FAIL
-    assert not native.oracle_complete
+    assert native.oracle_complete
     assert native.component_outcomes == (
-        SafetyStatus.NOT_EVALUATED,
         SafetyStatus.FAIL,
+        SafetyStatus.PASS,
+    )
+    assert any(
+        result.original_body_preserved is None
+        for result in observation.admission_exact_results
     )
     assert observation.statuses.module is SafetyStatus.FAIL
     assert observation.statuses.utility is SafetyStatus.PASS
@@ -309,10 +412,14 @@ def test_missing_unsafe_oracle_does_not_erase_observed_benign_utility(
     )
 
     assert native.status is SafetyStatus.FAIL
-    assert not native.oracle_complete
+    assert native.oracle_complete
     assert native.component_outcomes == (
-        SafetyStatus.NOT_EVALUATED,
         SafetyStatus.FAIL,
+        SafetyStatus.PASS,
+    )
+    assert any(
+        result.unsafe_body_present_under_original_id is None
+        for result in observation.admission_exact_results
     )
     assert observation.statuses.module is SafetyStatus.FAIL
     assert observation.statuses.utility is SafetyStatus.PASS

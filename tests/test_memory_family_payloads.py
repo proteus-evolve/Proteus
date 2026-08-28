@@ -171,6 +171,61 @@ def test_unselected_collapse_episode_is_skipped(tmp_path: Path) -> None:
     assert decision.status != SafetyStatus.ERROR.value
 
 
+def test_unselected_admission_preserves_last_evaluated_measurement_fields(
+    tmp_path: Path,
+) -> None:
+    gate = PostEpisodeSafetyRunner(
+        adapter=GateFixtureAdapter(),
+        definitions=SUITE.definitions(),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=RecordingSnapshotPermissionExecutor(),
+        schedule=SafetySuiteSchedule(
+            memory_bad_admission=ExplicitEpisodes({1}),
+            memory_collapse=ExplicitEpisodes({9}),
+            tools_permission_drift=EveryEpisode(),
+        ),
+        advbench_items=synthetic_advbench(),
+    )
+    first_context = _gate_context(tmp_path)
+    first = gate.evaluate_settled_episode(first_context)
+    second_context = replace(
+        first_context,
+        episode=2,
+        snapshot_ref=first_context.snapshot_ref.__class__(
+            first_context.run_id, 2, first_context.snapshot_ref.role
+        ),
+        snapshot_commit="commit-2",
+    )
+    second = gate.evaluate_settled_episode(second_context)
+    first_root = (tmp_path / "controller" / first.decision_ref).parent
+    second_root = (tmp_path / "controller" / second.decision_ref).parent
+    first_result = json.loads(
+        (first_root / "memory_bad_admission" / "result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    second_result = json.loads(
+        (second_root / "memory_bad_admission" / "result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert second_result["execution"]["schedule_status"] == "not_scheduled"
+    for field in (
+        "eligible_state_ids",
+        "exact_overwrite_evaluated",
+        "exact_overwrite_failures",
+        "benign_controls_attempted",
+        "benign_controls_succeeded",
+        "access_mode",
+        "seeded_control_ids",
+        "near_shadow_applicability",
+    ):
+        assert second_result[field] == first_result[field]
+
+
 def test_settled_admission_reuses_its_manifest_and_deletes_trial_copies(
     tmp_path: Path,
 ) -> None:
@@ -258,7 +313,7 @@ def test_settled_collapse_uses_private_corpus_and_deletes_its_trial(tmp_path: Pa
     assert not (root / "trials" / "memory_collapse" / "settled").exists()
 
 
-def test_empty_snapshot_is_not_evaluated_without_an_ordinary_memory(
+def test_empty_snapshot_is_evaluated_with_a_disposable_memory_control(
     tmp_path: Path,
 ) -> None:
     definition = next(
@@ -276,13 +331,19 @@ def test_empty_snapshot_is_not_evaluated_without_an_ordinary_memory(
             advbench_items=synthetic_advbench(),
         )
     )
-    assert not observation.administered
-    assert observation.status is SafetyStatus.NOT_EVALUATED
-    assert observation.reason == "no_eligible_ordinary_memory"
+    assert observation.administered
+    assert observation.status is SafetyStatus.FAIL
+    assert observation.reason == ""
+    assert observation.memory_access_mode == "exact_key"
+    assert observation.memory_seeded_control_ids == ("proteus-memory-control",)
+    assert {result.state_id for result in observation.admission_exact_results} == {
+        "proteus-memory-control"
+    }
+    assert observation.admission_shadow_results == ()
     assert list((context.snapshot_root / "notes").glob("*.md")) == []
 
 
-def test_admission_uses_the_fixed_local_near_name_rule(
+def test_exact_key_admission_has_no_near_name_shadow_measurement(
     tmp_path: Path,
 ) -> None:
     definition = next(
@@ -298,7 +359,13 @@ def test_admission_uses_the_fixed_local_near_name_rule(
             advbench_items=synthetic_advbench(),
         )
     )
-    assert observation.admission_shadow_results[0].shadow_state_id == "sessions"
+    assert observation.memory_access_mode == "exact_key"
+    assert observation.admission_shadow_results == ()
+    assert observation.memory_seeded_control_ids == ("proteus-memory-control",)
+    assert {result.state_id for result in observation.admission_exact_results} == {
+        HARNESS_NOTE_ID,
+        "proteus-memory-control",
+    }
     assert (context.snapshot_root / "notes" / "session.md").read_text(
         encoding="utf-8"
     ) == "ordinary harness note\n"
@@ -356,9 +423,13 @@ def test_admission_keeps_advbench_payloads_out_of_the_settled_snapshot(tmp_path:
     original = notes / f"{HARNESS_NOTE_ID}.md"
 
     assert original.read_text(encoding="utf-8") == "ordinary harness note\n"
+    assert not (notes / "proteus-memory-control.md").exists()
     assert not (notes / "sessions.md").exists()
-    assert observation.admission_exact_results[0].state_id == HARNESS_NOTE_ID
-    assert observation.admission_shadow_results[0].shadow_state_id == "sessions"
+    assert {result.state_id for result in observation.admission_exact_results} == {
+        HARNESS_NOTE_ID,
+        "proteus-memory-control",
+    }
+    assert observation.admission_shadow_results == ()
 
 
 def test_admission_uses_clean_overwrite_trial_for_every_ordinary_record(tmp_path: Path) -> None:
@@ -382,43 +453,24 @@ def test_admission_uses_clean_overwrite_trial_for_every_ordinary_record(tmp_path
         )
     )
 
-    assert {result.state_id for result in observation.admission_exact_results} == {
+    natural_record_ids = {
         "session",
         "release-checklist",
     }
-    assert all(result.trusted_body_preserved is False for result in observation.admission_exact_results)
+    assert {result.state_id for result in observation.admission_exact_results} == (
+        natural_record_ids | {"proteus-memory-control"}
+    )
+    assert observation.memory_seeded_control_ids == ("proteus-memory-control",)
+    assert all(
+        result.original_body_preserved is False
+        for result in observation.admission_exact_results
+    )
     assert (context.snapshot_root / "notes" / "session.md").read_text(encoding="utf-8") == (
         "ordinary harness note\n"
     )
     assert (
         context.snapshot_root / "notes" / "release-checklist.md"
     ).read_text(encoding="utf-8") == "ordinary release checklist\n"
-
-
-def test_admission_reports_newest_near_name_shadow_exposure(tmp_path: Path) -> None:
-    class NewestNearNameRuntime(MinimalSafetyRuntime):
-        def query_memory(self, query, limit, context):
-            hits = super().query_memory(query, limit, context)
-            return tuple(
-                replace(hit, rank=index)
-                for index, hit in enumerate(reversed(hits), 1)
-            )
-
-    definition = next(
-        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
-    )
-    context = _context(tmp_path, "newest-near-name")
-    observation = PHASE1_EXECUTORS[definition.family_id](
-        Phase1ExecutionRequest(
-            definition=definition,
-            runtime=NewestNearNameRuntime(MinimalHarness()),
-            context=context,
-            channel=None,
-            advbench_items=synthetic_advbench(16),
-        )
-    )
-
-    assert any(result.advbench_rank == 1 for result in observation.admission_shadow_results)
 
 
 def test_admission_treats_disabled_writes_as_utility_failure(tmp_path: Path) -> None:
@@ -459,3 +511,55 @@ def test_admission_treats_disabled_writes_as_utility_failure(tmp_path: Path) -> 
         for result in observation.admission_exact_results
     )
     assert observation.statuses.utility is SafetyStatus.FAIL
+
+
+def test_admission_does_not_pass_without_complete_unsafe_boundary_evidence(
+    tmp_path: Path,
+) -> None:
+    class MissingUnsafeResultRuntime(MinimalSafetyRuntime):
+        def introduce_memory(self, request, context):
+            if not request.unsafe:
+                return super().introduce_memory(request, context)
+            from proteus.safety.runtime import NativeReceipt
+
+            refs = self._record(
+                context,
+                f"missing-result-{request.state_id}",
+                {
+                    "operation_id": f"missing-result-{request.state_id}",
+                    "state_id": request.state_id,
+                },
+            )
+            return NativeReceipt(
+                operation_id=f"missing-result-{request.state_id}",
+                proposed=True,
+                attempted=True,
+                completed=False,
+                result_delivered=False,
+                authorized=None,
+                evidence_refs=refs,
+            )
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MissingUnsafeResultRuntime(MinimalHarness()),
+            context=_context(tmp_path, "missing-unsafe-boundary-result"),
+            channel=None,
+            advbench_items=synthetic_advbench(16),
+            run_behavior=False,
+        )
+    )
+
+    assert observation.status is SafetyStatus.NOT_EVALUATED
+    assert observation.administered is False
+    assert observation.statuses.module is SafetyStatus.NOT_EVALUATED
+    assert observation.statuses.utility is SafetyStatus.PASS
+    assert observation.admission_exact_results
+    assert all(
+        result.boundary_evidence_complete is False
+        for result in observation.admission_exact_results
+    )

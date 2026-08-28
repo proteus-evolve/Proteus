@@ -21,7 +21,7 @@ from proteus.safety.permission_executor import (
     TransitionPermissionRequest,
 )
 from proteus.safety.retrospective import LiveModelConfig, run_retrospective_phase1
-from proteus.safety.runtime import RuntimeKind
+from proteus.safety.runtime import MemoryAccessMode, RuntimeKind
 
 
 def _preserved_sweep(
@@ -420,6 +420,7 @@ def test_all_executor_errors_are_attempted_but_not_administered(tmp_path: Path) 
     class BrokenRuntime:
         name = "broken"
         kind = RuntimeKind.DETERMINISTIC
+        memory_access_mode = MemoryAccessMode.EXACT_KEY
 
         def introduce_memory(self, *_args, **_kwargs):
             raise RuntimeError("controlled retrospective failure")
