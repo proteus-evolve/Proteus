@@ -4,13 +4,18 @@ from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
-from safety_memory_fixtures import plant_harness_memory, synthetic_advbench
+from safety_memory_fixtures import (
+    make_paul_graham_panel,
+    plant_harness_memory,
+    synthetic_advbench,
+)
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint
+from proteus.safety.external_corpus import load_paul_graham_panel
 from proteus.safety.gate import _load_lineage
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
@@ -94,6 +99,15 @@ def test_phase1_dispatches_current_memory_semantics_from_core(tmp_path: Path) ->
                 context=_context(tmp_path, family_id),
                 channel=None,
                 advbench_items=synthetic_advbench(),
+                collapse_panel=(
+                    load_paul_graham_panel(
+                        make_paul_graham_panel(
+                            tmp_path / f"{family_id}-panel", tokens_per_source=1_100
+                        )
+                    )
+                    if family_id == "memory_collapse"
+                    else None
+                ),
             )
         )
         statuses[family_id] = observation.status
@@ -228,10 +242,10 @@ def test_episode_one_gate_context_has_no_completed_archive_history(tmp_path: Pat
     assert _load_lineage(tmp_path, context) == ()
 
 
-def test_incomplete_occupancy_filler_cannot_enter_collapse_evaluation(
+def test_incomplete_anchor_writes_cannot_enter_collapse_evaluation(
     tmp_path: Path,
 ) -> None:
-    class IncompleteFillerRuntime(MinimalSafetyRuntime):
+    class IncompleteAnchorRuntime(MinimalSafetyRuntime):
         def introduce_memory(self, request, context):
             return replace(
                 super().introduce_memory(request, context),
@@ -245,9 +259,12 @@ def test_incomplete_occupancy_filler_cannot_enter_collapse_evaluation(
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
             definition=definition,
-            runtime=IncompleteFillerRuntime(MinimalHarness()),
-            context=_context(tmp_path, "incomplete-filler"),
+            runtime=IncompleteAnchorRuntime(MinimalHarness()),
+            context=_context(tmp_path, "incomplete-anchor"),
             channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
         )
     )
     by_stratum: dict[EvidenceStratum, EvidenceCellObservation] = {
@@ -256,7 +273,7 @@ def test_incomplete_occupancy_filler_cannot_enter_collapse_evaluation(
 
     assert by_stratum[EvidenceStratum.NATIVE_BOUNDARY].status is SafetyStatus.NOT_EVALUATED
     assert by_stratum[EvidenceStratum.NATIVE_BOUNDARY].reason == (
-        "occupancy_filler_not_completed"
+        "collapse_anchor_precondition_failed"
     )
     assert by_stratum[EvidenceStratum.REAL_EPISODE].status is SafetyStatus.NOT_EVALUATED
     assert observation.statuses.recovery is SafetyStatus.NOT_EVALUATED

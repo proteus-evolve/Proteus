@@ -36,10 +36,14 @@ class ChallengeManifest:
         *,
         path: Path,
         advbench_indices: tuple[int, ...],
+        corpus_id: str | None,
+        corpus_manifest_ref: str | None,
         record_challenges: dict[str, RecordChallenge],
     ) -> None:
         self.path = path
         self.advbench_indices = advbench_indices
+        self.corpus_id = corpus_id
+        self.corpus_manifest_ref = corpus_manifest_ref
         self._record_challenges = record_challenges
 
     @property
@@ -93,6 +97,8 @@ class ChallengeManifest:
             "near_name_rules": list(NEAR_NAME_RULES),
             "admission_behavior_schedule": DEFAULT_ADMISSION_BEHAVIOR_SCHEDULE,
             "pressure_levels": list(DEFAULT_PRESSURE_LEVELS),
+            "corpus_id": self.corpus_id,
+            "corpus_manifest_ref": self.corpus_manifest_ref,
             "record_challenges": {
                 state_id: asdict(challenge)
                 for state_id, challenge in sorted(self._record_challenges.items())
@@ -111,6 +117,8 @@ def load_or_create_challenge_manifest(
     root: Path,
     *,
     advbench_indices: tuple[int, ...],
+    corpus_id: str | None = None,
+    corpus_manifest_ref: str | None = None,
 ) -> ChallengeManifest:
     """Create one per-run panel or prove that a resumed run uses the same one."""
     _validate_advbench_indices(advbench_indices)
@@ -119,6 +127,8 @@ def load_or_create_challenge_manifest(
         manifest = ChallengeManifest(
             path=path,
             advbench_indices=advbench_indices,
+            corpus_id=corpus_id,
+            corpus_manifest_ref=corpus_manifest_ref,
             record_challenges={},
         )
         manifest._write()
@@ -135,6 +145,10 @@ def load_or_create_challenge_manifest(
         raise ValueError("challenge manifest AdvBench panel does not match this run")
     if tuple(payload.get("near_name_rules", ())) != NEAR_NAME_RULES:
         raise ValueError("challenge manifest near-name rules do not match this run")
+    stored_corpus_id = payload.get("corpus_id")
+    stored_corpus_ref = payload.get("corpus_manifest_ref")
+    if stored_corpus_id != corpus_id or stored_corpus_ref != corpus_manifest_ref:
+        raise ValueError("challenge manifest corpus does not match this run")
     raw_challenges = payload.get("record_challenges", {})
     if not isinstance(raw_challenges, dict):
         raise TypeError("challenge manifest record registrations are malformed")
@@ -150,6 +164,8 @@ def load_or_create_challenge_manifest(
     return ChallengeManifest(
         path=path,
         advbench_indices=stored_indices,
+        corpus_id=stored_corpus_id,
+        corpus_manifest_ref=stored_corpus_ref,
         record_challenges=challenges,
     )
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
+from proteus.safety.evidence import CorpusPressurePoint
 from proteus.safety.permission_evidence import PermissionEvidenceValidity
 from proteus.safety.taxonomy import SafetyStatus
 
@@ -137,16 +138,22 @@ class MemoryBadAdmissionIndicators:
 @dataclass(frozen=True)
 class MemoryCollapseIndicators:
     execution: FamilyExecution
-    filler_admitted: SafetyStatus
-    prior_memory_preserved: SafetyStatus
-    prior_memory_retrievable: SafetyStatus
-    items_before: int
-    items_preserved: int
-    items_lost: int
-    items_revised: int
-    filler_delta: FamilyEvolutionDelta | None = None
-    preserved_delta: FamilyEvolutionDelta | None = None
-    retrievable_delta: FamilyEvolutionDelta | None = None
+    corpus_id: str | None = None
+    corpus_documents_available: int = 0
+    corpus_whitespace_tokens_available: int = 0
+    ordinary_memory_records: int = 0
+    ordinary_memory_bytes: int = 0
+    points: tuple[CorpusPressurePoint, ...] = ()
+    physical_retention_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
+    retrieval_retention_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
+    pressure_utility_status: SafetyStatus = SafetyStatus.NOT_EVALUATED
+    first_physical_loss_tokens: int | None = None
+    first_retrieval_loss_tokens: int | None = None
+    behavioral_answers_correct: int | None = None
+    behavioral_questions: int = 0
+    physical_delta: FamilyEvolutionDelta | None = None
+    retrieval_delta: FamilyEvolutionDelta | None = None
+    utility_delta: FamilyEvolutionDelta | None = None
 
 
 @dataclass(frozen=True)
@@ -237,17 +244,7 @@ def empty_admission(execution: FamilyExecution) -> MemoryBadAdmissionIndicators:
 
 
 def empty_collapse(execution: FamilyExecution) -> MemoryCollapseIndicators:
-    unknown = unevaluated_status()
-    return MemoryCollapseIndicators(
-        execution=execution,
-        filler_admitted=unknown,
-        prior_memory_preserved=unknown,
-        prior_memory_retrievable=unknown,
-        items_before=0,
-        items_preserved=0,
-        items_lost=0,
-        items_revised=0,
-    )
+    return MemoryCollapseIndicators(execution=execution)
 
 
 def empty_permission(

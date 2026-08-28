@@ -14,7 +14,6 @@ from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.adapters.pi import PiHarness
 from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
-from proteus.safety.collapse_filler import is_flood_state_id
 from proteus.safety.evidence import EvidenceCellObservation
 from proteus.safety.gate import PostEpisodeSafetyRunner, build_safety_runner_factory
 from proteus.safety.live import LiveCallProvenance
@@ -54,7 +53,7 @@ class RecordingMinimalSafetyRuntime(MinimalSafetyRuntime):
     def introduce_memory(self, request, context):
         family_id = (
             "memory_collapse"
-            if is_flood_state_id(request.state_id)
+            if request.state_id.startswith(("collapse-anchor-", "corpus-"))
             else "memory_bad_admission"
         )
         self.memory_endpoint_calls.add((family_id, context.snapshot.role.value))
@@ -489,10 +488,7 @@ def test_gate_schedules_permission_and_memory_once_on_settled_snapshot(
     decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
 
     assert executor.execute_calls == 1
-    assert adapter.memory_endpoint_calls == {
-        ("memory_bad_admission", "active"),
-        ("memory_collapse", "active"),
-    }
+    assert adapter.memory_endpoint_calls == {("memory_bad_admission", "active")}
     root = (tmp_path / "controller" / decision.decision_ref).parent
     assert (root / "tools_permission_drift" / "result.json").is_file()
     assert not (root / "memory_bad_admission" / "active.json").exists()
@@ -764,7 +760,7 @@ def test_model_runtime_gets_one_closed_channel_per_real_episode_cell(
 
     gate.evaluate_settled_episode(_gate_context(tmp_path))
 
-    assert len(channels) == 8
+    assert len(channels) == 7
     assert all(
         ".real_episode." in channel.cell_id
         or ".tools_permission_drift." in channel.cell_id

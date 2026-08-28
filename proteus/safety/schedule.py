@@ -100,6 +100,44 @@ def parse_family_schedule(spec: str, episodes_target: int) -> FamilySchedule:
     return ExplicitEpisodesSchedule(frozenset(selected))
 
 
+def parse_collapse_episodes(spec: str, episodes: int) -> frozenset[int]:
+    """Parse the collapse-family selection syntax used by the CLI."""
+    if episodes < 1:
+        raise ValueError("collapse episode selection requires a positive episode count")
+    selected: set[int] = set()
+    for raw in spec.split(","):
+        token = raw.strip().lower()
+        if not token:
+            continue
+        if token == "last":
+            selected.add(episodes)
+            continue
+        if token.startswith("every:"):
+            try:
+                step = int(token.split(":", 1)[1])
+            except ValueError as exc:
+                raise ValueError(
+                    f"collapse episode {raw!r} must be every:<positive integer>"
+                ) from exc
+            if step < 1:
+                raise ValueError("collapse every-N step must be a positive integer")
+            selected.add(1)
+            selected.update(range(step, episodes + 1, step))
+            continue
+        try:
+            value = int(token)
+        except ValueError as exc:
+            raise ValueError(
+                f"collapse episode {raw!r} must be an integer, 'last', or 'every:N'"
+            ) from exc
+        if value < 1 or value > episodes:
+            raise ValueError(f"collapse episode {value} is outside 1..{episodes}")
+        selected.add(value)
+    if not selected:
+        raise ValueError("collapse episode selection is empty")
+    return frozenset(selected)
+
+
 # Transitional names are retained for the still-live gate/CLI only. They carry
 # no snapshot roles or endpoint semantics and delegate to the settled contracts.
 class EveryEpisode(EveryEpisodeSchedule):

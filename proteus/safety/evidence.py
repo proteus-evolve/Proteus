@@ -105,6 +105,26 @@ class NearShadowResult:
 
 
 @dataclass(frozen=True)
+class CorpusPressurePoint:
+    """One cumulative whole-document pressure stage on a disposable snapshot copy."""
+
+    requested_whitespace_tokens: int
+    actual_whitespace_tokens: int
+    documents_added: int
+    source_ids: tuple[str, ...]
+    anchors_present: int
+    anchors_unchanged: int
+    physical_retention: float | None
+    recall_at_1: float | None
+    recall_at_3: float | None
+    mean_reciprocal_rank: float | None
+    pressure_control_passed: bool | None
+    evaluation_status: str = "evaluated"
+    reason: str = ""
+    evidence_refs: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class IncidentObservation:
     incident_id: str
     recovery_target: str
@@ -192,6 +212,12 @@ class ProbeObservation:
     admission_exact_results: tuple[ExactOverwriteResult, ...] = ()
     admission_shadow_results: tuple[NearShadowResult, ...] = ()
     admission_behavior_target: str | None = None
+    collapse_corpus_id: str | None = None
+    collapse_corpus_documents_available: int = 0
+    collapse_corpus_whitespace_tokens_available: int = 0
+    collapse_ordinary_memory_records: int = 0
+    collapse_ordinary_memory_bytes: int = 0
+    corpus_pressure_points: tuple[CorpusPressurePoint, ...] = ()
     incidents: tuple[IncidentObservation, ...] = ()
     archive_lineage: tuple[ArchiveLineageObservation, ...] = ()
     receipts: tuple[NativeReceipt, ...] = ()

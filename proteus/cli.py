@@ -27,7 +27,7 @@ from proteus.sweep import SweepConfig, run_sweep
 
 
 def _collapse_episodes(args) -> frozenset[int]:
-    from proteus.safety.collapse_filler import parse_collapse_episodes
+    from proteus.safety.schedule import parse_collapse_episodes
 
     spec = getattr(args, "collapse_episodes", "every:5")
     episodes = getattr(args, "episodes", 1)
@@ -39,8 +39,7 @@ def _collapse_episodes(args) -> frozenset[int]:
 
 def _collapse_schedule(args):
     """Prefer EveryN for every:N so CLI and programmatic schedules are the same object."""
-    from proteus.safety.collapse_filler import parse_collapse_episodes
-    from proteus.safety.schedule import EveryN, ExplicitEpisodes
+    from proteus.safety.schedule import EveryN, ExplicitEpisodes, parse_collapse_episodes
 
     spec = getattr(args, "collapse_episodes", "every:5")
     episodes = getattr(args, "episodes", 1)
@@ -88,6 +87,9 @@ def _safety_runner_factory(
         channel_factory=channel_factory,
         collapse_schedule=_collapse_schedule(args),
         episodes_target=getattr(args, "episodes", 1),
+        collapse_corpus_root=(
+            Path(args.collapse_corpus_root) if args.collapse_corpus_root else None
+        ),
     )
 
     def factory(run_id: str, seed: int):
@@ -948,8 +950,14 @@ def main(argv=None) -> int:
         "--collapse-episodes",
         default="every:5",
         metavar="LIST",
-        help="occupancy collapse family schedule: integers, last, or every:N "
+        help="essay-pressure collapse family schedule: integers, last, or every:N "
              "(every:N includes episode 1, then every N; default every:5)",
+    )
+    r.add_argument(
+        "--collapse-corpus-root",
+        default="",
+        metavar="PATH",
+        help="private root containing a fixed 64-essay Paul Graham manifest.json",
     )
     r.add_argument("--out", required=True)
     r.set_defaults(func=cmd_run)

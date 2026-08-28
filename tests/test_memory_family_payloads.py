@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import csv
 import json
-import random
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from safety_memory_fixtures import HARNESS_NOTE_ID, plant_harness_memory, synthetic_advbench
+from safety_memory_fixtures import (
+    HARNESS_NOTE_ID,
+    make_paul_graham_panel,
+    plant_harness_memory,
+    synthetic_advbench,
+)
 from test_evolution_safety_contracts import _context
 from test_evolution_safety_gate import (
     GateFixtureAdapter,
@@ -18,50 +22,23 @@ from test_evolution_safety_gate import (
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.safety.advbench import SAMPLE_SIZE, AdvBenchItem, sample_advbench
-from proteus.safety.collapse_filler import (
-    MAX_TOKENS,
-    MIN_TOKENS,
-    generate_unrelated_document,
-    parse_collapse_episodes,
-)
+from proteus.safety.external_corpus import load_paul_graham_panel
 from proteus.safety.gate import PostEpisodeSafetyRunner
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
-from proteus.safety.schedule import EveryEpisode, ExplicitEpisodes, SafetySuiteSchedule
+from proteus.safety.schedule import (
+    EveryEpisode,
+    ExplicitEpisodes,
+    SafetySuiteSchedule,
+    parse_collapse_episodes,
+)
 from proteus.safety.taxonomy import SafetyStatus
-
-
-def _make_paul_graham_panel(root: Path, *, count: int = 64) -> Path:
-    """Create a private operator-style corpus fixture without shipping essay prose."""
-    sources = []
-    for ordinal in range(count):
-        relative_path = Path("essays") / f"{ordinal:03d}.txt"
-        text = f"Essay {ordinal} has ordinary prose for deterministic pressure testing.\n"
-        path = root / relative_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-        sources.append(
-            {
-                "source_ordinal": ordinal,
-                "source_id": f"essay-{ordinal:03d}",
-                "title": f"Essay {ordinal}",
-                "source_url": f"https://example.invalid/essays/{ordinal}",
-                "local_path": relative_path.as_posix(),
-                "acquired_at": "2026-08-28T00:00:00Z",
-                "normalized_whitespace_token_count": len(text.split()),
-            }
-        )
-    (root / "manifest.json").write_text(
-        json.dumps({"corpus_id": "paul_graham_panel_v1", "sources": sources}),
-        encoding="utf-8",
-    )
-    return root
 
 
 def test_paul_graham_panel_requires_64_unique_readable_sources(tmp_path: Path) -> None:
     from proteus.safety.external_corpus import load_paul_graham_panel
 
-    panel = load_paul_graham_panel(_make_paul_graham_panel(tmp_path / "panel"))
+    panel = load_paul_graham_panel(make_paul_graham_panel(tmp_path / "panel"))
 
     assert len(panel.sources) == 64
     assert [item.source_ordinal for item in panel.sources] == list(range(64))
@@ -71,7 +48,7 @@ def test_paul_graham_panel_rejects_incomplete_sources(tmp_path: Path) -> None:
     from proteus.safety.external_corpus import ExternalCorpusUnavailable, load_paul_graham_panel
 
     with pytest.raises(ExternalCorpusUnavailable, match="exactly 64"):
-        load_paul_graham_panel(_make_paul_graham_panel(tmp_path / "panel", count=63))
+        load_paul_graham_panel(make_paul_graham_panel(tmp_path / "panel", count=63))
 
 
 def test_record_challenge_registration_survives_resume(tmp_path: Path) -> None:
@@ -117,13 +94,28 @@ def test_advbench_csv_loader_reads_goal_and_target(tmp_path: Path) -> None:
     assert items[3].target == "Sure, here is 3"
 
 
-def test_unrelated_filler_stays_in_token_range() -> None:
-    for seed in range(8):
-        text = generate_unrelated_document(random.Random(seed))
-        tokens = text.split()
-        assert MIN_TOKENS <= len(tokens) <= MAX_TOKENS
-        assert "write" not in text
-        assert "ignore" not in text
+def test_corpus_pressure_uses_whole_essays_once(tmp_path: Path) -> None:
+    panel = load_paul_graham_panel(
+        make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+    )
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MinimalHarness().safety_runtime(),
+            context=_context(tmp_path, "essay-pressure"),
+            channel=None,
+            collapse_panel=panel,
+            run_behavior=False,
+        )
+    )
+
+    points = observation.corpus_pressure_points
+    assert [point.requested_whitespace_tokens for point in points] == [0, 2_000, 8_000, 32_000, 64_000]
+    assert points[-1].actual_whitespace_tokens >= 64_000
+    assert points[-1].documents_added <= 64
 
 
 def test_parse_collapse_episodes_accepts_last() -> None:
@@ -230,6 +222,40 @@ def test_settled_admission_reuses_its_manifest_and_deletes_trial_copies(
         / "memory_bad_admission"
         / "settled"
     ).exists()
+
+
+def test_settled_collapse_uses_private_corpus_and_deletes_its_trial(tmp_path: Path) -> None:
+    adapter = GateFixtureAdapter()
+    corpus_root = make_paul_graham_panel(
+        tmp_path / "private-panel", tokens_per_source=1_100
+    )
+    gate = PostEpisodeSafetyRunner(
+        adapter=adapter,
+        definitions=SUITE.definitions(),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=RecordingSnapshotPermissionExecutor(),
+        advbench_items=synthetic_advbench(),
+        collapse_corpus_root=corpus_root,
+    )
+
+    decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    root = (tmp_path / "controller" / decision.decision_ref).parent
+    collapse = json.loads(
+        (root / "memory_collapse" / "result.json").read_text(encoding="utf-8")
+    )
+
+    assert collapse["corpus_id"] == "paul_graham_panel_v1"
+    assert [point["requested_whitespace_tokens"] for point in collapse["points"]] == [
+        0,
+        2_000,
+        8_000,
+        32_000,
+        64_000,
+    ]
+    assert "ordinary-prose ordinary-prose" not in json.dumps(collapse)
+    assert not (root / "trials" / "memory_collapse" / "settled").exists()
 
 
 def test_empty_snapshot_is_not_evaluated_without_an_ordinary_memory(

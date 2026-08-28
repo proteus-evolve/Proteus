@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from safety_memory_fixtures import (
     HARNESS_NOTE_BODY,
+    make_paul_graham_panel,
     plant_harness_memory,
     synthetic_advbench,
 )
@@ -15,6 +16,7 @@ from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import ProbeEndpoint
+from proteus.safety.external_corpus import load_paul_graham_panel
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
@@ -95,25 +97,22 @@ def _context(tmp_path: Path, family_id: str) -> CandidateSafetyContext:
     )
 
 
-def test_prior_memory_survives_occupancy_probe_without_exact_events(
+def test_corpus_pressure_preserves_anchors_without_behavioral_continuity(
     tmp_path: Path,
 ) -> None:
-    class SilentRuntime(MinimalSafetyRuntime):
-        def run_safety_episode(self, prompts, context, channel):
-            result = super().run_safety_episode(prompts, context, channel)
-            return replace(result, events=())
-
     context = _context(tmp_path, "memory_collapse")
-    (context.snapshot_root / "notes" / "kept.md").write_text("keep me\n", encoding="utf-8")
     definition = next(
         item for item in SUITE.definitions() if item.family_id == "memory_collapse"
     )
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
             definition=definition,
-            runtime=SilentRuntime(MinimalHarness()),
+            runtime=MinimalHarness().safety_runtime(),
             context=context,
             channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
         )
     )
     real_episode = next(
@@ -124,37 +123,127 @@ def test_prior_memory_survives_occupancy_probe_without_exact_events(
 
     assert observation.status is SafetyStatus.PASS
     assert observation.statuses.recovery is SafetyStatus.PASS
-    assert observation.statuses.behavior is SafetyStatus.PASS
-    assert real_episode.status is SafetyStatus.PASS
-    assert (context.snapshot_root / "notes" / "kept.md").read_text() == "keep me\n"
+    assert observation.statuses.utility is SafetyStatus.PASS
+    assert real_episode.status is SafetyStatus.NOT_EVALUATED
+    assert all(point.physical_retention == 1.0 for point in observation.corpus_pressure_points)
+    assert all(point.recall_at_3 == 1.0 for point in observation.corpus_pressure_points)
 
 
-def test_occupancy_probe_fails_when_prior_memory_is_removed(
+def test_oldest_anchor_eviction_appears_at_the_8k_pressure_stage(
     tmp_path: Path,
 ) -> None:
-    class DroppingRuntime(MinimalSafetyRuntime):
-        def run_safety_episode(self, prompts, context, channel):
-            result = super().run_safety_episode(prompts, context, channel)
-            (context.snapshot_root / "notes" / "kept.md").unlink()
-            return result
+    class OldestEvictingRuntime(MinimalSafetyRuntime):
+        def __init__(self, harness):
+            super().__init__(harness)
+            self.pressure_writes = 0
 
-    context = _context(tmp_path, "memory_collapse_drop")
-    (context.snapshot_root / "notes" / "kept.md").write_text("keep me\n", encoding="utf-8")
+        def introduce_memory(self, request, context):
+            receipt = super().introduce_memory(request, context)
+            if request.state_id.startswith("corpus-"):
+                self.pressure_writes += 1
+                if self.pressure_writes == 8:
+                    (context.snapshot_root / "notes" / "collapse-anchor-a.md").unlink()
+            return receipt
+
+    context = _context(tmp_path, "memory_collapse_evict")
     definition = next(
         item for item in SUITE.definitions() if item.family_id == "memory_collapse"
     )
     observation = PHASE1_EXECUTORS[definition.family_id](
         Phase1ExecutionRequest(
             definition=definition,
-            runtime=DroppingRuntime(MinimalHarness()),
+            runtime=OldestEvictingRuntime(MinimalHarness()),
             context=context,
             channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
         )
     )
 
     assert observation.status is SafetyStatus.FAIL
-    assert observation.statuses.behavior is SafetyStatus.FAIL
     assert observation.statuses.recovery is SafetyStatus.FAIL
+    assert observation.corpus_pressure_points[2].physical_retention < 1.0
+
+
+def test_recent_only_ranking_loses_anchor_retrieval_without_body_loss(
+    tmp_path: Path,
+) -> None:
+    class RecentOnlyRuntime(MinimalSafetyRuntime):
+        def query_memory(self, query, limit, context):
+            hits = super().query_memory(query, limit, context)
+            if query.startswith("What is the"):
+                corpus_ids = [
+                    state_id
+                    for state_id, _body in self._native_memory_entries(context)
+                    if state_id.startswith("corpus-")
+                ]
+                if corpus_ids:
+                    from proteus.safety.runtime import MemoryQueryHit
+
+                    ref = hits[0].evidence_ref
+                    return tuple(
+                        MemoryQueryHit(
+                            state_id=state_id,
+                            rank=index,
+                            source="ordinary",
+                            trust="trusted",
+                            evidence_ref=ref,
+                        )
+                        for index, state_id in enumerate(reversed(corpus_ids[-limit:]), 1)
+                    )
+            return hits
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=RecentOnlyRuntime(MinimalHarness()),
+            context=_context(tmp_path, "memory_collapse_recent_only"),
+            channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
+        )
+    )
+
+    assert observation.statuses.recovery is SafetyStatus.PASS
+    assert observation.statuses.module is SafetyStatus.FAIL
+    assert observation.corpus_pressure_points[1].physical_retention == 1.0
+    assert observation.corpus_pressure_points[1].recall_at_3 < 1.0
+
+
+def test_dropped_pressure_records_fail_the_pressure_utility_control(
+    tmp_path: Path,
+) -> None:
+    class DropPressureRuntime(MinimalSafetyRuntime):
+        def introduce_memory(self, request, context):
+            receipt = super().introduce_memory(request, context)
+            if request.state_id.startswith("corpus-"):
+                (context.snapshot_root / "notes" / f"{request.state_id}.md").unlink()
+                return replace(receipt, completed=False)
+            return receipt
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=DropPressureRuntime(MinimalHarness()),
+            context=_context(tmp_path, "memory_collapse_drop_pressure"),
+            channel=None,
+            collapse_panel=load_paul_graham_panel(
+                make_paul_graham_panel(tmp_path / "panel", tokens_per_source=1_100)
+            ),
+        )
+    )
+
+    assert observation.statuses.recovery is SafetyStatus.PASS
+    assert observation.statuses.utility is SafetyStatus.FAIL
+    assert observation.corpus_pressure_points[1].pressure_control_passed is False
 
 
 def test_unsafe_admission_failure_survives_missing_benign_utility_oracle(

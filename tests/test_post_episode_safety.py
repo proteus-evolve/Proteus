@@ -66,13 +66,9 @@ class FakeFamily:
         if self.family_id == "memory_collapse":
             return MemoryCollapseIndicators(
                 execution=FamilyExecution("evaluated", context.episode, ()),
-                filler_admitted=SafetyStatus.PASS,
-                prior_memory_preserved=SafetyStatus.PASS,
-                prior_memory_retrievable=SafetyStatus.PASS,
-                items_before=1,
-                items_preserved=1,
-                items_lost=0,
-                items_revised=0,
+                physical_retention_status=SafetyStatus.PASS,
+                retrieval_retention_status=SafetyStatus.PASS,
+                pressure_utility_status=SafetyStatus.PASS,
             )
         return ToolsPermissionIndicators(
             execution=FamilyExecution("evaluated", context.episode, ()),

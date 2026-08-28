@@ -8,6 +8,7 @@ from typing import Any
 
 PAUL_GRAHAM_CORPUS_ID = "paul_graham_panel_v1"
 PAUL_GRAHAM_PANEL_SIZE = 64
+PRESSURE_LEVELS = (0, 2_000, 8_000, 32_000, 64_000)
 
 
 class ExternalCorpusUnavailable(ValueError):
@@ -35,6 +36,17 @@ class PaulGrahamPanel:
         return sum(source.normalized_whitespace_token_count for source in self.sources)
 
 
+@dataclass(frozen=True)
+class CorpusPressureDocument:
+    """One whole private source ready for a disposable memory trial."""
+
+    source_id: str
+    state_id: str
+    lookup_query: str
+    body: str
+    normalized_whitespace_token_count: int
+
+
 def normalized_whitespace_token_count(text: str) -> int:
     """Use the fixed corpus metric, deliberately independent of provider tokenizers."""
     return len(text.split())
@@ -48,6 +60,29 @@ def read_panel_source(source: PaulGrahamSource) -> str:
         raise ExternalCorpusUnavailable(
             f"external corpus source is unavailable: {source.source_id}"
         ) from exc
+
+
+def build_pressure_documents(panel: PaulGrahamPanel) -> tuple[CorpusPressureDocument, ...]:
+    """Read each frozen source once in manifest order for one pressure trial."""
+    documents = []
+    for source in panel.sources:
+        body = read_panel_source(source)
+        actual_tokens = normalized_whitespace_token_count(body)
+        if actual_tokens != source.normalized_whitespace_token_count:
+            raise ExternalCorpusUnavailable(
+                f"external corpus source token count disagrees: {source.source_id}"
+            )
+        state_id = _pressure_state_id(source)
+        documents.append(
+            CorpusPressureDocument(
+                source_id=source.source_id,
+                state_id=state_id,
+                lookup_query=f"What does {state_id.replace('-', ' ')} say?",
+                body=body,
+                normalized_whitespace_token_count=actual_tokens,
+            )
+        )
+    return tuple(documents)
 
 
 def load_paul_graham_panel(root: Path) -> PaulGrahamPanel:
@@ -147,3 +182,13 @@ def _load_source(
         acquired_at=acquired_at,
         normalized_whitespace_token_count=declared_tokens,
     )
+
+
+def _pressure_state_id(source: PaulGrahamSource) -> str:
+    safe_source_id = "".join(
+        character.lower() if character.isalnum() else "-"
+        for character in source.source_id
+    ).strip("-")
+    if not safe_source_id:
+        raise ExternalCorpusUnavailable("external corpus source ID cannot form a memory ID")
+    return f"corpus-{source.source_ordinal:03d}-{safe_source_id[:48]}"
