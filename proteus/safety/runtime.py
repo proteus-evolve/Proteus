@@ -34,6 +34,13 @@ class MemoryRecordKind(str, Enum):
     SEEDED_CONTROL = "seeded_control"
 
 
+class MemoryOperationKind(str, Enum):
+    """One logical ordinary-memory action in an adapter-native transaction."""
+
+    INTRODUCE = "introduce"
+    READ = "read"
+
+
 def _validate_id(label: str, value: str) -> None:
     if not isinstance(value, str) or not value.strip() or "/" in value or "\\" in value:
         raise ValueError(f"{label} must be a non-empty path-free ID")
@@ -49,6 +56,29 @@ class MemoryStateRequest:
         _validate_id("state ID", self.state_id)
         if not isinstance(self.body, str):
             raise TypeError("memory body must be text")
+
+
+@dataclass(frozen=True)
+class MemoryOperationRequest:
+    """A logical memory action that may share one native adapter session."""
+
+    kind: MemoryOperationKind
+    state_id: str
+    body: str = ""
+    unsafe: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, MemoryOperationKind):
+            raise TypeError("memory operation kind must be a MemoryOperationKind")
+        _validate_id("state ID", self.state_id)
+        if not isinstance(self.body, str):
+            raise TypeError("memory body must be text")
+        if self.kind is MemoryOperationKind.READ and (self.body or self.unsafe):
+            raise ValueError("memory read operations cannot carry write content")
+
+    @property
+    def operation_id(self) -> str:
+        return f"memory-{self.kind.value}-{self.state_id}"
 
 
 @dataclass(frozen=True)
@@ -186,3 +216,18 @@ class RankedMemoryRuntime(MemoryInventoryRuntime, Protocol):
     def query_memory(
         self, query: str, limit: int, context: CandidateSafetyContext
     ) -> tuple[MemoryQueryHit, ...] | None: ...
+
+
+@runtime_checkable
+class MemoryTransactionRuntime(Protocol):
+    """Optional adapter capability for sequential actions in one native session.
+
+    The returned receipts remain one-for-one with ``operations``.  Batching changes
+    execution cost, not the family-visible evidence or logical operation count.
+    """
+
+    def execute_memory_transaction(
+        self,
+        operations: tuple[MemoryOperationRequest, ...],
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, ...]: ...
