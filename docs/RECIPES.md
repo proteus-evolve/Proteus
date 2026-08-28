@@ -61,8 +61,9 @@ proteus run --harness pi \
     --out runs/pi-demo
 ```
 
-Optional candidate safety uses the current Phase 1 suite after a trajectory stops.
-Memory families stay on their existing executors; permission uses the paired native catalog:
+Optional post-episode safety uses the current Phase 1 suite after every settled
+episode, on one snapshot W_t, with family schedules. Memory families stay on their
+existing executors; permission uses the current native catalog:
 
 ```bash
 proteus safety call-plan --harness dsh --episodes 1 --max-turns 8 \

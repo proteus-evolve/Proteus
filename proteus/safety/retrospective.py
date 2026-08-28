@@ -404,19 +404,18 @@ def _validate_observation(
     return observation
 
 
-def _collect_endpoint(
+def _collect_settled(
     *,
     transition: _Transition,
     definition: SafetyCaseFamilyDefinition,
-    endpoint: ProbeEndpoint,
     adapter,
     artifact_root: Path,
     model: str,
     channel_factory: LiveChannelFactory | None,
 ) -> ProbeObservation:
     record = transition.record
-    source_episode = record.active.episode if endpoint is ProbeEndpoint.ACTIVE else record.candidate.episode
-    snapshot_ref = record.active if endpoint is ProbeEndpoint.ACTIVE else record.candidate
+    source_episode = record.candidate.episode
+    snapshot_ref = SnapshotRef(record.candidate.run_id, source_episode, SnapshotRole.ACTIVE)
     trial_root = (
         artifact_root
         / "transitions"
@@ -424,7 +423,7 @@ def _collect_endpoint(
         / f"episode-{record.active.episode:03d}-to-{record.candidate.episode:03d}"
         / "trials"
         / definition.family_id
-        / endpoint.value
+        / ProbeEndpoint.SETTLED.value
     )
     snapshot_root = trial_root / "harness"
     source_root = transition.run_root / "harness"
@@ -434,7 +433,7 @@ def _collect_endpoint(
     snapshot.materialize(source_root, commit, snapshot_root)
     context = CandidateSafetyContext(
         run_id=record.active.run_id,
-        episode=record.candidate.episode,
+        episode=source_episode,
         adapter_name=getattr(adapter, "name", type(adapter).__name__),
         snapshot=snapshot_ref,
         snapshot_root=snapshot_root,
@@ -442,6 +441,7 @@ def _collect_endpoint(
         evidence_dir=trial_root / "raw-evidence",
         lineage=transition.lineage,
         artifact_root=artifact_root,
+        endpoint=ProbeEndpoint.SETTLED,
     )
     runtime = _runtime_for(adapter)
     channel = None
@@ -450,8 +450,8 @@ def _collect_endpoint(
             raise ValueError("model-mediated retrospective replay requires live model config")
         channel = channel_factory(
             model,
-            f"{record.active.run_id}.episode-{record.candidate.episode:03d}."
-            f"{definition.family_id}.{endpoint.value}",
+            f"{record.active.run_id}.episode-{source_episode:03d}."
+            f"{definition.family_id}.{ProbeEndpoint.SETTLED.value}",
         )
         if not isinstance(channel, LiveModelChannel):
             raise TypeError("retrospective live channel factory must implement LiveModelChannel")
@@ -466,7 +466,7 @@ def _collect_endpoint(
         observation,
         definition=definition,
         snapshot_ref=snapshot_ref,
-        endpoint=endpoint,
+        endpoint=ProbeEndpoint.SETTLED,
         runtime=runtime,
         artifact_root=artifact_root,
     )
@@ -481,10 +481,13 @@ def run_retrospective_phase1(
     run_id: str | None = None,
     active_episode: int | None = None,
 ) -> RetrospectiveSummary:
-    """Administer Phase 1 over retained `episode t -> t+1` snapshot pairs.
+    """Administer Phase 1 over retained consecutive-episode snapshot transitions.
 
-    Source trees are read only: each endpoint is materialized under the new artifact root,
-    and the terminal manifest deliberately records evidence status rather than activation.
+    Current replay evaluates one SETTLED copy of the later episode snapshot. The
+    archive still names consecutive checkpoints as active/candidate SnapshotRefs so
+    existing sweep trees can be parsed; that identity is not dual-endpoint safety
+    evaluation. Permission still uses the paired native-policy comparison on those
+    two checkpoints. Source trees are read only.
     """
     sweep_root = Path(sweep_root)
     output_root = Path(output_root)
@@ -553,39 +556,37 @@ def run_retrospective_phase1(
             attempted += 1
             for definition in definitions:
                 family = {}
-                for endpoint in (ProbeEndpoint.ACTIVE, ProbeEndpoint.CANDIDATE):
-                    family_denominators[definition.family_id]["attempted"] += 1
-                    try:
-                        observation = _collect_endpoint(
-                            transition=transition,
-                            definition=definition,
-                            endpoint=endpoint,
-                            adapter=adapter,
-                            artifact_root=staging,
-                            model=model,
-                            channel_factory=channel_factory,
-                        )
-                    except Exception as exc:  # noqa: BLE001 - publish endpoint error evidence
-                        family[endpoint.value] = {"status": "error", "error": str(exc)}
-                        outcomes[definition.family_id]["error"] += 1
-                        family_denominators[definition.family_id]["not_evaluated"] += 1
-                        family_denominators[definition.family_id]["errors"] += 1
-                        transition_errors += 1
+                family_denominators[definition.family_id]["attempted"] += 1
+                try:
+                    observation = _collect_settled(
+                        transition=transition,
+                        definition=definition,
+                        adapter=adapter,
+                        artifact_root=staging,
+                        model=model,
+                        channel_factory=channel_factory,
+                    )
+                except Exception as exc:  # noqa: BLE001 - publish settled error evidence
+                    family[ProbeEndpoint.SETTLED.value] = {"status": "error", "error": str(exc)}
+                    outcomes[definition.family_id]["error"] += 1
+                    family_denominators[definition.family_id]["not_evaluated"] += 1
+                    family_denominators[definition.family_id]["errors"] += 1
+                    transition_errors += 1
+                else:
+                    family[ProbeEndpoint.SETTLED.value] = observation
+                    outcomes[definition.family_id][observation.status.value] += 1
+                    transition_observations.append(observation)
+                    if observation.administered:
+                        family_denominators[definition.family_id]["administered"] += 1
+                    if observation.status in {SafetyStatus.PASS, SafetyStatus.FAIL}:
+                        family_denominators[definition.family_id]["evaluated"] += 1
+                        if observation.status is SafetyStatus.FAIL:
+                            family_denominators[definition.family_id]["failed"] += 1
                     else:
-                        family[endpoint.value] = observation
-                        outcomes[definition.family_id][observation.status.value] += 1
-                        transition_observations.append(observation)
-                        if observation.administered:
-                            family_denominators[definition.family_id]["administered"] += 1
-                        if observation.status in {SafetyStatus.PASS, SafetyStatus.FAIL}:
-                            family_denominators[definition.family_id]["evaluated"] += 1
-                            if observation.status is SafetyStatus.FAIL:
-                                family_denominators[definition.family_id]["failed"] += 1
-                        else:
-                            family_denominators[definition.family_id]["not_evaluated"] += 1
-                            if observation.status in {SafetyStatus.INVALID, SafetyStatus.ERROR}:
-                                family_denominators[definition.family_id]["errors"] += 1
-                                transition_errors += 1
+                        family_denominators[definition.family_id]["not_evaluated"] += 1
+                        if observation.status in {SafetyStatus.INVALID, SafetyStatus.ERROR}:
+                            family_denominators[definition.family_id]["errors"] += 1
+                            transition_errors += 1
                 terminal["families"][definition.family_id] = family
             permission_root = transition_root / "families" / TOOLS_PERMISSION_DRIFT.family_id
             active_source = transition_root / "permission-sources" / "active" / "harness"
@@ -625,7 +626,7 @@ def run_retrospective_phase1(
                 "blockers": list(permission.blockers),
                 "cases": permission_root.as_posix(),
             }
-            expected_observations = len(definitions) * 2
+            expected_observations = len(definitions)
             if (
                 len(transition_observations) == expected_observations
                 and all(observation.administered for observation in transition_observations)

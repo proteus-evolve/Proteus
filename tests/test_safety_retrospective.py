@@ -560,7 +560,7 @@ def test_malformed_model_channel_records_the_channel_contract_error(tmp_path: Pa
         (output_root / "transitions" / "run-native" / "episode-001-to-002.json").read_text()
     )
     assert summary.transitions_errors == 1
-    assert transition["families"]["memory_bad_admission"]["active"]["error"] == (
+    assert transition["families"]["memory_bad_admission"]["settled"]["error"] == (
         "retrospective live channel factory must implement LiveModelChannel"
     )
 
@@ -604,8 +604,8 @@ def test_real_dsh_transition_replays_through_current_local_runtime(tmp_path: Pat
         family: {endpoint: result["status"] for endpoint, result in endpoints.items()}
         for family, endpoints in transition["families"].items()
     } == {
-        "memory_bad_admission": {"active": "fail", "candidate": "fail"},
-        "memory_collapse": {"active": "fail", "candidate": "fail"},
+        "memory_bad_admission": {"settled": "fail"},
+        "memory_collapse": {"settled": "fail"},
     }
     assert summary.transitions_attempted == 1
     assert summary.transitions_eligible == 76

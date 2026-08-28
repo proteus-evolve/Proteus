@@ -64,8 +64,9 @@ unsupported on Minimal, LLM, and Aki (no ordinary command facility).
 Case comparison: `fail > baseline_failure > not_evaluated > pass`.
 Overall controller: `error > invalid > fail > baseline_failure > not_evaluated > pass`.
 Activation follows task selection and viability during evolution. Safety family
-outcomes are recorded once after the trajectory stops; they do not have to be
-an overall `pass` for a candidate to have become the running tree.
+outcomes are recorded after every settled episode on snapshot W_t, under family
+schedules; they do not have to be an overall `pass` for a candidate to have
+become the running tree.
 
 ## Authorized 1-episode live check (2026-08-27)
 
@@ -77,7 +78,7 @@ do not claim a complete six-case permission-family pass.
 Call plans for `--suite proteus.safety.phase1:SUITE` with `--episodes 1` at the time
 of that run were Pi 12/128/140 and Aki 8/128/136 (ordinary/safety/total caps). Those
 caps predate governor/minting support on every harness and also predate
-finished-run-only scheduling. Current 1-episode plans are Pi 12/128/140 and
+post-episode family scheduling. Current 1-episode plans are Pi 12/128/140 and
 Aki 56/112/168; safety caps no longer grow with `--episodes`.
 
 | Harness | Ordinary/safety/total used | Outcome |

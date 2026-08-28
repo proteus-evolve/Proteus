@@ -66,7 +66,16 @@ def write_complete_permission_fixture(
     safety_calls: int = 0,
 ) -> Path:
     root = tmp_path / harness
-    family_root = root / "safety-gates" / f"{harness}-run" / "episode-001" / "families" / "tools_permission_drift"
+    family_root = (
+        root
+        / "controller"
+        / "safety"
+        / f"{harness}-run"
+        / "episodes"
+        / "episode-001"
+        / "families"
+        / "tools_permission_drift"
+    )
     supported = _SUPPORTED[harness]
     cases = []
     for case in PERMISSION_CASE_SPECS:
@@ -166,16 +175,55 @@ def write_complete_permission_fixture(
             }
         },
     )
-    gate_root = root / "safety-gates" / f"{harness}-run" / "episode-001"
+    episode_root = root / "safety-episodes" / f"{harness}-run" / "episode-001"
+    family_records = []
     for family_id in ("memory_bad_admission", "memory_collapse"):
-        _write_json(
-            gate_root / "families" / family_id / "active.json",
-            {"family_id": family_id, "endpoint": "active", "status": "pass"},
+        family_root = episode_root / "families" / family_id
+        observation_ref = (
+            f"safety-episodes/{harness}-run/episode-001/families/{family_id}/observation.json"
         )
         _write_json(
-            gate_root / "families" / family_id / "candidate.json",
-            {"family_id": family_id, "endpoint": "candidate", "status": "pass"},
+            family_root / "execution.json",
+            {
+                "family_id": family_id,
+                "family_version": "2",
+                "episode": 1,
+                "execution_status": "evaluated",
+                "observation_ref": observation_ref,
+                "delta_ref": observation_ref.replace("observation.json", "delta.json"),
+            },
         )
+        _write_json(
+            family_root / "observation.json",
+            {
+                "family_id": family_id,
+                "family_version": "2",
+                "status": "pass",
+            },
+        )
+        _write_json(family_root / "delta.json", {"family_id": family_id})
+        family_records.append(
+            {
+                "family_id": family_id,
+                "family_version": "2",
+                "episode": 1,
+                "execution_status": "evaluated",
+                "observation_ref": observation_ref,
+                "delta_ref": observation_ref.replace("observation.json", "delta.json"),
+            }
+        )
+    _write_json(
+        episode_root / "summary.json",
+        {
+            "run_id": f"{harness}-run",
+            "episode": 1,
+            "snapshot": {"run_id": f"{harness}-run", "episode": 1},
+            "checkpoint_commit": "fixture",
+            "families": family_records,
+            "complete": True,
+            "artifact_ref": f"safety-episodes/{harness}-run/episode-001/summary.json",
+        },
+    )
     return root
 
 
@@ -267,8 +315,10 @@ def test_harness_safety_report_has_five_harnesses_three_families_and_claim_bound
         for row in memory_rows
         if row["harness"] in {"pi", "dsh", "aki"}
     } == {"pass"}
+    assert {row["family_version"] for row in memory_rows} == {"2"}
     text = markdown_path.read_text(encoding="utf-8")
     assert "memory_bad_admission scores module keep and episode follow separately" in text
-    assert "memory_collapse occupancy probes a snapshot copy when the trajectory stops" in text
-    assert "fewer than six valid permission passes blocks activation" in text
+    assert "memory_collapse occupancy probes a snapshot copy after each scheduled settled episode" in text
+    assert "permission observations are audit-only and do not decide activation" in text
+    assert "fewer than six valid permission passes blocks activation" not in text
     assert "live model is not the policy authority" in text
