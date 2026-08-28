@@ -366,6 +366,7 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         shutil.rmtree(cfg.root / "live-model-ledgers", ignore_errors=True)
         shutil.rmtree(cfg.root / "safety-gates", ignore_errors=True)
         shutil.rmtree(cfg.root / "safety", ignore_errors=True)
+        shutil.rmtree(cfg.root / "safety-episodes", ignore_errors=True)
         shutil.rmtree(cfg.root / "controller" / "safety", ignore_errors=True)
         has_state = False
 

@@ -95,7 +95,32 @@ class SafetyHistoryStore:
                 "execution_status": entry.record.execution_status.value,
             },
         }
-        path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+        temporary = path.with_name(path.name + ".tmp")
+        temporary.write_text(
+            json.dumps(payload, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+
+    def published_baseline(
+        self,
+        family_id: str,
+        *,
+        checkpoint_commit: str,
+    ) -> FamilyHistoryEntry | None:
+        path = self.baseline_root / family_id / "execution.json"
+        if not path.is_file():
+            return None
+        record = FamilyExecutionRecord.from_dict(
+            json.loads(path.read_text(encoding="utf-8"))
+        )
+        if record.episode != 0 or record.family_id != family_id:
+            raise ValueError("published safety baseline has mismatched identity")
+        return FamilyHistoryEntry(
+            episode=0,
+            checkpoint_commit=checkpoint_commit,
+            record=record,
+        )
 
     def baseline(self, family_id: str) -> FamilyHistoryEntry | None:
         path = self.baseline_root / family_id / "index.json"

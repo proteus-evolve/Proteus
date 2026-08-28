@@ -343,44 +343,61 @@ class SettledEpisodeSafetyRunner:
             probe_seed=plan.probe_seed,
         )
         started = time.monotonic()
-        observation = plan.plugin.evaluate(context)
-        wall_time_s = time.monotonic() - started
-        self._validate_observation(
-            plan=plan,
-            settled=settled,
-            observation=observation,
-            artifact_root=staging_root,
-        )
+        observation: SafetyFamilyObservation | None = None
+        wall_time_s = 0.0
+        try:
+            observation = plan.plugin.evaluate(context)
+            wall_time_s = time.monotonic() - started
+            self._validate_observation(
+                plan=plan,
+                settled=settled,
+                observation=observation,
+                artifact_root=staging_root,
+            )
 
-        previous_observation = self._load_observation(plan, previous)
-        baseline_observation = self._load_observation(plan, baseline)
-        delta = plan.plugin.compare(
-            previous_observation,
-            baseline_observation,
-            observation,
-        )
-        write_json(family_staging / "observation.json", observation)
-        write_json(family_staging / "delta.json", delta)
+            previous_observation = self._load_observation(plan, previous)
+            baseline_observation = self._load_observation(plan, baseline)
+            delta = plan.plugin.compare(
+                previous_observation,
+                baseline_observation,
+                observation,
+            )
+            write_json(family_staging / "observation.json", observation)
+            write_json(family_staging / "delta.json", delta)
 
-        canonical_family_root = final_root / "families" / plan.plugin.family_id
-        record = FamilyExecutionRecord(
-            family_id=plan.plugin.family_id,
-            family_version=plan.plugin.family_version,
-            episode=settled.episode,
-            execution_status=_execution_status(observation),
-            observation_ref=(canonical_family_root / "observation.json")
-            .relative_to(self.controller_root)
-            .as_posix(),
-            delta_ref=(canonical_family_root / "delta.json")
-            .relative_to(self.controller_root)
-            .as_posix(),
-            last_observed_episode=(previous.episode if previous else None),
-            reason=(
-                "" if observation.evidence_complete else "scheduled_family_evidence_incomplete"
-            ),
-            live_calls=observation.live_calls,
-            wall_time_s=wall_time_s,
-        )
+            canonical_family_root = final_root / "families" / plan.plugin.family_id
+            record = FamilyExecutionRecord(
+                family_id=plan.plugin.family_id,
+                family_version=plan.plugin.family_version,
+                episode=settled.episode,
+                execution_status=_execution_status(observation),
+                observation_ref=(canonical_family_root / "observation.json")
+                .relative_to(self.controller_root)
+                .as_posix(),
+                delta_ref=(canonical_family_root / "delta.json")
+                .relative_to(self.controller_root)
+                .as_posix(),
+                last_observed_episode=(previous.episode if previous else None),
+                reason=(
+                    ""
+                    if observation.evidence_complete
+                    else "scheduled_family_evidence_incomplete"
+                ),
+                live_calls=observation.live_calls,
+                wall_time_s=wall_time_s,
+            )
+        except Exception as exc:  # noqa: BLE001 - retain known family accounting
+            wall_time_s = time.monotonic() - started
+            record = FamilyExecutionRecord(
+                family_id=plan.plugin.family_id,
+                family_version=plan.plugin.family_version,
+                episode=settled.episode,
+                execution_status=SafetyExecutionStatus.ERROR,
+                last_observed_episode=(previous.episode if previous else None),
+                reason=f"{type(exc).__name__}: {str(exc)[:1000]}",
+                live_calls=(observation.live_calls if observation is not None else 0),
+                wall_time_s=wall_time_s,
+            )
         self._write_execution(staging_root, record)
         return record
 
@@ -394,6 +411,15 @@ class SettledEpisodeSafetyRunner:
         seed_commit = snapshot.commit_for_episode(settled.source_harness_root, 0)
         if seed_commit is None:
             raise ValueError("safety baseline requires episode-0 checkpoint")
+        published = history.published_baseline(
+            plan.plugin.family_id,
+            checkpoint_commit=seed_commit,
+        )
+        if published is not None:
+            if published.record.family_version != plan.plugin.family_version:
+                raise ValueError("published safety baseline has the wrong family version")
+            history.write_baseline(published)
+            return published
         baseline_settled = SettledEpisodeSafetyContext(
             run_id=settled.run_id,
             episode=0,
@@ -428,6 +454,8 @@ class SettledEpisodeSafetyRunner:
                 probe_seed=plan.probe_seed,
             )
             started = time.monotonic()
+            observation: SafetyFamilyObservation | None = None
+            wall_time_s = 0.0
             try:
                 observation = plan.plugin.evaluate(context)
                 wall_time_s = time.monotonic() - started
@@ -448,7 +476,7 @@ class SettledEpisodeSafetyRunner:
                 execution_status = SafetyExecutionStatus.ERROR
                 reason = f"{type(exc).__name__}: {str(exc)[:1000]}"
                 observation_ref = ""
-                live_calls = 0
+                live_calls = observation.live_calls if observation is not None else 0
 
             record = FamilyExecutionRecord(
                 family_id=plan.plugin.family_id,

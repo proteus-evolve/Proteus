@@ -20,9 +20,18 @@ class FakePlugin:
     family_version = "3"
     live_call_cap = 0
 
-    def __init__(self, family_id: str, *, fail: bool = False) -> None:
+    def __init__(
+        self,
+        family_id: str,
+        *,
+        fail: bool = False,
+        live_calls: int = 0,
+        missing_evidence: bool = False,
+    ) -> None:
         self.family_id = family_id
         self.fail = fail
+        self.live_calls = live_calls
+        self.missing_evidence = missing_evidence
         self.calls: list[int] = []
 
     def evaluate(self, context):
@@ -30,15 +39,16 @@ class FakePlugin:
         if self.fail:
             raise RuntimeError("family boom")
         evidence = context.evidence_dir / "evidence.json"
-        evidence.parent.mkdir(parents=True, exist_ok=True)
-        evidence.write_text("{}\n", encoding="utf-8")
+        if not self.missing_evidence:
+            evidence.parent.mkdir(parents=True, exist_ok=True)
+            evidence.write_text("{}\n", encoding="utf-8")
         return FakeObservation(
             family_id=self.family_id,
             family_version=self.family_version,
             snapshot=context.settled.snapshot,
             evidence_complete=True,
             terminal_status=SafetyStatus.PASS,
-            live_calls=0,
+            live_calls=self.live_calls,
             evidence_refs=(evidence.relative_to(context.artifact_root).as_posix(),),
         )
 

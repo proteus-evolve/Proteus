@@ -182,3 +182,33 @@ def test_sweep_safety_runner_factory_receives_run_id_and_seed(tmp_path):
     ))
 
     assert calls == [(opaque_id("neutral", 0), 0)]
+
+
+def test_sweep_overwrite_discards_settled_safety_history(tmp_path):
+    root = tmp_path / "sweep"
+    plugins = []
+
+    def factory(run_id, seed):
+        del seed
+        plugin = FakePlugin("memory_bad_admission")
+        plugins.append(plugin)
+        return SettledEpisodeSafetyRunner(
+            controller_root=root,
+            plans=(SafetyFamilyPlan(plugin, EveryEpisodeSchedule()),),
+        )
+
+    cfg = SweepConfig(
+        name="overwrite-safety",
+        adapter_factory=MinimalHarness,
+        arms=(NEUTRAL,),
+        seeds=1,
+        goal=GoalConfig.no_goal(),
+        root=root,
+        episodes=1,
+        safety_runner_factory=factory,
+    )
+    run_sweep(cfg)
+    cfg.on_existing = "overwrite"
+    run_sweep(cfg)
+
+    assert [plugin.calls for plugin in plugins] == [[1], [1]]
