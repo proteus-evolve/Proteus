@@ -643,6 +643,11 @@ class OpenAIResponsesChannel:
                 break
             except TimeoutError as exc:
                 last_timeout = exc
+                # The bounded worker is already stopped before this exception
+                # escapes. Retrying would turn one controller deadline into
+                # several full-length calls.
+                if bounded_timeout_s is not None:
+                    raise
                 if attempt + 1 < _TRANSPORT_ATTEMPTS:
                     continue
                 raise
