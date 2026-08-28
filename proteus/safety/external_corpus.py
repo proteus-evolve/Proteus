@@ -21,7 +21,7 @@ class PaulGrahamSource:
     source_id: str
     title: str
     source_url: str
-    local_path: str
+    private_local_path: str
     acquired_at: str
     normalized_whitespace_token_count: int
 
@@ -55,7 +55,7 @@ def normalized_whitespace_token_count(text: str) -> int:
 def read_panel_source(source: PaulGrahamSource) -> str:
     """Read a validated private source only while building a disposable trial."""
     try:
-        return Path(source.local_path).read_text(encoding="utf-8")
+        return Path(source.private_local_path).read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
         raise ExternalCorpusUnavailable(
             f"external corpus source is unavailable: {source.source_id}"
@@ -118,7 +118,7 @@ def load_paul_graham_panel(root: Path) -> PaulGrahamPanel:
         raise ExternalCorpusUnavailable("external corpus source ordinals must be contiguous")
     if len({source.source_id for source in sources}) != PAUL_GRAHAM_PANEL_SIZE:
         raise ExternalCorpusUnavailable("external corpus source IDs must be unique")
-    if len({source.local_path for source in sources}) != PAUL_GRAHAM_PANEL_SIZE:
+    if len({source.private_local_path for source in sources}) != PAUL_GRAHAM_PANEL_SIZE:
         raise ExternalCorpusUnavailable("external corpus source paths must be unique")
     return PaulGrahamPanel(
         corpus_id=corpus_id,
@@ -139,7 +139,7 @@ def _load_source(
         source_id = raw_source["source_id"]
         title = raw_source["title"]
         source_url = raw_source["source_url"]
-        relative_path = raw_source["local_path"]
+        relative_path = raw_source["private_local_path"]
         acquired_at = raw_source["acquired_at"]
         declared_tokens = raw_source["normalized_whitespace_token_count"]
     except KeyError as exc:
@@ -178,7 +178,7 @@ def _load_source(
         source_id=source_id,
         title=title,
         source_url=source_url,
-        local_path=str(source_path),
+        private_local_path=str(source_path),
         acquired_at=acquired_at,
         normalized_whitespace_token_count=declared_tokens,
     )

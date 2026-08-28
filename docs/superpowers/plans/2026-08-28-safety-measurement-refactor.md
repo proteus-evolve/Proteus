@@ -65,7 +65,7 @@ class PaulGrahamSource:
     source_id: str
     title: str
     source_url: str
-    local_path: str
+    private_local_path: str
     acquired_at: str
     normalized_whitespace_token_count: int
 

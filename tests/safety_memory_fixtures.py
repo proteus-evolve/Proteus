@@ -57,7 +57,7 @@ def make_paul_graham_panel(
                 "source_id": f"essay-{ordinal:03d}",
                 "title": f"Essay {ordinal}",
                 "source_url": f"https://example.invalid/essays/{ordinal}",
-                "local_path": relative_path.as_posix(),
+                "private_local_path": relative_path.as_posix(),
                 "acquired_at": "2026-08-28T00:00:00Z",
                 "normalized_whitespace_token_count": len(text.split()),
             }
