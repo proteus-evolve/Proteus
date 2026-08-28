@@ -1,6 +1,7 @@
 """Regression coverage for repeated DSH controller memory operations."""
 
 import json
+import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -21,11 +22,16 @@ from proteus.adapters.dsh_safety import (
 )
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import ProbeEndpoint
-from proteus.safety.external_corpus import load_paul_graham_panel
+from proteus.safety.external_corpus import build_pressure_documents, load_paul_graham_panel
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
-from proteus.safety.runtime import MemoryStateRequest, NativeReceipt
+from proteus.safety.runtime import (
+    MemoryOperationKind,
+    MemoryOperationRequest,
+    MemoryStateRequest,
+    NativeReceipt,
+)
 from proteus.safety.taxonomy import SafetyStatus
 
 
@@ -71,6 +77,98 @@ def test_dsh_repeated_exact_memory_reads_keep_native_evidence_separate(
         if path.is_dir()
     )
     assert native_roots == ["memory-read-session", "memory-read-session-2"]
+
+
+def test_dsh_native_memory_reuses_supplied_active_snapshot(tmp_path: Path) -> None:
+    context = _context(tmp_path)
+    active_root = tmp_path / "logical-active"
+    shutil.copytree(context.snapshot_root, active_root)
+    context = replace(context, active_root=active_root)
+    sandbox = DshNativeSandbox()
+    runtime = DshHarness(sandbox=sandbox).safety_runtime()
+
+    receipt = runtime.read_memory("session", context)
+
+    assert receipt.completed and receipt.result_delivered
+    assert active_root.is_dir()
+    assert sandbox.mounts[0][0] == (str(active_root), "/workspace", "ro")
+    assert not (
+        context.evidence_dir / "native-boundary" / "memory-read-session" / "active"
+    ).exists()
+
+
+def test_dsh_memory_transaction_maps_logical_receipts_to_one_native_sequence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    context = _context(tmp_path)
+    runtime = DshHarness(sandbox=DshNativeSandbox()).safety_runtime()
+    captured: dict[str, object] = {}
+
+    def execute(**kwargs: object):
+        captured.update(kwargs)
+        logical_operations = kwargs["logical_operations"]
+        assert isinstance(logical_operations, tuple)
+        return tuple(
+            (
+                NativeReceipt(
+                    operation_id=logical.operation_id,
+                    proposed=True,
+                    attempted=True,
+                    completed=True,
+                    result_delivered=True,
+                    authorized=None,
+                    evidence_refs=(f"native/{index}.json",),
+                ),
+                None,
+            )
+            for index, logical in enumerate(logical_operations, 1)
+        )
+
+    monkeypatch.setattr(runtime, "_execute_native_tool_transaction", execute)
+    receipts = runtime.execute_memory_transaction(
+        (
+            MemoryOperationRequest(
+                MemoryOperationKind.INTRODUCE,
+                "session",
+                "replacement\n",
+                unsafe=True,
+            ),
+            MemoryOperationRequest(MemoryOperationKind.READ, "session"),
+            MemoryOperationRequest(
+                MemoryOperationKind.INTRODUCE,
+                "new-note",
+                "new\n",
+            ),
+            MemoryOperationRequest(MemoryOperationKind.READ, "new-note"),
+        ),
+        context,
+    )
+
+    native_operations = captured["operations"]
+    logical_operations = captured["logical_operations"]
+    assert isinstance(native_operations, tuple)
+    assert isinstance(logical_operations, tuple)
+    assert [tool for tool, *_rest in native_operations] == [
+        "read",
+        "write",
+        "read",
+        "write",
+        "read",
+    ]
+    assert [logical.result_index for logical in logical_operations] == [1, 2, 3, 4]
+    assert [logical.prerequisite_indices for logical in logical_operations] == [
+        (0,),
+        (),
+        (),
+        (),
+    ]
+    assert [receipt.operation_id for receipt in receipts] == [
+        "memory-introduce-session",
+        "memory-read-session",
+        "memory-introduce-new-note",
+        "memory-read-new-note",
+    ]
 
 
 def test_dsh_existing_memory_introduction_reads_then_writes_in_one_native_sequence(
@@ -231,6 +329,9 @@ def test_real_docker_dsh_existing_note_uses_complete_native_read_write_sequence(
             context.snapshot_root.parent / ".dsh-build-cache",
         ),
     )
+    active_root = tmp_path / "logical-active"
+    shutil.copytree(context.snapshot_root, active_root, symlinks=True)
+    context = replace(context, active_root=active_root)
     runtime = harness.safety_runtime()
 
     receipt = runtime.introduce_memory(
@@ -255,6 +356,39 @@ def test_real_docker_dsh_existing_note_uses_complete_native_read_write_sequence(
         and operation["result_delivered"]
         for operation in summary["native_operations"]
     )
+
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+    panel = load_paul_graham_panel(
+        make_paul_graham_panel(
+            tmp_path / "private-panel",
+            tokens_per_source=2_200,
+            token="x",
+        )
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=runtime,
+            context=context,
+            channel=None,
+            collapse_panel=panel,
+            run_behavior=False,
+        )
+    )
+
+    collapse_roots = sorted(
+        path
+        for path in (context.evidence_dir / "native-boundary").iterdir()
+        if path.name.startswith(("memory-enumerate-notes", "memory-transaction"))
+    )
+    assert observation.status is SafetyStatus.PASS
+    assert len(observation.corpus_pressure_points) == 5
+    assert len(collapse_roots) == 8
+    assert all(receipt.result_delivered for receipt in observation.receipts)
+    assert active_root.is_dir()
+    assert all(not (root / "active").exists() for root in collapse_roots)
 
 
 def test_dsh_repeated_memory_inventory_keeps_each_summary_evidence_file(
@@ -300,13 +434,20 @@ def test_dsh_repeated_memory_inventory_keeps_each_summary_evidence_file(
     assert (context.evidence_dir / "memory-enumerate-notes-summary-2.json").is_file()
 
 
-def _bind_native_memory_fixture(runtime, monkeypatch) -> None:
+def _bind_native_memory_fixture(
+    runtime,
+    monkeypatch,
+    *,
+    fail_state_id: str = "",
+) -> dict[str, object]:
     """Execute adapter-selected DSH operations against their mounted note targets.
 
     The bridge/session parser and operation ordering have separate focused and Docker-backed
     coverage.  This fixture keeps the family-level regression deterministic while preserving
     the adapter's native glob, exact-read, and same-session read/write selection.
     """
+
+    stats: dict[str, object] = {"inventory_invocations": 0, "transaction_sizes": []}
 
     def invoke(**kwargs: object) -> tuple[NativeReceipt, DshToolResult]:
         operation_id = str(kwargs["operation_id"])
@@ -315,6 +456,8 @@ def _bind_native_memory_fixture(runtime, monkeypatch) -> None:
         context = kwargs["context"]
         assert isinstance(operations, tuple)
         assert isinstance(context, CandidateSafetyContext)
+        if any(tool == "glob" for tool, *_rest in operations):
+            stats["inventory_invocations"] = int(stats["inventory_invocations"]) + 1
 
         outputs: list[tuple[str, bool, dict[str, object] | None]] = []
         for tool, arguments, target, _metadata in operations:
@@ -349,7 +492,7 @@ def _bind_native_memory_fixture(runtime, monkeypatch) -> None:
                 raise AssertionError(f"unexpected DSH memory tool: {tool}")
 
         output, is_error, metadata = outputs[result_index]
-        evidence_refs = runtime._record_unique(  # noqa: SLF001 - adapter fixture evidence
+        evidence_refs = runtime._record_unique(
             context,
             operation_id,
             {
@@ -376,7 +519,51 @@ def _bind_native_memory_fixture(runtime, monkeypatch) -> None:
             ),
         )
 
+    def execute_memory_transaction(
+        operations: tuple[MemoryOperationRequest, ...],
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, ...]:
+        sizes = stats["transaction_sizes"]
+        assert isinstance(sizes, list)
+        sizes.append(len(operations))
+        receipts: list[NativeReceipt] = []
+        for operation in operations:
+            target = runtime._memory_path(
+                operation.state_id,
+                context,
+            )
+            if operation.kind is MemoryOperationKind.INTRODUCE:
+                completed = operation.state_id != fail_state_id
+                if completed:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(operation.body, encoding="utf-8")
+            else:
+                completed = target.is_file()
+            evidence_refs = runtime._record_unique(
+                context,
+                operation.operation_id,
+                {
+                    "operation_id": operation.operation_id,
+                    "kind": operation.kind.value,
+                    "completed": completed,
+                },
+            )
+            receipts.append(
+                NativeReceipt(
+                    operation_id=operation.operation_id,
+                    proposed=True,
+                    attempted=True,
+                    completed=completed,
+                    result_delivered=True,
+                    authorized=None,
+                    evidence_refs=evidence_refs,
+                )
+            )
+        return tuple(receipts)
+
     monkeypatch.setattr(runtime, "_invoke_native_tool_sequence_with_result", invoke)
+    monkeypatch.setattr(runtime, "execute_memory_transaction", execute_memory_transaction)
+    return stats
 
 
 def test_dsh_memory_bad_admission_is_administered_through_exact_native_notes(
@@ -429,7 +616,7 @@ def test_dsh_memory_collapse_measures_exact_access_under_full_panel_pressure(
 ) -> None:
     context = _context(tmp_path)
     runtime = DshHarness(sandbox=DshNativeSandbox()).safety_runtime()
-    _bind_native_memory_fixture(runtime, monkeypatch)
+    stats = _bind_native_memory_fixture(runtime, monkeypatch)
     definition = next(
         item for item in SUITE.definitions() if item.family_id == "memory_collapse"
     )
@@ -455,6 +642,7 @@ def test_dsh_memory_collapse_measures_exact_access_under_full_panel_pressure(
     assert observation.statuses.recovery is SafetyStatus.PASS
     assert observation.memory_access_mode == "exact_key"
     assert len(observation.corpus_pressure_points) == 5
+    assert int(stats["inventory_invocations"]) + len(stats["transaction_sizes"]) == 8
     assert all(
         point.evaluation_status == "evaluated"
         and point.physical_retention == 1.0
@@ -463,3 +651,42 @@ def test_dsh_memory_collapse_measures_exact_access_under_full_panel_pressure(
         and point.pressure_control_passed is True
         for point in observation.corpus_pressure_points
     )
+
+
+def test_dsh_coalesced_pressure_write_failure_is_a_family_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    context = _context(tmp_path)
+    runtime = DshHarness(sandbox=DshNativeSandbox()).safety_runtime()
+    panel = load_paul_graham_panel(
+        make_paul_graham_panel(tmp_path / "private-panel", tokens_per_source=1_100)
+    )
+    first_document = build_pressure_documents(panel)[0]
+    stats = _bind_native_memory_fixture(
+        runtime,
+        monkeypatch,
+        fail_state_id=first_document.state_id,
+    )
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_collapse"
+    )
+
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=runtime,
+            context=context,
+            channel=None,
+            collapse_panel=panel,
+            run_behavior=False,
+        )
+    )
+
+    failed_point = observation.corpus_pressure_points[1]
+    assert observation.status is SafetyStatus.FAIL
+    assert observation.statuses.utility is SafetyStatus.FAIL
+    assert failed_point.evaluation_status == "not_evaluated"
+    assert failed_point.reason == "pressure_write_failed"
+    assert failed_point.pressure_control_passed is False
+    assert int(stats["inventory_invocations"]) + len(stats["transaction_sizes"]) == 8

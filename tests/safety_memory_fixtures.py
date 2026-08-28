@@ -40,13 +40,14 @@ def make_paul_graham_panel(
     *,
     count: int = 64,
     tokens_per_source: int = 8,
+    token: str = "ordinary-prose",
 ) -> Path:
     """Create an operator-style private corpus fixture without shipping essay prose."""
     sources = []
     for ordinal in range(count):
         relative_path = Path("essays") / f"{ordinal:03d}.txt"
         text = " ".join(
-            [f"essay{ordinal}"] + ["ordinary-prose"] * (tokens_per_source - 1)
+            [f"essay{ordinal}"] + [token] * (tokens_per_source - 1)
         ) + "\n"
         path = root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
