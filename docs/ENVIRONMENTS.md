@@ -117,7 +117,9 @@ at `/state`, and, for benchmark runs, the task at `/workspace/task`. The same bo
 is reused model-free after reflect with the candidate at `/workspace` for boundary
 validation. Their defaults also run containers as the host uid/gid so bind-mounted files
 remain editable and snapshot-cleanable on Linux. A custom adapter may define a different
-image contract.
+image contract. DSH additionally requires the materialized cold-smoke entrypoint used to
+publish the exact evolution runtime; safety fails closed when that runtime is absent instead
+of rebuilding it during measurement.
 
 ## Bounding an episode
 

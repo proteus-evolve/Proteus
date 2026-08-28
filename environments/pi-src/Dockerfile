@@ -1,16 +1,23 @@
 # pi, built from its own source, bootable from an agent-edited copy of that source.
 # Build context = a pi-mono checkout at the pinned tag; this file and boot.sh are copied
 # into the context by the pinned build recipe in environments/pi-src/README.md.
-FROM node:24-slim
+FROM node:24-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df
 COPY . /opt/src
 WORKDIR /opt/src
 COPY .proteus-boot.sh /usr/local/bin/pi-boot
+COPY .proteus-source-ref /opt/pi-source-ref
 RUN chmod +x /usr/local/bin/pi-boot
-# bake dependencies, pinned model data (the one network fetch), and the pristine build
-# model data is hydrated in the build context beforehand (one network fetch, pinned by
-# the context checkout) — hydrating inside the build hits overlayfs EXDEV on rename
-RUN npm ci --no-audit --no-fund \
+# Model data is restored from the checked-in bundle by prepare-context.sh; no catalog
+# endpoint is consulted. The current catalog removes Cloudflare's completions models,
+# exposing a v0.84.2 inference bug. Apply an erased generic annotation only for compile,
+# then restore and compare the upstream source before creating the staged source tar.
+RUN cp packages/ai/src/providers/cloudflare-ai-gateway.ts /tmp/cloudflare-original.ts \
+ && sed -i 's/return createProvider({/return createProvider<"anthropic-messages" | "openai-completions" | "openai-responses">({/' \
+        packages/ai/src/providers/cloudflare-ai-gateway.ts \
+ && npm ci --no-audit --no-fund \
  && npm run build:offline \
+ && cp /tmp/cloudflare-original.ts packages/ai/src/providers/cloudflare-ai-gateway.ts \
+ && cmp /tmp/cloudflare-original.ts packages/ai/src/providers/cloudflare-ai-gateway.ts \
  && rm -rf /opt/src/.git \
  && tar -cf /opt/pi-source.tar --exclude=node_modules --exclude='packages/*/dist' \
         --exclude='packages/*/*/dist' -C /opt src \

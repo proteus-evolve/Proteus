@@ -20,11 +20,19 @@ from __future__ import annotations
 
 import json
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Mapping
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from typing import Callable, Mapping
 
 from proteus.core import snapshot
+from proteus.core.activation import (
+    SettledEpisodeSafetyContext,
+    activate_frozen_candidate,
+    materialized_transition,
+    reject_frozen_candidate,
+)
 from proteus.core.adapter import EpisodeSpec, HarnessAdapter
 from proteus.core.budget import PHASES, make_budget_plan
 from proteus.core.disposition import Disposition
@@ -35,6 +43,8 @@ from proteus.core.episode_protocol import (
     default_phase_prompts,
 )
 from proteus.core.goal import GoalConfig, GoalContext
+from proteus.core.snapshot import SnapshotRef, SnapshotRole
+
 
 def _write_json_atomic(path: Path, value) -> None:
     """Replace one JSON record without exposing a truncated crash-time file."""
@@ -153,6 +163,8 @@ class RunConfig:
     goal: GoalConfig
     root: Path
     model: str
+    run_id: str = ""
+    """Opaque sweep identity used only in controller-owned candidate records."""
     episodes: int = 30
     max_turns: int = 100
     min_turns_per_phase: int = 0
@@ -183,6 +195,10 @@ class RunConfig:
     """Where to append one JSON line per finished episode (live tracking). Must live
     OUTSIDE `root`: the subject agent can read its own run root, and a progress record
     carries the condition label and HIDDEN evaluator scores."""
+    safety_runner: object | None = None
+    """Optional controller-only safety suite. Runs after every settled episode."""
+    live_channel_factory: Callable[[str, str], object] | None = None
+    """Trusted controller factory for one ephemeral ordinary model channel per episode."""
 
 
 @dataclass
@@ -277,6 +293,28 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str,
     return prompts
 
 
+def _run_adapter_episode(
+    cfg: RunConfig,
+    spec: EpisodeSpec,
+    *,
+    run_id: str,
+):
+    """Run one adapter episode while the controller owns any live channel lifetime."""
+    channel = None
+    try:
+        if cfg.live_channel_factory is not None:
+            cell_id = f"{run_id}.candidate.episode-{spec.episode:03d}"
+            channel = cfg.live_channel_factory(spec.model, cell_id)
+            spec = replace(spec, live_model_channel=channel)
+        return cfg.adapter.run_episode(spec)
+    finally:
+        if channel is not None:
+            close = getattr(channel, "close", None)
+            if not callable(close):
+                raise TypeError("ordinary live model channel must implement close()")
+            close()
+
+
 def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, results) -> None:
     """One JSON line per finished episode, for the live report. Never inside cfg.root."""
     import time
@@ -296,6 +334,249 @@ def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, result
     cfg.progress_path.parent.mkdir(parents=True, exist_ok=True)
     with cfg.progress_path.open("a", encoding="utf-8") as sink:
         sink.write(json.dumps(rec) + "\n")
+
+
+def _select_task_candidate(
+    goal: GoalConfig, results, active_best_score: float | None
+) -> tuple[bool, float | None]:
+    """Apply the current-main task selection rule without mutating its incumbent."""
+    if any(result.error for result in results):
+        return False, active_best_score
+    if goal.selection != "accept_reject" or not results:
+        return True, active_best_score
+    candidate_score = sum(result.score for result in results) / len(results)
+    if active_best_score is not None and candidate_score < active_best_score:
+        return False, active_best_score
+    return True, candidate_score
+
+
+def _controller_error_record(
+    runner: object,
+    *,
+    run_id: str,
+    episode: int,
+    checkpoint_commit: str,
+    exc: Exception,
+):
+    publish = getattr(runner, "publish_controller_error", None)
+    if not callable(publish):
+        return None
+    try:
+        return publish(
+            run_id=run_id,
+            episode=episode,
+            checkpoint_commit=checkpoint_commit,
+            reason=f"{type(exc).__name__}: {str(exc)[:1000]}",
+        )
+    except Exception:  # noqa: BLE001 - safety never stops ordinary evolution
+        return None
+
+
+def _evaluate_checkpoint_safety(
+    cfg: RunConfig,
+    *,
+    run_id: str,
+    harness: Path,
+    episode: int,
+    checkpoint_commit: str,
+    trace: tuple,
+):
+    """Audit one durable checkpoint while isolating controller-level failure."""
+    if cfg.safety_runner is None:
+        return None
+    legacy_mode = False
+    try:
+        evaluate_checkpoint = getattr(cfg.safety_runner, "evaluate_checkpoint", None)
+        if callable(evaluate_checkpoint):
+            return evaluate_checkpoint(
+                run_id=run_id,
+                episode=episode,
+                episodes_target=cfg.episodes,
+                source_harness_root=harness,
+                checkpoint_commit=checkpoint_commit,
+                goal_text=cfg.goal.goal_text(),
+            )
+
+        # Temporary settled-only seam for the existing Phase 1 runner while concrete
+        # v3 family plugins migrate to ``evaluate_checkpoint`` in Tasks 5-10.
+        evaluate_settled = getattr(cfg.safety_runner, "evaluate_settled_episode", None)
+        if not callable(evaluate_settled):
+            raise TypeError("safety runner has no settled checkpoint evaluator")
+        legacy_mode = True
+        with TemporaryDirectory(prefix="proteus-settled-safety-") as temporary:
+            snapshot_root = Path(temporary) / "settled"
+            previous_snapshot_root = Path(temporary) / "previous"
+            snapshot.materialize(harness, checkpoint_commit, snapshot_root)
+            previous_episode = max(episode - 1, 0)
+            previous_snapshot_commit = (
+                checkpoint_commit
+                if previous_episode == episode
+                else snapshot.commit_for_episode(harness, previous_episode)
+            )
+            if previous_snapshot_commit is None:
+                raise RuntimeError(
+                    f"previous safety checkpoint for episode {previous_episode} is missing"
+                )
+            snapshot.materialize(
+                harness,
+                previous_snapshot_commit,
+                previous_snapshot_root,
+            )
+            legacy = evaluate_settled(SettledEpisodeSafetyContext(
+                run_id=run_id,
+                episode=episode,
+                snapshot_ref=SnapshotRef(run_id, episode, SnapshotRole.ACTIVE),
+                snapshot_root=snapshot_root,
+                trace=trace,
+                goal_text=cfg.goal.goal_text(),
+                lineage=(),
+                snapshot_commit=checkpoint_commit,
+                episodes_target=cfg.episodes,
+                previous_snapshot_ref=SnapshotRef(
+                    run_id,
+                    previous_episode,
+                    SnapshotRole.ACTIVE,
+                ),
+                previous_snapshot_root=previous_snapshot_root,
+                previous_snapshot_commit=previous_snapshot_commit,
+            ))
+        status = getattr(legacy, "status", None)
+        decision_ref = getattr(legacy, "decision_ref", None)
+        if not isinstance(status, str) or not isinstance(decision_ref, str):
+            raise TypeError("post-episode safety runner returned malformed metadata")
+        return SimpleNamespace(
+            artifact_ref=decision_ref,
+            complete=True,
+            legacy_status=status,
+        )
+    except Exception as exc:  # noqa: BLE001 - safety never stops ordinary evolution
+        if legacy_mode:
+            return SimpleNamespace(
+                artifact_ref="",
+                complete=False,
+                legacy_status="error",
+            )
+        return _controller_error_record(
+            cfg.safety_runner,
+            run_id=run_id,
+            episode=episode,
+            checkpoint_commit=checkpoint_commit,
+            exc=exc,
+        )
+
+
+def _attach_safety(row: dict, record) -> None:
+    if record is None:
+        return
+    try:
+        artifact_ref = record.artifact_ref
+        complete = record.complete
+        if not isinstance(artifact_ref, str) or type(complete) is not bool:
+            return
+    except AttributeError:
+        return
+    row["safety_ref"] = artifact_ref
+    row["safety_complete"] = complete
+    legacy_status = getattr(record, "legacy_status", None)
+    if isinstance(legacy_status, str):
+        row["safety_status"] = legacy_status
+
+
+def _initialize_legacy_safety_baseline(
+    cfg: RunConfig,
+    *,
+    run_id: str,
+    harness: Path,
+) -> None:
+    """Initialize W_0 only for the retained runner that owns legacy baseline artifacts."""
+    if cfg.safety_runner is None:
+        return
+    if callable(getattr(cfg.safety_runner, "evaluate_checkpoint", None)):
+        return
+    if not callable(getattr(cfg.safety_runner, "evaluate_settled_episode", None)):
+        return
+    has_baseline = getattr(cfg.safety_runner, "has_baseline", None)
+    if not callable(has_baseline):
+        return
+    try:
+        if has_baseline(run_id):
+            return
+    except Exception:  # noqa: BLE001 - safety initialization never stops evolution
+        return
+    checkpoint_commit = snapshot.commit_for_episode(harness, 0)
+    if checkpoint_commit is None:
+        return
+    _evaluate_checkpoint_safety(
+        cfg,
+        run_id=run_id,
+        harness=harness,
+        episode=0,
+        checkpoint_commit=checkpoint_commit,
+        trace=(),
+    )
+
+
+def _validate_seed_runtime_before_safety(cfg: RunConfig, *, harness: Path) -> None:
+    """Publish a staged seed's executable runtime before safety can consume it.
+
+    Staged adapters execute a frozen active tree while evolving a separate candidate.
+    Their ordinary episode-boundary validator is therefore the only appropriate place to
+    build and cold-smoke the episode-0 runtime too.  Safety remains a consumer: if that
+    runtime cannot be published now, abort the fresh run before a baseline can make any
+    live calls.  Resumes deliberately skip this path and require their already-published
+    runtime to remain available to the safety adapter.
+    """
+    if not getattr(cfg.adapter, "staged_activation", False) or cfg.safety_runner is None:
+        return
+    validator = getattr(cfg.adapter, "validate_candidate", None)
+    if not callable(validator):
+        return
+    try:
+        error = str(validator(harness) or "")
+    except Exception as exc:  # noqa: BLE001 - surface initialization failure before safety
+        error = f"{type(exc).__name__}: {exc}"
+    if error:
+        raise RuntimeError(
+            "episode-0 seed runtime failed evolution-boundary validation before "
+            f"safety baseline: {error}"
+        )
+
+
+def _reconcile_checkpoint_safety(
+    cfg: RunConfig,
+    *,
+    run_id: str,
+    completed_episode: int,
+    harness: Path,
+):
+    if cfg.safety_runner is None or completed_episode == 0:
+        return None
+    reconcile = getattr(cfg.safety_runner, "reconcile_checkpoint", None)
+    if not callable(reconcile):
+        return None
+    checkpoint_commit = snapshot.commit_for_episode(harness, completed_episode)
+    if checkpoint_commit is None:
+        return None
+    try:
+        return reconcile(
+            run_id=run_id,
+            completed_episode=completed_episode,
+            episodes_target=cfg.episodes,
+            source_harness_root=harness,
+            goal_text=cfg.goal.goal_text(),
+        )
+    except Exception as exc:  # noqa: BLE001 - safety never stops ordinary evolution
+        return _controller_error_record(
+            cfg.safety_runner,
+            run_id=run_id,
+            episode=completed_episode,
+            checkpoint_commit=checkpoint_commit,
+            exc=exc,
+        )
+
+
+def _has_task_evaluators(goal: GoalConfig) -> bool:
+    return bool(goal.evaluators) or any(item.evaluator is not None for item in goal.goals)
 
 
 def completed_episodes(cfg: RunConfig) -> int:
@@ -326,6 +607,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     skipped entirely.
     """
     harness = cfg.root / "harness"
+    run_id = cfg.run_id or cfg.root.name
     records = private_record_dir(cfg.root)
     staged_activation = bool(getattr(cfg.adapter, "staged_activation", False))
     make_budget_plan(
@@ -380,6 +662,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             from proteus.bench.task import seed_task
             seed_task(harness, cfg.task)
         snapshot.init(harness)
+        _validate_seed_runtime_before_safety(cfg, harness=harness)
 
     # Resume must restore the experiment's state, not just its files: the selection
     # baseline, the visible feedback, and the cumulative counters all live in
@@ -460,7 +743,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     "was rolled back. Fix the underlying issue in a new candidate: "
                     f"{str(last.get('error', 'validation failed'))[:600]}"
                 )
-            elif prior_feedback and not last.get("accepted", True):
+            elif prior_feedback and not last.get("task_selected", last.get("accepted", True)):
                 prior_feedback += "\n(Your last episode's changes were not kept.)"
     pending = (
         _load_pending_candidate(cfg.root, harness, start + 1)
@@ -484,6 +767,16 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     done = start
     last_checkpoint = snapshot.head(harness)  # gapless episode mapping, including rollbacks
     last_accepted = last_checkpoint            # same valid tree at start/resume
+    _initialize_legacy_safety_baseline(cfg, run_id=run_id, harness=harness)
+    reconciled_safety = _reconcile_checkpoint_safety(
+        cfg,
+        run_id=run_id,
+        completed_episode=start,
+        harness=harness,
+    )
+    if start and eval_history:
+        _attach_safety(eval_history[-1], reconciled_safety)
+        _write_json_atomic(history_path, eval_history)
     for ep in range(start + 1, cfg.episodes + 1):
         if handoffs is not None:
             if repair_notice:
@@ -517,37 +810,79 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             active_root=active_root,
         )
         try:
-            res = cfg.adapter.run_episode(spec)
+            res = _run_adapter_episode(cfg, spec, run_id=run_id)
         except Exception as exc:  # noqa: BLE001 - a failed episode is a record, not a crash
             error = f"{type(exc).__name__}: {exc}"
+            res = None
+        if res is None or not res.ok:
+            if res is not None:
+                error = res.error
             try:
-                failed_commit = snapshot.preserve_failed_candidate(
-                    harness, last_checkpoint, ep,
-                    f"candidate {ep}: {cfg.name} [run failed: {type(exc).__name__}]",
+                label = (
+                    f"candidate {ep}: {cfg.name} [run failed]"
+                    if res is not None
+                    else f"candidate {ep}: {cfg.name} [run failed: {error.split(':', 1)[0]}]"
                 )
+                failed_commit = snapshot.preserve_failed_candidate(
+                    harness, last_checkpoint, ep, label,
+                )
+                # Count the failed attempt as a completed rejected episode so the seed
+                # keeps its planned length. Safety still audits this settled rejection.
+                snapshot.commit(
+                    harness, f"episode {ep}: {cfg.name} [run failed; rolled back]"
+                )
+                last_checkpoint = snapshot.head(harness)
                 if staged_activation:
                     pending = _write_pending_candidate(
-                        cfg.root, commit=failed_commit, resume_episode=ep,
+                        cfg.root, commit=failed_commit, resume_episode=ep + 1,
                         reason="run_failed", error=error,
                     )
+                    repair_notice = _repair_notice(pending)
+                    if handoffs is not None:
+                        handoffs.set_controller_notice(repair_notice)
+                else:
+                    pending = None
+                    repair_notice = ""
             except Exception as restore_exc:  # noqa: BLE001
                 error += f"; automatic restore failed: {restore_exc}"
-            break
-        if not res.ok:
-            error = res.error
-            try:
-                failed_commit = snapshot.preserve_failed_candidate(
-                    harness, last_checkpoint, ep,
-                    f"candidate {ep}: {cfg.name} [run failed]",
+                break
+            checkpoint_fingerprint = cfg.adapter.disposition_fingerprint(harness)
+            done = ep
+            history_row = {
+                "episode": ep, "accepted": False, "results": [],
+                "counters": dict(res.counters or {}) if res is not None else {},
+                "candidate_commit": failed_commit,
+                "candidate_fingerprint": "",
+                "disposition_fingerprint": checkpoint_fingerprint,
+                "disposition_drift": False,
+                "failure_kind": "run_failed",
+                "error": error,
+                "task_selected": False,
+                "activated": False,
+                "safety_ref": "",
+                "safety_complete": cfg.safety_runner is None,
+            }
+            eval_history.append(history_row)
+            _write_json_atomic(history_path, eval_history)
+            safety_record = _evaluate_checkpoint_safety(
+                cfg,
+                run_id=run_id,
+                harness=harness,
+                episode=ep,
+                checkpoint_commit=last_checkpoint,
+                trace=(),
+            )
+            _attach_safety(history_row, safety_record)
+            eval_history[-1] = history_row
+            _write_json_atomic(history_path, eval_history)
+            if cfg.progress_path is not None:
+                from proteus.core.adapter import EpisodeResult
+                progress_res = (
+                    res if res is not None
+                    else EpisodeResult(episode=ep, ok=False, error=error)
                 )
-                if staged_activation:
-                    pending = _write_pending_candidate(
-                        cfg.root, commit=failed_commit, resume_episode=ep,
-                        reason="run_failed", error=error,
-                    )
-            except Exception as restore_exc:  # noqa: BLE001
-                error += f"; automatic restore failed: {restore_exc}"
-            break
+                _append_progress(cfg, ep, progress_res, (), False, [])
+            continue
 
         candidate_fingerprint = cfg.adapter.disposition_fingerprint(harness)
 
@@ -566,46 +901,88 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             except Exception as exc:  # noqa: BLE001 - validation failure is a rejection
                 viability_error = f"{type(exc).__name__}: {exc}"
 
-        # Evaluate a viable candidate BEFORE snapshotting, so selection can still reject
-        # it. An evaluator is user (or benchmark) code — a crash in it must not take the
-        # whole trajectory down; a failed evaluator records a zero and the run continues.
+        # Evaluate a viable candidate before normal activation. Task evaluators inspect
+        # an independent frozen copy whether or not post-settlement safety is configured.
         results = []
+        task_selected = not viability_error
+        candidate_score: float | None = None
+        frozen_candidate: SnapshotRef | None = None
         if not viability_error:
-            try:
-                results = cfg.goal.evaluate(
-                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+            if not _has_task_evaluators(cfg.goal):
+                try:
+                    results = cfg.goal.evaluate(
+                        trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    from proteus.core.goal import EvalResult
+                    results = [EvalResult(name="evaluator-error", score=0.0,
+                                          detail=f"{type(exc).__name__}: {exc}"[:200],
+                                          error=True)]
+                task_selected, candidate_score = _select_task_candidate(
+                    cfg.goal, results, best_score
                 )
-            except Exception as exc:  # noqa: BLE001
-                from proteus.core.goal import EvalResult
-                results = [EvalResult(name="evaluator-error", score=0.0,
-                                      detail=f"{type(exc).__name__}: {exc}"[:200])]
+            else:
+                frozen_candidate = snapshot.freeze_candidate(
+                    harness, run_id=run_id, episode=ep, label=cfg.name
+                )
+                with materialized_transition(
+                    harness, last_accepted, frozen_candidate
+                ) as transition:
+                    active_root, task_candidate_root = transition[:2]
+                    try:
+                        results = cfg.goal.evaluate(
+                            trace,
+                            GoalContext(
+                                str(task_candidate_root), ep,
+                                grader_sandbox=cfg.grader_sandbox,
+                                active_harness_root=str(active_root),
+                                task_root=str(task_candidate_root.parent / "task"),
+                            ),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        from proteus.core.goal import EvalResult
+                        results = [EvalResult(name="evaluator-error", score=0.0,
+                                              detail=f"{type(exc).__name__}: {exc}"[:200],
+                                              error=True)]
+                    task_selected, candidate_score = _select_task_candidate(
+                        cfg.goal, results, best_score
+                    )
         by_name = {r.name: r for r in results}
 
         # outer-loop selection on the scores (visibility-independent: an outer loop may
-        # act on scores the agent itself never sees)
-        accepted = not viability_error
+        # act on scores the agent itself never sees). Safety is audit-only and runs
+        # after this episode has settled, not on the temporary candidate.
+        accepted = not viability_error and task_selected
         if accepted and cfg.goal.selection == "accept_reject" and results:
-            score = sum(r.score for r in results) / len(results)
-            if best_score is not None and score < best_score:
-                accepted = False
-            else:
-                best_score = score
+            best_score = candidate_score
 
         candidate_commit = ""
         try:
             if accepted:
-                candidate_commit = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
+                if frozen_candidate is not None:
+                    candidate_commit = activate_frozen_candidate(
+                        harness, frozen_candidate, message=f"episode {ep}: {cfg.name} [activated]"
+                    )
+                else:
+                    candidate_commit = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
                 last_accepted = candidate_commit
             else:
                 # non-destructive rejection: the rejected candidate tree goes into history
                 # first (as "candidate N:", outside the episode->commit mapping), then the
                 # restore is committed as episode N so the mapping stays gapless
                 reason = "viability failed" if viability_error else "rejected"
-                candidate_commit = snapshot.commit(
-                    harness, f"candidate {ep}: {cfg.name} [{reason}]"
-                )
-                snapshot.restore(harness, last_accepted)
-                snapshot.commit(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
+                if frozen_candidate is not None:
+                    candidate_commit = snapshot.candidate_commit(harness, frozen_candidate)
+                    reject_frozen_candidate(
+                        harness, last_accepted, frozen_candidate,
+                        message=f"episode {ep}: {cfg.name} [{reason}; rolled back]",
+                    )
+                else:
+                    candidate_commit = snapshot.commit(
+                        harness, f"candidate {ep}: {cfg.name} [{reason}]"
+                    )
+                    snapshot.restore(harness, last_accepted)
+                    snapshot.commit(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
         except Exception as exc:  # noqa: BLE001 - one bad subject must not abort a sweep
             error = f"snapshot failed after episode {ep}: {type(exc).__name__}: {exc}"
             try:
@@ -637,21 +1014,37 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 totals[key] = totals.get(key, 0) + value
 
-        eval_history.append({"episode": ep, "accepted": accepted,
-                             "results": [r.__dict__ for r in results],
-                             "counters": dict(res.counters or {}),
-                             "candidate_commit": candidate_commit,
-                             "candidate_fingerprint": candidate_fingerprint,
-                             "disposition_fingerprint": checkpoint_fingerprint,
-                             "disposition_drift": candidate_fingerprint != fingerprint,
-                             "failure_kind": "viability" if viability_error else "",
-                             "error": viability_error})
+        history_row = {"episode": ep, "accepted": accepted,
+                       "results": [r.__dict__ for r in results],
+                       "counters": dict(res.counters or {}),
+                       "candidate_commit": candidate_commit,
+                       "candidate_fingerprint": candidate_fingerprint,
+                       "disposition_fingerprint": checkpoint_fingerprint,
+                       "disposition_drift": candidate_fingerprint != fingerprint,
+                       "failure_kind": "viability" if viability_error else "",
+                       "error": viability_error,
+                       "task_selected": task_selected,
+                       "activated": accepted,
+                       "safety_ref": "",
+                       "safety_complete": cfg.safety_runner is None}
+        eval_history.append(history_row)
         # The snapshot and experiment state are two halves of one durable checkpoint.
         # Persist after every episode, atomically. A crash in the tiny interval after the
         # git commit but before this replace is detected by the strict resume guard above
         # instead of silently resetting selection history.
         _write_json_atomic(history_path, eval_history)
-        prior_feedback = cfg.goal.observe_feedback(by_name)  # OBSERVE-visible only
+        safety_record = _evaluate_checkpoint_safety(
+            cfg,
+            run_id=run_id,
+            harness=harness,
+            episode=ep,
+            checkpoint_commit=last_checkpoint,
+            trace=tuple(trace),
+        )
+        _attach_safety(history_row, safety_record)
+        eval_history[-1] = history_row
+        _write_json_atomic(history_path, eval_history)
+        prior_feedback = cfg.goal.observe_feedback(by_name)
         if viability_error:
             if not pending:
                 repair_notice = (
@@ -659,7 +1052,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     "was rolled back. Fix the underlying issue in a new candidate: "
                     f"{viability_error[:600]}"
                 )
-        elif prior_feedback and not accepted:
+        elif prior_feedback and not task_selected:
             prior_feedback += "\n(Your last episode's changes were not kept.)"
 
         if cfg.progress_path is not None:

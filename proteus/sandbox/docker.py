@@ -13,11 +13,15 @@ endpoint needs egress).
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
+import uuid
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
+
+from proteus.sandbox.docker_session import DockerInteractiveSession
 
 
 @dataclass(frozen=True)
@@ -132,6 +136,180 @@ class DockerSandbox:
     def __init__(self, config: SandboxConfig) -> None:
         self.config = config
 
+    def _run_invocation(
+        self,
+        run_root: Path,
+        command: list[str],
+        env: Mapping[str, str],
+        mounts: tuple[tuple[str, ...], ...],
+        *,
+        interactive: bool = False,
+        auto_remove: bool = True,
+    ) -> tuple[list[str], dict[str, str], str]:
+        c = self.config
+        name = f"proteus-{uuid.uuid4().hex[:12]}"
+        argv = ["docker", "run", "--init"]
+        if auto_remove:
+            argv.append("--rm")
+        if interactive:
+            argv.append("-i")
+        argv += ["--network", c.network, "--name", name]
+        docker_env = os.environ.copy()
+        for mount in (mounts or ((str(run_root), "/run"),)):
+            if len(mount) not in (2, 3):
+                raise ValueError(f"mount must be (host, container[, options]), got {mount!r}")
+            host, cont, *options = mount
+            suffix = f":{options[0]}" if options else ""
+            argv += ["-v", f"{Path(host).resolve()}:{cont}{suffix}"]
+        if c.mem_limit:
+            argv += ["--memory", c.mem_limit]
+        if c.cpus:
+            argv += ["--cpus", c.cpus]
+        if c.workdir:
+            argv += ["--workdir", c.workdir]
+        if c.user:
+            argv += ["--user", c.user]
+        for host, cont in c.extra_mounts:
+            argv += ["-v", f"{Path(host).resolve()}:{cont}"]
+        for key in c.env_passthrough:
+            if key in env:
+                argv += ["-e", key]
+                docker_env[key] = env[key]
+        for key, value in c.env.items():
+            argv += ["-e", f"{key}={value}"]
+        argv += [*c.extra_args, c.image, *(c.entrypoint or ()), *command]
+        return argv, docker_env, name
+
+    def run_and_commit_image(
+        self,
+        run_root: Path,
+        command: list[str],
+        env: Mapping[str, str],
+        timeout_s: int,
+        *,
+        runtime_image: str,
+        entrypoint: tuple[str, ...],
+        mounts: tuple[tuple[str, ...], ...] = (),
+    ) -> subprocess.CompletedProcess:
+        """Cold-run ``command`` then publish its stopped filesystem as ``runtime_image``.
+
+        This is intentionally narrower than :meth:`run`: a caller has already validated
+        that the mounted source and the command form one immutable runtime. Docker does
+        not include bind mounts in ``commit``, so the command must first materialize the
+        source under the container filesystem. The committed image receives ``entrypoint``;
+        later runs append their normal command directly to it, without re-running setup.
+
+        The temporary named container is always removed, including a failed smoke, a
+        commit failure, or a timeout. ``runtime_image`` is left only after a successful
+        smoke and commit.
+        """
+        if not runtime_image:
+            raise ValueError("runtime_image must be a non-empty controller-owned tag")
+        if not entrypoint:
+            raise ValueError("a committed runtime image needs a direct entrypoint")
+
+        argv, docker_env, name = self._run_invocation(
+            run_root, command, env, mounts, auto_remove=False
+        )
+        try:
+            completed = subprocess.run(
+                argv,
+                capture_output=True,
+                text=True,
+                errors="replace",
+                env=docker_env,
+                timeout=timeout_s,
+                check=False,
+            )
+            if completed.returncode != 0:
+                return completed
+
+            commit = subprocess.run(
+                [
+                    "docker",
+                    "commit",
+                    "--change",
+                    f"ENTRYPOINT {json.dumps(list(entrypoint), separators=(',', ':'))}",
+                    name,
+                    runtime_image,
+                ],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                check=False,
+            )
+            if commit.returncode == 0:
+                return completed
+            detail = (commit.stderr or commit.stdout).strip()
+            return subprocess.CompletedProcess(
+                completed.args,
+                commit.returncode,
+                completed.stdout,
+                f"{completed.stderr}\nfailed to publish committed runtime image: {detail}",
+            )
+        finally:
+            # ``docker run`` is deliberately not --rm here: commit needs the stopped
+            # container. Removing by its generated name is harmless if Docker failed
+            # before creating it, and ensures no timed-out cold-smoke container leaks.
+            subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)
+
+    @staticmethod
+    def image_id(image: str) -> str:
+        """Return Docker's immutable ID for ``image``, or ``""`` when it is absent."""
+        if not image:
+            return ""
+        inspected = subprocess.run(
+            ["docker", "image", "inspect", "--format", "{{.Id}}", image],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        return inspected.stdout.strip() if inspected.returncode == 0 else ""
+
+    @classmethod
+    def remove_image(cls, image: str, *, expected_image_id: str) -> bool:
+        """Remove an exact controller-owned tag, retaining provenance on any mismatch.
+
+        ``True`` means the tag is absent after this operation (including when it was
+        already absent). A changed tag or Docker removal failure returns ``False`` so its
+        owning manifest remains available for a later, informed cleanup attempt.
+        """
+        if not image or not expected_image_id:
+            raise ValueError("image cleanup requires a tag and immutable expected ID")
+        current = cls.image_id(image)
+        if not current:
+            return True
+        if current != expected_image_id:
+            return False
+        removed = subprocess.run(
+            ["docker", "image", "rm", image],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        return removed.returncode == 0
+
+    def open_session(
+        self,
+        run_root: Path,
+        command: list[str],
+        env: Mapping[str, str],
+        mounts: tuple[tuple[str, ...], ...] = (),
+    ) -> DockerInteractiveSession:
+        argv, docker_env, name = self._run_invocation(
+            run_root, command, env, mounts, interactive=True
+        )
+        process = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=docker_env,
+        )
+        return DockerInteractiveSession(process, container_name=name, argv=argv)
+
     def run(self, run_root: Path, command: list[str], env: Mapping[str, str],
             timeout_s: int, mounts: tuple[tuple[str, ...], ...] = (),
             stop_check=None, poll_s: float = 2.0,
@@ -143,38 +321,7 @@ class DockerSandbox:
         the callable returns True the container is killed and the process's own exit
         code is returned — the caller decides whether that stop was a cap or a failure.
         """
-        c = self.config
-        import uuid
-
-        name = f"proteus-{uuid.uuid4().hex[:12]}"
-        argv = ["docker", "run", "--rm", "--init", "--network", c.network,
-                "--name", name]
-        docker_env = os.environ.copy()
-        for mount in (mounts or ((str(run_root), "/run"),)):
-            if len(mount) not in (2, 3):
-                raise ValueError(f"mount must be (host, container[, options]), got {mount!r}")
-            host, cont, *options = mount
-            suffix = f":{options[0]}" if options else ""
-            argv += ["-v", f"{host}:{cont}{suffix}"]
-        if c.mem_limit:
-            argv += ["--memory", c.mem_limit]
-        if c.cpus:
-            argv += ["--cpus", c.cpus]
-        if c.workdir:
-            argv += ["--workdir", c.workdir]
-        if c.user:
-            argv += ["--user", c.user]
-        for host, cont in c.extra_mounts:
-            argv += ["-v", f"{host}:{cont}"]
-        for key in c.env_passthrough:
-            if key in env:
-                # Let Docker copy the value from its own environment.  Keeping the
-                # value out of argv prevents API keys from appearing in `ps` output.
-                argv += ["-e", key]
-                docker_env[key] = env[key]
-        for key, value in c.env.items():
-            argv += ["-e", f"{key}={value}"]
-        argv += [*c.extra_args, c.image, *(c.entrypoint or ()), *command]
+        argv, docker_env, name = self._run_invocation(run_root, command, env, mounts)
         if stop_check is None:
             try:
                 return subprocess.run(

@@ -7,15 +7,22 @@ need Docker and run in the release smoke; these cover the adapter logic with a f
 sandbox.
 """
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
-from proteus.adapters.dsh import DshHarness
+import pytest
+
+from proteus.adapters.dsh import (
+    RUNTIME_MATERIALIZED_SMOKE,
+    DshHarness,
+    _dsh_source_hash,
+)
 from proteus.adapters.pi import PiHarness
+from proteus.sandbox import DockerSandbox, SandboxConfig
 
-
-GATE_COMMANDS = {("--version",), ("--proteus-headless-smoke",)}
+GATE_COMMANDS = {("--version",), (RUNTIME_MATERIALIZED_SMOKE,)}
 
 
 def _is_gate(call):
@@ -35,7 +42,7 @@ class FakeSandbox:
             return subprocess.CompletedProcess(command, 137, "", "killed")
         if command == ["--version"]:
             rc = self.boot_rc
-        elif command == ["--proteus-headless-smoke"]:
+        elif command == [RUNTIME_MATERIALIZED_SMOKE]:
             rc = self.cold_rc
         else:
             rc = 0
@@ -73,7 +80,7 @@ def test_source_evolving_adapters_stage_activation():
 
 def test_instruction_carrier_handles_per_phase_only_and_neutral_cleanup(tmp_path):
     from proteus.adapters import instructions
-    from proteus.core.disposition import Disposition, NEUTRAL
+    from proteus.core.disposition import NEUTRAL, Disposition
 
     path = tmp_path / "AGENTS.md"
     path.write_text("# Base\n")
@@ -129,13 +136,20 @@ def test_source_mode_gates_through_the_boot_contract(tmp_path):
         (root / "harness").symlink_to(h)
         a.run_episode(EpisodeSpec(root=root, episode=1, model="m", phase_prompts={}))
         gates = [call for call in sandbox.calls if _is_gate(call)]
-        expected = (["--version"], ["--proteus-headless-smoke"]) \
+        expected = (["--version"], [RUNTIME_MATERIALIZED_SMOKE]) \
             if cls is DshHarness else (["--version"],)
         assert [call["command"] for call in gates] == list(expected), cls.__name__
         for gate in gates:
-            conts = {cont for _, cont in gate["mounts"]}
-            assert conts == {"/workspace", "/state"}, \
+            conts = {mount[1] for mount in gate["mounts"]}
+            expected_mounts = (
+                {"/workspace", "/state", "/state/build"}
+                if cls is DshHarness
+                else {"/workspace", "/state"}
+            )
+            assert conts == expected_mounts, \
                 f"{cls.__name__}: the gate must run exactly the boot contract"
+            if cls is DshHarness:
+                assert (str(root / ".dsh-build-cache"), "/state/build") in gate["mounts"]
 
 
 def test_broken_self_code_fails_the_episode_legibly(tmp_path):
@@ -164,7 +178,210 @@ def test_dsh_headless_cold_start_failure_is_a_viability_error(tmp_path):
 
     assert "fails headless cold start" in error
     assert [call["command"] for call in sandbox.calls] == [
-        ["--version"], ["--proteus-headless-smoke"]]
+        ["--version"], [RUNTIME_MATERIALIZED_SMOKE]]
+
+
+def test_dsh_gate_publishes_and_resolves_exact_direct_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sandbox = DockerSandbox(SandboxConfig(image="base-image"))
+    published: list[str] = []
+    cold_commands: list[list[str]] = []
+
+    def run(_root, command, env, timeout_s, mounts=(), **_kwargs):
+        del env, timeout_s, mounts
+        return subprocess.CompletedProcess(command, 0, "ok", "")
+
+    def run_and_commit(
+        _root,
+        command,
+        env,
+        timeout_s,
+        *,
+        runtime_image,
+        entrypoint,
+        mounts=(),
+    ):
+        del env, timeout_s, entrypoint, mounts
+        cold_commands.append(command)
+        published.append(runtime_image)
+        return subprocess.CompletedProcess(command, 0, "ok", "")
+
+    monkeypatch.setattr(sandbox, "run", run)
+    monkeypatch.setattr(sandbox, "run_and_commit_image", run_and_commit)
+    monkeypatch.setattr(
+        sandbox,
+        "image_id",
+        lambda image: "sha256:base" if image == "base-image" else "sha256:runtime",
+    )
+    harness = tmp_path / "harness"
+    source = harness / "src"
+    source.mkdir(parents=True)
+    (source / "index.ts").write_text("export {};\n", encoding="utf-8")
+    adapter = DshHarness(image="base-image", sandbox=sandbox)
+
+    assert adapter.check_boot(harness) == ""
+    assert len(published) == 1
+    assert cold_commands == [[RUNTIME_MATERIALIZED_SMOKE]]
+    assert adapter.check_boot(harness) == ""
+    assert len(published) == 1
+    runtime = adapter.validated_runtime_sandbox(
+        harness, tmp_path / ".dsh-build-cache"
+    )
+    assert isinstance(runtime, DockerSandbox)
+    assert runtime.config.image == "sha256:runtime"
+    assert runtime.config.entrypoint == ("/opt/src/apps/cli/lib/bin.js",)
+    assert runtime.config.extra_args[-2:] == ("--entrypoint", "node")
+    source_hash = _dsh_source_hash(source)
+    manifest_path = adapter._runtime_manifest_path(
+        tmp_path / ".dsh-build-cache", source_hash
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["controller_owned"] is True
+    assert manifest_path.is_relative_to(tmp_path / ".dsh-runtimes")
+    assert not (tmp_path / ".dsh-build-cache" / "runtimes").exists()
+    assert published[0] == adapter._runtime_image_tag(
+        source_hash, tmp_path / ".dsh-build-cache"
+    )
+
+    (source / "index.ts").write_text("export const changed = true;\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="manifest is unavailable"):
+        adapter.validated_runtime_sandbox(harness, tmp_path / ".dsh-build-cache")
+
+
+def test_dsh_custom_docker_environment_owns_runtime_identity() -> None:
+    sandbox = DockerSandbox(SandboxConfig(image="selected-evolution-image", network="none"))
+
+    adapter = DshHarness(sandbox=sandbox)
+
+    assert adapter.image == "selected-evolution-image"
+    assert adapter.network == "none"
+
+
+def test_dsh_seed_does_not_trust_the_unvalidated_base_image(tmp_path: Path) -> None:
+    adapter = DshHarness(key="x", sandbox=FakeSandbox())
+    adapter._extract_self_code = lambda dest: (dest.mkdir(parents=True), (dest / "x").write_text("x"))
+
+    adapter.seed(tmp_path / "harness")
+
+    assert not (tmp_path / ".dsh-runtimes").exists()
+
+
+def test_dsh_runtime_tags_are_scoped_to_one_run_cache(tmp_path: Path) -> None:
+    adapter = DshHarness(key="x", sandbox=FakeSandbox())
+    source_hash = "a" * 64
+
+    first = adapter._runtime_image_tag(source_hash, tmp_path / "run-a/.dsh-build-cache")
+    second = adapter._runtime_image_tag(source_hash, tmp_path / "run-b/.dsh-build-cache")
+
+    assert first != second
+    assert first.endswith(source_hash)
+    assert second.endswith(source_hash)
+
+
+def test_dsh_resolver_rejects_unowned_runtime_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sandbox = DockerSandbox(SandboxConfig(image="base-image"))
+    monkeypatch.setattr(sandbox, "image_id", lambda _image: "sha256:any")
+    adapter = DshHarness(image="base-image", sandbox=sandbox)
+    source = tmp_path / "harness/src"
+    source.mkdir(parents=True)
+    (source / "index.ts").write_text("export {};\n", encoding="utf-8")
+    cache = tmp_path / ".dsh-build-cache"
+    source_hash = _dsh_source_hash(source)
+    path = adapter._runtime_manifest_path(cache, source_hash)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "source_hash": source_hash,
+                "base_image": "base-image",
+                "base_image_id": "sha256:any",
+                "image": adapter._runtime_image_tag(source_hash, cache),
+                "image_id": "sha256:any",
+                "entrypoint": ["node", "/opt/src/apps/cli/lib/bin.js"],
+                "controller_owned": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="does not match snapshot"):
+        adapter.validated_runtime_sandbox(tmp_path / "harness", cache)
+
+
+def test_dsh_prune_removes_only_superseded_owned_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sandbox = DockerSandbox(SandboxConfig(image="base-image"))
+    adapter = DshHarness(image="base-image", sandbox=sandbox)
+    cache = tmp_path / ".dsh-build-cache"
+    cache.mkdir()
+    (cache / "dist-v2-preserved.tar").write_text("build cache", encoding="utf-8")
+    current_source = tmp_path / "current/src"
+    stale_source = tmp_path / "stale/src"
+    current_source.mkdir(parents=True)
+    stale_source.mkdir(parents=True)
+    (current_source / "index.ts").write_text("current\n", encoding="utf-8")
+    (stale_source / "index.ts").write_text("stale\n", encoding="utf-8")
+    current_hash = _dsh_source_hash(current_source)
+    stale_hash = _dsh_source_hash(stale_source)
+    for source_hash in (current_hash, stale_hash):
+        adapter._write_runtime_manifest(
+            build_cache=cache,
+            source_hash=source_hash,
+            image=adapter._runtime_image_tag(source_hash, cache),
+            image_id=f"sha256:{source_hash[:8]}",
+            base_image_id="sha256:base",
+        )
+    removed: list[tuple[str, str]] = []
+
+    def remove_image(image: str, *, expected_image_id: str) -> bool:
+        removed.append((image, expected_image_id))
+        return True
+
+    monkeypatch.setattr(sandbox, "remove_image", remove_image)
+
+    adapter.prune_safety_runtimes(tmp_path / "current", cache)
+
+    assert removed == [
+        (
+            adapter._runtime_image_tag(stale_hash, cache),
+            f"sha256:{stale_hash[:8]}",
+        )
+    ]
+    assert adapter._runtime_manifest_path(cache, current_hash).is_file()
+    assert not adapter._runtime_manifest_path(cache, stale_hash).exists()
+    assert (cache / "dist-v2-preserved.tar").read_text(encoding="utf-8") == "build cache"
+
+
+def test_dsh_prune_retains_manifest_when_image_removal_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sandbox = DockerSandbox(SandboxConfig(image="base-image"))
+    adapter = DshHarness(image="base-image", sandbox=sandbox)
+    cache = tmp_path / ".dsh-build-cache"
+    current_source = tmp_path / "current/src"
+    stale_source = tmp_path / "stale/src"
+    current_source.mkdir(parents=True)
+    stale_source.mkdir(parents=True)
+    (current_source / "index.ts").write_text("current\n", encoding="utf-8")
+    (stale_source / "index.ts").write_text("stale\n", encoding="utf-8")
+    stale_hash = _dsh_source_hash(stale_source)
+    adapter._write_runtime_manifest(
+        build_cache=cache,
+        source_hash=stale_hash,
+        image=adapter._runtime_image_tag(stale_hash, cache),
+        image_id="sha256:stale",
+        base_image_id="sha256:base",
+    )
+    monkeypatch.setattr(sandbox, "remove_image", lambda *_args, **_kwargs: False)
+
+    adapter.prune_safety_runtimes(tmp_path / "current", cache)
+
+    assert adapter._runtime_manifest_path(cache, stale_hash).is_file()
 
 
 def test_dsh_permission_mode_reaches_every_phase(tmp_path):
@@ -206,7 +423,7 @@ def test_framework_handoff_mount_is_writable_but_snapshot_external(tmp_path):
         adapter.run_episode(EpisodeSpec(root=root, episode=1, model="m", phase_prompts={}))
 
         phase = next(call for call in sandbox.calls if not _is_gate(call))
-        mounts = dict(phase["mounts"])
+        mounts = {mount[0]: mount[1] for mount in phase["mounts"]}
         assert mounts[str(root / ".proteus-state")] == "/workspace/.proteus"
         assert not str(root / ".proteus-state").startswith(str(harness))
 
@@ -239,10 +456,12 @@ def test_staged_episode_mounts_frozen_active_read_only_and_candidate_writable(tm
             assert (str(active), "/workspace", "ro") in mounts
             assert (str(harness), "/workspace/candidate") in mounts
             assert (str(root / ".proteus-state"), "/workspace/.proteus") in mounts
+            if cls is DshHarness:
+                assert (str(root / ".dsh-build-cache"), "/state/build", "ro") in mounts
 
 
 def test_staged_prompt_forbids_same_episode_candidate_activation(tmp_path):
-    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, GoalConfig
     from proteus.core.episode import PHASES, RunConfig, _phase_prompts
 
     adapter = DshHarness(key="x", sandbox=FakeSandbox())
@@ -312,6 +531,8 @@ def test_source_hash_frames_file_boundaries_and_symlinks(tmp_path):
         link.symlink_to("two")
         assert digest(script, left) != before, f"{script}: symlink target was not hashed"
 
+    assert _dsh_source_hash(left) == digest(Path("environments/dsh-src/boot.sh"), left)
+
 
 def test_dsh_boot_contract_relinks_dependencies_and_caches_new_packages():
     script = Path("environments/dsh-src/boot.sh").read_text()
@@ -327,12 +548,16 @@ def test_dsh_boot_contract_relinks_dependencies_and_caches_new_packages():
     assert "find apps packages vendor" in script
     assert "Native launcher artifacts are baked" in script
     assert "-path '*/lib/*'" in script
-    assert 'CACHE_TMP="/state/.dist-$HASH.$$.tar"' in script
+    assert 'BUILD_STATE=/state/build' in script
+    assert 'CACHE_TMP="$BUILD_STATE/.dist-$BUILD_CACHE_VERSION-$HASH.$$.tar"' in script
+    assert 'exact_sync /workspace/src "$SRC"' in script
+    assert '"--proteus-materialized-headless-smoke"' in script
     assert '"--proteus-headless-smoke"' in script
     assert "MISSING_CREDENTIAL" in script
     assert "pnpm install --frozen-lockfile --store-dir /opt/pnpm-store" in dockerfile
     assert "COREPACK_HOME=/opt/corepack" in dockerfile
     assert "COREPACK_ENABLE_NETWORK=0" in dockerfile
+    assert "git reset --hard HEAD && git clean -fdx" in dockerfile
     assert "--proteus-dependency-hash" in dockerfile
     assert "chmod -R a+rwX /opt/src /opt/corepack /opt/pnpm-store" in dockerfile
 
