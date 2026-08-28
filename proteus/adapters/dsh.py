@@ -27,11 +27,13 @@ dsh's zstd-compressed session JSONL.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING, Callable, Optional, Sequence
 
 from proteus.adapters.dsh_model_bridge import DSH_PERMISSION_CASE_ENV
@@ -55,7 +57,7 @@ PHASE_TIMEOUT_S = 600
 #: src/ is exactly the source of the build it boots). The image's entrypoint syncs
 #: /workspace/src over the baked tree, rebuilds with the project's own `build:lib`
 #: (tsc -b is incremental against the baked .tsbuildinfo) when the source hash changes,
-#: caches build outputs on /state, and execs the built CLI. See environments/dsh-src/.
+#: caches build outputs on /state/build, and execs the built CLI. See environments/dsh-src/.
 SOURCE_TAR = "/opt/dsh-source.tar"
 #: A full build:lib is ~330s; the gate's timeout must cover one on a changed source.
 BOOT_TIMEOUT_S = 900
@@ -63,6 +65,9 @@ BOOT_TIMEOUT_S = 900
 #: Desktop even with a warm offline store. Keep enough headroom for slower hosts while
 #: still treating a genuine hang as a runtime viability failure.
 COLD_BOOT_TIMEOUT_S = 300
+RUNTIME_IMAGE_PROTOCOL = 2
+RUNTIME_IMAGE_ENTRYPOINT = ("node", "/opt/src/apps/cli/lib/bin.js")
+RUNTIME_MATERIALIZED_SMOKE = "--proteus-materialized-headless-smoke"
 SEED_INSTRUCTIONS = """\
 # Agent instructions
 
@@ -96,6 +101,45 @@ boundary build and viability gate after reflect.
 Each session is one phase of an episode. Harness files and the bounded Proteus handoff
 carry over; the raw conversation does not.
 """
+
+
+def _dsh_source_hash(source_root: Path) -> str:
+    """Match the image boot wrapper's exact source-tree identity."""
+    digest = hashlib.sha256()
+    root = Path(source_root)
+
+    def record(kind: bytes, relative: str, payload: bytes) -> None:
+        name = relative.encode("utf-8")
+        digest.update(kind)
+        digest.update(b"\0")
+        digest.update(str(len(name)).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(name)
+        digest.update(b"\0")
+        digest.update(str(len(payload)).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(payload)
+        digest.update(b"\0")
+
+    def walk(directory: Path, relative: str = "") -> None:
+        entries = sorted(os.scandir(directory), key=lambda item: item.name.encode("utf-8"))
+        for entry in entries:
+            if entry.name == "node_modules":
+                continue
+            child_relative = f"{relative}/{entry.name}" if relative else entry.name
+            child = Path(entry.path)
+            if entry.is_symlink():
+                record(b"L", child_relative, os.readlink(child).encode("utf-8"))
+            elif entry.is_dir(follow_symlinks=False):
+                walk(child, child_relative)
+            elif entry.is_file(follow_symlinks=False):
+                mode = entry.stat(follow_symlinks=False).st_mode
+                record(b"X" if mode & 0o111 else b"F", child_relative, child.read_bytes())
+            else:
+                raise ValueError(f"unsupported DSH source entry: {child_relative}")
+
+    walk(root)
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -423,6 +467,10 @@ class DshHarness:
         self.network = network
         self.phase_timeout_s = phase_timeout_s
         self.permission_mode = permission_mode
+        self._runtime_lock = Lock()
+        self._runtime_sandboxes: dict[tuple[str, str], object] = {}
+        self._prepared_runtime_identities: dict[str, str] = {}
+        self._direct_runtime = False
         # per-instance key injection first (multi-tenant runs must not share env)
         self.key = key or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_KEY", "")
         from proteus.sandbox import DockerSandbox, SandboxConfig
@@ -442,6 +490,11 @@ class DshHarness:
             ),
             user=host_user,
         ))
+        if isinstance(self.sandbox, DockerSandbox):
+            # A CLI --env image is the evolution image. Runtime publication and safety
+            # provenance must name that exact image, not the constructor's default tag.
+            self.image = self.sandbox.config.image
+            self.network = self.sandbox.config.network
 
     def surfaces(self) -> Sequence[Surface]:
         return self.SURFACES
@@ -460,6 +513,49 @@ class DshHarness:
         from proteus.adapters.dsh_safety import DshPermissionPolicyAdapter
 
         return DshPermissionPolicyAdapter(self)
+
+    @staticmethod
+    def _runtime_manifest_path(build_cache: Path, source_hash: str) -> Path:
+        return Path(build_cache).parent / ".dsh-runtimes" / "manifests" / f"{source_hash}.json"
+
+    def _runtime_image_tag(self, source_hash: str, build_cache: Path) -> str:
+        base = hashlib.sha256(self.image.encode("utf-8")).hexdigest()[:12]
+        scope_root = Path(build_cache).parent / ".dsh-runtimes"
+        scope = hashlib.sha256(str(scope_root.resolve()).encode("utf-8")).hexdigest()[:12]
+        return f"proteus-dsh-runtime:{base}-{scope}-{source_hash}"
+
+    def _write_runtime_manifest(
+        self,
+        *,
+        build_cache: Path,
+        source_hash: str,
+        image: str,
+        image_id: str,
+        base_image_id: str,
+    ) -> None:
+        path = self._runtime_manifest_path(build_cache, source_hash)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(
+                {
+                    "version": RUNTIME_IMAGE_PROTOCOL,
+                    "source_hash": source_hash,
+                    "base_image": self.image,
+                    "base_image_id": base_image_id,
+                    "image": image,
+                    "image_id": image_id,
+                    "entrypoint": list(RUNTIME_IMAGE_ENTRYPOINT),
+                    "controller_owned": True,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+        self._runtime_sandboxes.pop((str(Path(build_cache).resolve()), source_hash), None)
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         harness_root.mkdir(parents=True, exist_ok=True)
@@ -507,9 +603,22 @@ class DshHarness:
         be absent from the cached outputs or runtime links used by episode N+1.
         """
         harness = Path(harness_root)
+        return self._check_boot(
+            harness,
+            build_cache=harness.parent / ".dsh-build-cache",
+        )
+
+    def _check_boot(self, harness: Path, *, build_cache: Path) -> str:
+        """Validate and publish ``harness`` using the caller-owned build cache."""
         state = harness.parent / ".dsh-state"
         state.mkdir(exist_ok=True)
-        mounts = ((str(harness), "/workspace"), (str(state), "/state"))
+        (state / "build").mkdir(exist_ok=True)
+        build_cache.mkdir(exist_ok=True)
+        mounts = (
+            (str(harness), "/workspace"),
+            (str(state), "/state"),
+            (str(build_cache), "/state/build"),
+        )
         try:
             proc = self.sandbox.run(
                 harness.parent, ["--version"], env={}, timeout_s=BOOT_TIMEOUT_S,
@@ -519,25 +628,266 @@ class DshHarness:
         if proc.returncode != 0:
             return (f"self-edited source does not boot (exit {proc.returncode}): "
                     f"{(proc.stderr or proc.stdout)[-1200:]}")
+        source_hash = _dsh_source_hash(harness / "src")
+        runtime_image = self._runtime_image_tag(source_hash, build_cache)
+        from proteus.sandbox import DockerSandbox
+
+        # An exact controller-owned runtime is immutable for this source/base/run scope.
+        # Reusing it avoids both a redundant cold smoke and an untagged image layer each
+        # time an unchanged candidate reaches the viability boundary.
+        if isinstance(self.sandbox, DockerSandbox):
+            try:
+                self.validated_runtime_sandbox(
+                    harness,
+                    build_cache,
+                    source_hash=source_hash,
+                )
+            except RuntimeError:
+                pass
+            else:
+                return ""
+
         try:
-            cold = self.sandbox.run(
-                harness.parent, ["--proteus-headless-smoke"], env={},
-                timeout_s=COLD_BOOT_TIMEOUT_S, mounts=mounts)
+            if isinstance(self.sandbox, DockerSandbox):
+                cold = self.sandbox.run_and_commit_image(
+                    harness.parent,
+                    [RUNTIME_MATERIALIZED_SMOKE],
+                    {},
+                    timeout_s=COLD_BOOT_TIMEOUT_S,
+                    runtime_image=runtime_image,
+                    entrypoint=RUNTIME_IMAGE_ENTRYPOINT,
+                    mounts=mounts,
+                )
+            else:
+                cold = self.sandbox.run(
+                    harness.parent,
+                    [RUNTIME_MATERIALIZED_SMOKE],
+                    env={},
+                    timeout_s=COLD_BOOT_TIMEOUT_S,
+                    mounts=mounts,
+                )
         except subprocess.TimeoutExpired:
             return ("self-edited source headless cold start timed out after "
                     f"{COLD_BOOT_TIMEOUT_S}s")
         if cold.returncode != 0:
             detail = (cold.stderr or cold.stdout)[-1200:]
-            if "proteus-headless-smoke" in detail and "unknown option" in detail.lower():
-                return ("DSH source image predates the headless cold-start contract; "
+            if RUNTIME_MATERIALIZED_SMOKE in detail and "unknown option" in detail.lower():
+                return ("DSH source image predates the exact runtime-image contract; "
                         "rebuild environments/dsh-src before running evolution")
             return (f"self-edited source fails headless cold start "
                     f"(exit {cold.returncode}): {detail}")
+        if isinstance(self.sandbox, DockerSandbox):
+            base_image_id = self.sandbox.image_id(self.image)
+            runtime_image_id = self.sandbox.image_id(runtime_image)
+            if not base_image_id or not runtime_image_id:
+                return "self-edited source runtime image identity is unavailable"
+            self._write_runtime_manifest(
+                build_cache=build_cache,
+                source_hash=source_hash,
+                image=runtime_image,
+                image_id=runtime_image_id,
+                base_image_id=base_image_id,
+            )
         return ""
 
     def validate_candidate(self, harness_root: Path) -> str:
         """Run the model-free episode-boundary build/boot gate on the candidate."""
         return self.check_boot(harness_root)
+
+    def validated_runtime_sandbox(
+        self,
+        snapshot_root: Path,
+        build_cache_root: Path | None,
+        *,
+        source_hash: str | None = None,
+    ):
+        """Resolve the exact cold-smoked runtime; never rebuild from a safety trial."""
+        from proteus.sandbox import DockerSandbox
+
+        if not isinstance(self.sandbox, DockerSandbox):
+            # Injected mechanism-test sandboxes already embody their runtime. Real DSH
+            # execution always takes the strict Docker manifest path below.
+            return self.sandbox
+        if build_cache_root is None:
+            raise RuntimeError("validated DSH runtime cache is unavailable")
+        if source_hash is None:
+            source = Path(snapshot_root) / "src"
+            if not source.is_dir():
+                raise RuntimeError("DSH safety snapshot has no source tree")
+            source_hash = _dsh_source_hash(source)
+        elif len(source_hash) != 64 or any(character not in "0123456789abcdef" for character in source_hash):
+            raise RuntimeError("DSH safety snapshot runtime identity is malformed")
+        cache = Path(build_cache_root).resolve()
+        key = (str(cache), source_hash)
+        with self._runtime_lock:
+            resolved = self._runtime_sandboxes.get(key)
+            if resolved is not None:
+                return resolved
+            path = self._runtime_manifest_path(cache, source_hash)
+            try:
+                manifest = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise RuntimeError(
+                    f"validated DSH runtime manifest is unavailable for {source_hash}"
+                ) from exc
+            expected = {
+                "version": RUNTIME_IMAGE_PROTOCOL,
+                "source_hash": source_hash,
+                "base_image": self.image,
+                "entrypoint": list(RUNTIME_IMAGE_ENTRYPOINT),
+                "controller_owned": True,
+                "image": self._runtime_image_tag(source_hash, cache),
+            }
+            if any(manifest.get(name) != value for name, value in expected.items()):
+                raise RuntimeError("validated DSH runtime manifest does not match snapshot")
+            image = manifest.get("image")
+            image_id = manifest.get("image_id")
+            base_image_id = manifest.get("base_image_id")
+            if not all(
+                isinstance(value, str) and value
+                for value in (image, image_id, base_image_id)
+            ):
+                raise RuntimeError("validated DSH runtime manifest has no image identity")
+            if self.sandbox.image_id(self.image) != base_image_id:
+                raise RuntimeError("validated DSH runtime base image identity changed")
+            if self.sandbox.image_id(image) != image_id:
+                raise RuntimeError("validated DSH runtime image is missing or was replaced")
+            config = self.sandbox.config
+            if "--entrypoint" in config.extra_args:
+                raise RuntimeError("DSH runtime sandbox already overrides its entrypoint")
+            runtime = DockerSandbox(
+                replace(
+                    config,
+                    # Run the verified immutable image ID, not the mutable controller tag.
+                    image=image_id,
+                    entrypoint=(RUNTIME_IMAGE_ENTRYPOINT[1],),
+                    extra_args=(*config.extra_args, "--entrypoint", "node"),
+                )
+            )
+            self._runtime_sandboxes[key] = runtime
+            return runtime
+
+    def prune_safety_runtimes(
+        self,
+        snapshot_root: Path,
+        build_cache_root: Path | None,
+    ) -> None:
+        """Remove controller-owned runtime images not matching the settled checkpoint."""
+        from proteus.sandbox import DockerSandbox
+
+        if not isinstance(self.sandbox, DockerSandbox) or build_cache_root is None:
+            return
+        source = Path(snapshot_root) / "src"
+        if not source.is_dir():
+            return
+        keep_hash = _dsh_source_hash(source)
+        cache = Path(build_cache_root).resolve()
+        manifests = self._runtime_manifest_path(cache, keep_hash).parent
+        if not manifests.is_dir():
+            return
+        with self._runtime_lock:
+            for path in manifests.glob("*.json"):
+                if path.name == f"{keep_hash}.json":
+                    continue
+                try:
+                    manifest = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                source_hash = manifest.get("source_hash")
+                image = manifest.get("image")
+                image_id = manifest.get("image_id")
+                if (
+                    manifest.get("version") != RUNTIME_IMAGE_PROTOCOL
+                    or manifest.get("controller_owned") is not True
+                    or manifest.get("base_image") != self.image
+                    or not isinstance(source_hash, str)
+                    or image != self._runtime_image_tag(source_hash, cache)
+                    or not isinstance(image_id, str)
+                    or not image_id
+                ):
+                    continue
+                if self.sandbox.remove_image(image, expected_image_id=image_id):
+                    path.unlink(missing_ok=True)
+                    self._runtime_sandboxes.pop((str(cache), source_hash), None)
+
+    def prepare_safety_runtime(
+        self,
+        snapshot_root: Path,
+        build_cache_root: Path | None,
+    ) -> dict[str, object] | None:
+        """Resolve the runtime published by evolution; safety never builds one."""
+        from proteus.sandbox import DockerSandbox
+
+        if not isinstance(self.sandbox, DockerSandbox):
+            return None
+        if build_cache_root is None:
+            raise RuntimeError("validated DSH runtime cache is unavailable")
+        cache = Path(build_cache_root).resolve()
+        source = Path(snapshot_root) / "src"
+        if not source.is_dir():
+            raise RuntimeError("DSH safety snapshot has no source tree")
+        source_hash = _dsh_source_hash(source)
+        self.validated_runtime_sandbox(
+            snapshot_root,
+            cache,
+            source_hash=source_hash,
+        )
+        self._prepared_runtime_identities[str(cache)] = source_hash
+        self.prune_safety_runtimes(snapshot_root, cache)
+        manifest = json.loads(
+            self._runtime_manifest_path(cache, source_hash).read_text(encoding="utf-8")
+        )
+        return {
+            name: manifest[name]
+            for name in (
+                "version",
+                "source_hash",
+                "base_image",
+                "base_image_id",
+                "image",
+                "image_id",
+                "entrypoint",
+                "controller_owned",
+            )
+        }
+
+    def snapshot_runtime_identity(
+        self,
+        snapshot_root: Path,
+        build_cache_root: Path | None,
+    ) -> str:
+        """Return the identity already verified during checkpoint preparation."""
+        if build_cache_root is None:
+            return ""
+        cache = str(Path(build_cache_root).resolve())
+        prepared = self._prepared_runtime_identities.get(cache)
+        if prepared is not None:
+            return prepared
+        source = Path(snapshot_root) / "src"
+        return _dsh_source_hash(source) if source.is_dir() else ""
+
+    def validated_runtime_harness(
+        self,
+        snapshot_root: Path,
+        build_cache_root: Path | None,
+        *,
+        source_hash: str | None = None,
+    ) -> DshHarness:
+        """Clone adapter semantics onto the direct exact-snapshot runtime image."""
+        runtime = DshHarness(
+            image=self.image,
+            network=self.network,
+            key=self.key,
+            sandbox=self.validated_runtime_sandbox(
+                snapshot_root,
+                build_cache_root,
+                source_hash=source_hash,
+            ),
+            phase_timeout_s=self.phase_timeout_s,
+            permission_mode=self.permission_mode,
+        )
+        runtime._direct_runtime = True
+        return runtime
 
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None:
         from proteus.adapters import instructions
@@ -1317,7 +1667,11 @@ class DshHarness:
         run_root = Path(spec.root)
         harness = run_root / "harness"
         state = run_root / ".dsh-state"
+        build_cache = run_root / ".dsh-build-cache"
         state.mkdir(exist_ok=True)
+        if not self._direct_runtime:
+            (state / "build").mkdir(exist_ok=True)
+            build_cache.mkdir(exist_ok=True)
         handoffs = HandoffStore(run_root)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, list[str]] = {}
@@ -1392,13 +1746,15 @@ class DshHarness:
                 command.extend(("--patch", patch_container_path))
             command.append(phase_prompt(spec, phase, used))
             try:
+                runtime_mounts = workspace_mounts + ((str(state), "/state"),)
+                if not self._direct_runtime:
+                    runtime_mounts += ((str(build_cache), "/state/build", "ro"),)
                 proc = self.sandbox.run(
                     run_root,
                     command,
                     env=env,
                     timeout_s=self.phase_timeout_s,
-                    mounts=workspace_mounts + ((str(state), "/state"),
-                            (str(handoffs.root), CONTAINER_ROOT))
+                    mounts=runtime_mounts + ((str(handoffs.root), CONTAINER_ROOT),)
                            + self._task_mount(run_root) + extra_mounts,
                     stop_check=stop_check if plan.enabled else None,
                 )

@@ -492,6 +492,32 @@ def _initialize_legacy_safety_baseline(
     )
 
 
+def _validate_seed_runtime_before_safety(cfg: RunConfig, *, harness: Path) -> None:
+    """Publish a staged seed's executable runtime before safety can consume it.
+
+    Staged adapters execute a frozen active tree while evolving a separate candidate.
+    Their ordinary episode-boundary validator is therefore the only appropriate place to
+    build and cold-smoke the episode-0 runtime too.  Safety remains a consumer: if that
+    runtime cannot be published now, abort the fresh run before a baseline can make any
+    live calls.  Resumes deliberately skip this path and require their already-published
+    runtime to remain available to the safety adapter.
+    """
+    if not getattr(cfg.adapter, "staged_activation", False) or cfg.safety_runner is None:
+        return
+    validator = getattr(cfg.adapter, "validate_candidate", None)
+    if not callable(validator):
+        return
+    try:
+        error = str(validator(harness) or "")
+    except Exception as exc:  # noqa: BLE001 - surface initialization failure before safety
+        error = f"{type(exc).__name__}: {exc}"
+    if error:
+        raise RuntimeError(
+            "episode-0 seed runtime failed evolution-boundary validation before "
+            f"safety baseline: {error}"
+        )
+
+
 def _reconcile_checkpoint_safety(
     cfg: RunConfig,
     *,
@@ -612,6 +638,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             from proteus.bench.task import seed_task
             seed_task(harness, cfg.task)
         snapshot.init(harness)
+        _validate_seed_runtime_before_safety(cfg, harness=harness)
 
     # Resume must restore the experiment's state, not just its files: the selection
     # baseline, the visible feedback, and the cumulative counters all live in

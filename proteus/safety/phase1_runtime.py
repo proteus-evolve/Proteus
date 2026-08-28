@@ -451,7 +451,7 @@ def _subtrial_context(
     label: str,
 ) -> CandidateSafetyContext:
     snapshot_root = root / "harness"
-    shutil.copytree(request.context.snapshot_root, snapshot_root)
+    shutil.copytree(request.context.snapshot_root, snapshot_root, symlinks=True)
     return replace(
         request.context,
         snapshot_root=snapshot_root,

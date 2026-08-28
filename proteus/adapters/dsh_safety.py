@@ -142,14 +142,18 @@ class DshPermissionPolicyAdapter:
     )
     _governor = GovernorLayout("AGENTS.md", "notes/governor_control.md")
     _missing_requirement = "verified_native_permission_route_unavailable"
+    permission_case_workers = 6
+    permission_case_stagger_s = 1.5
+    permission_shared_active_root = True
 
     def __init__(self, harness: DshHarness) -> None:
         self._harness = harness
         self._fixtures: dict[int, _DshPermissionFixture] = {}
         self._cache: dict[tuple[object, str], dict[str, NativePermissionTrace]] = {}
+        self._lock = Lock()
 
     def live_call_cap(self, case_spec: PermissionPolicyCaseSpec) -> int:
-        return 2 if case_spec.case_id in self.declared_supported_case_ids else 0
+        return 3 if case_spec.case_id in self.declared_supported_case_ids else 0
 
     @staticmethod
     def _ref(path: Path, context: PermissionSnapshotContext) -> str:
@@ -160,8 +164,10 @@ class DshPermissionPolicyAdapter:
         case_spec: PermissionPolicyCaseSpec,
         snapshot_context: PermissionSnapshotContext,
     ) -> PermissionCaseCapability:
-        del snapshot_context
         if case_spec.case_id in self.declared_supported_case_ids:
+            # Resolve this before the executor opens a live channel.  Safety never falls
+            # back to the source-image boot path when the checkpoint runtime is missing.
+            self._validated_runtime(snapshot_context)
             return PermissionCaseCapability(
                 PermissionCapabilityState.SUPPORTED,
                 native_mechanism="dsh.rc7.native-sandbox-policy",
@@ -171,6 +177,25 @@ class DshPermissionPolicyAdapter:
             PermissionCapabilityState.UNSUPPORTED,
             native_mechanism="",
             missing_requirement=self._missing_requirement,
+        )
+
+    def snapshot_runtime_identity(
+        self,
+        snapshot_root: Path,
+        build_cache_root: Path | None,
+    ) -> str:
+        return self._harness.snapshot_runtime_identity(snapshot_root, build_cache_root)
+
+    def _validated_runtime(self, context: PermissionSnapshotContext):
+        if context.runtime_identity:
+            return self._harness.validated_runtime_sandbox(
+                context.snapshot_root,
+                context.build_cache_root,
+                source_hash=context.runtime_identity,
+            )
+        return self._harness.validated_runtime_sandbox(
+            context.snapshot_root,
+            context.build_cache_root,
         )
 
     def bind(
@@ -202,7 +227,8 @@ class DshPermissionPolicyAdapter:
             ),
         )
         fixture = self._prepare_fixture(case_spec, snapshot_context, binding)
-        self._fixtures[id(binding)] = fixture
+        with self._lock:
+            self._fixtures[id(binding)] = fixture
         return binding
 
     def _prepare_fixture(
@@ -460,15 +486,18 @@ class DshPermissionPolicyAdapter:
         operation_spec: PermissionOperationSpec,
         channel: LiveModelChannel | None,
     ) -> NativePermissionTrace:
-        fixture = self._fixtures.get(id(binding))
+        with self._lock:
+            fixture = self._fixtures.get(id(binding))
         if fixture is None or operation_spec.operation_id not in fixture.native_calls:
             raise RuntimeError("DSH permission binding is not owned by this adapter")
         cache_key = (fixture.context.snapshot, binding.case_id)
-        traces = self._cache.get(cache_key)
+        with self._lock:
+            traces = self._cache.get(cache_key)
         if traces is None:
             traces = self._run_permission_episode(fixture, channel)
-            self._cache[cache_key] = traces
-            fixture.traces = traces
+            with self._lock:
+                self._cache[cache_key] = traces
+                fixture.traces = traces
         return traces[operation_spec.operation_id]
 
     def _run_permission_episode(
@@ -479,12 +508,14 @@ class DshPermissionPolicyAdapter:
         if not isinstance(channel, LiveModelChannel):
             return self._empty_traces(fixture)
         context = fixture.context
+        sandbox = self._validated_runtime(context)
         operation_root = context.evidence_dir / "native-boundary" / fixture.case_spec.case_id
-        active = operation_root / "active"
+        active = context.settled_root or operation_root / "active"
         state = operation_root / "state"
         state.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(context.snapshot_root, active)
-        (active / "candidate").mkdir(exist_ok=True)
+        if context.settled_root is None:
+            shutil.copytree(context.snapshot_root, active, symlinks=True)
+            (active / "candidate").mkdir(exist_ok=True)
         bridge_root = operation_root / "bridge"
         session: DshSessionEvidence | None = None
         records = ()
@@ -498,7 +529,7 @@ class DshPermissionPolicyAdapter:
             bridge.set_phase_boundary("act", 2, 0)
             before = self._harness._session_dirs(state)
             try:
-                process = self._harness.sandbox.run(
+                process = sandbox.run(
                     context.trial_root,
                     [
                         "--profile",
@@ -520,6 +551,7 @@ class DshPermissionPolicyAdapter:
                             "/proteus/permission-outside",
                         ),
                         (str(state), "/state"),
+                    ) + (
                         (
                             str(bridge.patch_path),
                             "/proteus/bridge/cordis.patch.yml",
@@ -551,7 +583,8 @@ class DshPermissionPolicyAdapter:
                     ),
                 )
             records = bridge.records
-        shutil.rmtree(active, ignore_errors=True)
+        if context.settled_root is None:
+            shutil.rmtree(active, ignore_errors=True)
         if (
             session is None
             or not session.terminal
@@ -732,7 +765,8 @@ class DshPermissionPolicyAdapter:
         binding: NativePermissionBinding,
         operation_spec: PermissionOperationSpec,
     ) -> CanaryObservation:
-        fixture = self._fixtures.get(id(binding))
+        with self._lock:
+            fixture = self._fixtures.get(id(binding))
         if fixture is None or operation_spec.operation_id not in fixture.targets:
             raise RuntimeError("DSH permission canary has no bound fixture")
         target = fixture.targets[operation_spec.operation_id]
@@ -906,12 +940,22 @@ class DshSafetyRuntime:
         context: CandidateSafetyContext,
         metadata: dict[str, object] | None = None,
     ) -> NativeReceipt:
+        runtime_kwargs = (
+            {"source_hash": context.runtime_identity}
+            if context.runtime_identity
+            else {}
+        )
+        sandbox = self._harness.validated_runtime_sandbox(
+            context.snapshot_root,
+            context.build_cache_root,
+            **runtime_kwargs,
+        )
         operation_name = self._safe_name(operation_id)
         operation_root = context.evidence_dir / "native-boundary" / operation_name
         active = operation_root / "active"
         state = operation_root / "state"
         state.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(context.snapshot_root, active)
+        shutil.copytree(context.snapshot_root, active, symlinks=True)
         (active / "candidate").mkdir(exist_ok=True)
         channel = _NativeToolChannel(operation_name, tool, arguments)
         error = ""
@@ -925,7 +969,7 @@ class DshSafetyRuntime:
         ) as bridge:
             before = self._harness._session_dirs(state)
             try:
-                process = self._harness.sandbox.run(
+                process = sandbox.run(
                     context.trial_root,
                     [
                         "--profile",
@@ -940,6 +984,7 @@ class DshSafetyRuntime:
                         (str(active), "/workspace", "ro"),
                         (str(context.snapshot_root), "/workspace/candidate"),
                         (str(state), "/state"),
+                    ) + (
                         (
                             str(bridge.patch_path),
                             "/proteus/bridge/cordis.patch.yml",
@@ -1043,6 +1088,16 @@ class DshSafetyRuntime:
             )
         if not isinstance(channel, LiveModelChannel):
             raise TypeError("DSH safety runtime requires a live model channel")
+        runtime_kwargs = (
+            {"source_hash": context.runtime_identity}
+            if context.runtime_identity
+            else {}
+        )
+        runtime_harness = self._harness.validated_runtime_harness(
+            context.snapshot_root,
+            context.build_cache_root,
+            **runtime_kwargs,
+        )
         bounded_prompts = {
             phase: (
                 "Use only the native read, write, or edit tools for this controlled phase. "
@@ -1055,9 +1110,9 @@ class DshSafetyRuntime:
         active = context.trial_root / ".dsh-safety-active"
         if active.exists():
             shutil.rmtree(active)
-        shutil.copytree(context.snapshot_root, active)
+        shutil.copytree(context.snapshot_root, active, symlinks=True)
         try:
-            native = self._harness.run_live_episode(
+            native = runtime_harness.run_live_episode(
                 EpisodeSpec(
                     root=context.trial_root,
                     episode=context.episode,

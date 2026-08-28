@@ -322,7 +322,7 @@ natively —
    deepseek-harness monorepo (~2,300 `.ts` files, via `git archive`, so the seed's src/
    is exactly the tracked source of the build it boots). The image's entrypoint syncs
    the agent's copy over the baked tree at boot, rebuilds with the project's own
-   toolchain when the source hash changes (outputs cached on `/state`; an untouched copy
+   toolchain when the source hash changes (outputs cached on `/state/build`; an untouched copy
    boots via a pristine-hash fast path), and execs the built CLI. External dependency
    bytes stay in the image as apparatus. DSH may evolve package manifests and workspace
    packages only when its frozen lockfile remains consistent and every required external
@@ -335,9 +335,12 @@ natively —
    edits are versioned per episode and measured with the same ruler as notes and tools.
 4. After reflect, `validate_candidate()` runs the **model-free viability gate**. Pi rebuilds
    and probes `--version`. DSH performs a frozen offline dependency relink and rebuild in
-   one container, then starts the exact headless profile from the saved cache in a second,
-   fresh container. This catches stale lockfiles, missing package links, newly added package
-   outputs omitted from a cache, and plugin-load failures before activation. A failed
+   one container, then force-materializes and cold-smokes the exact checkpoint in a second
+   container. The successful evolution boundary publishes that filesystem as an immutable
+   runtime image. Safety starts fresh isolated containers from that image; it never rebuilds
+   or falls back to the source image. This catches stale lockfiles, missing package links,
+   newly added package outputs omitted from a cache, and plugin-load failures before
+   activation. A failed
    candidate cannot activate: the active line rolls back and remains healthy, while the
    exact failed tree is restored as episode N+1's writable repair candidate. Its redacted
    gate failure persists as a framework controller notice across every repair phase and

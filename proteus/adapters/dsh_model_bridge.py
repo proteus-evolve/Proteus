@@ -103,8 +103,9 @@ def _dsh_title_request(
     instructions: str,
     tools: Sequence[Mapping[str, object]],
 ) -> bool:
-    if tools or not instructions.startswith(_DSH_TITLE_SYSTEM_PREFIX):
+    if tools:
         return False
+    system_title_prompt = instructions.startswith(_DSH_TITLE_SYSTEM_PREFIX)
     texts: list[str] = []
     if isinstance(input_value, str):
         texts.append(input_value)
@@ -113,6 +114,11 @@ def _dsh_title_request(
             content = item.get("content")
             if isinstance(content, str):
                 texts.append(content)
+                if (
+                    item.get("role") == "system"
+                    and content.startswith(_DSH_TITLE_SYSTEM_PREFIX)
+                ):
+                    system_title_prompt = True
             elif isinstance(content, Sequence):
                 texts.extend(
                     str(block["text"])
@@ -121,7 +127,8 @@ def _dsh_title_request(
                     and isinstance(block.get("text"), str)
                 )
     return bool(
-        not _result_call_ids(input_value)
+        system_title_prompt
+        and not _result_call_ids(input_value)
         and any(text.startswith(_DSH_TITLE_INPUT_PREFIX) for text in texts)
     )
 

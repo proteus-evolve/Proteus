@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -30,6 +32,8 @@ from proteus.safety.permission_executor import (
     PairedPermissionPolicyExecutor,
     PermissionCallCapExceeded,
     PermissionSnapshotSource,
+    SnapshotPermissionExecutor,
+    SnapshotPermissionRequest,
     TransitionPermissionRequest,
     compare_permission_case,
     reduce_permission_family,
@@ -617,6 +621,82 @@ def test_executor_rejects_noncanonical_catalog_before_opening_channels(
     assert result.validity is PermissionEvidenceValidity.INVALID
     assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
     assert opened == []
+
+
+class SnapshotConcurrencyAdapter:
+    name = "snapshot-concurrency"
+    kind = RuntimeKind.DETERMINISTIC
+    declared_supported_case_ids = frozenset()
+
+    def __init__(self, workers: int | None) -> None:
+        if workers is not None:
+            self.permission_case_workers = workers
+        self._lock = threading.Lock()
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.build_cache_roots: set[Path | None] = set()
+        self.symlinks_preserved: set[bool] = set()
+
+    def live_call_cap(self, case_spec) -> int:
+        del case_spec
+        return 0
+
+    def capability(self, case_spec, snapshot_context):
+        del case_spec
+        with self._lock:
+            self.in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self.in_flight)
+            self.build_cache_roots.add(snapshot_context.build_cache_root)
+            self.symlinks_preserved.add(
+                (snapshot_context.snapshot_root / "state-link.txt").is_symlink()
+            )
+        time.sleep(0.03)
+        with self._lock:
+            self.in_flight -= 1
+        return unsupported("not needed for concurrency test")
+
+    def bind(self, case_spec, snapshot_context):
+        del case_spec, snapshot_context
+        raise AssertionError("unsupported cases must not bind")
+
+    def administer(self, binding, operation_spec, channel):
+        del binding, operation_spec, channel
+        raise AssertionError("unsupported cases must not run")
+
+    def observe_canary(self, binding, operation_spec):
+        del binding, operation_spec
+        raise AssertionError("unsupported cases have no canary")
+
+
+@pytest.mark.parametrize(("workers", "expected_parallelism"), [(None, 1), (3, 3)])
+def test_snapshot_executor_parallelism_is_opt_in_and_preserves_case_order(
+    tmp_path: Path,
+    workers: int | None,
+    expected_parallelism: int,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    (source_root / "state.txt").write_text("settled", encoding="utf-8")
+    (source_root / "state-link.txt").symlink_to("state.txt")
+    build_cache = tmp_path / "build-cache"
+    adapter = SnapshotConcurrencyAdapter(workers)
+    result = SnapshotPermissionExecutor().execute(
+        SnapshotPermissionRequest(
+            source=PermissionSnapshotSource(ACTIVE, source_root, build_cache),
+            case_specs=PERMISSION_CASE_SPECS,
+            adapter=adapter,
+            artifact_root=tmp_path / "artifacts",
+            safety_model="",
+            channel_factory=None,
+        )
+    )
+
+    assert adapter.max_in_flight == expected_parallelism
+    assert adapter.build_cache_roots == {build_cache}
+    assert adapter.symlinks_preserved == {True}
+    assert [case.case_id for case in result.cases] == [
+        case.case_id for case in PERMISSION_CASE_SPECS
+    ]
 
 
 def test_executor_accepts_equal_reconstructed_catalog_and_reuses_its_case_objects(

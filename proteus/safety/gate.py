@@ -12,6 +12,7 @@ import shutil
 import time
 from dataclasses import replace
 from pathlib import Path
+from threading import Lock
 from typing import Callable
 
 from proteus.core.activation import EpisodeSafetyRecord, SettledEpisodeSafetyContext
@@ -573,6 +574,18 @@ class PostEpisodeSafetyRunner:
         self._admission_inputs: dict[str, tuple[ChallengeManifest, tuple[AdvBenchItem, ...]]] = {}
         self._collapse_panels: dict[str, PaulGrahamPanel | None] = {}
         self._safety_calls = 0
+        self._safety_calls_lock = Lock()
+
+    def _safety_call_count(self) -> int:
+        with self._safety_calls_lock:
+            return self._safety_calls
+
+    def _record_safety_call(self) -> None:
+        with self._safety_calls_lock:
+            self._safety_calls += 1
+
+    def _build_cache_root(self, run_id: str) -> Path:
+        return self._controller_root / "runs" / run_id / ".dsh-build-cache"
 
     def history_for(self, run_id: str) -> SafetyHistory:
         history = self._histories.get(run_id)
@@ -662,6 +675,13 @@ class PostEpisodeSafetyRunner:
     ) -> None:
         supported: list[str] = []
         unsupported: list[str] = []
+        build_cache_root = self._build_cache_root(context.run_id)
+        identity_method = getattr(adapter, "snapshot_runtime_identity", None)
+        runtime_identity = (
+            identity_method(context.snapshot_root, build_cache_root)
+            if callable(identity_method)
+            else ""
+        )
         for case_spec in PERMISSION_CASE_SPECS:
             snapshot_context = PermissionSnapshotContext(
                 snapshot=context.snapshot_ref,
@@ -669,6 +689,8 @@ class PostEpisodeSafetyRunner:
                 trial_root=staging / "preflight-trials" / "settled",
                 evidence_dir=staging / "preflight-trials" / "settled" / "raw",
                 artifact_root=staging,
+                build_cache_root=build_cache_root,
+                runtime_identity=runtime_identity,
             )
             capability = adapter.capability(case_spec, snapshot_context)
             if capability.state.value == "supported":
@@ -710,9 +732,9 @@ class PostEpisodeSafetyRunner:
         trial_root = artifact_root / "trials" / definition.family_id / "settled"
         snapshot_root = trial_root / "harness"
         runtime = _runtime_for(self._adapter)
-        shutil.copytree(context.snapshot_root, snapshot_root)
+        shutil.copytree(context.snapshot_root, snapshot_root, symlinks=True)
         logical_active = trial_root.parent / ".settled-logical-active" / "harness"
-        shutil.copytree(context.snapshot_root, logical_active)
+        shutil.copytree(context.snapshot_root, logical_active, symlinks=True)
         safety_context = CandidateSafetyContext(
             run_id=context.run_id,
             episode=context.episode,
@@ -727,6 +749,15 @@ class PostEpisodeSafetyRunner:
             active_root=logical_active,
             goal_text=context.goal_text,
             endpoint=ProbeEndpoint.SETTLED,
+            build_cache_root=self._build_cache_root(context.run_id),
+            runtime_identity=(
+                self._adapter.snapshot_runtime_identity(
+                    context.snapshot_root,
+                    self._build_cache_root(context.run_id),
+                )
+                if callable(getattr(self._adapter, "snapshot_runtime_identity", None))
+                else ""
+            ),
         )
         has_real_episode = any(
             cell.stratum.value == "real_episode" for cell in definition.declared_cells
@@ -744,7 +775,7 @@ class PostEpisodeSafetyRunner:
                 self._safety_model,
                 f"{context.run_id}.episode-{context.episode:03d}.{cell_id}.settled",
             )
-            self._safety_calls += 1
+            self._record_safety_call()
             if not callable(getattr(channel, "close", None)):
                 raise TypeError("live channel factory must implement LiveModelChannel")
         try:
@@ -1039,13 +1070,23 @@ class PostEpisodeSafetyRunner:
                 raise ValueError("permission policy channels require a positive call cap")
             if self._channel_factory is None:
                 return None
-            self._safety_calls += 1
+            self._record_safety_call()
             return self._channel_factory(model, cell_id)
 
+        build_cache_root = self._build_cache_root(context.run_id)
+        identity_method = getattr(permission_adapter, "snapshot_runtime_identity", None)
+        runtime_identity = (
+            identity_method(context.snapshot_root, build_cache_root)
+            if callable(identity_method)
+            else ""
+        )
         family = self._permission_executor.execute(
             SnapshotPermissionRequest(
                 source=PermissionSnapshotSource(
-                    context.snapshot_ref, context.snapshot_root
+                    context.snapshot_ref,
+                    context.snapshot_root,
+                    build_cache_root,
+                    runtime_identity,
                 ),
                 case_specs=PERMISSION_CASE_SPECS,
                 adapter=permission_adapter,
@@ -1116,12 +1157,39 @@ class PostEpisodeSafetyRunner:
             self._controller_root
         ).as_posix()
         lineage = _load_lineage(self._controller_root, context)
+        preparation = None
+        runtime_manifest = None
+        prepare = getattr(self._adapter, "prepare_safety_runtime", None)
+        prune = getattr(self._adapter, "prune_safety_runtimes", None)
+        if callable(prepare) or callable(prune):
+            preparation_started = time.perf_counter()
+            build_cache_root = self._build_cache_root(context.run_id)
+            scheduled = any(
+                self._should_run(definition.family_id, context)
+                for definition in self._definitions
+            )
+            if scheduled and callable(prepare):
+                runtime_manifest = prepare(context.snapshot_root, build_cache_root)
+                action = "verified"
+            else:
+                if callable(prune):
+                    prune(context.snapshot_root, build_cache_root)
+                action = "pruned_only"
+            preparation = {
+                "action": action,
+                "scheduled_family": scheduled,
+                "wall_time_s": round(time.perf_counter() - preparation_started, 6),
+            }
+            if isinstance(runtime_manifest, dict):
+                preparation["runtime_manifest"] = runtime_manifest
         started = time.perf_counter()
-        calls_before = self._safety_calls
+        calls_before = self._safety_call_count()
         with AtomicGatePublication(final_root, label="episode safety") as publication:
             assert publication.staging_root is not None
             staging = publication.staging_root
             write_json(staging / "controller" / "lineage.json", lineage)
+            if preparation is not None:
+                write_json(staging / "controller" / "runtime-preparation.json", preparation)
             admission = empty_admission(error_execution())
             collapse = empty_collapse(error_execution())
             permission = empty_permission(error_execution())
@@ -1198,7 +1266,7 @@ class PostEpisodeSafetyRunner:
                 memory_bad_admission=admission,
                 memory_collapse=collapse,
                 tools_permission_drift=permission,
-                safety_calls=self._safety_calls - calls_before,
+                safety_calls=self._safety_call_count() - calls_before,
                 wall_time_s=round(time.perf_counter() - started, 6),
             )
             write_json(staging / "memory_bad_admission" / "result.json", admission)

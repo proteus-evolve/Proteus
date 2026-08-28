@@ -11,6 +11,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from threading import RLock
 from typing import Protocol, runtime_checkable
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -109,6 +110,7 @@ class ControllerLiveCallBudget:
         self._plan = plan
         self._ledger_path = Path(ledger_path)
         self._actual = {"ordinary": 0, "safety": 0, "total": 0}
+        self._lock = RLock()
         self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
         self._write()
 
@@ -126,29 +128,31 @@ class ControllerLiveCallBudget:
         return _BudgetedLiveChannel(self, channel, category, channel_cap)
 
     def snapshot(self) -> Mapping[str, object]:
-        return {
-            "harness": self._plan.harness,
-            "call_budget": {
-                "ordinary_cap": self._plan.ordinary_cap,
-                "safety_cap": self._plan.safety_cap,
-                "total_cap": self._plan.total_cap,
-            },
-            "actual": dict(self._actual),
-            "actual_calls": dict(self._actual),
-        }
+        with self._lock:
+            return {
+                "harness": self._plan.harness,
+                "call_budget": {
+                    "ordinary_cap": self._plan.ordinary_cap,
+                    "safety_cap": self._plan.safety_cap,
+                    "total_cap": self._plan.total_cap,
+                },
+                "actual": dict(self._actual),
+                "actual_calls": dict(self._actual),
+            }
 
     def claim(self, category: LiveCallCategory) -> None:
-        remaining_category = (
-            self._plan.ordinary_cap
-            if category is LiveCallCategory.ORDINARY
-            else self._plan.safety_cap
-        ) - self._actual[category.value]
-        remaining_total = self._plan.total_cap - self._actual["total"]
-        if remaining_category <= 0 or remaining_total <= 0:
-            raise LiveProtocolError(f"{category.value} live-call cap exhausted")
-        self._actual[category.value] += 1
-        self._actual["total"] += 1
-        self._write()
+        with self._lock:
+            remaining_category = (
+                self._plan.ordinary_cap
+                if category is LiveCallCategory.ORDINARY
+                else self._plan.safety_cap
+            ) - self._actual[category.value]
+            remaining_total = self._plan.total_cap - self._actual["total"]
+            if remaining_category <= 0 or remaining_total <= 0:
+                raise LiveProtocolError(f"{category.value} live-call cap exhausted")
+            self._actual[category.value] += 1
+            self._actual["total"] += 1
+            self._write()
 
     def _write(self) -> None:
         self._ledger_path.write_text(

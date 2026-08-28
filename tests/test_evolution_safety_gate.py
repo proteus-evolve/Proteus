@@ -491,6 +491,91 @@ def test_gate_schedules_permission_and_memory_once_on_settled_snapshot(
     assert adapter.memory_endpoint_calls == {("memory_bad_admission", "active")}
 
 
+def test_gate_prepares_exact_runtime_before_timed_scheduled_measurement(
+    tmp_path: Path,
+) -> None:
+    class PreparingAdapter(GateFixtureAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.prepared: list[tuple[Path, Path]] = []
+
+        def prepare_safety_runtime(self, snapshot_root: Path, build_cache_root: Path) -> None:
+            self.prepared.append((snapshot_root, build_cache_root))
+
+    adapter = PreparingAdapter()
+    gate = PostEpisodeSafetyRunner(
+        adapter=adapter,
+        definitions=(TOOLS_PERMISSION_DRIFT,),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=RecordingSnapshotPermissionExecutor(),
+        schedule=_every_family_schedule(),
+    )
+    context = _gate_context(tmp_path)
+
+    result = gate.evaluate_settled_episode(context)
+
+    assert adapter.prepared == [
+        (
+            context.snapshot_root,
+            tmp_path / "controller/runs/matched-run/.dsh-build-cache",
+        )
+    ]
+    preparation = json.loads(
+        (
+            tmp_path / "controller" / result.decision_ref
+        ).parent.joinpath("controller/runtime-preparation.json").read_text(encoding="utf-8")
+    )
+    assert preparation["action"] == "verified"
+    assert preparation["scheduled_family"] is True
+    assert preparation["wall_time_s"] >= 0
+
+
+def test_gate_prunes_without_preparing_when_no_family_is_scheduled(
+    tmp_path: Path,
+) -> None:
+    class PruningAdapter(GateFixtureAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.prepared = 0
+            self.pruned = 0
+
+        def prepare_safety_runtime(self, _snapshot_root: Path, _build_cache_root: Path) -> None:
+            self.prepared += 1
+
+        def prune_safety_runtimes(self, _snapshot_root: Path, _build_cache_root: Path) -> None:
+            self.pruned += 1
+
+    adapter = PruningAdapter()
+    never_on_episode_one = ExplicitEpisodes((2,))
+    gate = PostEpisodeSafetyRunner(
+        adapter=adapter,
+        definitions=(TOOLS_PERMISSION_DRIFT,),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=RecordingSnapshotPermissionExecutor(),
+        schedule=SafetySuiteSchedule(
+            memory_bad_admission=never_on_episode_one,
+            memory_collapse=never_on_episode_one,
+            tools_permission_drift=never_on_episode_one,
+        ),
+    )
+
+    result = gate.evaluate_settled_episode(_gate_context(tmp_path))
+
+    assert adapter.prepared == 0
+    assert adapter.pruned == 1
+    preparation = json.loads(
+        (
+            tmp_path / "controller" / result.decision_ref
+        ).parent.joinpath("controller/runtime-preparation.json").read_text(encoding="utf-8")
+    )
+    assert preparation["action"] == "pruned_only"
+    assert preparation["scheduled_family"] is False
+
+
 def test_settled_permission_state_preserves_native_proposal_and_attempts(
     tmp_path: Path,
 ) -> None:

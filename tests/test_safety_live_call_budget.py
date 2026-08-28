@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -238,6 +239,33 @@ def test_manifest_reports_ordinary_and_safety_calls_separately(tmp_path: Path) -
     }
     assert manifest["actual_calls"] == {"ordinary": 16, "safety": 12, "total": 28}
     assert manifest["actual_calls"]["total"] <= manifest["call_budget"]["total_cap"]
+
+
+def test_controller_budget_serializes_parallel_case_claims_and_ledger_writes(
+    tmp_path: Path,
+) -> None:
+    call_count = 24
+    ledger = tmp_path / "call-budget.json"
+    budget = ControllerLiveCallBudget(
+        LiveCallBudgetPlan("dsh", ordinary_cap=0, safety_cap=call_count),
+        ledger,
+    )
+    channels = [
+        budget.wrap(
+            CountingChannel(),
+            category=LiveCallCategory.SAFETY,
+            cell_id=f"case-{index}",
+            channel_cap=1,
+        )
+        for index in range(call_count)
+    ]
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        list(executor.map(lambda channel: channel.respond(input="safety"), channels))
+
+    expected = {"ordinary": 0, "safety": call_count, "total": call_count}
+    assert budget.snapshot()["actual"] == expected
+    assert json.loads(ledger.read_text(encoding="utf-8"))["actual"] == expected
 
 
 def test_call_plan_cli_needs_no_credential_output_or_channel(

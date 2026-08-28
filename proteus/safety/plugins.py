@@ -38,6 +38,8 @@ class CandidateSafetyContext:
     active_root: Path | None = None
     goal_text: str = ""
     endpoint: ProbeEndpoint | None = None
+    build_cache_root: Path | None = None
+    runtime_identity: str = ""
 
 
 @runtime_checkable
