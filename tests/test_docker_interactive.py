@@ -12,7 +12,6 @@ import pytest
 
 from proteus.sandbox import DockerSandbox, SandboxConfig
 
-
 _EOF = object()
 
 
@@ -660,3 +659,196 @@ def test_abort_bounds_and_reports_blocked_pipe_reader(
     assert elapsed < 0.2
     assert recorded.run_calls.count(remove) == 1
     assert result.stdout == b"blocked-output"
+
+
+def test_cold_smoke_commits_direct_runtime_image_and_removes_container(tmp_path: Path) -> None:
+    """A warmed snapshot can be reused without preserving its disposable container."""
+    import proteus.sandbox.docker as mod
+
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, "ok", "")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        completed = DockerSandbox(SandboxConfig(image="base-image")).run_and_commit_image(
+            tmp_path,
+            ["--proteus-headless-smoke"],
+            {},
+            timeout_s=1,
+            runtime_image="proteus-dsh-runtime:example",
+            entrypoint=("node", "/opt/src/apps/cli/lib/bin.js"),
+            mounts=((str(tmp_path / "workspace"), "/workspace"),),
+        )
+    finally:
+        mod.subprocess.run = real
+
+    smoke, commit, remove = calls
+    name = smoke[smoke.index("--name") + 1]
+    assert completed.returncode == 0
+    assert "--rm" not in smoke
+    assert smoke[smoke.index("base-image") + 1:] == ["--proteus-headless-smoke"]
+    assert commit == [
+        "docker",
+        "commit",
+        "--change",
+        'ENTRYPOINT ["node","/opt/src/apps/cli/lib/bin.js"]',
+        name,
+        "proteus-dsh-runtime:example",
+    ]
+    assert remove == ["docker", "rm", "-f", name]
+
+
+def test_cold_smoke_failure_does_not_publish_runtime_and_removes_container(tmp_path: Path) -> None:
+    import proteus.sandbox.docker as mod
+
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        if argv[:2] == ["docker", "run"]:
+            return subprocess.CompletedProcess(argv, 91, "", "cold failure")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        completed = DockerSandbox(SandboxConfig(image="base-image")).run_and_commit_image(
+            tmp_path,
+            ["--proteus-headless-smoke"],
+            {},
+            timeout_s=1,
+            runtime_image="proteus-dsh-runtime:example",
+            entrypoint=("node", "/opt/src/apps/cli/lib/bin.js"),
+        )
+    finally:
+        mod.subprocess.run = real
+
+    smoke, remove = calls
+    name = smoke[smoke.index("--name") + 1]
+    assert completed.returncode == 91
+    assert not any(call[:2] == ["docker", "commit"] for call in calls)
+    assert remove == ["docker", "rm", "-f", name]
+
+
+def test_failed_runtime_commit_is_reported_and_removes_container(tmp_path: Path) -> None:
+    import proteus.sandbox.docker as mod
+
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        if argv[:2] == ["docker", "commit"]:
+            return subprocess.CompletedProcess(argv, 42, "", "tag rejected")
+        return subprocess.CompletedProcess(argv, 0, "smoked", "")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        completed = DockerSandbox(SandboxConfig(image="base-image")).run_and_commit_image(
+            tmp_path,
+            ["--proteus-headless-smoke"],
+            {},
+            timeout_s=1,
+            runtime_image="proteus-dsh-runtime:example",
+            entrypoint=("node", "/opt/src/apps/cli/lib/bin.js"),
+        )
+    finally:
+        mod.subprocess.run = real
+
+    smoke, commit, remove = calls
+    name = smoke[smoke.index("--name") + 1]
+    assert completed.returncode == 42
+    assert "failed to publish committed runtime image: tag rejected" in completed.stderr
+    assert commit[:2] == ["docker", "commit"]
+    assert remove == ["docker", "rm", "-f", name]
+
+
+def test_cold_smoke_timeout_removes_uncommitted_container(tmp_path: Path) -> None:
+    import subprocess as sp
+
+    import proteus.sandbox.docker as mod
+
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv)
+        if argv[:2] == ["docker", "run"]:
+            raise sp.TimeoutExpired(argv, kwargs["timeout"])
+        return sp.CompletedProcess(argv, 0, "", "")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        with pytest.raises(sp.TimeoutExpired):
+            DockerSandbox(SandboxConfig(image="base-image")).run_and_commit_image(
+                tmp_path,
+                ["--proteus-headless-smoke"],
+                {},
+                timeout_s=1,
+                runtime_image="proteus-dsh-runtime:example",
+                entrypoint=("node", "/opt/src/apps/cli/lib/bin.js"),
+            )
+    finally:
+        mod.subprocess.run = real
+
+    name = calls[0][calls[0].index("--name") + 1]
+    assert calls[1] == ["docker", "rm", "-f", name]
+
+
+def test_image_id_returns_immutable_id_or_empty_for_missing_image() -> None:
+    import proteus.sandbox.docker as mod
+
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        if argv[-1] == "present":
+            return subprocess.CompletedProcess(argv, 0, "sha256:immutable\n", "")
+        return subprocess.CompletedProcess(argv, 1, "", "not found")
+
+    real, mod.subprocess.run = mod.subprocess.run, fake_run
+    try:
+        assert DockerSandbox.image_id("present") == "sha256:immutable"
+        assert DockerSandbox.image_id("missing") == ""
+        assert DockerSandbox.image_id("") == ""
+    finally:
+        mod.subprocess.run = real
+
+    assert calls == [
+        ["docker", "image", "inspect", "--format", "{{.Id}}", "present"],
+        ["docker", "image", "inspect", "--format", "{{.Id}}", "missing"],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("current_id", "remove_returncode", "expected", "removed"),
+    (
+        ("", 0, True, False),
+        ("sha256:other", 0, False, False),
+        ("sha256:owned", 1, False, True),
+        ("sha256:owned", 0, True, True),
+    ),
+)
+def test_remove_image_requires_exact_identity_and_reports_removal(
+    monkeypatch: pytest.MonkeyPatch,
+    current_id: str,
+    remove_returncode: int,
+    expected: bool,
+    removed: bool,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(DockerSandbox, "image_id", lambda _image: current_id)
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, remove_returncode, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert DockerSandbox.remove_image(
+        "proteus-dsh-runtime:owned",
+        expected_image_id="sha256:owned",
+    ) is expected
+    assert bool(calls) is removed
+    if removed:
+        assert calls == [["docker", "image", "rm", "proteus-dsh-runtime:owned"]]

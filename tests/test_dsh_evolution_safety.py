@@ -35,8 +35,11 @@ from proteus.safety.permission_evidence import (
     PermissionEvidenceValidity,
 )
 from proteus.safety.permission_executor import (
+    CappedPermissionChannel,
     PairedPermissionPolicyExecutor,
     PermissionSnapshotSource,
+    SnapshotPermissionExecutor,
+    SnapshotPermissionRequest,
     TransitionPermissionRequest,
 )
 from proteus.safety.plugins import CandidateSafetyContext
@@ -650,7 +653,9 @@ def _dsh_permission_context(tmp_path: Path) -> PermissionSnapshotContext:
 
 
 def test_dsh_declares_all_six_ordinary_bash_routes(tmp_path: Path) -> None:
-    adapter = DshHarness(sandbox=object()).permission_policy_adapter()
+    harness = DshHarness(sandbox=object())
+    harness.validated_runtime_sandbox = lambda _snapshot, _cache: object()  # type: ignore[attr-defined]
+    adapter = harness.permission_policy_adapter()
     context = _dsh_permission_context(tmp_path)
     capabilities = {
         case.case_id: adapter.capability(case, context)
@@ -666,7 +671,9 @@ def test_dsh_declares_all_six_ordinary_bash_routes(tmp_path: Path) -> None:
     } == supported
     assert {
         case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS
-    } == {case.case_id: 2 for case in PERMISSION_CASE_SPECS}
+    } == {case.case_id: 3 for case in PERMISSION_CASE_SPECS}
+    assert adapter.permission_case_workers == 6
+    assert adapter.permission_case_stagger_s == 1.5
 
 
 def test_dsh_binding_preserves_operation_class_arguments_and_canaries(
@@ -1344,6 +1351,13 @@ def test_dsh_permission_title_is_controller_owned_when_main_request_arrives_firs
     title = boundary.respond(
         input=[
             {
+                "role": "system",
+                "content": (
+                    "Create a concise title for an AI coding-assistant session from "
+                    "the supplied human messages.\nReturn only the title on one line."
+                ),
+            },
+            {
                 "role": "user",
                 "content": (
                     "Generate the session title from this JSON array of human "
@@ -1351,10 +1365,7 @@ def test_dsh_permission_title_is_controller_owned_when_main_request_arrives_firs
                 ),
             }
         ],
-        instructions=(
-            "Create a concise title for an AI coding-assistant session from the "
-            "supplied human messages.\nReturn only the title on one line."
-        ),
+        instructions="",
         tools=(),
     )
     terminal = boundary.respond(
@@ -1375,6 +1386,105 @@ def test_dsh_permission_title_is_controller_owned_when_main_request_arrives_firs
     assert channel.provider_calls == 2
 
 
+class SerialPermissionChannel:
+    model = "gpt-5.6-luna"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def respond(self, *, input, instructions="", tools=()):
+        del input, instructions
+        self.calls += 1
+        provenance = LiveCallProvenance(
+            call_id=f"serial-call-{self.calls}",
+            response_id=f"serial-response-{self.calls}",
+            configured_model=self.model,
+            response_model=self.model,
+        )
+        tool_calls = ()
+        if tools and self.calls <= 2:
+            tool_calls = (
+                LiveToolCall(
+                    call_id=f"operation-{self.calls}",
+                    name="bash",
+                    arguments={"command": f"operation {self.calls}"},
+                ),
+            )
+        return LiveModelResponse(
+            response_id=provenance.response_id,
+            model=self.model,
+            output_text="" if tool_calls else "settled",
+            tool_calls=tool_calls,
+            provenance=provenance,
+        )
+
+    def close(self) -> None:
+        pass
+
+
+def test_dsh_permission_serial_protocol_keeps_three_real_requests_after_title(
+    tmp_path: Path,
+) -> None:
+    from proteus.adapters.dsh_model_bridge import _DshBudgetBoundaryChannel
+
+    provider = SerialPermissionChannel()
+    capped = CappedPermissionChannel(provider, cap=3)
+    boundary = _DshBudgetBoundaryChannel(
+        capped,
+        tmp_path,
+        deterministic_title=True,
+    )
+    boundary.set_phase_boundary("act", 2, 0)
+    title = boundary.respond(
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "Create a concise title for an AI coding-assistant session from "
+                    "the supplied human messages."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Generate the session title from this JSON array of human "
+                    'messages:\n[{"text":"permission episode"}]'
+                ),
+            },
+        ],
+        tools=(),
+    )
+    first = boundary.respond(input="permission", tools=({"name": "bash"},))
+    second = boundary.respond(
+        input=[
+            {
+                "type": "function_call_output",
+                "call_id": first.tool_calls[0].call_id,
+                "output": "denied",
+            }
+        ],
+        tools=({"name": "bash"},),
+    )
+    terminal = boundary.respond(
+        input=[
+            {
+                "type": "function_call_output",
+                "call_id": second.tool_calls[0].call_id,
+                "output": "allowed",
+            }
+        ],
+        tools=({"name": "bash"},),
+    )
+
+    assert title.response_id.startswith("proteus-dsh-title-response-")
+    assert [first.tool_calls[0].call_id, second.tool_calls[0].call_id] == [
+        "operation-1",
+        "operation-2",
+    ]
+    assert terminal.tool_calls == ()
+    assert provider.calls == capped.claimed_calls == 3
+
+
 class DshPermissionSandbox:
     def __init__(
         self, *, missing_policy: bool = False, missing_effect: bool = False
@@ -1382,6 +1492,9 @@ class DshPermissionSandbox:
         self.missing_policy = missing_policy
         self.missing_effect = missing_effect
         self.commands: list[list[str]] = []
+        self.mounts: list[tuple[tuple[str, ...], ...]] = []
+        self.snapshot_symlinks: list[tuple[bool, bool]] = []
+        self.runtime_requests: list[tuple[Path, Path | None]] = []
 
     @staticmethod
     def _container_path(path: str, by_target: dict[str, Path]) -> Path:
@@ -1401,7 +1514,14 @@ class DshPermissionSandbox:
     ):
         del run_root, timeout_s, stop_check
         self.commands.append(list(command))
+        self.mounts.append(tuple(mounts))
         by_target = {mount[1]: Path(mount[0]) for mount in mounts}
+        self.snapshot_symlinks.append(
+            (
+                (by_target["/workspace"] / "source-link.txt").is_symlink(),
+                (by_target["/workspace/candidate"] / "source-link.txt").is_symlink(),
+            )
+        )
         patch = by_target["/proteus/bridge/cordis.patch.yml"].read_text(
             encoding="utf-8"
         )
@@ -1681,14 +1801,30 @@ def _execute_one_dsh_permission_case(
     candidate_root = tmp_path / "candidate-source"
     active_root.mkdir()
     candidate_root.mkdir()
-    adapter = DshHarness(sandbox=sandbox, phase_timeout_s=30).permission_policy_adapter()
+    for source_root in (active_root, candidate_root):
+        (source_root / "source.txt").write_text("source\n", encoding="utf-8")
+        (source_root / "source-link.txt").symlink_to("source.txt")
+    harness = DshHarness(sandbox=sandbox, phase_timeout_s=30)
+
+    def validated_runtime_sandbox(
+        snapshot_root: Path, build_cache_root: Path | None
+    ) -> DshPermissionSandbox:
+        sandbox.runtime_requests.append((snapshot_root, build_cache_root))
+        return sandbox
+
+    harness.validated_runtime_sandbox = validated_runtime_sandbox  # type: ignore[attr-defined]
+    adapter = harness.permission_policy_adapter()
     channels: list[TwoTurnPermissionChannel] = []
     request = TransitionPermissionRequest(
         active=PermissionSnapshotSource(
-            SnapshotRef("dsh-run", 1, SnapshotRole.ACTIVE), active_root
+            SnapshotRef("dsh-run", 1, SnapshotRole.ACTIVE),
+            active_root,
+            tmp_path / "build-cache",
         ),
         candidate=PermissionSnapshotSource(
-            SnapshotRef("dsh-run", 1, SnapshotRole.CANDIDATE), candidate_root
+            SnapshotRef("dsh-run", 1, SnapshotRole.CANDIDATE),
+            candidate_root,
+            tmp_path / "build-cache",
         ),
         case_specs=PERMISSION_CASE_SPECS,
         adapter=adapter,
@@ -1696,7 +1832,7 @@ def _execute_one_dsh_permission_case(
         safety_model="gpt-5.6-luna",
         channel_factory=lambda _model, _cell, cap: (
             channels.append(TwoTurnPermissionChannel(case_id)) or channels[-1]
-            if cap == 2
+            if cap == 3
             else pytest.fail(f"unexpected DSH permission cap: {cap}")
         ),
     )
@@ -1739,6 +1875,23 @@ def test_dsh_supported_case_uses_native_route_and_independent_canary(
     assert len(channels) == 2
     assert all(channel.provider_calls == 2 and channel.closed for channel in channels)
     assert len(sandbox.commands) == 2
+    # Capability validation and the native execution both resolve the exact checkpoint
+    # runtime, once for each of the active and candidate snapshots.
+    assert len(sandbox.runtime_requests) == 4
+    assert {build_cache for _snapshot, build_cache in sandbox.runtime_requests} == {
+        tmp_path / "build-cache"
+    }
+    assert sandbox.snapshot_symlinks == [(True, True), (True, True)]
+    assert not any(
+        mount[1] == "/state/build" for mounts in sandbox.mounts for mount in mounts
+    )
+    state_roots = [
+        mount[0]
+        for mounts in sandbox.mounts
+        for mount in mounts
+        if mount[1] == "/state"
+    ]
+    assert len(state_roots) == len(set(state_roots)) == 2
 
 
 def test_dsh_delivery_ref_points_to_bridge_request_with_linked_result(
@@ -1772,6 +1925,88 @@ def test_dsh_delivery_ref_points_to_bridge_request_with_linked_result(
         assert len(linked_results) == 1
         assert "output" in linked_results[0]
         assert request_path.name.startswith("bridge-request-")
+
+
+def test_dsh_shared_settled_root_lives_until_snapshot_executor_finishes(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "settled-source"
+    source_root.mkdir()
+    (source_root / "source.txt").write_text("source\n", encoding="utf-8")
+    (source_root / "source-link.txt").symlink_to("source.txt")
+    sandbox = DshPermissionSandbox()
+    harness = DshHarness(sandbox=sandbox, phase_timeout_s=30)
+
+    def validated_runtime_sandbox(
+        snapshot: Path, build_cache: Path | None, **_kwargs: object
+    ) -> DshPermissionSandbox:
+        sandbox.runtime_requests.append((snapshot, build_cache))
+        return sandbox
+
+    harness.validated_runtime_sandbox = validated_runtime_sandbox  # type: ignore[attr-defined]
+    adapter = harness.permission_policy_adapter()
+    adapter.permission_case_workers = 1
+    adapter.permission_case_stagger_s = 0
+    case_specs = tuple(
+        case
+        for case in PERMISSION_CASE_SPECS
+        if case.case_id in {"recursive_deletion", "protected_overwrite", "workspace_boundary"}
+    )
+    channels: list[TwoTurnPermissionChannel] = []
+
+    result = SnapshotPermissionExecutor().execute(
+        SnapshotPermissionRequest(
+            source=PermissionSnapshotSource(
+                SnapshotRef("dsh-run", 1, SnapshotRole.ACTIVE),
+                source_root,
+                tmp_path / "build-cache",
+            ),
+            case_specs=case_specs,
+            adapter=adapter,
+            artifact_root=tmp_path / "artifacts",
+            safety_model="gpt-5.6-luna",
+            channel_factory=lambda _model, cell_id, cap: (
+                channels.append(
+                    TwoTurnPermissionChannel(
+                        next(case.case_id for case in case_specs if case.case_id in cell_id)
+                    )
+                )
+                or channels[-1]
+                if cap == 3
+                else pytest.fail(f"unexpected DSH permission cap: {cap}")
+            ),
+        )
+    )
+
+    active_roots = {
+        Path(mount[0])
+        for mounts in sandbox.mounts
+        for mount in mounts
+        if mount[1] == "/workspace"
+    }
+    assert len(result.cases) == len(case_specs)
+    assert sandbox.snapshot_symlinks == [(True, True)] * len(case_specs)
+    assert len(active_roots) == 1
+    assert not next(iter(active_roots)).exists()
+
+
+def test_dsh_permission_does_not_fall_back_when_validated_runtime_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    legacy_sandbox = DshPermissionSandbox()
+    harness = DshHarness(sandbox=legacy_sandbox, phase_timeout_s=30)
+
+    def unavailable_runtime(_snapshot: Path, _build_cache: Path | None) -> object:
+        raise RuntimeError("validated DSH runtime image is unavailable")
+
+    harness.validated_runtime_sandbox = unavailable_runtime  # type: ignore[attr-defined]
+    adapter = harness.permission_policy_adapter()
+    context = _dsh_permission_context(tmp_path)
+    case = PERMISSION_CASE_SPECS[0]
+
+    with pytest.raises(RuntimeError, match="validated DSH runtime image is unavailable"):
+        adapter.capability(case, context)
+    assert legacy_sandbox.commands == []
 
 
 def test_dsh_mount_or_missing_effect_without_native_policy_is_not_evaluated(
@@ -2087,6 +2322,10 @@ def test_dsh_safety_episode_requires_all_four_reserved_phases(
         events=(),
         lineage=(),
         artifact_root=tmp_path,
+        runtime_identity="a" * 64,
+    )
+    (snapshot_root / "notes" / "fixture-mutation.md").write_text(
+        "controller fixture\n", encoding="utf-8"
     )
     session_path = trial_root / ".dsh-state" / "sessions" / "observe.jsonl.zstd"
     session_path.parent.mkdir(parents=True)
@@ -2126,12 +2365,22 @@ def test_dsh_safety_episode_requires_all_four_reserved_phases(
         )
 
     monkeypatch.setattr(harness, "run_live_episode", partial)
+    runtime_requests: list[tuple[Path, Path | None, str | None]] = []
+
+    def validated_runtime_harness(
+        snapshot: Path, build_cache: Path | None, *, source_hash: str | None = None
+    ) -> DshHarness:
+        runtime_requests.append((snapshot, build_cache, source_hash))
+        return harness
+
+    harness.validated_runtime_harness = validated_runtime_harness  # type: ignore[attr-defined]
 
     result = DshSafetyRuntime(harness).run_safety_episode(
         {phase: f"{phase} prompt" for phase in PHASES}, context, TextChannel()
     )
 
     assert seen_specs[0].min_turns_per_phase == 1
+    assert runtime_requests == [(snapshot_root, None, "a" * 64)]
     assert not result.terminal
     assert result.error == "native DSH safety episode is missing required phases"
 
@@ -2336,13 +2585,24 @@ def test_dsh_runtime_administers_notes_faults_without_global_skills(
         events=(),
         lineage=(),
         artifact_root=tmp_path,
+        runtime_identity="b" * 64,
     )
     sandbox = DshNativeSandbox()
-    runtime = DshHarness(
+    harness = DshHarness(
         sandbox=sandbox,
         key="fixture-deepseek-secret",
         phase_timeout_s=30,
-    ).safety_runtime()
+    )
+    runtime_requests: list[tuple[Path, Path | None, str | None]] = []
+
+    def validated_runtime_sandbox(
+        snapshot: Path, build_cache: Path | None, *, source_hash: str | None = None
+    ) -> DshNativeSandbox:
+        runtime_requests.append((snapshot, build_cache, source_hash))
+        return sandbox
+
+    harness.validated_runtime_sandbox = validated_runtime_sandbox  # type: ignore[attr-defined]
+    runtime = harness.safety_runtime()
     qualified = MemoryStateRequest(
         "phase1-qualified-memory",
         "scope=run\nqualification=controller-owned\nvalue=preserve\n",
@@ -2350,6 +2610,7 @@ def test_dsh_runtime_administers_notes_faults_without_global_skills(
     )
 
     introduced = runtime.introduce_memory(qualified, context)
+    assert (snapshot_root / "notes" / f"{qualified.state_id}.md").is_file()
     read = runtime.read_memory(qualified.state_id, context)
 
     assert introduced.completed and introduced.result_delivered
@@ -2365,6 +2626,10 @@ def test_dsh_runtime_administers_notes_faults_without_global_skills(
 
     assert not (snapshot_root / ".dsh" / "skills").exists()
     assert not (snapshot_root / ".agents" / "skills").exists()
+    assert runtime_requests == [(snapshot_root, None, "b" * 64)]
+    assert not any(
+        mount[1] == "/state/build" for mounts in sandbox.mounts for mount in mounts
+    )
     assert all("DEEPSEEK_API_KEY" not in env for env in sandbox.envs)
     evidence_text = "\n".join(
         path.read_text(encoding="utf-8")

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from proteus.adapters.minimal import MinimalHarness, mock_policy
 from proteus.bench.task import BenchTask
 from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, snapshot
@@ -526,3 +528,87 @@ def test_staged_viability_repair_keeps_active_runtime_then_activates_through_gat
     assert result.eval_history[1]["activated"] is True
     assert (root / "harness" / "repaired.txt").read_text(encoding="utf-8") == "healthy\n"
     assert not pending_candidate_path(root).exists()
+
+
+def test_staged_seed_runtime_validates_before_legacy_safety_baseline(tmp_path: Path) -> None:
+    class SeedRuntimeHarness(RecordingHarness):
+        staged_activation = True
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.validated: list[Path] = []
+
+        def validate_candidate(self, harness_root: Path) -> str:
+            assert snapshot.commit_for_episode(harness_root, 0) is not None
+            self.validated.append(harness_root)
+            return ""
+
+    class LegacySafetyRunner:
+        def __init__(self, adapter: SeedRuntimeHarness) -> None:
+            self._adapter = adapter
+            self.episodes: list[int] = []
+            self.validation_counts: list[int] = []
+
+        def has_baseline(self, _run_id: str) -> bool:
+            return False
+
+        def evaluate_settled_episode(self, context):
+            assert self._adapter.validated
+            self.episodes.append(context.episode)
+            self.validation_counts.append(len(self._adapter.validated))
+            return SimpleNamespace(status="pass", decision_ref="safety/decision.json")
+
+    adapter = SeedRuntimeHarness()
+    runner = LegacySafetyRunner(adapter)
+    root = tmp_path / "staged-seed"
+
+    run(RunConfig(
+        name="staged-seed",
+        run_id="run-staged-seed",
+        adapter=adapter,
+        disposition=review("notes"),
+        goal=GoalConfig(),
+        root=root,
+        model="mock",
+        episodes=1,
+        safety_runner=runner,
+    ))
+
+    assert adapter.validated == [root / "harness", root / "harness"]
+    assert runner.episodes == [0, 1]
+    assert runner.validation_counts == [1, 2]
+
+
+def test_invalid_staged_seed_runtime_stops_before_legacy_safety_baseline(tmp_path: Path) -> None:
+    class BrokenSeedHarness(RecordingHarness):
+        staged_activation = True
+
+        def validate_candidate(self, _harness_root: Path) -> str:
+            return "cold start failed"
+
+    class LegacySafetyRunner:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def has_baseline(self, _run_id: str) -> bool:
+            return False
+
+        def evaluate_settled_episode(self, _context):
+            self.calls += 1
+            return SimpleNamespace(status="pass", decision_ref="safety/decision.json")
+
+    runner = LegacySafetyRunner()
+    with pytest.raises(RuntimeError, match="episode-0 seed runtime failed.*cold start failed"):
+        run(RunConfig(
+            name="broken-staged-seed",
+            run_id="run-broken-staged-seed",
+            adapter=BrokenSeedHarness(),
+            disposition=review("notes"),
+            goal=GoalConfig(),
+            root=tmp_path / "broken-staged-seed",
+            model="mock",
+            episodes=1,
+            safety_runner=runner,
+        ))
+
+    assert runner.calls == 0

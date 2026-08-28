@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, is_dataclass, replace
 from enum import Enum
 from pathlib import Path
@@ -71,6 +73,8 @@ class CappedPermissionChannel:
 class PermissionSnapshotSource:
     snapshot: SnapshotRef
     source_root: Path
+    build_cache_root: Path | None = None
+    runtime_identity: str = ""
 
 
 @dataclass(frozen=True)
@@ -540,7 +544,7 @@ class PairedPermissionPolicyExecutor:
         endpoint: str,
     ) -> PermissionSnapshotContext:
         snapshot_root = temporary_root / "harness"
-        shutil.copytree(source.source_root, snapshot_root)
+        shutil.copytree(source.source_root, snapshot_root, symlinks=True)
         trial_root = request.artifact_root / "trials" / "tools_permission_drift" / case_spec.case_id / endpoint
         evidence_dir = trial_root / "raw"
         evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -550,6 +554,7 @@ class PairedPermissionPolicyExecutor:
             trial_root=trial_root,
             evidence_dir=evidence_dir,
             artifact_root=request.artifact_root,
+            build_cache_root=source.build_cache_root,
         )
 
     def _administer_endpoint(
@@ -675,10 +680,55 @@ class SnapshotPermissionExecutor:
     """Administer protected/allowed operations on one settled snapshot."""
 
     def execute(self, request: SnapshotPermissionRequest) -> SnapshotPermissionFamily:
-        evaluations: list[PermissionCaseEvaluation] = []
-        for case_spec in request.case_specs:
-            evaluation = self._execute_case(request, case_spec)
-            evaluations.append(evaluation)
+        workers = getattr(request.adapter, "permission_case_workers", 1)
+        if type(workers) is not int or workers <= 0:
+            raise ValueError("permission case workers must be a positive integer")
+        stagger_s = getattr(request.adapter, "permission_case_stagger_s", 0.0)
+        if (
+            isinstance(stagger_s, bool)
+            or not isinstance(stagger_s, (int, float))
+            or stagger_s < 0
+        ):
+            raise ValueError("permission case stagger must be a non-negative number")
+
+        shared_temporary = (
+            TemporaryDirectory(prefix="proteus-permission-active-")
+            if getattr(request.adapter, "permission_shared_active_root", False)
+            else None
+        )
+        shared_active_root = None
+        if shared_temporary is not None:
+            shared_active_root = Path(shared_temporary.name) / "harness"
+            shutil.copytree(request.source.source_root, shared_active_root, symlinks=True)
+            (shared_active_root / "candidate").mkdir(exist_ok=True)
+
+        def execute_indexed(item: tuple[int, PermissionPolicyCaseSpec]):
+            index, case_spec = item
+            if stagger_s and index:
+                time.sleep(index * stagger_s)
+            return self._execute_case(request, case_spec, shared_active_root)
+
+        try:
+            if workers == 1 or len(request.case_specs) <= 1:
+                evaluations = [
+                    self._execute_case(request, case_spec, shared_active_root)
+                    for case_spec in request.case_specs
+                ]
+            else:
+                with ThreadPoolExecutor(
+                    max_workers=min(workers, len(request.case_specs)),
+                    thread_name_prefix="proteus-permission",
+                ) as executor:
+                    evaluations = list(
+                        executor.map(
+                            execute_indexed,
+                            enumerate(request.case_specs),
+                        )
+                    )
+        finally:
+            if shared_temporary is not None:
+                shared_temporary.cleanup()
+        for case_spec, evaluation in zip(request.case_specs, evaluations, strict=True):
             _write_json(
                 request.artifact_root
                 / "tools_permission_drift"
@@ -703,7 +753,10 @@ class SnapshotPermissionExecutor:
         return family
 
     def _execute_case(
-        self, request: SnapshotPermissionRequest, case_spec: PermissionPolicyCaseSpec
+        self,
+        request: SnapshotPermissionRequest,
+        case_spec: PermissionPolicyCaseSpec,
+        settled_root: Path | None = None,
     ) -> PermissionCaseEvaluation:
         try:
             call_cap = request.adapter.live_call_cap(case_spec)
@@ -717,7 +770,12 @@ class SnapshotPermissionExecutor:
                     "permission adapter live-call cap contradicts declared support"
                 )
             with TemporaryDirectory(prefix="proteus-permission-settled-") as temporary:
-                context = self._context(request, case_spec, Path(temporary))
+                context = self._context(
+                    request,
+                    case_spec,
+                    Path(temporary),
+                    settled_root=settled_root,
+                )
                 capability = request.adapter.capability(case_spec, context)
                 if capability.state is PermissionCapabilityState.UNSUPPORTED:
                     return self._case_result(
@@ -760,9 +818,11 @@ class SnapshotPermissionExecutor:
         request: SnapshotPermissionRequest,
         case_spec: PermissionPolicyCaseSpec,
         temporary_root: Path,
+        *,
+        settled_root: Path | None = None,
     ) -> PermissionSnapshotContext:
         snapshot_root = temporary_root / "harness"
-        shutil.copytree(request.source.source_root, snapshot_root)
+        shutil.copytree(request.source.source_root, snapshot_root, symlinks=True)
         trial_root = temporary_root / "trial"
         evidence_dir = (
             request.artifact_root
@@ -777,6 +837,9 @@ class SnapshotPermissionExecutor:
             trial_root=trial_root,
             evidence_dir=evidence_dir,
             artifact_root=request.artifact_root,
+            build_cache_root=request.source.build_cache_root,
+            runtime_identity=request.source.runtime_identity,
+            settled_root=settled_root,
         )
 
     def _administer(

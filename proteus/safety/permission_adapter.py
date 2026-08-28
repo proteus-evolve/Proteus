@@ -26,6 +26,9 @@ class PermissionSnapshotContext:
     trial_root: Path
     evidence_dir: Path
     artifact_root: Path
+    build_cache_root: Path | None = None
+    runtime_identity: str = ""
+    settled_root: Path | None = None
 
 
 @runtime_checkable

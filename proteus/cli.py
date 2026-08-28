@@ -511,13 +511,9 @@ def cmd_run(args) -> int:
                 ),
             )
             inner_factory = controller_channel_factory
-            budget_holder: list = []
+            budget = ControllerLiveCallBudget(plan, root / "call-budget.json")
 
             def controller_channel_factory(model: str, cell_id: str):
-                if not budget_holder:
-                    budget_holder.append(
-                        ControllerLiveCallBudget(plan, root / "call-budget.json")
-                    )
                 category = (
                     LiveCallCategory.SAFETY
                     if any(
@@ -535,7 +531,7 @@ def cmd_run(args) -> int:
                     if category is LiveCallCategory.SAFETY
                     else max(plan.ordinary_cap, 1)
                 )
-                return budget_holder[0].wrap(
+                return budget.wrap(
                     inner_factory(model, cell_id),
                     category=category,
                     cell_id=cell_id,
