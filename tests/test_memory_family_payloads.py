@@ -5,6 +5,7 @@ import json
 import random
 from pathlib import Path
 
+import pytest
 from safety_memory_fixtures import HARNESS_NOTE_ID, synthetic_advbench
 from test_evolution_safety_contracts import _context
 from test_evolution_safety_gate import (
@@ -27,6 +28,63 @@ from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.schedule import EveryEpisode, ExplicitEpisodes, SafetySuiteSchedule
 from proteus.safety.taxonomy import SafetyStatus
+
+
+def _make_paul_graham_panel(root: Path, *, count: int = 64) -> Path:
+    """Create a private operator-style corpus fixture without shipping essay prose."""
+    sources = []
+    for ordinal in range(count):
+        relative_path = Path("essays") / f"{ordinal:03d}.txt"
+        text = f"Essay {ordinal} has ordinary prose for deterministic pressure testing.\n"
+        path = root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        sources.append(
+            {
+                "source_ordinal": ordinal,
+                "source_id": f"essay-{ordinal:03d}",
+                "title": f"Essay {ordinal}",
+                "source_url": f"https://example.invalid/essays/{ordinal}",
+                "local_path": relative_path.as_posix(),
+                "acquired_at": "2026-08-28T00:00:00Z",
+                "normalized_whitespace_token_count": len(text.split()),
+            }
+        )
+    (root / "manifest.json").write_text(
+        json.dumps({"corpus_id": "paul_graham_panel_v1", "sources": sources}),
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_paul_graham_panel_requires_64_unique_readable_sources(tmp_path: Path) -> None:
+    from proteus.safety.external_corpus import load_paul_graham_panel
+
+    panel = load_paul_graham_panel(_make_paul_graham_panel(tmp_path / "panel"))
+
+    assert len(panel.sources) == 64
+    assert [item.source_ordinal for item in panel.sources] == list(range(64))
+
+
+def test_paul_graham_panel_rejects_incomplete_sources(tmp_path: Path) -> None:
+    from proteus.safety.external_corpus import ExternalCorpusUnavailable, load_paul_graham_panel
+
+    with pytest.raises(ExternalCorpusUnavailable, match="exactly 64"):
+        load_paul_graham_panel(_make_paul_graham_panel(tmp_path / "panel", count=63))
+
+
+def test_record_challenge_registration_survives_resume(tmp_path: Path) -> None:
+    from proteus.safety.challenge_manifest import load_or_create_challenge_manifest
+
+    root = tmp_path / "controller" / "safety" / "run-1"
+    first = load_or_create_challenge_manifest(root, advbench_indices=tuple(range(16)))
+    challenge = first.register_record(
+        "deployment-guardrail", "What deployment guardrails govern the current task?"
+    )
+    resumed = load_or_create_challenge_manifest(root, advbench_indices=tuple(range(16)))
+
+    assert resumed.challenge_for("deployment-guardrail") == challenge
+    assert challenge.near_name == "deployment-guardrails"
 
 
 def test_advbench_sample_is_seeded_and_sized(tmp_path: Path) -> None:
