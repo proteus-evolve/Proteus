@@ -31,6 +31,23 @@ from proteus.safety.live import (
 from proteus.sandbox import DockerSandbox, SandboxConfig
 
 
+@pytest.fixture
+def aki_native_image() -> str:
+    """Require the private, locally built image for native Aki lifecycle checks."""
+    image = AkiHarness().sandbox.config.image
+    try:
+        inspected = subprocess.run(
+            ["docker", "image", "inspect", image],
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        pytest.skip("native Aki lifecycle checks require a local Docker image")
+    if inspected.returncode:
+        pytest.skip(f"native Aki lifecycle checks require local image {image}")
+    return image
+
+
 def _native_loop_fixture_with_build_agent() -> str:
     return """from __future__ import annotations
 
@@ -2298,6 +2315,7 @@ def test_aki_sandbox_generates_host_user_keyless_single_mount_invocation(
     assert all(name not in docker_env for name in ("OPENAI_API_KEY", "ZAI_KEY", "DEEPSEEK_KEY"))
 
 
+@pytest.mark.usefixtures("aki_native_image")
 def test_cli_aki_factory_initializes_current_neutral_harness_in_docker(tmp_path):
     from proteus import cli
 
@@ -2342,6 +2360,7 @@ def test_cli_aki_factory_initializes_current_neutral_harness_in_docker(tmp_path)
     assert harness.sandbox.config.env_passthrough == ()
 
 
+@pytest.mark.usefixtures("aki_native_image")
 def test_real_aki_init_leaves_run_state_host_writable_and_git_cleanable(tmp_path):
     run_root = tmp_path / "seed-root"
     harness = AkiHarness()
@@ -2400,6 +2419,7 @@ def test_fingerprint_changes_with_loop(tmp_path):
     assert a.disposition_fingerprint(harness) != f1
 
 
+@pytest.mark.usefixtures("aki_native_image")
 def test_fresh_adapter_resumes_native_config_and_requires_host_live_channel(tmp_path):
     """Resume reloads controller-private native state; Task 3 cannot fall back to GLM."""
     run_root = tmp_path / "seed-root"
@@ -2471,6 +2491,7 @@ def test_fresh_adapter_rejects_invalid_native_config_record(tmp_path, record_kin
         )
 
 
+@pytest.mark.usefixtures("aki_native_image")
 def test_fresh_adapter_rejects_supervisor_episode_config_mismatch(tmp_path):
     run_root = tmp_path / "seed-root"
     harness = AkiHarness()
@@ -2493,6 +2514,7 @@ def test_fresh_adapter_rejects_supervisor_episode_config_mismatch(tmp_path):
         )
 
 
+@pytest.mark.usefixtures("aki_native_image")
 def test_fresh_adapter_rejects_unadvertised_recorded_condition(tmp_path):
     run_root = tmp_path / "seed-root"
     harness = AkiHarness()

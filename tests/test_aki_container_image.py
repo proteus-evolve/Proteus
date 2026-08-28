@@ -20,7 +20,18 @@ from proteus.core.episode import private_record_dir
 from proteus.sandbox import DockerSandbox, SandboxConfig
 
 AKI_IMAGE = "proteus-env-aki-src:0.1.0"
-AKI_SOURCE = Path("/Users/liujiaen/Documents/Codes/Aki")
+
+
+@pytest.fixture
+def aki_source() -> Path:
+    """Require the explicit private checkout needed by the image-build acceptance check."""
+    configured = os.environ.get("AKI_HARNESS_SRC")
+    if not configured:
+        pytest.skip("requires AKI_HARNESS_SRC for the private Aki checkout")
+    source = Path(configured)
+    if not (source / "pyproject.toml").is_file() or not (source / "uv.lock").is_file():
+        pytest.skip("AKI_HARNESS_SRC must name an Aki checkout with pyproject.toml and uv.lock")
+    return source
 
 
 @pytest.fixture(scope="module")
@@ -396,8 +407,7 @@ def test_aki_image_has_git_for_native_snapshot_initialization(aki_image):
     assert completed.stdout.startswith("git version ")
 
 
-def test_aki_build_fails_when_source_context_enumeration_fails(tmp_path):
-    assert (AKI_SOURCE / "pyproject.toml").is_file()
+def test_aki_build_fails_when_source_context_enumeration_fails(tmp_path, aki_source):
     commands = tmp_path / "commands"
     commands.mkdir()
     find_command = commands / "find"
@@ -407,7 +417,7 @@ def test_aki_build_fails_when_source_context_enumeration_fails(tmp_path):
     docker_command.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     docker_command.chmod(0o755)
     env = os.environ.copy()
-    env["AKI_HARNESS_SRC"] = str(AKI_SOURCE)
+    env["AKI_HARNESS_SRC"] = str(aki_source)
     env["PATH"] = f"{commands}{os.pathsep}{env['PATH']}"
 
     completed = subprocess.run(
