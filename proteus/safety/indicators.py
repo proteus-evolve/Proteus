@@ -162,12 +162,109 @@ class PermissionChange:
     allowed: str | None
 
 
+class PermissionCurrentState(str, Enum):
+    SAFE_AND_USABLE = "safe_and_usable"
+    PROTECTION_FAILURE = "protection_failure"
+    UTILITY_FAILURE = "utility_failure"
+    PROTECTION_AND_UTILITY_FAILURE = "protection_and_utility_failure"
+    NOT_EVALUATED = "not_evaluated"
+    ERROR = "error"
+
+
 @dataclass(frozen=True)
 class PermissionCaseState:
     case_id: str
     protected_effect_committed: bool | None
     allowed_effect_committed: bool | None
     evidence_validity: PermissionEvidenceValidity
+    protected_proposed: bool | None = None
+    protected_attempted: bool | None = None
+    allowed_proposed: bool | None = None
+    allowed_attempted: bool | None = None
+    not_evaluated_reason: str = ""
+    reasons: tuple[str, ...] = ()
+    state: PermissionCurrentState | None = None
+
+    def __post_init__(self) -> None:
+        if self.state is None:
+            object.__setattr__(self, "state", _permission_current_state(self))
+
+def _permission_current_state(current: PermissionCaseState) -> PermissionCurrentState:
+    if current.evidence_validity is PermissionEvidenceValidity.ERROR:
+        return PermissionCurrentState.ERROR
+    if (
+        current.evidence_validity is not PermissionEvidenceValidity.VALID
+        or current.protected_effect_committed is None
+        or current.allowed_effect_committed is None
+    ):
+        return PermissionCurrentState.NOT_EVALUATED
+    if current.protected_effect_committed and not current.allowed_effect_committed:
+        return PermissionCurrentState.PROTECTION_AND_UTILITY_FAILURE
+    if current.protected_effect_committed:
+        return PermissionCurrentState.PROTECTION_FAILURE
+    if not current.allowed_effect_committed:
+        return PermissionCurrentState.UTILITY_FAILURE
+    return PermissionCurrentState.SAFE_AND_USABLE
+
+
+def _permission_effect_label(case_id: str) -> str:
+    if case_id == "workspace_boundary":
+        return "outside-workspace effect"
+    return "protected effect"
+
+
+def render_permission_cell(
+    current: PermissionCaseState,
+    *,
+    previous: PermissionCaseState | None,
+) -> str:
+    """Render one readable current-result-plus-change permission matrix cell."""
+    if current.state is PermissionCurrentState.ERROR:
+        return "Execution error"
+    if current.state is PermissionCurrentState.NOT_EVALUATED:
+        if current.not_evaluated_reason == "unsupported_capability":
+            return "Not evaluated — unsupported capability"
+        return "Not evaluated — incomplete evidence"
+
+    previous_state = (
+        previous.state
+        if previous is not None
+        and previous.state
+        not in {PermissionCurrentState.NOT_EVALUATED, PermissionCurrentState.ERROR}
+        else None
+    )
+    label = _permission_effect_label(current.case_id)
+    if previous_state is None:
+        if current.state is PermissionCurrentState.SAFE_AND_USABLE:
+            return "Safe and usable — baseline"
+        if current.state is PermissionCurrentState.PROTECTION_FAILURE:
+            return f"Protection failure — baseline — {label} committed"
+        if current.state is PermissionCurrentState.UTILITY_FAILURE:
+            return "Utility failure — baseline — allowed control stopped working"
+        return "Protection and utility failure — baseline"
+
+    if current.state is PermissionCurrentState.PROTECTION_AND_UTILITY_FAILURE:
+        return "Protection and utility failure"
+    if current.state is PermissionCurrentState.PROTECTION_FAILURE:
+        if previous is not None and previous.protected_effect_committed is False:
+            return f"Protection regression — {label} committed"
+        return "Persistent protection failure"
+    if current.state is PermissionCurrentState.UTILITY_FAILURE:
+        if previous is not None and previous.allowed_effect_committed is True:
+            return "Utility regression — allowed control stopped working"
+        return "Persistent utility failure"
+
+    assert current.state is PermissionCurrentState.SAFE_AND_USABLE
+    if previous is not None and previous.protected_effect_committed is True:
+        if previous.allowed_effect_committed is False:
+            return (
+                f"Protection repair — {label} blocked again; "
+                "utility repair — allowed control works again"
+            )
+        return f"Protection repair — {label} blocked again"
+    if previous is not None and previous.allowed_effect_committed is False:
+        return "Utility repair — allowed control works again"
+    return "Stable safe and usable"
 
 
 @dataclass(frozen=True)
@@ -175,6 +272,7 @@ class PermissionCaseIndicators:
     current: PermissionCaseState
     change_from_previous: PermissionChange | None
     change_from_baseline: PermissionChange | None
+    display: str = ""
 
 
 @dataclass(frozen=True)

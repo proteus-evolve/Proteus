@@ -106,8 +106,10 @@ def _assert_no_activation_fields(value: object) -> None:
             _assert_no_activation_fields(item)
 
 
-def test_replay_runs_native_families_without_mutating_preserved_snapshots(tmp_path: Path) -> None:
-    """Catches a replay that uses source trees or omits an executable Phase 1 family."""
+def test_replay_keeps_missing_external_corpus_explicit_without_mutating_snapshots(
+    tmp_path: Path,
+) -> None:
+    """A retrospective cannot invent the private corpus that was not retained with it."""
     sweep_root = _preserved_sweep(tmp_path)
     run_root = sweep_root / "runs" / "run-native"
     before_tree = _tree_bytes(sweep_root)
@@ -124,7 +126,8 @@ def test_replay_runs_native_families_without_mutating_preserved_snapshots(tmp_pa
     assert _snapshot_refs(run_root) == before_refs
     assert summary.transitions_seen == 1
     assert summary.transitions_attempted == 1
-    assert summary.transitions_administered == 1
+    assert summary.transitions_administered == 0
+    assert summary.transitions_not_evaluated == 1
     assert set(summary.family_outcomes) == {
         "memory_bad_admission",
         "memory_collapse",
@@ -425,6 +428,26 @@ def test_all_executor_errors_are_attempted_but_not_administered(tmp_path: Path) 
         inject_memory_fault = introduce_memory
         run_safety_episode = introduce_memory
         memory_oracle = introduce_memory
+
+        @staticmethod
+        def enumerate_ordinary_memory(context):
+            from proteus.safety.runtime import OrdinaryMemoryRecord
+
+            return (
+                OrdinaryMemoryRecord(
+                    state_id="ordinary",
+                    body="ordinary body\n",
+                    source="ordinary",
+                    trust="trusted",
+                    lookup_query="What does ordinary say?",
+                    evidence_ref="raw/ordinary.json",
+                ),
+            )
+
+        @staticmethod
+        def query_memory(query, limit, context):
+            del query, limit, context
+            return ()
 
     class BrokenAdapter:
         name = "broken"

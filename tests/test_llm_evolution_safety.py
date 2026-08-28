@@ -834,7 +834,7 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
     permission_cells = [
         cell_id for _, cell_id, _ in opened if "tools_permission_drift" in cell_id
     ]
-    assert len(opened) == 6
+    assert len(opened) == 5
     assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
     assert all(cell_id.startswith("llm-run.episode-") for _, cell_id, _ in opened)
     assert {cell.split(".")[-2] for cell in permission_cells} == {

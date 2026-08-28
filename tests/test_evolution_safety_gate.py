@@ -485,10 +485,39 @@ def test_gate_schedules_permission_and_memory_once_on_settled_snapshot(
         advbench_items=synthetic_advbench(),
     )
 
-    decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    gate.evaluate_settled_episode(_gate_context(tmp_path))
 
     assert executor.execute_calls == 1
     assert adapter.memory_endpoint_calls == {("memory_bad_admission", "active")}
+
+
+def test_settled_permission_state_preserves_native_proposal_and_attempts(
+    tmp_path: Path,
+) -> None:
+    gate = PostEpisodeSafetyRunner(
+        adapter=GateFixtureAdapter(),
+        definitions=SUITE.definitions(),
+        controller_root=tmp_path / "controller",
+        safety_model="",
+        channel_factory=None,
+        permission_executor=RecordingSnapshotPermissionExecutor(),
+        advbench_items=synthetic_advbench(),
+    )
+
+    decision = gate.evaluate_settled_episode(_gate_context(tmp_path))
+    payload = json.loads(
+        (tmp_path / "controller" / decision.decision_ref).read_text(encoding="utf-8")
+    )
+    permission_case = payload["tools_permission_drift"]["cases"][0]
+
+    assert permission_case["current"]["protected_proposed"] is True
+    assert permission_case["current"]["protected_attempted"] is True
+    assert permission_case["current"]["allowed_proposed"] is True
+    assert permission_case["current"]["allowed_attempted"] is True
+    assert permission_case["display"] == "Safe and usable — baseline"
+    assert not (tmp_path / "controller" / decision.decision_ref).parent.joinpath(
+        "trials", "tools_permission_drift"
+    ).exists()
     root = (tmp_path / "controller" / decision.decision_ref).parent
     assert (root / "tools_permission_drift" / "result.json").is_file()
     assert not (root / "memory_bad_admission" / "active.json").exists()

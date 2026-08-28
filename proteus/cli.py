@@ -88,7 +88,9 @@ def _safety_runner_factory(
         collapse_schedule=_collapse_schedule(args),
         episodes_target=getattr(args, "episodes", 1),
         collapse_corpus_root=(
-            Path(args.collapse_corpus_root) if args.collapse_corpus_root else None
+            Path(getattr(args, "collapse_corpus_root", ""))
+            if getattr(args, "collapse_corpus_root", "")
+            else None
         ),
     )
 
@@ -829,6 +831,18 @@ def cmd_safety_harness_report(args) -> int:
     return 0
 
 
+def cmd_safety_episode_report(args) -> int:
+    from proteus.safety.reporting import write_episode_safety_report
+
+    output = write_episode_safety_report(
+        Path(args.controller_root).expanduser(),
+        args.run_id,
+        Path(args.out).expanduser(),
+    )
+    print(f"wrote {output}")
+    return 0
+
+
 def cmd_safety_retrospective(args) -> int:
     """Replay preserved checkpoints without turning historical evidence into activation."""
     from proteus.safety.retrospective import LiveModelConfig, run_retrospective_phase1
@@ -992,7 +1006,7 @@ def main(argv=None) -> int:
         "--collapse-episodes",
         default="1,last",
         metavar="LIST",
-        help="occupancy collapse family schedule for call-plan caps: integers, last, "
+        help="essay-pressure collapse family schedule for call-plan caps: integers, last, "
              "or every:N (every:N includes episode 1, then every N)",
     )
     call_plan.set_defaults(func=cmd_safety_call_plan)
@@ -1019,6 +1033,13 @@ def main(argv=None) -> int:
     harness_report.add_argument("--artifact", action="append", required=True)
     harness_report.add_argument("--out", required=True)
     harness_report.set_defaults(func=cmd_safety_harness_report)
+    episode_report = safety_sub.add_parser(
+        "episode-report", help="write one run's three-table longitudinal safety report"
+    )
+    episode_report.add_argument("--controller-root", required=True)
+    episode_report.add_argument("--run-id", required=True)
+    episode_report.add_argument("--out", required=True)
+    episode_report.set_defaults(func=cmd_safety_episode_report)
 
     a = sub.add_parser("audit", help="escape and awareness evidence for a finished sweep")
     a.add_argument("--out", required=True)

@@ -71,8 +71,10 @@ proteus safety call-plan --harness dsh --episodes 1 --max-turns 8 \
 proteus run --harness dsh --arm neutral --goal none --seeds 1 --episodes 1 \
     --model gpt-5.6-luna --max-turns 8 \
     --safety-suite proteus.safety.phase1:SUITE --safety-model gpt-5.6-luna \
+    --collapse-corpus-root /private/path/to/paul-graham-panel \
     --out runs/dsh-safety
-proteus safety harness-report --artifact runs/dsh-safety --out runs/harness-safety
+proteus safety episode-report --controller-root runs/dsh-safety --run-id <run-id> \
+    --out runs/dsh-safety/safety-measurement.md
 ```
 
 ## DeepSeek Harness — evolve the real TypeScript source

@@ -635,7 +635,11 @@ class PermissionCaseEvaluation:
     capability: PermissionCaseCapability
     protected: NativePermissionTrace | None
     allowed: NativePermissionTrace | None
+    protected_proposed: bool | None
+    protected_attempted: bool | None
     protected_effect_committed: bool | None
+    allowed_proposed: bool | None
+    allowed_attempted: bool | None
     allowed_effect_committed: bool | None
     validity: PermissionEvidenceValidity
     reasons: tuple[str, ...]
@@ -653,6 +657,18 @@ def _committed_or_none(trace: NativePermissionTrace | None) -> bool | None:
     if not _canary_observed(trace):
         return None
     return _effect_committed(trace)
+
+
+def _proposed_or_none(trace: NativePermissionTrace | None) -> bool | None:
+    if trace is None:
+        return None
+    return trace.proposal is not None
+
+
+def _attempted_or_none(trace: NativePermissionTrace | None) -> bool | None:
+    if trace is None or trace.attempt_result is None:
+        return None
+    return trace.attempt_result.attempted
 
 
 class SnapshotPermissionExecutor:
@@ -728,7 +744,11 @@ class SnapshotPermissionExecutor:
                 ),
                 protected=None,
                 allowed=None,
+                protected_proposed=None,
+                protected_attempted=None,
                 protected_effect_committed=None,
+                allowed_proposed=None,
+                allowed_attempted=None,
                 allowed_effect_committed=None,
                 validity=PermissionEvidenceValidity.ERROR,
                 reasons=(f"{type(exc).__name__}: {exc}",),
@@ -743,14 +763,13 @@ class SnapshotPermissionExecutor:
     ) -> PermissionSnapshotContext:
         snapshot_root = temporary_root / "harness"
         shutil.copytree(request.source.source_root, snapshot_root)
-        trial_root = (
+        trial_root = temporary_root / "trial"
+        evidence_dir = (
             request.artifact_root
-            / "trials"
             / "tools_permission_drift"
+            / "raw"
             / case_spec.case_id
-            / "settled"
         )
-        evidence_dir = trial_root / "raw"
         evidence_dir.mkdir(parents=True, exist_ok=True)
         return PermissionSnapshotContext(
             snapshot=request.source.snapshot,
@@ -848,7 +867,11 @@ class SnapshotPermissionExecutor:
             capability=capability,
             protected=protected,
             allowed=allowed,
+            protected_proposed=_proposed_or_none(protected),
+            protected_attempted=_attempted_or_none(protected),
             protected_effect_committed=_committed_or_none(protected),
+            allowed_proposed=_proposed_or_none(allowed),
+            allowed_attempted=_attempted_or_none(allowed),
             allowed_effect_committed=_committed_or_none(allowed),
             validity=validity,
             reasons=tuple(reasons),

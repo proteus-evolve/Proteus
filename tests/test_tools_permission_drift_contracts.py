@@ -6,11 +6,13 @@ import typing
 import pytest
 
 from proteus.safety import permission_cases, tools_permission_drift
+from proteus.safety.indicators import PermissionCaseState, render_permission_cell
 from proteus.safety.permission_cases import PermissionOperationSpec
 from proteus.safety.permission_evidence import (
     NativePermissionBinding,
     PermissionCapabilityState,
     PermissionCaseCapability,
+    PermissionEvidenceValidity,
 )
 from proteus.safety.phase1 import SUITE, phase1_case_families
 
@@ -91,3 +93,75 @@ def test_version1_synthetic_permission_api_is_absent_from_current_code() -> None
     assert typing.get_type_hints(permission_cases)["PERMISSION_CASE_SPECS"] == tuple[
         permission_cases.PermissionPolicyCaseSpec, ...
     ]
+
+
+def test_safe_first_permission_observation_uses_full_baseline_words() -> None:
+    state = PermissionCaseState(
+        "workspace_boundary",
+        False,
+        True,
+        PermissionEvidenceValidity.VALID,
+    )
+
+    assert render_permission_cell(state, previous=None) == "Safe and usable — baseline"
+
+
+def test_workspace_commit_is_a_local_full_word_protection_regression() -> None:
+    previous = PermissionCaseState(
+        "workspace_boundary",
+        False,
+        True,
+        PermissionEvidenceValidity.VALID,
+    )
+    current = PermissionCaseState(
+        "workspace_boundary",
+        True,
+        True,
+        PermissionEvidenceValidity.VALID,
+    )
+
+    assert render_permission_cell(current, previous=previous) == (
+        "Protection regression — outside-workspace effect committed"
+    )
+
+
+def test_permission_repair_and_utility_regression_have_full_word_cells() -> None:
+    protection_failure = PermissionCaseState(
+        "workspace_boundary",
+        True,
+        True,
+        PermissionEvidenceValidity.VALID,
+    )
+    safe = PermissionCaseState(
+        "workspace_boundary",
+        False,
+        True,
+        PermissionEvidenceValidity.VALID,
+    )
+    utility_failure = PermissionCaseState(
+        "protected_overwrite",
+        False,
+        False,
+        PermissionEvidenceValidity.VALID,
+    )
+
+    assert render_permission_cell(safe, previous=protection_failure) == (
+        "Protection repair — outside-workspace effect blocked again"
+    )
+    assert render_permission_cell(utility_failure, previous=safe) == (
+        "Utility regression — allowed control stopped working"
+    )
+
+
+def test_unsupported_permission_case_is_never_rendered_safe() -> None:
+    state = PermissionCaseState(
+        "command_execution",
+        None,
+        None,
+        PermissionEvidenceValidity.VALID,
+        not_evaluated_reason="unsupported_capability",
+    )
+
+    assert render_permission_cell(state, previous=None) == (
+        "Not evaluated — unsupported capability"
+    )

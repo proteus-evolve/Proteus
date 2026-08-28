@@ -593,7 +593,7 @@ def write_harness_safety_report(
         "rows": rows,
         "boundaries": [
             "memory_bad_admission scores module keep and episode follow separately",
-            "memory_collapse occupancy probes a snapshot copy after each scheduled settled episode",
+            "memory_collapse reports controller-managed disposable corpus-pressure measurements",
             "tools_permission_drift uses the current paired native-policy catalog",
             "permission observations are audit-only and do not decide activation",
             "live model is not the policy authority",
@@ -608,7 +608,7 @@ def write_harness_safety_report(
         "# Harness safety",
         "",
         "memory_bad_admission scores module keep and episode follow separately",
-        "memory_collapse occupancy probes a snapshot copy after each scheduled settled episode",
+        "memory_collapse reports controller-managed disposable corpus-pressure measurements",
         "tools_permission_drift uses the current paired native-policy catalog",
         "permission observations are audit-only and do not decide activation",
         "live model is not the policy authority",
@@ -631,3 +631,274 @@ def write_harness_safety_report(
             )
     markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, markdown_path
+
+
+_PERMISSION_HEADINGS = {
+    "recursive_deletion": "Recursive deletion",
+    "protected_overwrite": "Protected overwrite",
+    "policy_mutation": "Policy mutation",
+    "tool_skill_capability_minting": "Capability minting",
+    "workspace_boundary": "Workspace boundary",
+    "command_execution": "Command execution",
+}
+
+
+def _escape_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def _episode_indicator_payloads(controller_root: Path, run_id: str) -> tuple[dict, ...]:
+    root = Path(controller_root) / "safety" / run_id
+    paths = [root / "baseline" / "episode-000" / "indicators.json"]
+    paths.extend(sorted((root / "episodes").glob("episode-*/indicators.json")))
+    payloads: list[dict] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        payload = _read_json(path)
+        if isinstance(payload, dict):
+            payloads.append(payload)
+    return tuple(sorted(payloads, key=lambda payload: int(payload.get("episode", 0))))
+
+
+def _family_status(family: object) -> str:
+    if not isinstance(family, dict):
+        return "not_evaluated"
+    execution = family.get("execution")
+    if not isinstance(execution, dict):
+        return "not_evaluated"
+    return str(execution.get("schedule_status", "not_evaluated"))
+
+
+def _rate(numerator: object, denominator: object) -> str:
+    if not isinstance(numerator, int) or not isinstance(denominator, int) or denominator < 1:
+        return "N/E"
+    return f"{numerator}/{denominator} ({numerator / denominator:.2f})"
+
+
+def _admission_change(family: dict) -> str:
+    delta = family.get("retrieve_delta")
+    if not isinstance(delta, dict):
+        return "baseline"
+    return str(delta.get("step_change") or "baseline")
+
+
+def _collapse_points(family: dict) -> str:
+    points = family.get("points")
+    if not isinstance(points, list) or not points:
+        return "N/E"
+    rendered = []
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        requested = point.get("requested_whitespace_tokens", "?")
+        if point.get("evaluation_status") != "evaluated":
+            rendered.append(f"P{requested}: N/E")
+            continue
+        actual = point.get("actual_whitespace_tokens", "?")
+        physical = point.get("physical_retention")
+        recall = point.get("recall_at_3")
+        utility = point.get("pressure_control_passed")
+        utility_text = "pass" if utility is True else "fail" if utility is False else "N/E"
+        rendered.append(f"P{requested}={actual}; physical={physical}; recall@3={recall}; utility={utility_text}")
+    return "; ".join(rendered) or "N/E"
+
+
+def _permission_cell(family: dict, case_id: str) -> str:
+    status = _family_status(family)
+    if status == "not_scheduled":
+        return "Not scheduled"
+    if status == "error":
+        return "Execution error"
+    cases = family.get("cases")
+    if not isinstance(cases, list):
+        return "Not evaluated — incomplete evidence"
+    case = next(
+        (
+            item
+            for item in cases
+            if isinstance(item, dict)
+            and isinstance(item.get("current"), dict)
+            and item["current"].get("case_id") == case_id
+        ),
+        None,
+    )
+    if not isinstance(case, dict):
+        return "Not evaluated — incomplete evidence"
+    display = case.get("display")
+    return str(display) if isinstance(display, str) and display else "Not evaluated — incomplete evidence"
+
+
+def _permission_counts(family: dict) -> dict[str, int]:
+    result = {
+        "supported": 0,
+        "evaluated": 0,
+        "protected_committed": 0,
+        "allowed_succeeded": 0,
+        "protection_regressions": 0,
+        "protection_repairs": 0,
+        "utility_regressions": 0,
+        "utility_repairs": 0,
+    }
+    cases = family.get("cases")
+    if not isinstance(cases, list):
+        return result
+    for item in cases:
+        if not isinstance(item, dict):
+            continue
+        current = item.get("current")
+        if not isinstance(current, dict):
+            continue
+        protected = current.get("protected_effect_committed")
+        allowed = current.get("allowed_effect_committed")
+        validity = current.get("evidence_validity")
+        if current.get("not_evaluated_reason") != "unsupported_capability":
+            result["supported"] += 1
+        if validity == "valid" and isinstance(protected, bool) and isinstance(allowed, bool):
+            result["evaluated"] += 1
+        result["protected_committed"] += protected is True
+        result["allowed_succeeded"] += allowed is True
+        change = item.get("change_from_previous")
+        if not isinstance(change, dict):
+            continue
+        result["protection_regressions"] += change.get("protected") == "regression"
+        result["protection_repairs"] += change.get("protected") == "repair"
+        result["utility_regressions"] += change.get("allowed") == "utility_regression"
+        result["utility_repairs"] += change.get("allowed") == "utility_repair"
+    return result
+
+
+def write_episode_safety_report(
+    controller_root: Path, run_id: str, output_path: Path
+) -> Path:
+    """Render one controller run as the three source-of-truth longitudinal tables."""
+    payloads = _episode_indicator_payloads(Path(controller_root), run_id)
+    if not payloads:
+        raise FileNotFoundError(f"no settled safety indicators for run {run_id!r}")
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["# Safety measurement report", "", "## Episode metadata", ""]
+    lines.extend(
+        [
+            "| Episode | Settled snapshot | Safety calls | Safety time |",
+            "| ---: | --- | ---: | ---: |",
+        ]
+    )
+    for payload in payloads:
+        lines.append(
+            "| {episode} | {snapshot} | {calls} | {time:.3f} s |".format(
+                episode=_escape_cell(payload.get("episode", "?")),
+                snapshot=_escape_cell(payload.get("snapshot_ref", "")),
+                calls=_escape_cell(payload.get("safety_calls", 0)),
+                time=float(payload.get("wall_time_s", 0.0)),
+            )
+        )
+
+    lines.extend(["", "## Memory bad admission", ""])
+    lines.extend(
+        [
+            (
+                "| Episode | Status | Eligible | Persistent | Exact overwrite failures | "
+                "Trusted top-1 | AdvBench top-1 | AdvBench top-3 | Benign utility | Uptake | Change |"
+            ),
+            "| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for payload in payloads:
+        family = payload.get("memory_bad_admission", {})
+        family = family if isinstance(family, dict) else {}
+        eligible = family.get("eligible_state_ids", [])
+        denominator = len(eligible) if isinstance(eligible, list) else 0
+        lines.append(
+            "| {episode} | {status} | {eligible} | {persistent} | {exact} | {trusted} | "
+            "{top1} | {top3} | {utility} | {uptake} | {change} |".format(
+                episode=_escape_cell(payload.get("episode", "?")),
+                status=_escape_cell(_family_status(family)),
+                eligible=denominator,
+                persistent=_escape_cell(family.get("matched_persistent_records", 0)),
+                exact=_escape_cell(family.get("exact_overwrite_failures", "N/E")),
+                trusted=_escape_cell(_rate(family.get("trusted_top_1_count"), denominator)),
+                top1=_escape_cell(_rate(family.get("advbench_exposure_at_1_count"), denominator)),
+                top3=_escape_cell(_rate(family.get("advbench_exposure_at_3_count"), denominator)),
+                utility=_escape_cell(
+                    _rate(
+                        family.get("benign_controls_succeeded"),
+                        family.get("benign_controls_attempted"),
+                    )
+                ),
+                uptake=_escape_cell(
+                    _rate(family.get("advbench_uptake_trials"), family.get("behavior_trials"))
+                ),
+                change=_escape_cell(_admission_change(family)),
+            )
+        )
+
+    lines.extend(["", "## Memory collapse under Paul Graham corpus pressure", ""])
+    lines.extend(
+        [
+            "| Episode | Status | Corpus | Ordinary records | Memory bytes | Pressure curve | Change |",
+            "| ---: | --- | --- | ---: | ---: | --- | --- |",
+        ]
+    )
+    for payload in payloads:
+        family = payload.get("memory_collapse", {})
+        family = family if isinstance(family, dict) else {}
+        physical_delta = family.get("physical_delta")
+        change = (
+            physical_delta.get("step_change")
+            if isinstance(physical_delta, dict) and physical_delta.get("step_change")
+            else "baseline"
+        )
+        lines.append(
+            "| {episode} | {status} | {corpus} | {records} | {bytes} | {curve} | {change} |".format(
+                episode=_escape_cell(payload.get("episode", "?")),
+                status=_escape_cell(_family_status(family)),
+                corpus=_escape_cell(family.get("corpus_id") or "N/E"),
+                records=_escape_cell(family.get("ordinary_memory_records", 0)),
+                bytes=_escape_cell(family.get("ordinary_memory_bytes", 0)),
+                curve=_escape_cell(_collapse_points(family)),
+                change=_escape_cell(change),
+            )
+        )
+
+    lines.extend(["", "## Tool permission drift", ""])
+    headers = ["Episode", *(_PERMISSION_HEADINGS[case_id] for case_id in _CASE_IDS)]
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("| " + " | ".join("---" for _header in headers) + " |")
+    for payload in payloads:
+        family = payload.get("tools_permission_drift", {})
+        family = family if isinstance(family, dict) else {}
+        cells = [_escape_cell(payload.get("episode", "?"))]
+        cells.extend(_escape_cell(_permission_cell(family, case_id)) for case_id in _CASE_IDS)
+        lines.append("| " + " | ".join(cells) + " |")
+
+    lines.extend(["", "## Permission aggregate counts", ""])
+    lines.extend(
+        [
+            (
+                "| Episode | Cases supported | Cases evaluated | Protected effects committed | "
+                "Allowed controls succeeded | Protection regressions | Protection repairs | "
+                "Utility regressions | Utility repairs |"
+            ),
+            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for payload in payloads:
+        family = payload.get("tools_permission_drift", {})
+        counts = _permission_counts(family if isinstance(family, dict) else {})
+        lines.append(
+            "| {episode} | {supported} | {evaluated} | {protected} | {allowed} | "
+            "{regressions} | {repairs} | {utility_regressions} | {utility_repairs} |".format(
+                episode=_escape_cell(payload.get("episode", "?")),
+                supported=counts["supported"],
+                evaluated=counts["evaluated"],
+                protected=counts["protected_committed"],
+                allowed=counts["allowed_succeeded"],
+                regressions=counts["protection_regressions"],
+                repairs=counts["protection_repairs"],
+                utility_regressions=counts["utility_regressions"],
+                utility_repairs=counts["utility_repairs"],
+            )
+        )
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output_path

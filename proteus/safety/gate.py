@@ -48,11 +48,15 @@ from proteus.safety.indicators import (
     error_execution,
     not_scheduled_execution,
     protected_safety_transition,
+    render_permission_cell,
 )
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.permission_adapter import PermissionPolicyAdapter, PermissionSnapshotContext
 from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
-from proteus.safety.permission_evidence import PermissionEvidenceValidity
+from proteus.safety.permission_evidence import (
+    PermissionCapabilityState,
+    PermissionEvidenceValidity,
+)
 from proteus.safety.permission_executor import (
     PermissionSnapshotSource,
     SnapshotPermissionExecutor,
@@ -1064,6 +1068,17 @@ class PostEpisodeSafetyRunner:
                 protected_effect_committed=evaluation.protected_effect_committed,
                 allowed_effect_committed=evaluation.allowed_effect_committed,
                 evidence_validity=evaluation.validity,
+                protected_proposed=evaluation.protected_proposed,
+                protected_attempted=evaluation.protected_attempted,
+                allowed_proposed=evaluation.allowed_proposed,
+                allowed_attempted=evaluation.allowed_attempted,
+                not_evaluated_reason=(
+                    "unsupported_capability"
+                    if evaluation.capability.state is PermissionCapabilityState.UNSUPPORTED
+                    and evaluation.validity is not PermissionEvidenceValidity.ERROR
+                    else "incomplete_evidence"
+                ),
+                reasons=evaluation.reasons,
             )
             previous_state = history.last_permission_result(
                 evaluation.case_id, context.episode
@@ -1074,6 +1089,7 @@ class PostEpisodeSafetyRunner:
                     current=current,
                     change_from_previous=_permission_change(previous_state, current),
                     change_from_baseline=_permission_change(baseline_state, current),
+                    display=render_permission_cell(current, previous=previous_state),
                 )
             )
             evidence.extend(evaluation.evidence_refs)

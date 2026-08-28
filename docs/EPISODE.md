@@ -141,7 +141,7 @@ adapter's:
   persist, the episode snapshots normally, the run continues. `phase_timeout_s` remains
   the wall-clock backstop. Optional `--safety-suite` runs after every settled
   episode on snapshot W_t, with family schedules: admission and permission every
-  episode, occupancy collapse on `every:N` including episode 1 (default N=5).
+  episode, corpus-pressure collapse on `every:N` including episode 1 (default N=5).
   Outcomes are audit records and do not decide activation. Goal/task selection
   still chooses the next running tree. Phase 1 memory and permission cells use the
   live safety model when the harness is model-mediated.
