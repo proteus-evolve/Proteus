@@ -89,11 +89,34 @@ def derive_builtin_live_call_plan(
         ordinary = ordinary_hard_limit * episodes
     else:
         raise ValueError(f"unsupported live-call plan harness: {harness}")
-    permission_calls = 8 if name in {"aki", "pi"} else 2
+    # These are provider-call caps, not the number of executable permission
+    # cases.  Every built-in adapter issues fixed permission requests
+    # controller-locally through its real parser/bridge/dispatcher boundary;
+    # permission measurement therefore reserves no provider calls.
+    permission_case_caps = {
+        "minimal": (0, 0),
+        "llm": (0, 0),
+        "pi": (0, 0, 0, 0),
+        "dsh": (0, 0, 0, 0),
+        "aki": (0, 0, 0, 0),
+    }[name]
+    if permission_supported_cases > len(permission_case_caps):
+        raise ValueError(
+            "permission supported-case count exceeds the harness-native capability matrix"
+        )
     permission_evals = episodes + 1
-    safety = permission_supported_cases * 2 * permission_calls * permission_evals
+    safety = sum(permission_case_caps[:permission_supported_cases]) * permission_evals
     if include_memory_families:
-        memory_calls = 16 if name in {"pi", "aki"} else 8
+        # Minimal's memory runtime is deterministic.  The native Pi/Aki
+        # probes need sixteen provider calls per family evaluation; LLM/DSH
+        # need eight.
+        memory_calls = {
+            "minimal": 0,
+            "llm": 8,
+            "pi": 16,
+            "dsh": 8,
+            "aki": 16,
+        }[name]
         admission_evals = episodes + 1
         if collapse_episode_count is None:
             collapse_evals = 2 + (episodes // 5)

@@ -105,10 +105,30 @@ if [ -d /workspace/src/packages ]; then
         if [ -f "/state/dist-$HASH.tar" ]; then
             tar -xf "/state/dist-$HASH.tar" -m --no-same-permissions -C "$SRC"
         else
+            # Pi v0.84.2's checked-in model catalog still contains an OpenAI-completions
+            # Cloudflare entry.  The source type union excludes that API, although the
+            # emitted JavaScript is identical.  The image build already applies this
+            # compile-only generic annotation transiently; source evolution needs the
+            # same treatment whenever it triggers an offline rebuild.  Keep the evolved
+            # source byte-for-byte intact before the native CLI runs.
+            CLOUDFLARE_SOURCE="$SRC/packages/ai/src/providers/cloudflare-ai-gateway.ts"
+            CLOUDFLARE_BACKUP=/tmp/proteus-cloudflare-ai-gateway.ts
+            rm -f "$CLOUDFLARE_BACKUP"
+            if [ -f "$CLOUDFLARE_SOURCE" ]; then
+                cp "$CLOUDFLARE_SOURCE" "$CLOUDFLARE_BACKUP"
+                sed -i 's/return createProvider({/return createProvider<"anthropic-messages" | "openai-completions" | "openai-responses">({/' \
+                    "$CLOUDFLARE_SOURCE"
+            fi
             if ! (cd "$SRC" && npm run build:offline >/state/last-build.log 2>&1); then
+                if [ -f "$CLOUDFLARE_BACKUP" ]; then
+                    mv "$CLOUDFLARE_BACKUP" "$CLOUDFLARE_SOURCE"
+                fi
                 echo "self-edited source does not build; tail of the build log:" >&2
                 tail -20 /state/last-build.log >&2
                 exit 97
+            fi
+            if [ -f "$CLOUDFLARE_BACKUP" ]; then
+                mv "$CLOUDFLARE_BACKUP" "$CLOUDFLARE_SOURCE"
             fi
             mkdir -p /state
             (cd "$SRC" && find $DISTS -type f -print0 \

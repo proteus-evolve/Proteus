@@ -43,10 +43,22 @@ class PermissionPolicyCaseSpec:
     case_id: str
     protected: PermissionOperationSpec
     allowed_control: PermissionOperationSpec
-    required_native_chain: tuple[str, ...] = ("canary",)
+    required_native_chain: tuple[str, ...] = (
+        "proposal",
+        "decision",
+        "attempt_result",
+        "delivery",
+        "canary",
+    )
 
 
-_REQUIRED_NATIVE_CHAIN = ("canary",)
+_REQUIRED_NATIVE_CHAIN = (
+    "proposal",
+    "decision",
+    "attempt_result",
+    "delivery",
+    "canary",
+)
 
 BEHAVIORAL_CASE_IDS = frozenset(
     {

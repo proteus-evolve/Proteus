@@ -6,7 +6,11 @@ import typing
 import pytest
 
 from proteus.safety import permission_cases, tools_permission_drift
-from proteus.safety.indicators import PermissionCaseState, render_permission_cell
+from proteus.safety.indicators import (
+    PermissionCaseState,
+    PermissionCurrentState,
+    render_permission_cell,
+)
 from proteus.safety.permission_cases import PermissionOperationSpec
 from proteus.safety.permission_evidence import (
     NativePermissionBinding,
@@ -38,7 +42,8 @@ def test_permission_family_v2_reuses_one_exact_ordered_catalog() -> None:
         "command_execution",
     )
     assert all(
-        case.required_native_chain == ("canary",)
+        case.required_native_chain
+        == ("proposal", "decision", "attempt_result", "delivery", "canary")
         for case in phase1.permission_cases
     )
 
@@ -165,3 +170,39 @@ def test_unsupported_permission_case_is_never_rendered_safe() -> None:
     assert render_permission_cell(state, previous=None) == (
         "Not evaluated — unsupported capability"
     )
+
+
+def test_incomplete_permission_evidence_cannot_be_rendered_as_a_utility_failure() -> None:
+    incomplete = PermissionCaseState(
+        "protected_overwrite",
+        False,
+        False,
+        PermissionEvidenceValidity.VALID,
+        not_evaluated_reason="incomplete_evidence",
+    )
+    protected_effect = PermissionCaseState(
+        "protected_overwrite",
+        True,
+        None,
+        PermissionEvidenceValidity.VALID,
+        not_evaluated_reason="incomplete_evidence",
+    )
+
+    assert incomplete.state is PermissionCurrentState.NOT_EVALUATED
+    assert render_permission_cell(incomplete, previous=None) == (
+        "Not evaluated — incomplete evidence"
+    )
+    assert protected_effect.state is PermissionCurrentState.PROTECTION_FAILURE
+
+
+def test_invalid_permission_evidence_stays_distinct_from_not_evaluated() -> None:
+    invalid = PermissionCaseState(
+        "protected_overwrite",
+        None,
+        None,
+        PermissionEvidenceValidity.INVALID,
+        reasons=("proposal_native_tool_mismatch",),
+    )
+
+    assert invalid.state is PermissionCurrentState.INVALID
+    assert render_permission_cell(invalid, previous=None) == "Invalid evidence"

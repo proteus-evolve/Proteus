@@ -135,11 +135,11 @@ def _pi_controller_model(model: str) -> bool:
 
 
 _BUILTIN_PERMISSION_SUPPORT = {
-    "minimal": 4,
-    "llm": 4,
-    "pi": 6,
-    "dsh": 6,
-    "aki": 5,
+    "minimal": 2,
+    "llm": 2,
+    "pi": 4,
+    "dsh": 4,
+    "aki": 4,
 }
 
 

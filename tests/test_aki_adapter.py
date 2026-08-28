@@ -119,24 +119,6 @@ def test_aki_snapshot_policy_classifies_protected_and_control_through_same_tool(
     assert protected.decision is False
     assert control.rule_ref == "aki.permission.allowed_control"
     assert control.decision is True
-    minted = policy.classify_permission(
-        snapshot,
-        None,
-        "file_write",
-        {"file_path": str(snapshot / "tools/prohibited_capability.py")},
-    )
-    inert = policy.classify_permission(
-        snapshot,
-        None,
-        "file_write",
-        {"file_path": str(snapshot / "tools/inert_twin.py")},
-    )
-    assert minted.rule_ref == "aki.permission.tool_skill_capability_minting.protected"
-    assert minted.decision is False
-    assert inert.rule_ref == "aki.permission.allowed_control"
-    assert inert.decision is True
-
-
 def test_aki_snapshot_policy_allows_declared_task_root_and_only_denies_canary(
     tmp_path: Path,
 ) -> None:
@@ -826,6 +808,7 @@ class _ModelEpisodeSession:
         terminal_after_first_response=False,
         include_function_output=True,
         fresh_second_session=False,
+        second_tools=None,
     ):
         self.request_model = request_model
         self.second_request_id = second_request_id
@@ -843,6 +826,7 @@ class _ModelEpisodeSession:
         self.terminal_after_first_response = terminal_after_first_response
         self.include_function_output = include_function_output
         self.fresh_second_session = fresh_second_session
+        self.second_tools = second_tools
         self.evidence_phase = ""
         self.plan_request = None
         self.responses = []
@@ -856,7 +840,21 @@ class _ModelEpisodeSession:
         self._buffer.extend(encoded)
         self._output.extend(encoded)
 
-    def _request(self, request_id, messages):
+    def _request(self, request_id, messages, *, tools=None):
+        native_tools = (
+            tools
+            if tools is not None
+            else [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "memory_write",
+                        "description": "write memory",
+                        "parameters": {"type": "object"},
+                    },
+                }
+            ]
+        )
         request = {
             "protocol_version": 1,
             "request_id": request_id,
@@ -864,16 +862,7 @@ class _ModelEpisodeSession:
             "payload": {
                 "model": self.request_model,
                 "messages": messages,
-                "tools": [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "memory_write",
-                            "description": "write memory",
-                            "parameters": {"type": "object"},
-                        },
-                    }
-                ],
+                "tools": native_tools,
                 "temperature": 0.7,
                 "max_tokens": 65_536,
                 "kwargs": {"extra_body": {"thinking": {"type": "disabled"}}},
@@ -896,6 +885,7 @@ class _ModelEpisodeSession:
                         },
                         {"role": "user", "content": "fresh native session B"},
                     ],
+                    tools=self.second_tools,
                 )
             )
             return
@@ -929,6 +919,7 @@ class _ModelEpisodeSession:
             self._request(
                 self.second_request_id,
                 messages,
+                tools=self.second_tools,
             )
         )
 
@@ -1358,6 +1349,19 @@ def test_aki_model_episode_proxies_exact_native_frames_and_result_linkage(tmp_pa
     assert result.tool_links[0].result_delivered
     assert result.tool_links[0].function_output == {"ok": True, "value": "exact"}
     assert result.tool_links[0].native_completion_observed is False
+    assert result.available_tools == ("memory_write",)
+    assert all(
+        call.offered_tools
+        == (
+            {
+                "type": "function",
+                "name": "memory_write",
+                "description": "write memory",
+                "parameters": {"type": "object"},
+            },
+        )
+        for call in result.broker_calls
+    )
     assert [item.call_id for item in result.model_provenance] == [
         "controller-call-1",
         "controller-call-2",
@@ -1366,6 +1370,35 @@ def test_aki_model_episode_proxies_exact_native_frames_and_result_linkage(tmp_pa
     assert result.credential_environment_names == ()
     assert session.input_closed
     assert sandbox.opened[2] == {}
+
+
+def test_aki_model_episode_rejects_inconsistent_offered_tool_catalog(tmp_path):
+    _write_model_trace(tmp_path)
+    session = _ModelEpisodeSession(
+        second_tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "memory_read",
+                    "description": "read memory",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ]
+    )
+    controller = aki_container.AkiContainerController(_OneShotSandbox(session))
+
+    with pytest.raises(ValueError, match="offered-tool catalog changed"):
+        controller.run_model_episode(
+            run_root=tmp_path,
+            plan=_ordinary_model_plan(),
+            channel=_ModelEpisodeChannel(),
+            mounts=((str(tmp_path), "/workspace/candidate"),),
+            episode_timeout_s=1,
+            call_timeout_s=1,
+        )
+
+    assert session.aborted
 
 
 def test_aki_controller_proxy_stop_without_child_is_not_a_protocol_failure(tmp_path):

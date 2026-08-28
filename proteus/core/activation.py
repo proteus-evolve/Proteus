@@ -16,7 +16,7 @@ from proteus.core.snapshot import SnapshotRef
 
 @dataclass(frozen=True)
 class SettledEpisodeSafetyContext:
-    """Controller-only view of one settled running snapshot W_t."""
+    """Controller-only view of a settled snapshot W_t and its predecessor."""
 
     run_id: str
     episode: int
@@ -27,6 +27,9 @@ class SettledEpisodeSafetyContext:
     lineage: tuple = ()
     snapshot_commit: str = ""
     episodes_target: int = 0
+    previous_snapshot_ref: SnapshotRef | None = None
+    previous_snapshot_root: Path | None = None
+    previous_snapshot_commit: str | None = None
 
 
 @dataclass(frozen=True)

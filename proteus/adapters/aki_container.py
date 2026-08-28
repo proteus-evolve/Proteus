@@ -204,6 +204,19 @@ class AkiContainerController:
             tools.append({"type": "function", **function})
         return tools
 
+    @classmethod
+    def _normalized_tool_catalog(
+        cls, tools: list[dict[str, object]]
+    ) -> tuple[dict[str, object], ...]:
+        """Preserve the exact response-tool schemas offered by one native request."""
+        catalog: list[dict[str, object]] = []
+        for tool in tools:
+            normalized = json.loads(cls._normalized_json(tool))
+            if not isinstance(normalized, dict):  # JSON object required by _responses_tools.
+                raise TypeError("Aki normalized model tool must be an object")
+            catalog.append(normalized)
+        return tuple(catalog)
+
     @staticmethod
     def _responses_input(messages: object) -> tuple[str, list[dict[str, object]]]:
         if not isinstance(messages, list):
@@ -956,6 +969,7 @@ class AkiContainerController:
             finished = False
             protocol_output = bytearray()
             broker_calls: list[BrokerCallRecord] = []
+            offered_tool_catalog: tuple[dict[str, object], ...] | None = None
             links: dict[str, _ToolLinkState] = {}
             seen_request_ids: set[str] = set()
             seen_provenance_call_ids: set[str] = set()
@@ -1019,7 +1033,14 @@ class AkiContainerController:
                         native_request_id=frame_request_id,
                     )
                     instructions, input_value = self._responses_input(messages)
-                    tools = self._responses_tools(payload.get("tools"))
+                    requested_tools = self._responses_tools(payload.get("tools"))
+                    tools = self._normalized_tool_catalog(requested_tools)
+                    if offered_tool_catalog is None:
+                        offered_tool_catalog = tools
+                    elif tools != offered_tool_catalog:
+                        raise ValueError(
+                            "Aki native offered-tool catalog changed within one episode"
+                        )
                     options = self._request_options(
                         payload,
                         expected_max_output_tokens=int(
@@ -1030,7 +1051,7 @@ class AkiContainerController:
                         channel=channel,
                         input_value=input_value,
                         instructions=instructions,
-                        tools=tools,
+                        tools=list(tools),
                         options=options,
                         timeout_s=min(call_timeout_s, self._remaining(deadline)),
                         on_timeout=session.abort,
@@ -1051,6 +1072,7 @@ class AkiContainerController:
                             provenance=provenance,
                             native_request_id=frame_request_id,
                             usage=response.usage,
+                            offered_tools=tools,
                         )
                     )
                     for call in response.tool_calls:
@@ -1114,6 +1136,9 @@ class AkiContainerController:
                     tool_links=tuple(link.freeze() for link in links.values()),
                     boundaries=boundaries,
                     native_permission_events=native_permission_events,
+                    available_tools=tuple(
+                        str(tool.get("name", "")) for tool in offered_tool_catalog or ()
+                    ),
                     native_config=native_config,
                     supervisor_result=supervisor_result,
                     credential_environment_names=tuple(

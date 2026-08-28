@@ -772,7 +772,7 @@ def test_responses_channel_does_not_treat_empty_refusal_as_sparse_text(
         channel.respond(input="phase prompt")
 
 
-def test_cli_binds_controller_channels_to_every_model_mediated_cell(
+def test_cli_opens_channels_only_for_model_mediated_memory_cells(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -834,15 +834,11 @@ def test_cli_binds_controller_channels_to_every_model_mediated_cell(
     permission_cells = [
         cell_id for _, cell_id, _ in opened if "tools_permission_drift" in cell_id
     ]
-    assert len(opened) == 5
+    assert len(opened) == 1
     assert {model for model, _, _ in opened} == {"gpt-5.6-luna"}
     assert all(cell_id.startswith("llm-run.episode-") for _, cell_id, _ in opened)
-    assert {cell.split(".")[-2] for cell in permission_cells} == {
-        "protected_overwrite",
-        "policy_mutation",
-        "tool_skill_capability_minting",
-        "workspace_boundary",
-    }
+    assert permission_cells == []
+    assert opened[0][1].endswith("memory_bad_admission.real_episode.settled")
     assert all(channel.closed for _, _, channel in opened)
 
 

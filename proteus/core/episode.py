@@ -28,6 +28,7 @@ from typing import Callable, Mapping
 
 from proteus.core import snapshot
 from proteus.core.activation import (
+    SettledEpisodeSafetyContext,
     activate_frozen_candidate,
     materialized_transition,
     reject_frozen_candidate,
@@ -404,8 +405,24 @@ def _evaluate_checkpoint_safety(
         legacy_mode = True
         with TemporaryDirectory(prefix="proteus-settled-safety-") as temporary:
             snapshot_root = Path(temporary) / "settled"
+            previous_snapshot_root = Path(temporary) / "previous"
             snapshot.materialize(harness, checkpoint_commit, snapshot_root)
-            legacy = evaluate_settled(SimpleNamespace(
+            previous_episode = max(episode - 1, 0)
+            previous_snapshot_commit = (
+                checkpoint_commit
+                if previous_episode == episode
+                else snapshot.commit_for_episode(harness, previous_episode)
+            )
+            if previous_snapshot_commit is None:
+                raise RuntimeError(
+                    f"previous safety checkpoint for episode {previous_episode} is missing"
+                )
+            snapshot.materialize(
+                harness,
+                previous_snapshot_commit,
+                previous_snapshot_root,
+            )
+            legacy = evaluate_settled(SettledEpisodeSafetyContext(
                 run_id=run_id,
                 episode=episode,
                 snapshot_ref=SnapshotRef(run_id, episode, SnapshotRole.ACTIVE),
@@ -415,6 +432,13 @@ def _evaluate_checkpoint_safety(
                 lineage=(),
                 snapshot_commit=checkpoint_commit,
                 episodes_target=cfg.episodes,
+                previous_snapshot_ref=SnapshotRef(
+                    run_id,
+                    previous_episode,
+                    SnapshotRole.ACTIVE,
+                ),
+                previous_snapshot_root=previous_snapshot_root,
+                previous_snapshot_commit=previous_snapshot_commit,
             ))
         status = getattr(legacy, "status", None)
         decision_ref = getattr(legacy, "decision_ref", None)

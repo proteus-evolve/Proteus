@@ -41,11 +41,11 @@ class CountingChannel:
 @pytest.mark.parametrize(
     ("harness", "turns", "supported", "ordinary", "safety", "total"),
     [
-        ("minimal", 20, 4, 0, 32, 32),
-        ("llm", 20, 4, 4, 32, 36),
-        ("pi", 8, 6, 12, 192, 204),
-        ("dsh", 8, 6, 16, 48, 64),
-        ("aki", 56, 5, 56, 160, 216),
+        ("minimal", 20, 2, 0, 0, 0),
+        ("llm", 20, 2, 4, 0, 4),
+        ("pi", 8, 4, 12, 0, 12),
+        ("dsh", 8, 4, 16, 0, 16),
+        ("aki", 56, 4, 56, 0, 56),
     ],
 )
 def test_live_call_plan_derives_exact_whole_run_caps(
@@ -64,31 +64,31 @@ def test_live_call_plan_derives_exact_whole_run_caps(
     )
 
 
-def test_live_call_plan_memory_families_cover_pi_and_aki_native_episodes() -> None:
-    pi = derive_builtin_live_call_plan(
-        harness="pi",
+@pytest.mark.parametrize(
+    ("harness", "turns", "supported", "ordinary", "safety", "total"),
+    [
+        ("minimal", 20, 2, 0, 0, 0),
+        ("llm", 20, 2, 4, 32, 36),
+        ("pi", 8, 4, 12, 64, 76),
+        ("dsh", 8, 4, 16, 32, 48),
+        ("aki", 56, 4, 56, 64, 120),
+    ],
+)
+def test_live_call_plan_phase1_memory_families_use_actual_provider_calls(
+    harness, turns, supported, ordinary, safety, total
+) -> None:
+    plan = derive_builtin_live_call_plan(
+        harness=harness,
         episodes=1,
-        ordinary_hard_limit=8,
-        permission_supported_cases=6,
+        ordinary_hard_limit=turns,
+        permission_supported_cases=supported,
         include_memory_families=True,
     )
-    assert (pi.ordinary_cap, pi.safety_cap, pi.total_cap) == (12, 256, 268)
-    aki = derive_builtin_live_call_plan(
-        harness="aki",
-        episodes=1,
-        ordinary_hard_limit=56,
-        permission_supported_cases=5,
-        include_memory_families=True,
+    assert (plan.ordinary_cap, plan.safety_cap, plan.total_cap) == (
+        ordinary,
+        safety,
+        total,
     )
-    assert (aki.ordinary_cap, aki.safety_cap, aki.total_cap) == (56, 224, 280)
-    dsh = derive_builtin_live_call_plan(
-        harness="dsh",
-        episodes=1,
-        ordinary_hard_limit=8,
-        permission_supported_cases=6,
-        include_memory_families=True,
-    )
-    assert (dsh.ordinary_cap, dsh.safety_cap, dsh.total_cap) == (16, 80, 96)
 
 
 def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
@@ -96,19 +96,19 @@ def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
         harness="dsh",
         episodes=1,
         ordinary_hard_limit=8,
-        permission_supported_cases=6,
+        permission_supported_cases=4,
         include_memory_families=True,
     )
     twenty = derive_builtin_live_call_plan(
         harness="dsh",
         episodes=20,
         ordinary_hard_limit=8,
-        permission_supported_cases=6,
+        permission_supported_cases=4,
         include_memory_families=True,
         collapse_episode_count=5,
     )
-    assert one.safety_cap == 80
-    assert twenty.safety_cap == 720
+    assert one.safety_cap == 32
+    assert twenty.safety_cap == 216
     assert twenty.ordinary_cap == 16 * 20
     assert twenty.total_cap == twenty.ordinary_cap + twenty.safety_cap
 
@@ -284,7 +284,7 @@ def test_call_plan_cli_needs_no_credential_output_or_channel(
         "proteus.safety.tools_permission_drift:SUITE",
     ]) == 0
     assert json.loads(capsys.readouterr().out) == {
-        "harness": "dsh", "ordinary_cap": 16, "safety_cap": 48, "total_cap": 64
+        "harness": "dsh", "ordinary_cap": 16, "safety_cap": 0, "total_cap": 16
     }
     assert not list(tmp_path.iterdir())
 

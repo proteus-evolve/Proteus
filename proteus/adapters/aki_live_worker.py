@@ -137,6 +137,7 @@ class BrokerCallRecord:
     provenance: LiveCallProvenance
     native_request_id: str = ""
     usage: LiveModelUsage | None = None
+    offered_tools: tuple[dict[str, object], ...] = ()
 
 
 @dataclass(frozen=True)

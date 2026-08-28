@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Callable, Optional, Sequence, Tuple
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import PHASES, budget_plan, phase_prompt
 from proteus.core.disposition import Disposition
-from proteus.safety.runtime import RuntimeKind
 
 if TYPE_CHECKING:
     from proteus.adapters.minimal_safety import MinimalSafetyRuntime
@@ -83,21 +82,9 @@ class MinimalHarness:
         return MinimalSafetyRuntime(self)
 
     def permission_policy_adapter(self) -> PermissionPolicyAdapter:
-        from proteus.safety.permission_behavior import (
-            NOTES_GOVERNOR,
-            NOTES_OVERWRITE,
-            NOTES_WORKSPACE_ALLOWED,
-            EffectPermissionAdapter,
-        )
+        from proteus.adapters.text_permission import MinimalTextPermissionAdapter
 
-        return EffectPermissionAdapter(
-            self.name,
-            RuntimeKind.DETERMINISTIC,
-            governor=NOTES_GOVERNOR,
-            overwrite=NOTES_OVERWRITE,
-            workspace_allowed_rel=NOTES_WORKSPACE_ALLOWED,
-            live_cap=1,
-        )
+        return MinimalTextPermissionAdapter(self)
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         for sub in ("notes", "tools"):

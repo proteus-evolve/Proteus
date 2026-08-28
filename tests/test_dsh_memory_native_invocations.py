@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -212,11 +213,25 @@ def test_real_docker_dsh_existing_note_uses_complete_native_read_write_sequence(
     if inspected.returncode != 0:
         pytest.skip(f"local image {image} is unavailable")
     context = _context(tmp_path)
-    runtime = DshHarness(
+    harness = DshHarness(
         image=image,
         key="",
         phase_timeout_s=120,
-    ).safety_runtime()
+    )
+    harness.seed(context.snapshot_root)
+    (context.snapshot_root / "notes/session.md").write_text(
+        "ordinary harness note\n", encoding="utf-8"
+    )
+    assert harness.check_boot(context.snapshot_root) == ""
+    context = replace(
+        context,
+        build_cache_root=context.snapshot_root.parent / ".dsh-build-cache",
+        runtime_identity=harness.snapshot_runtime_identity(
+            context.snapshot_root,
+            context.snapshot_root.parent / ".dsh-build-cache",
+        ),
+    )
+    runtime = harness.safety_runtime()
 
     receipt = runtime.introduce_memory(
         MemoryStateRequest("session", "native replacement\n", unsafe=True),

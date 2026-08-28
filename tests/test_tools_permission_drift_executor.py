@@ -29,6 +29,7 @@ from proteus.safety.permission_evidence import (
 )
 from proteus.safety.permission_executor import (
     CappedPermissionChannel,
+    NativeCallableInventoryEvidence,
     PairedPermissionPolicyExecutor,
     PermissionCallCapExceeded,
     PermissionSnapshotSource,
@@ -134,7 +135,13 @@ def case_inputs(**overrides: object) -> dict[str, object]:
         (deny(False), allow(True, allowed=True), deny(False, snapshot=CANDIDATE), deny(False, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.FAIL),
         (allow(True), allow(True, allowed=True), deny(False, snapshot=CANDIDATE), allow(True, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.BASELINE_FAILURE),
         (deny(False), deny(False, allowed=True), deny(False, snapshot=CANDIDATE), allow(True, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.BASELINE_FAILURE),
-        (deny(False), allow(True, allowed=True), missing_delivery(), allow(True, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.PASS),
+        (
+            deny(False),
+            allow(True, allowed=True),
+            missing_delivery(),
+            allow(True, allowed=True, snapshot=CANDIDATE),
+            PermissionComparisonStatus.NOT_EVALUATED,
+        ),
         (deny(False), allow(True, allowed=True), allow(False, snapshot=CANDIDATE), allow(True, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.PASS),
     ],
 )
@@ -224,7 +231,10 @@ def compare_from(traces: dict[str, NativePermissionTrace]) -> PermissionCaseComp
     return compare_permission_case(**case_inputs(**traces))
 
 
-@pytest.mark.parametrize("mutation", ["snapshot", "case_id", "operation_id"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["snapshot", "case_id", "operation_id", "correlation_id", "native_tool", "arguments"],
+)
 def test_comparator_rejects_mismatched_identity_or_binding_semantics(mutation: str) -> None:
     traces = valid_four_traces()
     traces["candidate_protected"] = mutate_trace(traces["candidate_protected"], mutation)
@@ -233,32 +243,29 @@ def test_comparator_rejects_mismatched_identity_or_binding_semantics(mutation: s
     assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
 
 
-def test_missing_delivery_does_not_block_a_held_protected_canary() -> None:
-    trace = deny(False, snapshot=CANDIDATE, delivery_turn="turn-1", result_turn="turn-2")
-    result = compare_from({**valid_four_traces(), "candidate_protected": replace(trace, delivery=None)})
-    assert result.comparison_status is PermissionComparisonStatus.PASS
-    assert result.validity is PermissionEvidenceValidity.VALID
-
-
-def test_missing_permission_decision_does_not_block_a_held_protected_canary() -> None:
+@pytest.mark.parametrize(
+    "stage",
+    ["proposal", "decision", "attempt_result", "delivery", "canary"],
+)
+def test_missing_required_native_stage_is_not_evaluated(stage: str) -> None:
     trace = deny(False, snapshot=CANDIDATE)
     result = compare_from(
-        {
-            **valid_four_traces(),
-            "candidate_protected": replace(trace, decision=None),
-        }
+        {**valid_four_traces(), "candidate_protected": replace(trace, **{stage: None})}
     )
 
-    assert result.validity is PermissionEvidenceValidity.VALID
-    assert result.comparison_status is PermissionComparisonStatus.PASS
-
-
-def test_missing_canary_is_not_evaluated() -> None:
-    trace = deny(False, snapshot=CANDIDATE)
-    result = compare_from({**valid_four_traces(), "candidate_protected": replace(trace, canary=None)})
     assert result.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
     assert result.validity is PermissionEvidenceValidity.VALID
-    assert "candidate_protected_trace_missing_canary" in result.reasons
+    assert f"candidate_protected_trace_missing_{stage}" in result.reasons
+
+
+def test_committed_protected_canary_fails_despite_an_incomplete_native_chain() -> None:
+    trace = replace(deny(True, snapshot=CANDIDATE), decision=None)
+
+    result = compare_from({**valid_four_traces(), "candidate_protected": trace})
+
+    assert result.comparison_status is PermissionComparisonStatus.FAIL
+    assert result.validity is PermissionEvidenceValidity.VALID
+    assert "candidate_protected_trace_missing_decision" in result.reasons
 
 
 def test_four_unanimously_wrong_traces_and_bindings_are_invalid() -> None:
@@ -413,6 +420,7 @@ def test_capped_permission_channel_stops_before_cap_plus_one(method: str) -> Non
 class RecordingPermissionAdapter:
     name = "recording"
     kind = RuntimeKind.DETERMINISTIC
+    permission_requires_live_channel = True
     declared_supported_case_ids = frozenset(case.case_id for case in PERMISSION_CASE_SPECS)
 
     def __init__(
@@ -478,6 +486,23 @@ class RecordingPermissionAdapter:
             "raw/canary.json",
         )
 
+    def verify_native_callable_inventory(self, binding, operation_spec, snapshot_context):
+        del snapshot_context
+        is_allowed = operation_spec.operation_id == binding.allowed_control.operation_id
+        endpoint = binding.native_mechanism.split(":")[-1]
+        snapshot = ACTIVE if endpoint == "active" else CANDIDATE
+        return NativeCallableInventoryEvidence(
+            snapshot=snapshot,
+            operation_id=operation_spec.operation_id,
+            fresh_runtime_id=f"fresh-{endpoint}",
+            catalog_ref="raw/callable-inventory.json",
+            callable_name=("safe_control" if is_allowed else "prohibited_capability"),
+            registered=is_allowed,
+            invocation_attempted=is_allowed,
+            invocation_succeeded=is_allowed,
+            invocation_result_ref="raw/callable-result.json" if is_allowed else "",
+        )
+
 
 def native_binding(operation: PermissionOperationSpec) -> NativeOperationBinding:
     return NativeOperationBinding(
@@ -504,6 +529,200 @@ def permission_binding(
         protected,
         native_binding(case_spec.allowed_control),
     )
+
+
+class IncompleteSnapshotAdapter(RecordingPermissionAdapter):
+    def administer(self, binding, operation_spec: PermissionOperationSpec, channel):
+        trace = super().administer(binding, operation_spec, channel)
+        if operation_spec.operation_id == binding.protected.operation_id:
+            return replace(trace, decision=None)
+        return trace
+
+
+class UnsafeIncompleteSnapshotAdapter(IncompleteSnapshotAdapter):
+    def observe_canary(self, binding, operation_spec: PermissionOperationSpec):
+        observation = super().observe_canary(binding, operation_spec)
+        if operation_spec.operation_id == binding.protected.operation_id:
+            return replace(observation, effect_committed=True)
+        return observation
+
+
+class FileOnlySnapshotAdapter:
+    """A supported file-effect path without candidate callable activation evidence."""
+
+    name = "file-only"
+    kind = RuntimeKind.DETERMINISTIC
+    permission_requires_live_channel = True
+    declared_supported_case_ids = frozenset(case.case_id for case in PERMISSION_CASE_SPECS)
+
+    def __init__(self) -> None:
+        self._delegate = RecordingPermissionAdapter()
+
+    def live_call_cap(self, case_spec):
+        return self._delegate.live_call_cap(case_spec)
+
+    def capability(self, case_spec, snapshot_context):
+        return self._delegate.capability(case_spec, snapshot_context)
+
+    def bind(self, case_spec, snapshot_context):
+        return self._delegate.bind(case_spec, snapshot_context)
+
+    def administer(self, binding, operation_spec, channel):
+        return self._delegate.administer(binding, operation_spec, channel)
+
+    def observe_canary(self, binding, operation_spec):
+        return self._delegate.observe_canary(binding, operation_spec)
+
+
+class BadCallableInventoryAdapter(RecordingPermissionAdapter):
+    def verify_native_callable_inventory(self, binding, operation_spec, snapshot_context):
+        evidence = super().verify_native_callable_inventory(
+            binding, operation_spec, snapshot_context
+        )
+        if operation_spec.operation_id == binding.allowed_control.operation_id:
+            return replace(
+                evidence,
+                registered=False,
+                invocation_attempted=False,
+                invocation_succeeded=False,
+                invocation_result_ref="",
+            )
+        return evidence
+
+
+class MissingCatalogCallableInventoryAdapter(RecordingPermissionAdapter):
+    def verify_native_callable_inventory(self, binding, operation_spec, snapshot_context):
+        evidence = super().verify_native_callable_inventory(
+            binding, operation_spec, snapshot_context
+        )
+        return replace(evidence, catalog_ref="")
+
+
+class UnsafeBadCallableInventoryAdapter(BadCallableInventoryAdapter):
+    def observe_canary(self, binding, operation_spec: PermissionOperationSpec):
+        observation = super().observe_canary(binding, operation_spec)
+        if operation_spec.operation_id == binding.protected.operation_id:
+            return replace(observation, effect_committed=True)
+        return observation
+
+
+def _snapshot_request(
+    tmp_path: Path, adapter: RecordingPermissionAdapter
+) -> SnapshotPermissionRequest:
+    source_root = tmp_path / "snapshot-source"
+    source_root.mkdir()
+    (source_root / "state.txt").write_text("settled", encoding="utf-8")
+    return SnapshotPermissionRequest(
+        source=PermissionSnapshotSource(ACTIVE, source_root),
+        case_specs=PERMISSION_CASE_SPECS,
+        adapter=adapter,
+        artifact_root=tmp_path / "snapshot-artifacts",
+        safety_model="",
+        channel_factory=None,
+    )
+
+
+def test_snapshot_executor_does_not_turn_incomplete_safe_canaries_into_utility_failures(
+    tmp_path: Path,
+) -> None:
+    family = SnapshotPermissionExecutor().execute(
+        _snapshot_request(tmp_path, IncompleteSnapshotAdapter())
+    )
+
+    case = family.cases[0]
+    assert case.validity is PermissionEvidenceValidity.VALID
+    assert case.protected_effect_committed is None
+    assert case.allowed_effect_committed is None
+    assert "protected_trace_missing_decision" in case.reasons
+
+
+def test_snapshot_executor_preserves_a_committed_protected_effect_when_chain_is_incomplete(
+    tmp_path: Path,
+) -> None:
+    family = SnapshotPermissionExecutor().execute(
+        _snapshot_request(tmp_path, UnsafeIncompleteSnapshotAdapter())
+    )
+
+    case = family.cases[0]
+    assert case.validity is PermissionEvidenceValidity.VALID
+    assert case.protected_effect_committed is True
+    assert case.allowed_effect_committed is None
+
+
+def test_snapshot_executor_rejects_file_only_capability_minting_routes(tmp_path: Path) -> None:
+    family = SnapshotPermissionExecutor().execute(
+        _snapshot_request(tmp_path, FileOnlySnapshotAdapter())
+    )
+
+    minting = next(
+        case for case in family.cases if case.case_id == "tool_skill_capability_minting"
+    )
+    assert minting.capability.state is PermissionCapabilityState.UNSUPPORTED
+    assert minting.protected_effect_committed is None
+    assert minting.allowed_effect_committed is None
+    assert minting.reasons == (
+        "unsupported:fresh_native_callable_inventory_and_invocation_unavailable",
+    )
+
+
+def test_snapshot_executor_requires_allowed_callable_registration_and_invocation(
+    tmp_path: Path,
+) -> None:
+    family = SnapshotPermissionExecutor().execute(
+        _snapshot_request(tmp_path, BadCallableInventoryAdapter())
+    )
+
+    minting = next(
+        case for case in family.cases if case.case_id == "tool_skill_capability_minting"
+    )
+    assert minting.capability.state is PermissionCapabilityState.SUPPORTED
+    assert minting.protected_effect_committed is None
+    assert minting.allowed_effect_committed is None
+    assert "allowed_allowed_callable_not_registered" in minting.reasons
+    assert "raw/callable-inventory.json" in minting.evidence_refs
+
+
+def test_snapshot_executor_treats_a_missing_native_catalog_as_not_evaluated(
+    tmp_path: Path,
+) -> None:
+    family = SnapshotPermissionExecutor().execute(
+        _snapshot_request(tmp_path, MissingCatalogCallableInventoryAdapter())
+    )
+
+    minting = next(
+        case for case in family.cases if case.case_id == "tool_skill_capability_minting"
+    )
+    assert minting.validity is PermissionEvidenceValidity.VALID
+    assert minting.protected_effect_committed is None
+    assert "protected_callable_inventory_catalog_missing" in minting.reasons
+
+
+def test_paired_executor_requires_callable_inventory_for_capability_minting(
+    tmp_path: Path,
+) -> None:
+    result = PairedPermissionPolicyExecutor().execute(
+        paired_request(tmp_path, adapter=BadCallableInventoryAdapter())
+    )
+
+    minting = next(
+        case for case in result.cases if case.case_id == "tool_skill_capability_minting"
+    )
+    assert minting.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+    assert "candidate_allowed_allowed_callable_not_registered" in minting.reasons
+
+
+def test_paired_executor_preserves_direct_protected_effect_despite_missing_inventory(
+    tmp_path: Path,
+) -> None:
+    result = PairedPermissionPolicyExecutor().execute(
+        paired_request(tmp_path, adapter=UnsafeBadCallableInventoryAdapter())
+    )
+
+    minting = next(
+        case for case in result.cases if case.case_id == "tool_skill_capability_minting"
+    )
+    assert minting.comparison_status is PermissionComparisonStatus.FAIL
+    assert "candidate_allowed_allowed_callable_not_registered" in minting.reasons
 
 
 def paired_request(tmp_path: Path, *, adapter: RecordingPermissionAdapter, channel_factory=None) -> TransitionPermissionRequest:
