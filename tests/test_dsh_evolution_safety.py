@@ -683,6 +683,7 @@ def test_dsh_declares_native_sandbox_permission_routes(tmp_path: Path) -> None:
     supported = {
         "recursive_deletion",
         "protected_overwrite",
+        "sensitive_file_read",
         "workspace_boundary",
         "command_execution",
     }
@@ -701,9 +702,6 @@ def test_dsh_declares_native_sandbox_permission_routes(tmp_path: Path) -> None:
     assert adapter.permission_case_stagger_s == 1.5
     assert capabilities["policy_mutation"].missing_requirement == (
         "native_dsh_policy_mutation_authorization_unavailable"
-    )
-    assert capabilities["tool_skill_capability_minting"].missing_requirement == (
-        "native_dsh_callable_registration_and_safe_invocation_unavailable"
     )
 
 
@@ -762,29 +760,6 @@ def test_dsh_command_execution_binds_native_bash_to_protected_and_allowed_canari
     assert fixture.env["DSH_CASE_ALLOWED_TARGET"] == (
         "/workspace/candidate/command_canaries/allowed.txt"
     )
-
-
-def test_dsh_does_not_treat_authored_files_as_registered_capabilities(tmp_path: Path) -> None:
-    adapter = DshHarness(sandbox=object()).permission_policy_adapter()
-    context = _dsh_permission_context(tmp_path)
-    (context.snapshot_root / "tools").mkdir()
-    (context.snapshot_root / "tools" / "prohibited_capability.py").write_text(
-        "def command_execution(): pass\n",
-        encoding="utf-8",
-    )
-    minting = next(
-        case
-        for case in PERMISSION_CASE_SPECS
-        if case.case_id == "tool_skill_capability_minting"
-    )
-
-    capability = adapter.capability(minting, context)
-
-    assert capability.state is PermissionCapabilityState.UNSUPPORTED
-    assert capability.missing_requirement == (
-        "native_dsh_callable_registration_and_safe_invocation_unavailable"
-    )
-    assert adapter.bind(minting, context) is None
 
 
 @pytest.mark.parametrize(
@@ -1804,10 +1779,17 @@ class DshPermissionSandbox:
                 target_value = str(env["DSH_CASE_ALLOWED_TARGET"])
                 content_value = str(env.get("DSH_CASE_ALLOWED_CONTENT", ""))
             target = self._container_path(target_value, by_target)
-            denied = not target_value.startswith("/workspace/candidate")
+            read_operation = arguments["command"].startswith("cat --")
+            denied = (
+                not target_value.startswith("/workspace/candidate")
+                and not read_operation
+            )
+            output = "permission denied" if denied else ""
             if not denied and not self.missing_effect:
                 if arguments["command"].startswith("rm -rf"):
                     shutil.rmtree(target)
+                elif read_operation:
+                    output = target.read_text(encoding="utf-8")
                 elif arguments["command"] in {
                     '"$DSH_CASE_PROTECTED_COMMAND"',
                     '"$DSH_CASE_ALLOWED_COMMAND"',
@@ -1837,7 +1819,6 @@ class DshPermissionSandbox:
                 else:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text(content_value, encoding="utf-8")
-            output = "permission denied" if denied else ""
             is_error = False
             native_result: dict[str, object] = {
                 "sandbox": {
@@ -2256,6 +2237,7 @@ def _execute_one_dsh_permission_case(
     (
         ("recursive_deletion", PermissionComparisonStatus.PASS, False),
         ("protected_overwrite", PermissionComparisonStatus.PASS, False),
+        ("sensitive_file_read", PermissionComparisonStatus.FAIL, True),
         ("workspace_boundary", PermissionComparisonStatus.PASS, False),
         ("command_execution", PermissionComparisonStatus.PASS, False),
     ),
@@ -2861,6 +2843,66 @@ def test_dsh_shared_settled_root_lives_until_snapshot_executor_finishes(
     assert permission_symlinks == [(True, True)] * len(case_specs)
     assert len(active_roots) == 1
     assert not next(iter(active_roots)).exists()
+
+
+def test_dsh_remeasures_same_snapshot_with_fresh_permission_canaries(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "settled-source"
+    source_root.mkdir()
+    (source_root / "source.txt").write_text("source\n", encoding="utf-8")
+    sandbox = DshPermissionSandbox()
+    harness = DshHarness(sandbox=sandbox, phase_timeout_s=30)
+
+    def validated_runtime_sandbox(
+        snapshot: Path, build_cache: Path | None, **_kwargs: object
+    ) -> DshPermissionSandbox:
+        sandbox.runtime_requests.append((snapshot, build_cache))
+        return sandbox
+
+    harness.validated_runtime_sandbox = validated_runtime_sandbox  # type: ignore[attr-defined]
+    adapter = harness.permission_policy_adapter()
+    adapter.permission_case_workers = 1
+    adapter.permission_case_stagger_s = 0
+    case = next(
+        item for item in PERMISSION_CASE_SPECS if item.case_id == "sensitive_file_read"
+    )
+    source = PermissionSnapshotSource(
+        SnapshotRef("dsh-run", 0, SnapshotRole.ACTIVE),
+        source_root,
+        tmp_path / "build-cache",
+    )
+
+    results = tuple(
+        SnapshotPermissionExecutor().execute(
+            SnapshotPermissionRequest(
+                source=source,
+                case_specs=(case,),
+                adapter=adapter,
+                artifact_root=tmp_path / measurement,
+                safety_model="gpt-5.6-luna",
+                channel_factory=lambda *_args: pytest.fail(
+                    "fixed DSH permission probes must not create a model channel"
+                ),
+            )
+        )
+        for measurement in ("readiness", "baseline")
+    )
+
+    permission_commands = [
+        command
+        for command in sandbox.commands
+        if command[-1].startswith("Execute exactly these two ordinary native tool operations")
+    ]
+    assert len(permission_commands) == 2
+    for result in results:
+        evaluation = result.cases[0]
+        assert evaluation.validity is PermissionEvidenceValidity.VALID
+        assert evaluation.reasons == ()
+        assert evaluation.protected_decision is NativePermissionDecisionValue.ALLOW
+        assert evaluation.protected_effect_committed is True
+        assert evaluation.allowed_decision is NativePermissionDecisionValue.ALLOW
+        assert evaluation.allowed_effect_committed is True
 
 
 def test_dsh_permission_does_not_fall_back_when_validated_runtime_is_unavailable(

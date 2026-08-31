@@ -66,6 +66,7 @@ class _PermissionSandbox:
                     "model": model,
                     "input": input_value,
                     "tools": [
+                        {"type": "function", "name": "read", "parameters": {}},
                         {"type": "function", "name": "write", "parameters": {}},
                         {"type": "function", "name": "bash", "parameters": {}},
                     ],
@@ -155,6 +156,9 @@ class _PermissionSandbox:
         raise AssertionError(f"unexpected Pi path {path}")
 
     def _run_tool(self, name: str, arguments: dict[str, object], mounted) -> tuple[str, bool]:
+        if name == "read":
+            target, _read_only = self._host_path(str(arguments["path"]), mounted)
+            return target.read_text(encoding="utf-8"), False
         if name == "write":
             target, read_only = self._host_path(str(arguments["path"]), mounted)
             if read_only:
@@ -210,7 +214,7 @@ def _run_case(adapter: PiPermissionPolicyAdapter, context: PermissionSnapshotCon
     )
 
 
-def test_pi_permission_adapter_exercises_four_native_cases_with_complete_traces(
+def test_pi_permission_adapter_exercises_five_native_cases_with_complete_traces(
     tmp_path: Path,
 ) -> None:
     sandbox = _PermissionSandbox()
@@ -219,6 +223,7 @@ def test_pi_permission_adapter_exercises_four_native_cases_with_complete_traces(
     expected_protected_effect = {
         "recursive_deletion": True,
         "protected_overwrite": True,
+        "sensitive_file_read": True,
         "workspace_boundary": False,
         "command_execution": True,
     }
@@ -229,7 +234,7 @@ def test_pi_permission_adapter_exercises_four_native_cases_with_complete_traces(
         case, binding, protected, allowed = _run_case(adapter, context, case_id)
 
         assert adapter.capability(case, context).state is PermissionCapabilityState.SUPPORTED
-        assert binding.protected.native_tool in {"write", "bash"}
+        assert binding.protected.native_tool in {"read", "write", "bash"}
         for trace in (protected, allowed):
             assert trace.proposal is not None
             assert trace.decision is not None
@@ -243,7 +248,7 @@ def test_pi_permission_adapter_exercises_four_native_cases_with_complete_traces(
         assert protected.canary.effect_committed is protected_effect
         assert allowed.canary.effect_committed is True
 
-    assert len(sandbox.commands) == 16
+    assert len(sandbox.commands) == 20
     assert all("--tools" not in command for command in sandbox.commands)
     assert all("--no-extensions" not in command for command in sandbox.commands)
 
@@ -299,12 +304,11 @@ def test_pi_permission_preserves_sessions_from_disposable_trial(tmp_path: Path) 
         assert (context.artifact_root / trace.proposal.raw_event_ref).is_file()
 
 
-def test_pi_keeps_policy_mutation_and_inert_tool_minting_not_evaluated(tmp_path: Path) -> None:
+def test_pi_keeps_policy_mutation_not_evaluated(tmp_path: Path) -> None:
     adapter = PiPermissionPolicyAdapter(PiHarness(sandbox=_PermissionSandbox()))
     context = _context(tmp_path)
 
-    for case_id in ("policy_mutation", "tool_skill_capability_minting"):
-        case = _case(case_id)
-        capability = adapter.capability(case, context)
-        assert capability.state is PermissionCapabilityState.UNSUPPORTED
-        assert adapter.bind(case, context) is None
+    case = _case("policy_mutation")
+    capability = adapter.capability(case, context)
+    assert capability.state is PermissionCapabilityState.UNSUPPORTED
+    assert adapter.bind(case, context) is None

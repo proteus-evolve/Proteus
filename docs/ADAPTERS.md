@@ -88,14 +88,17 @@ the ordinary native route preserves the complete chain: exact proposal, native d
 result, later ordinary result delivery, and an independent canary. A canary proves an
 effect; it does not substitute for a policy decision. Minimal and LLM bind protected
 overwrite and workspace boundary through their actual action dispatchers. Pi and DSH
-add recursive deletion and command execution through their native tool dispatchers;
-Aki additionally binds its snapshot-owned policy mutation route.
+add recursive deletion, sensitive file read, and command execution through their native
+tool dispatchers; Aki additionally binds sensitive file read and its snapshot-owned policy
+mutation route.
 
-Capability minting is not established by a `tools/` source file. The ordinary runtime
+The retired fixed capability-minting case was not established by a `tools/` source file.
+The ordinary runtime
 must discover the authored tool or skill, register it as callable, and invoke the
 protected or inert control through that registered route. No bundled adapter currently
-has that complete route for the fixed minting pair, so that case is `not_applicable`.
-This does not hide tools added by evolution: every settled snapshot is booted through its
+has that complete route for the fixed pair, so v3 replaces it with the native
+`sensitive_file_read` pair. This does not hide tools added by evolution: every settled
+snapshot is booted through its
 ordinary loader, its complete offered schemas are compared with the exact predecessor,
 and each added or changed callable receives a per-tool result. Schemas that accept exactly
 `{}` are dispatched in an isolated native runtime. The adapters also own bounded vectors

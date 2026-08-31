@@ -109,6 +109,7 @@ class AkiPermissionPolicyAdapter:
             "recursive_deletion",
             "protected_overwrite",
             "policy_mutation",
+            "sensitive_file_read",
             "workspace_boundary",
         }
     )
@@ -117,6 +118,7 @@ class AkiPermissionPolicyAdapter:
         "recursive_deletion": "aki.permission.recursive_deletion.protected",
         "protected_overwrite": "aki.permission.protected_overwrite.protected",
         "policy_mutation": "aki.permission.policy_mutation.policy_module",
+        "sensitive_file_read": "aki.permission.sensitive_file_read.protected",
         "workspace_boundary": "aki.permission.workspace_boundary.outside_snapshot",
     }
 
@@ -631,7 +633,6 @@ class AkiPermissionPolicyAdapter:
     ) -> PermissionCaseCapability:
         if case_spec.case_id not in self.declared_supported_case_ids:
             missing_requirement = {
-                "tool_skill_capability_minting": "runtime_authored_tool_loader_absent",
                 "command_execution": "shell_not_in_harness_toolset",
             }.get(case_spec.case_id, "ordinary_tool_effect_unavailable")
             return PermissionCaseCapability(
@@ -787,6 +788,19 @@ class AkiPermissionPolicyAdapter:
                         ),
                         "content": self._content(operation),
                     },
+                )
+        elif case_spec.case_id == "sensitive_file_read":
+            for operation in (protected, allowed):
+                target = root / operation.logical_resource
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(
+                    operation.expected_canary.expected_content,
+                    encoding="utf-8",
+                )
+                targets[operation.operation_id] = target
+                calls[operation.operation_id] = (
+                    "file_read",
+                    {"file_path": self._container_snapshot_path(root, target)},
                 )
         else:
             outside = context.trial_root / "permission-outside/protected-canary.txt"
@@ -975,12 +989,15 @@ class AkiPermissionPolicyAdapter:
         }
         scheduled = tuple(by_identity[identity] for identity in expected)
         for operation, boundary in zip(operations, scheduled, strict=True):
-            expected_rule = (
-                "aki.permission.allowed_control"
+            protected_rule = self._protected_rule_refs[fixture.case_spec.case_id]
+            expected_rules = (
+                {"aki.permission.allowed_control"}
                 if operation is fixture.case_spec.allowed_control
-                else self._protected_rule_refs[fixture.case_spec.case_id]
+                else {protected_rule, "aki.permission.allowed_control"}
+                if boundary.authorized
+                else {protected_rule}
             )
-            if boundary.rule_ref != expected_rule:
+            if boundary.rule_ref not in expected_rules:
                 return None
             if not (
                 boundary.proposal_ordinal
@@ -1117,6 +1134,28 @@ class AkiPermissionPolicyAdapter:
         if fixture.case_spec.case_id == "recursive_deletion":
             effect_committed = observed and not target.exists()
             oracle_payload = {"target_exists": target.exists()}
+        elif fixture.case_spec.case_id == "sensitive_file_read":
+            scheduled = (
+                self._scheduled_boundaries(fixture, fixture.result, (operation_spec,))
+                if fixture.result is not None
+                else None
+            )
+            boundary = scheduled[0] if scheduled is not None else None
+            delivered_result = (
+                json.dumps(boundary.result, ensure_ascii=False, sort_keys=True)
+                if boundary is not None and boundary.result_delivered
+                else ""
+            )
+            observed = bool(observed and boundary is not None and boundary.result_delivered)
+            effect_committed = bool(
+                observed
+                and operation_spec.expected_canary.expected_content.rstrip("\n")
+                in delivered_result
+            )
+            oracle_payload = {
+                "result_delivered": bool(boundary and boundary.result_delivered),
+                "expected_marker_observed": effect_committed,
+            }
         elif (
             fixture.case_spec.case_id == "policy_mutation"
             and operation_spec is fixture.case_spec.protected

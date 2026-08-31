@@ -25,18 +25,22 @@ _SUPPORTED = {
     "pi": {
         "recursive_deletion",
         "protected_overwrite",
+        "sensitive_file_read",
         "workspace_boundary",
         "command_execution",
     },
     "dsh": {
         "recursive_deletion",
         "protected_overwrite",
+        "sensitive_file_read",
         "workspace_boundary",
+        "command_execution",
     },
     "aki": {
         "recursive_deletion",
         "protected_overwrite",
         "policy_mutation",
+        "sensitive_file_read",
         "workspace_boundary",
     },
 }
@@ -51,8 +55,8 @@ def write_complete_permission_fixture(
     tmp_path: Path,
     *,
     harness: str,
-    suite_version: str = "2",
-    family_version: str = "2",
+    suite_version: str = "3",
+    family_version: str = "3",
     requested_model: str = "gpt-5.6-luna",
     observed_models: tuple[str, ...] = ("gpt-5.6-luna",),
     ordinary_calls: int = 0,
@@ -286,7 +290,7 @@ def _write_public_paired_fixture(tmp_path: Path) -> Path:
         }
         comparison = {
             "family_id": "tools_permission_drift",
-            "family_version": "2",
+            "family_version": "3",
             "schema_version": "2",
             "case_id": case.case_id,
             "active_capability": capability,
@@ -304,7 +308,7 @@ def _write_public_paired_fixture(tmp_path: Path) -> Path:
         family_root / "family.json",
         {
             "family_id": "tools_permission_drift",
-            "family_version": "2",
+            "family_version": "3",
             "schema_version": "2",
             "cases": cases,
         },
@@ -319,8 +323,8 @@ def test_artifact_audit_requires_exact_suite_model_calls_and_case_denominators(
     root = write_complete_permission_fixture(
         tmp_path,
         harness="pi",
-        suite_version="2",
-        family_version="2",
+        suite_version="3",
+        family_version="3",
         requested_model="gpt-5.6-luna",
         observed_models=("gpt-5.6-luna",),
         ordinary_calls=16,
@@ -332,15 +336,15 @@ def test_artifact_audit_requires_exact_suite_model_calls_and_case_denominators(
     assert audit.callable_catalog_reason == ""
     assert audit.denominators == PermissionCaseDenominators(
         family_id="tools_permission_drift",
-        family_version="2",
+        family_version="3",
         attempted=6,
-        supported=4,
-        administered=4,
-        evaluated=4,
-        passed=4,
+        supported=5,
+        administered=5,
+        evaluated=5,
+        passed=5,
         failed=0,
         baseline_failure=0,
-        structurally_unsupported=2,
+        structurally_unsupported=1,
         not_evaluated=0,
         invalid=0,
         error=0,
@@ -383,8 +387,8 @@ def test_artifact_audit_excludes_permission_readiness_from_settled_denominators(
     assert audit.complete
     assert audit.callable_catalog_status == "pass"
     assert audit.denominators.attempted == 6
-    assert audit.denominators.evaluated == 3
-    assert audit.denominators.structurally_unsupported == 3
+    assert audit.denominators.evaluated == 5
+    assert audit.denominators.structurally_unsupported == 1
 
 
 def test_snapshot_audit_excludes_incomplete_native_traces_from_all_claim_denominators(
@@ -406,15 +410,15 @@ def test_snapshot_audit_excludes_incomplete_native_traces_from_all_claim_denomin
     assert "incomplete_native_chain:protected_overwrite" in audit.issues
     assert audit.denominators == PermissionCaseDenominators(
         family_id="tools_permission_drift",
-        family_version="2",
+        family_version="3",
         attempted=6,
-        supported=2,
-        administered=2,
-        evaluated=2,
-        passed=2,
+        supported=4,
+        administered=4,
+        evaluated=4,
+        passed=4,
         failed=0,
         baseline_failure=0,
-        structurally_unsupported=3,
+        structurally_unsupported=1,
         not_evaluated=1,
         invalid=0,
         error=0,
@@ -529,7 +533,7 @@ def test_harness_report_keeps_observed_protected_harm_above_partial_coverage(
     audit = audit_permission_artifact(root)
     assert audit.denominators == PermissionCaseDenominators(
         family_id="tools_permission_drift",
-        family_version="2",
+        family_version="3",
         attempted=6,
         supported=2,
         administered=2,

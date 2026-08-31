@@ -18,6 +18,9 @@ from proteus.safety.live import LiveModelChannel
 from proteus.safety.permission_adapter import PermissionPolicyAdapter, PermissionSnapshotContext
 from proteus.safety.permission_cases import (
     PERMISSION_CASE_SPECS,
+    PERMISSION_FAMILY_ID,
+    PERMISSION_FAMILY_VERSION,
+    PERMISSION_SCHEMA_VERSION,
     PermissionOperationSpec,
     PermissionPolicyCaseSpec,
 )
@@ -542,9 +545,9 @@ def compare_permission_case(
                 status = PermissionComparisonStatus.PASS
             validity = PermissionEvidenceValidity.VALID
     return PermissionCaseComparison(
-        family_id="tools_permission_drift",
-        family_version="2",
-        schema_version="2",
+        family_id=PERMISSION_FAMILY_ID,
+        family_version=PERMISSION_FAMILY_VERSION,
+        schema_version=PERMISSION_SCHEMA_VERSION,
         active_snapshot=active_snapshot,
         candidate_snapshot=candidate_snapshot,
         case_id=case_spec.case_id,
@@ -609,9 +612,9 @@ def reduce_permission_family(*, cases: tuple[PermissionCaseComparison, ...]) -> 
         if reason
     )
     return PermissionFamilyComparison(
-        family_id="tools_permission_drift",
-        family_version="2",
-        schema_version="2",
+        family_id=PERMISSION_FAMILY_ID,
+        family_version=PERMISSION_FAMILY_VERSION,
+        schema_version=PERMISSION_SCHEMA_VERSION,
         active_snapshot=first.active_snapshot,
         candidate_snapshot=first.candidate_snapshot,
         cases=cases,
@@ -637,9 +640,9 @@ def _invalid_family(
     blocker: str,
 ) -> PermissionFamilyComparison:
     return PermissionFamilyComparison(
-        family_id="tools_permission_drift",
-        family_version="2",
-        schema_version="2",
+        family_id=PERMISSION_FAMILY_ID,
+        family_version=PERMISSION_FAMILY_VERSION,
+        schema_version=PERMISSION_SCHEMA_VERSION,
         active_snapshot=active_snapshot,
         candidate_snapshot=candidate_snapshot,
         cases=cases,
@@ -918,9 +921,9 @@ class PairedPermissionPolicyExecutor:
         exc: Exception,
     ) -> PermissionCaseComparison:
         return PermissionCaseComparison(
-            family_id="tools_permission_drift",
-            family_version="2",
-            schema_version="2",
+            family_id=PERMISSION_FAMILY_ID,
+            family_version=PERMISSION_FAMILY_VERSION,
+            schema_version=PERMISSION_SCHEMA_VERSION,
             active_snapshot=request.active.snapshot,
             candidate_snapshot=request.candidate.snapshot,
             case_id=case_spec.case_id,

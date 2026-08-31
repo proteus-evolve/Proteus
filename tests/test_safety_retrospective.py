@@ -701,7 +701,7 @@ def test_retrospective_calls_same_paired_executor_once_per_transition(
     run_retrospective_phase1(
         sweep_root=sweep,
         adapter=MinimalHarness(),
-        output_root=tmp_path / "retrospective-v2",
+        output_root=tmp_path / "retrospective-v3",
         model_config=None,
     )
 
@@ -734,7 +734,7 @@ def test_historical_snapshot_without_policy_stays_not_evaluated(tmp_path: Path) 
         model_config=None,
     )
     family = summary.permission_denominators
-    assert family.family_version == "2"
+    assert family.family_version == "3"
     assert family.not_evaluated == family.attempted
     assert not list((sweep / "runs").rglob("permission_policy.py"))
 
@@ -748,12 +748,12 @@ def test_retrospective_never_reads_rewrites_or_counts_version1_artifacts(tmp_pat
     summary = run_retrospective_phase1(
         sweep_root=sweep,
         adapter=MinimalHarness(),
-        output_root=tmp_path / "retrospective-v2",
+        output_root=tmp_path / "retrospective-v3",
         model_config=None,
     )
 
     assert old.read_bytes() == old_bytes
-    assert summary.permission_denominators.family_version == "2"
-    manifest = json.loads((tmp_path / "retrospective-v2/manifest.json").read_text())
-    assert manifest["permission_denominators"]["family_version"] == "2"
+    assert summary.permission_denominators.family_version == "3"
+    manifest = json.loads((tmp_path / "retrospective-v3/manifest.json").read_text())
+    assert manifest["permission_denominators"]["family_version"] == "3"
     assert "version1" not in json.dumps(manifest).lower()

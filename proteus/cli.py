@@ -137,9 +137,9 @@ def _pi_controller_model(model: str) -> bool:
 _BUILTIN_PERMISSION_SUPPORT = {
     "minimal": 2,
     "llm": 2,
-    "pi": 4,
-    "dsh": 4,
-    "aki": 4,
+    "pi": 5,
+    "dsh": 5,
+    "aki": 5,
 }
 
 
@@ -776,8 +776,8 @@ def cmd_safety_call_plan(args) -> int:
 def cmd_safety_preflight_permission(args) -> int:
     """Check permission-run inputs without creating channels, containers, or output."""
     from proteus.safety.gate import _load_suite
+    from proteus.safety.permission_cases import PERMISSION_FAMILY_VERSION
     from proteus.safety.phase1 import TOOLS_PERMISSION_DRIFT
-    from proteus.safety.tools_permission_drift import SUITE as ISOLATED_SUITE
 
     output = Path(args.out).expanduser()
     if output.exists():
@@ -789,13 +789,16 @@ def cmd_safety_preflight_permission(args) -> int:
         "proteus.safety.phase1:SUITE",
     }
     if args.suite not in allowed_suites:
-        raise SystemExit("permission preflight requires the Phase 1 or isolated version-2 suite")
+        raise SystemExit("permission preflight requires the Phase 1 or isolated current suite")
     _, definitions = _load_suite(args.suite)
     family = next(
         item for item in definitions if item.family_id == TOOLS_PERMISSION_DRIFT.family_id
     )
-    if family is not TOOLS_PERMISSION_DRIFT or ISOLATED_SUITE.version != "2":
-        raise SystemExit("permission preflight requires tools_permission_drift version 2")
+    if (
+        family is not TOOLS_PERMISSION_DRIFT
+        or family.family_version != PERMISSION_FAMILY_VERSION
+    ):
+        raise SystemExit("permission preflight requires the current tools_permission_drift")
     if args.harness in {"pi", "dsh", "aki"} and not _local_image_exists(args.harness):
         raise SystemExit("pinned local image is not available")
     if args.harness in {"llm", "pi", "dsh", "aki"} and not _repository_openai_key_is_present():
@@ -1018,7 +1021,7 @@ def main(argv=None) -> int:
     preflight.add_argument("--out", required=True)
     preflight.set_defaults(func=cmd_safety_preflight_permission)
     audit_permission = safety_sub.add_parser(
-        "audit-permission", help="audit a version-2 permission artifact root"
+        "audit-permission", help="audit a current permission artifact root"
     )
     audit_permission.add_argument("--root", required=True)
     audit_permission.add_argument("--out", required=True)

@@ -14,7 +14,10 @@ from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import ProbeEndpoint, ProbeObservation
 from proteus.safety.live import LiveModelChannel
 from proteus.safety.permission_adapter import PermissionPolicyAdapter
-from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
+from proteus.safety.permission_cases import (
+    PERMISSION_CASE_SPECS,
+    PERMISSION_FAMILY_VERSION,
+)
 from proteus.safety.permission_executor import (
     PairedPermissionPolicyExecutor,
     PermissionSnapshotSource,
@@ -117,7 +120,7 @@ def _permission_adapter_for(adapter) -> PermissionPolicyAdapter:
 def _empty_permission_denominators() -> PermissionCaseDenominators:
     return PermissionCaseDenominators(
         family_id=TOOLS_PERMISSION_DRIFT.family_id,
-        family_version="2",
+        family_version=PERMISSION_FAMILY_VERSION,
         attempted=0,
         supported=0,
         administered=0,
@@ -125,6 +128,7 @@ def _empty_permission_denominators() -> PermissionCaseDenominators:
         passed=0,
         failed=0,
         baseline_failure=0,
+        structurally_unsupported=0,
         not_evaluated=0,
         invalid=0,
         error=0,
@@ -144,6 +148,9 @@ def _add_permission_denominators(
         passed=left.passed + right.passed,
         failed=left.failed + right.failed,
         baseline_failure=left.baseline_failure + right.baseline_failure,
+        structurally_unsupported=(
+            left.structurally_unsupported + right.structurally_unsupported
+        ),
         not_evaluated=left.not_evaluated + right.not_evaluated,
         invalid=left.invalid + right.invalid,
         error=left.error + right.error,

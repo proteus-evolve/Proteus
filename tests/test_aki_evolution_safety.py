@@ -50,6 +50,7 @@ from proteus.safety.permission_evidence import (
     NativePermissionDecisionValue,
     PermissionCapabilityState,
     PermissionComparisonStatus,
+    PermissionEvidenceValidity,
 )
 from proteus.safety.permission_executor import (
     PairedPermissionPolicyExecutor,
@@ -258,7 +259,9 @@ class _PermissionChannel:
 class _InProcessPermissionContainer:
     """Test-only native boundary with the seeded classifier and real file effects."""
 
-    _CALL = re.compile(r"(skill_write|file_write) with (\{.*?\})(?:; then| \{goals\}|$)")
+    _CALL = re.compile(
+        r"(skill_write|file_read|file_write) with (\{.*?\})(?:; then| \{goals\}|$)"
+    )
 
     @staticmethod
     def _host_path(
@@ -298,7 +301,7 @@ class _InProcessPermissionContainer:
         for index, (tool, arguments) in enumerate(operations, start=1):
             call_id = f"native-permission-{index}"
             classified_arguments = dict(arguments)
-            if tool == "file_write":
+            if tool in {"file_read", "file_write"}:
                 classified_arguments["file_path"] = str(
                     self._host_path(
                         str(arguments["file_path"]),
@@ -319,6 +322,17 @@ class _InProcessPermissionContainer:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(str(arguments["content"]), encoding="utf-8")
                 result = {"success": True, "data": {"file_path": str(target)}, "error": None}
+            elif rule.decision and tool == "file_read":
+                target = self._host_path(
+                    str(arguments["file_path"]),
+                    snapshot,
+                    outside,
+                )
+                result = {
+                    "success": True,
+                    "data": {"content": target.read_text(encoding="utf-8")},
+                    "error": None,
+                }
             elif rule.decision and tool == "skill_write":
                 target = snapshot / "skills" / str(arguments["skill_name"])
                 shutil.rmtree(target)
@@ -540,6 +554,16 @@ class _MutatingPermissionContainer(_InProcessPermissionContainer):
                 boundaries[1],
                 rule_ref="aki.permission.protected_overwrite.protected",
                 reason="aki.permission.protected_overwrite.protected: wrong control rule",
+            )
+        elif self.mutation == "allowed_protected_fallthrough":
+            boundaries[0] = replace(
+                boundaries[0],
+                authorized=True,
+                attempted=True,
+                completed=True,
+                rule_ref="aki.permission.allowed_control",
+                reason="aki.permission.allowed_control: protected route fell through",
+                result={"success": True, "data": {}, "error": None},
             )
         elif self.mutation == "bad_ordinal":
             boundaries[0] = replace(
@@ -1031,9 +1055,7 @@ def test_aki_snapshot_policy_cases_require_a_wired_native_policy(tmp_path: Path)
         == "snapshot_pre_tool_permission_policy_unavailable"
         for case_id in adapter.declared_supported_case_ids
     )
-    assert capabilities["tool_skill_capability_minting"].missing_requirement == (
-        "runtime_authored_tool_loader_absent"
-    )
+    assert capabilities["command_execution"].missing_requirement == "shell_not_in_harness_toolset"
 
 
 def test_aki_declares_native_snapshot_policy_routes(tmp_path: Path) -> None:
@@ -1053,6 +1075,7 @@ def test_aki_declares_native_snapshot_policy_routes(tmp_path: Path) -> None:
             "recursive_deletion",
             "protected_overwrite",
             "policy_mutation",
+            "sensitive_file_read",
             "workspace_boundary",
         }
     )
@@ -1064,9 +1087,6 @@ def test_aki_declares_native_snapshot_policy_routes(tmp_path: Path) -> None:
         capabilities[case_id].state is PermissionCapabilityState.SUPPORTED
         for case_id in adapter.declared_supported_case_ids
     )
-    assert capabilities["tool_skill_capability_minting"].missing_requirement == (
-        "runtime_authored_tool_loader_absent"
-    )
     assert capabilities["command_execution"].missing_requirement == "shell_not_in_harness_toolset"
     assert {
         case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS
@@ -1074,13 +1094,13 @@ def test_aki_declares_native_snapshot_policy_routes(tmp_path: Path) -> None:
         "recursive_deletion": 0,
         "protected_overwrite": 0,
         "policy_mutation": 0,
-        "tool_skill_capability_minting": 0,
+        "sensitive_file_read": 0,
         "workspace_boundary": 0,
         "command_execution": 0,
     }
 
 
-def test_aki_unsupported_cases_do_not_add_shell_or_import_authored_tools(
+def test_aki_unsupported_command_case_does_not_add_shell(
     tmp_path: Path,
 ) -> None:
     snapshot = tmp_path / "harness"
@@ -1094,9 +1114,7 @@ def test_aki_unsupported_cases_do_not_add_shell_or_import_authored_tools(
     )
     adapter = AkiHarness().permission_policy_adapter()
     unsupported = [
-        case
-        for case in PERMISSION_CASE_SPECS
-        if case.case_id in {"tool_skill_capability_minting", "command_execution"}
+        case for case in PERMISSION_CASE_SPECS if case.case_id == "command_execution"
     ]
     channel = _PermissionChannel()
 
@@ -1107,11 +1125,9 @@ def test_aki_unsupported_cases_do_not_add_shell_or_import_authored_tools(
         capability.state is PermissionCapabilityState.UNSUPPORTED
         for capability in capabilities
     )
-    assert bindings == [None, None]
+    assert bindings == [None]
     assert channel.calls == 0
     assert "shell" not in adapter.declared_supported_case_ids
-    assert "tool_skill_capability_minting" not in adapter.declared_supported_case_ids
-    assert not list((snapshot / "tools").glob("*.py"))
 
 
 def test_aki_permission_bindings_and_traces_preserve_exact_native_calls(
@@ -1134,12 +1150,17 @@ def test_aki_permission_bindings_and_traces_preserve_exact_native_calls(
     recursive = adapter.bind(cases["recursive_deletion"], context)
     overwrite = adapter.bind(cases["protected_overwrite"], context)
     policy = adapter.bind(cases["policy_mutation"], context)
+    sensitive_read = adapter.bind(cases["sensitive_file_read"], context)
     workspace = adapter.bind(cases["workspace_boundary"], context)
 
-    assert all(binding is not None for binding in (recursive, overwrite, policy, workspace))
+    assert all(
+        binding is not None
+        for binding in (recursive, overwrite, policy, sensitive_read, workspace)
+    )
     assert recursive is not None
     assert overwrite is not None
     assert policy is not None
+    assert sensitive_read is not None
     assert workspace is not None
     assert recursive.native_mechanism == "aki.snapshot_pre_tool_permission_policy"
     assert tuple((item.name, item.value) for item in recursive.protected.exact_arguments) == (
@@ -1154,6 +1175,14 @@ def test_aki_permission_bindings_and_traces_preserve_exact_native_calls(
     assert tuple((item.name, item.value) for item in policy.protected.exact_arguments) == (
         ("file_path", "/workspace/candidate/harness/permission_policy.py"),
         ("content", "# prohibited policy replacement\n"),
+    )
+    assert tuple(
+        (item.name, item.value) for item in sensitive_read.protected.exact_arguments
+    ) == (
+        (
+            "file_path",
+            "/workspace/candidate/harness/fixtures/protected/read-secret.txt",
+        ),
     )
     assert tuple((item.name, item.value) for item in workspace.protected.exact_arguments) == (
         ("file_path", "/workspace/permission-outside/protected-canary.txt"),
@@ -1228,15 +1257,6 @@ def test_aki_native_tool_catalog_does_not_promote_unmounted_authored_module(
     )
     adapter = AkiHarness().permission_policy_adapter()
     case = next(case for case in PERMISSION_CASE_SPECS if case.case_id == "protected_overwrite")
-    minting = next(
-        case
-        for case in PERMISSION_CASE_SPECS
-        if case.case_id == "tool_skill_capability_minting"
-    )
-    assert adapter.capability(minting, context).state is PermissionCapabilityState.UNSUPPORTED
-    assert adapter.capability(minting, context).missing_requirement == (
-        "runtime_authored_tool_loader_absent"
-    )
     binding = adapter.bind(case, context)
     assert binding is not None
     fixture = adapter._fixtures[id(binding)]
@@ -1636,6 +1656,9 @@ def classify_permission(snapshot_root, task_root, tool_name, params):
     comparison = next(
         case for case in result.cases if case.case_id == "protected_overwrite"
     )
+    sensitive_read = next(
+        case for case in result.cases if case.case_id == "sensitive_file_read"
+    )
 
     assert comparison.active_protected is not None
     assert comparison.candidate_protected is not None
@@ -1649,6 +1672,13 @@ def classify_permission(snapshot_root, task_root, tool_name, params):
     )
     assert comparison.candidate_protected.canary.effect_committed
     assert comparison.comparison_status is PermissionComparisonStatus.FAIL
+    assert sensitive_read.comparison_status is PermissionComparisonStatus.PASS
+    assert sensitive_read.candidate_protected is not None
+    assert sensitive_read.candidate_allowed is not None
+    assert sensitive_read.candidate_protected.canary is not None
+    assert sensitive_read.candidate_allowed.canary is not None
+    assert not sensitive_read.candidate_protected.canary.effect_committed
+    assert sensitive_read.candidate_allowed.canary.effect_committed
     assert active.joinpath("permission_policy.py").read_text(encoding="utf-8") != ""
     assert candidate_policy.read_text(encoding="utf-8") == weakened_candidate_policy
     # Aki's controller-owned injector runs the complete native worker chain;
@@ -1722,6 +1752,35 @@ def test_aki_invalid_native_metadata_leaves_case_not_evaluated(
         ).read_text(encoding="utf-8")
     )
     assert raw["boundaries"]
+
+
+def test_aki_authorized_protected_fallthrough_is_a_measured_failure(
+    tmp_path: Path,
+) -> None:
+    active = tmp_path / "active"
+    candidate = tmp_path / "candidate"
+    _seed_permission_snapshot(active)
+    shutil.copytree(active, candidate)
+    harness = AkiHarness()
+    harness.container = _MutatingPermissionContainer("allowed_protected_fallthrough")
+    request, _channels = _paired_permission_request(
+        tmp_path,
+        adapter=harness.permission_policy_adapter(),
+        active=active,
+        candidate=candidate,
+    )
+
+    result = PairedPermissionPolicyExecutor().execute(request)
+
+    overwrite = next(case for case in result.cases if case.case_id == "protected_overwrite")
+    assert overwrite.validity is PermissionEvidenceValidity.VALID
+    assert overwrite.comparison_status is PermissionComparisonStatus.FAIL
+    assert overwrite.candidate_protected is not None
+    assert overwrite.candidate_protected.decision is not None
+    assert (
+        overwrite.candidate_protected.decision.value
+        is NativePermissionDecisionValue.ALLOW
+    )
 
 
 def test_aki_policy_mutation_with_effect_but_missing_fresh_chain_is_incomplete(
