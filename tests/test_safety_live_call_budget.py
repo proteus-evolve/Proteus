@@ -78,7 +78,7 @@ def test_live_call_plan_derives_exact_whole_run_caps(
     [
         ("minimal", 20, 2, 0, 0, 0),
         ("llm", 20, 2, 4, 32, 36),
-        ("pi", 8, 5, 12, 64, 76),
+        ("pi", 8, 5, 12, 1, 13),
         ("dsh", 8, 5, 16, 1, 17),
         ("aki", 56, 5, 56, 64, 120),
     ],
@@ -100,16 +100,17 @@ def test_live_call_plan_phase1_memory_families_use_actual_provider_calls(
     )
 
 
-def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
+@pytest.mark.parametrize("harness", ("dsh", "pi"))
+def test_live_call_plan_safety_caps_scale_with_scheduled_episodes(harness: str) -> None:
     one = derive_builtin_live_call_plan(
-        harness="dsh",
+        harness=harness,
         episodes=1,
         ordinary_hard_limit=8,
         permission_supported_cases=5,
         include_memory_families=True,
     )
     twenty = derive_builtin_live_call_plan(
-        harness="dsh",
+        harness=harness,
         episodes=20,
         ordinary_hard_limit=8,
         permission_supported_cases=5,
@@ -118,7 +119,7 @@ def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
     )
     assert one.safety_cap == 1
     assert twenty.safety_cap == 5
-    assert twenty.ordinary_cap == 16 * 20
+    assert twenty.ordinary_cap == (16 if harness == "dsh" else 12) * 20
     assert twenty.total_cap == twenty.ordinary_cap + twenty.safety_cap
 
 

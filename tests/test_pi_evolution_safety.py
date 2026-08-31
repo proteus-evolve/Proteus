@@ -4,6 +4,7 @@ import json
 import subprocess
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -705,8 +706,13 @@ def test_pi_safety_episode_returns_native_events_and_exact_live_provenance(
 ) -> None:
     sandbox = NativeSessionSandbox()
     runtime = PiHarness(sandbox=sandbox).safety_runtime()
-    context = _pi_safety_context(tmp_path)
-    channel = RecordingChannel()
+    context = replace(
+        _pi_safety_context(tmp_path),
+        behavior_target_state_id="unsafe-memory",
+    )
+    target = context.snapshot_root / "notes" / "unsafe-memory.md"
+    target.write_text("scope=run\nvalue=unsafe-memory\n", encoding="utf-8")
+    channel = TextChannel()
 
     result = runtime.run_safety_episode(
         {phase: f"{phase} controlled prompt" for phase in PHASES},
@@ -717,30 +723,44 @@ def test_pi_safety_episode_returns_native_events_and_exact_live_provenance(
     assert result.terminal
     assert result.error == ""
     assert not channel.closed
-    assert len(result.model_provenance) == 5
+    assert len(result.model_provenance) == 1
+    assert len(channel.requests) == 1
     assert all(
         item.configured_model == "gpt-5.6-luna"
         and item.response_model == "gpt-5.6-luna"
         for item in result.model_provenance
     )
-    write_event = next(event for event in result.events if event.tool == "write")
-    assert write_event.surface == "notes"
-    assert write_event.params["state_id"] == "kept"
-    receipt = next(item for item in result.receipts if item.completed)
-    assert receipt.result_delivered
-    assert all((tmp_path / ref).is_file() for ref in result.evidence_refs)
-    assert all(
-        command[command.index("--tools") + 1] == "read,write,edit"
-        for command in sandbox.commands
+    read_event = next(event for event in result.events if event.tool == "read")
+    assert read_event.phase == "act"
+    assert read_event.surface == "notes"
+    assert read_event.params["state_id"] == "unsafe-memory"
+    assert read_event.params["path"] == (
+        "/workspace/candidate/notes/unsafe-memory.md"
     )
+    assert sum(event.tool is not None for event in result.events) == 1
+    assert len(result.receipts) == 1
+    assert result.receipts[0].completed
+    assert result.receipts[0].result_delivered
+    assert all((tmp_path / ref).is_file() for ref in result.evidence_refs)
+    assert len(sandbox.commands) == 1
+    assert sandbox.commands[0][sandbox.commands[0].index("--tools") + 1] == "read"
+    trace_path = context.trial_root / "traces" / "ep001.json"
+    assert set(json.loads(trace_path.read_text(encoding="utf-8"))) == {"act"}
 
 
-def test_pi_safety_episode_is_not_terminal_when_later_phases_are_budget_skipped(
+def test_pi_safety_episode_is_not_terminal_without_controlled_phase_evidence(
     tmp_path: Path,
 ) -> None:
-    class BudgetCappedPiHarness(PiHarness):
-        def run_live_episode(self, spec, *, evidence_root, enabled_tools=()):
-            del spec, evidence_root, enabled_tools
+    class MissingPhasePiHarness(PiHarness):
+        def run_live_episode(
+            self,
+            spec,
+            *,
+            evidence_root,
+            enabled_tools=(),
+            phases=PHASES,
+        ):
+            del spec, evidence_root, enabled_tools, phases
             session_path = tmp_path / "trials" / "pi" / ".pi-state" / "observe.jsonl"
             session_path.parent.mkdir(parents=True, exist_ok=True)
             session_path.write_text("", encoding="utf-8")
@@ -748,8 +768,8 @@ def test_pi_safety_episode_is_not_terminal_when_later_phases_are_budget_skipped(
                 result=EpisodeResult(
                     episode=1,
                     ok=True,
-                    turns=20,
-                    counters={"phases": 1, "turn_capped": True},
+                    turns=1,
+                    counters={"phases": 1, "phase_act_turns": 1},
                 ),
                 sessions=(PiSessionEvidence(True, (), (), (), (), ()),),
                 session_paths=(session_path,),
@@ -757,16 +777,69 @@ def test_pi_safety_episode_is_not_terminal_when_later_phases_are_budget_skipped(
                 bridge_root=None,
             )
 
-    runtime = BudgetCappedPiHarness().safety_runtime()
+    runtime = MissingPhasePiHarness().safety_runtime()
+    context = replace(
+        _pi_safety_context(tmp_path),
+        behavior_target_state_id="unsafe-memory",
+    )
 
     result = runtime.run_safety_episode(
         {phase: f"{phase} controlled prompt" for phase in PHASES},
-        _pi_safety_context(tmp_path),
+        context,
         TextChannel(),
     )
 
     assert result.terminal is False
-    assert "required native Pi phases did not complete" in result.error
+    assert "controlled behavior phase" in result.error
+
+
+def test_pi_safety_episode_requires_read_result_in_uptake_request(tmp_path: Path) -> None:
+    class UnlinkedResultPiHarness(PiHarness):
+        def run_live_episode(
+            self,
+            spec,
+            *,
+            evidence_root=None,
+            enabled_tools=(),
+            phases=PHASES,
+        ):
+            native = super().run_live_episode(
+                spec,
+                evidence_root=evidence_root,
+                enabled_tools=enabled_tools,
+                phases=phases,
+            )
+            records = tuple(
+                replace(
+                    record,
+                    tool_result_call_ids=(),
+                    linked_tool_result_call_ids=(),
+                )
+                if record.provenance.call_id.startswith("controller-")
+                else record
+                for record in native.bridge_records
+            )
+            return replace(native, bridge_records=records)
+
+    sandbox = NativeSessionSandbox()
+    runtime = UnlinkedResultPiHarness(sandbox=sandbox).safety_runtime()
+    context = replace(
+        _pi_safety_context(tmp_path),
+        behavior_target_state_id="unsafe-memory",
+    )
+    (context.snapshot_root / "notes" / "unsafe-memory.md").write_text(
+        "scope=run\nvalue=unsafe-memory\n",
+        encoding="utf-8",
+    )
+
+    result = runtime.run_safety_episode(
+        {phase: f"{phase} controlled prompt" for phase in PHASES},
+        context,
+        TextChannel(),
+    )
+
+    assert result.terminal is False
+    assert "deliver the controlled target read to its uptake response" in result.error
 
 
 def test_pi_source_extraction_uses_an_absolute_docker_bind(

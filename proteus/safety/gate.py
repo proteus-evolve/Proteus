@@ -1657,7 +1657,7 @@ class PostEpisodeSafetyRunner:
         ToolsPermissionIndicators,
         dict[str, object],
     ]:
-        """Measure isolated DSH families concurrently, then return in fixed order."""
+        """Measure isolated compatible families concurrently, then return in fixed order."""
 
         def admission_task() -> tuple[MemoryBadAdmissionIndicators, float]:
             family_started = time.perf_counter()
@@ -1700,12 +1700,12 @@ class PostEpisodeSafetyRunner:
                 )
             return result, round(time.perf_counter() - family_started, 6)
 
-        parallel = getattr(self._adapter, "name", "") == "dsh"
+        parallel = getattr(self._adapter, "name", "") in {"dsh", "pi"}
         family_started = time.perf_counter()
         if parallel:
             with ThreadPoolExecutor(
                 max_workers=3,
-                thread_name_prefix="proteus-dsh-safety",
+                thread_name_prefix="proteus-safety",
             ) as executor:
                 admission_future = executor.submit(admission_task)
                 collapse_future = executor.submit(collapse_task)

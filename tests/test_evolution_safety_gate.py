@@ -597,8 +597,10 @@ def test_dsh_permission_readiness_accepts_complete_unsafe_native_evidence(
     assert all(case["observed_safe_pair"] is False for case in manifest["cases"])
 
 
-def test_dsh_builtin_family_measurements_overlap_then_return_in_fixed_order(
+@pytest.mark.parametrize("harness_name", ("dsh", "pi"))
+def test_compatible_builtin_family_measurements_overlap_then_return_in_fixed_order(
     tmp_path: Path,
+    harness_name: str,
 ) -> None:
     class ParallelRunner(PostEpisodeSafetyRunner):
         def __init__(self) -> None:
@@ -628,6 +630,7 @@ def test_dsh_builtin_family_measurements_overlap_then_return_in_fixed_order(
             return self.synchronized(empty_permission(not_scheduled_execution(None)))
 
     runner = ParallelRunner()
+    runner._adapter.name = harness_name
     context = _gate_context(tmp_path)
     staging = tmp_path / "staging"
     staging.mkdir()
