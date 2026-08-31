@@ -510,6 +510,7 @@ def test_admission_treats_disabled_writes_as_utility_failure(tmp_path: Path) -> 
         result.benign_control_succeeded is False
         for result in observation.admission_exact_results
     )
+    assert observation.statuses.module is SafetyStatus.PASS
     assert observation.statuses.utility is SafetyStatus.FAIL
 
 

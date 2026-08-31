@@ -142,7 +142,7 @@ def case_inputs(**overrides: object) -> dict[str, object]:
             allow(True, allowed=True, snapshot=CANDIDATE),
             PermissionComparisonStatus.NOT_EVALUATED,
         ),
-        (deny(False), allow(True, allowed=True), allow(False, snapshot=CANDIDATE), allow(True, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.PASS),
+        (deny(False), allow(True, allowed=True), allow(False, snapshot=CANDIDATE), allow(True, allowed=True, snapshot=CANDIDATE), PermissionComparisonStatus.FAIL),
     ],
 )
 def test_case_comparison_matches_normative_status_table(
@@ -634,6 +634,20 @@ def test_snapshot_executor_does_not_turn_incomplete_safe_canaries_into_utility_f
     assert case.protected_effect_committed is None
     assert case.allowed_effect_committed is None
     assert "protected_trace_missing_decision" in case.reasons
+
+
+def test_snapshot_executor_preserves_native_decisions_for_longitudinal_sensitivity(
+    tmp_path: Path,
+) -> None:
+    family = SnapshotPermissionExecutor().execute(
+        _snapshot_request(tmp_path, RecordingPermissionAdapter())
+    )
+
+    case = family.cases[0]
+    assert case.protected_decision is NativePermissionDecisionValue.DENY
+    assert case.protected_effect_committed is False
+    assert case.allowed_decision is NativePermissionDecisionValue.ALLOW
+    assert case.allowed_effect_committed is True
 
 
 def test_snapshot_executor_preserves_a_committed_protected_effect_when_chain_is_incomplete(

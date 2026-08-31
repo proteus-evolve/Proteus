@@ -47,8 +47,11 @@ from proteus.safety.indicators import (
     empty_admission,
     empty_collapse,
     empty_permission,
+    episode_safety_indicators_from_dict,
     error_execution,
     not_scheduled_execution,
+    permission_allowed_usable,
+    permission_protection_failed,
     protected_safety_transition,
     render_permission_cell,
 )
@@ -513,10 +516,10 @@ def _permission_change(
         return None
     return PermissionChange(
         protected=protected_safety_transition(
-            previous.protected_effect_committed, current.protected_effect_committed
+            permission_protection_failed(previous), permission_protection_failed(current)
         ),
         allowed=binary_utility_transition(
-            previous.allowed_effect_committed, current.allowed_effect_committed
+            permission_allowed_usable(previous), permission_allowed_usable(current)
         ),
     )
 
@@ -563,6 +566,25 @@ class SafetyHistory:
     def __init__(self, controller_root: Path, run_id: str) -> None:
         self._root = Path(controller_root) / "safety" / run_id
         self._episodes: dict[int, EpisodeSafetyIndicators] = {}
+        self._load_published()
+
+    def _load_published(self) -> None:
+        paths = [self.episode_dir(0) / "indicators.json"]
+        paths.extend(sorted((self._root / "episodes").glob("episode-*/indicators.json")))
+        for path in paths:
+            if not path.is_file():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError(f"cannot load published safety history: {path}") from exc
+            indicators = episode_safety_indicators_from_dict(payload)
+            expected_episode = 0 if "baseline" in path.parts else int(path.parent.name[8:])
+            if indicators.episode != expected_episode:
+                raise ValueError(
+                    f"published safety history episode mismatch: {path}"
+                )
+            self._episodes[indicators.episode] = indicators
 
     @property
     def root(self) -> Path:
@@ -589,26 +611,74 @@ class SafetyHistory:
                 return episode, family
         return None
 
-    def last_permission_result(self, case_id: str, before: int) -> PermissionCaseState | None:
-        found = self.last_evaluated("tools_permission_drift", before)
-        if found is None:
-            return None
-        _episode, family = found
-        for case in family.cases:
-            if case.current.case_id == case_id:
-                return case.current
+    def last_comparable(self, family_id: str, status_attr: str, before: int):
+        """Return the latest family record with a PASS/FAIL component value."""
+        for episode in range(before - 1, -1, -1):
+            item = self._episodes.get(episode)
+            if item is None:
+                continue
+            family = getattr(item, family_id)
+            if family.execution.schedule_status != "evaluated":
+                continue
+            if getattr(family, status_attr) in {SafetyStatus.PASS, SafetyStatus.FAIL}:
+                return episode, family
         return None
 
-    def baseline_permission_result(self, case_id: str) -> PermissionCaseState | None:
-        item = self._episodes.get(0)
-        if item is None:
-            return None
-        family = item.tools_permission_drift
-        if family.execution.schedule_status != "evaluated":
-            return None
-        for case in family.cases:
-            if case.current.case_id == case_id:
-                return case.current
+    def baseline_comparable(self, family_id: str, status_attr: str, before: int):
+        """Return the first prior PASS/FAIL component observation."""
+        for episode in range(before):
+            item = self._episodes.get(episode)
+            if item is None:
+                continue
+            family = getattr(item, family_id)
+            if family.execution.schedule_status != "evaluated":
+                continue
+            if getattr(family, status_attr) in {SafetyStatus.PASS, SafetyStatus.FAIL}:
+                return episode, family
+        return None
+
+    def last_permission_result(self, case_id: str, before: int) -> PermissionCaseState | None:
+        for episode in range(before - 1, -1, -1):
+            item = self._episodes.get(episode)
+            if item is None:
+                continue
+            family = item.tools_permission_drift
+            if family.execution.schedule_status != "evaluated":
+                continue
+            for case in family.cases:
+                if (
+                    case.current.case_id == case_id
+                    and case.current.state
+                    not in {
+                        PermissionCurrentState.NOT_EVALUATED,
+                        PermissionCurrentState.INVALID,
+                        PermissionCurrentState.ERROR,
+                    }
+                ):
+                    return case.current
+        return None
+
+    def baseline_permission_result(
+        self, case_id: str, before: int
+    ) -> PermissionCaseState | None:
+        for episode in range(before):
+            item = self._episodes.get(episode)
+            if item is None:
+                continue
+            family = item.tools_permission_drift
+            if family.execution.schedule_status != "evaluated":
+                continue
+            for case in family.cases:
+                if (
+                    case.current.case_id == case_id
+                    and case.current.state
+                    not in {
+                        PermissionCurrentState.NOT_EVALUATED,
+                        PermissionCurrentState.INVALID,
+                        PermissionCurrentState.ERROR,
+                    }
+                ):
+                    return case.current
         return None
 
 
@@ -894,7 +964,6 @@ class PostEpisodeSafetyRunner:
             item for item in self._definitions if item.family_id == "memory_bad_admission"
         )
         previous = history.last_evaluated("memory_bad_admission", context.episode)
-        baseline = history.last_evaluated("memory_bad_admission", 1)
         last_observed = previous[0] if previous else None
         if not self._should_run("memory_bad_admission", context):
             if previous is None:
@@ -940,7 +1009,33 @@ class PostEpisodeSafetyRunner:
         )
         current = _admission_from_observation(observation, execution)
         prior_ind = previous[1] if previous else None
-        base_ind = baseline[1] if baseline else None
+        component_history = {
+            name: (
+                history.last_comparable(
+                    "memory_bad_admission", name, context.episode
+                ),
+                history.baseline_comparable(
+                    "memory_bad_admission", name, context.episode
+                ),
+            )
+            for name in (
+                "retrieve_status",
+                "follow_status",
+                "original_utility_status",
+            )
+        }
+
+        def component_delta(name: str, status: SafetyStatus) -> FamilyEvolutionDelta:
+            prior, baseline = component_history[name]
+            return _delta(
+                previous_episode=prior[0] if prior else None,
+                current_episode=context.episode,
+                previous_status=(getattr(prior[1], name).value if prior else None),
+                current_status=status.value,
+                baseline_status=(getattr(baseline[1], name).value if baseline else None),
+                scheduled=True,
+            )
+
         return MemoryBadAdmissionIndicators(
             execution=execution,
             retrieve_status=current.retrieve_status,
@@ -949,33 +1044,10 @@ class PostEpisodeSafetyRunner:
             unsafe_retrievable=current.unsafe_retrievable,
             unsafe_followed=current.unsafe_followed,
             original_still_present=current.original_still_present,
-            retrieve_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=prior_ind.retrieve_status.value if prior_ind else None,
-                current_status=current.retrieve_status.value,
-                baseline_status=base_ind.retrieve_status.value if base_ind else None,
-                scheduled=True,
-            ),
-            follow_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=prior_ind.follow_status.value if prior_ind else None,
-                current_status=current.follow_status.value,
-                baseline_status=base_ind.follow_status.value if base_ind else None,
-                scheduled=True,
-            ),
-            original_utility_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=(
-                    prior_ind.original_utility_status.value if prior_ind else None
-                ),
-                current_status=current.original_utility_status.value,
-                baseline_status=(
-                    base_ind.original_utility_status.value if base_ind else None
-                ),
-                scheduled=True,
+            retrieve_delta=component_delta("retrieve_status", current.retrieve_status),
+            follow_delta=component_delta("follow_status", current.follow_status),
+            original_utility_delta=component_delta(
+                "original_utility_status", current.original_utility_status
             ),
             eligible_state_ids=current.eligible_state_ids,
             matched_persistent_records=(
@@ -1016,7 +1088,6 @@ class PostEpisodeSafetyRunner:
             item for item in self._definitions if item.family_id == "memory_collapse"
         )
         previous = history.last_evaluated("memory_collapse", context.episode)
-        baseline = history.last_evaluated("memory_collapse", 1)
         last_observed = previous[0] if previous else None
         if not self._should_run("memory_collapse", context):
             if previous is None:
@@ -1051,67 +1122,43 @@ class PostEpisodeSafetyRunner:
             evidence_refs=observation.evidence_refs,
         )
         current = _collapse_from_observation(observation, execution)
-        prior = previous[1] if previous else None
-        baseline_indicator = baseline[1] if baseline else None
+        component_history = {
+            name: (
+                history.last_comparable("memory_collapse", name, context.episode),
+                history.baseline_comparable("memory_collapse", name, context.episode),
+            )
+            for name in (
+                "physical_retention_status",
+                "exact_access_retention_status",
+                "retrieval_retention_status",
+                "pressure_utility_status",
+            )
+        }
+
+        def component_delta(name: str, status: SafetyStatus) -> FamilyEvolutionDelta:
+            prior, baseline = component_history[name]
+            return _delta(
+                previous_episode=prior[0] if prior else None,
+                current_episode=context.episode,
+                previous_status=(getattr(prior[1], name).value if prior else None),
+                current_status=status.value,
+                baseline_status=(getattr(baseline[1], name).value if baseline else None),
+                scheduled=True,
+            )
+
         return replace(
             current,
-            physical_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=(
-                    prior.physical_retention_status.value if prior is not None else None
-                ),
-                current_status=current.physical_retention_status.value,
-                baseline_status=(
-                    baseline_indicator.physical_retention_status.value
-                    if baseline_indicator is not None
-                    else None
-                ),
-                scheduled=True,
+            physical_delta=component_delta(
+                "physical_retention_status", current.physical_retention_status
             ),
-            exact_access_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=(
-                    prior.exact_access_retention_status.value
-                    if prior is not None
-                    else None
-                ),
-                current_status=current.exact_access_retention_status.value,
-                baseline_status=(
-                    baseline_indicator.exact_access_retention_status.value
-                    if baseline_indicator is not None
-                    else None
-                ),
-                scheduled=True,
+            exact_access_delta=component_delta(
+                "exact_access_retention_status", current.exact_access_retention_status
             ),
-            retrieval_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=(
-                    prior.retrieval_retention_status.value if prior is not None else None
-                ),
-                current_status=current.retrieval_retention_status.value,
-                baseline_status=(
-                    baseline_indicator.retrieval_retention_status.value
-                    if baseline_indicator is not None
-                    else None
-                ),
-                scheduled=True,
+            retrieval_delta=component_delta(
+                "retrieval_retention_status", current.retrieval_retention_status
             ),
-            utility_delta=_delta(
-                previous_episode=last_observed,
-                current_episode=context.episode,
-                previous_status=(
-                    prior.pressure_utility_status.value if prior is not None else None
-                ),
-                current_status=current.pressure_utility_status.value,
-                baseline_status=(
-                    baseline_indicator.pressure_utility_status.value
-                    if baseline_indicator is not None
-                    else None
-                ),
-                scheduled=True,
+            utility_delta=component_delta(
+                "pressure_utility_status", current.pressure_utility_status
             ),
         )
 
@@ -1225,6 +1272,8 @@ class PostEpisodeSafetyRunner:
                 protected_attempted=evaluation.protected_attempted,
                 allowed_proposed=evaluation.allowed_proposed,
                 allowed_attempted=evaluation.allowed_attempted,
+                protected_decision=evaluation.protected_decision,
+                allowed_decision=evaluation.allowed_decision,
                 not_evaluated_reason=(
                     "unsupported_capability"
                     if evaluation.capability.state is PermissionCapabilityState.UNSUPPORTED
@@ -1232,7 +1281,9 @@ class PostEpisodeSafetyRunner:
                     else "incomplete_evidence"
                     if evaluation.validity is PermissionEvidenceValidity.VALID
                     and (
-                        evaluation.protected_effect_committed is None
+                        evaluation.protected_decision is None
+                        or evaluation.allowed_decision is None
+                        or evaluation.protected_effect_committed is None
                         or evaluation.allowed_effect_committed is None
                     )
                     else ""
@@ -1242,7 +1293,9 @@ class PostEpisodeSafetyRunner:
             previous_state = history.last_permission_result(
                 evaluation.case_id, context.episode
             )
-            baseline_state = history.baseline_permission_result(evaluation.case_id)
+            baseline_state = history.baseline_permission_result(
+                evaluation.case_id, context.episode
+            )
             cases.append(
                 PermissionCaseIndicators(
                     current=current,
