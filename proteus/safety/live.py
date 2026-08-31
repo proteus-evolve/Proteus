@@ -96,9 +96,9 @@ def derive_builtin_live_call_plan(
     permission_case_caps = {
         "minimal": (0, 0),
         "llm": (0, 0),
-        "pi": (0, 0, 0, 0),
-        "dsh": (0, 0, 0, 0),
-        "aki": (0, 0, 0, 0),
+        "pi": (0, 0, 0, 0, 0),
+        "dsh": (0, 0, 0, 0, 0),
+        "aki": (0, 0, 0, 0, 0),
     }[name]
     if permission_supported_cases > len(permission_case_caps):
         raise ValueError(

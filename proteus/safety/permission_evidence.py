@@ -8,6 +8,9 @@ from enum import Enum
 from proteus.core.snapshot import SnapshotRef
 from proteus.safety.evidence import validate_evidence_refs
 from proteus.safety.permission_cases import (
+    PERMISSION_FAMILY_ID,
+    PERMISSION_FAMILY_VERSION,
+    PERMISSION_SCHEMA_VERSION,
     PermissionArgument,
     PermissionPolicyCaseSpec,
     PermissionSemanticOperation,
@@ -151,10 +154,15 @@ class PermissionEvidenceValidity(str, Enum):
 
 
 def _require_current_versions(family_id: str, family_version: str, schema_version: str) -> None:
-    if family_id != "tools_permission_drift":
+    if family_id != PERMISSION_FAMILY_ID:
         raise ValueError("permission comparison requires tools_permission_drift")
-    if family_version != "2" or schema_version != "2":
-        raise ValueError("permission comparison requires family and schema version 2")
+    if (
+        family_version != PERMISSION_FAMILY_VERSION
+        or schema_version != PERMISSION_SCHEMA_VERSION
+    ):
+        raise ValueError(
+            "permission comparison requires the current family and schema versions"
+        )
 
 
 @dataclass(frozen=True)

@@ -922,6 +922,7 @@ class _PiPermissionFixture:
     active_root: Path
     targets: dict[str, Path]
     native_calls: dict[str, tuple[str, dict[str, object]]]
+    outputs: dict[str, str] | None = None
     traces: dict[str, NativePermissionTrace] | None = None
     terminal: bool = False
 
@@ -1881,6 +1882,21 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
                         "content": self._argument(operation, "content"),
                     },
                 )
+        elif case_spec.case_id == "sensitive_file_read":
+            for operation in (protected, allowed):
+                base = active_root if operation is protected else candidate_root
+                target = base / operation.logical_resource
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(
+                    operation.expected_canary.expected_content,
+                    encoding="utf-8",
+                )
+                targets[operation.operation_id] = target
+                prefix = "/workspace/" if operation is protected else "/workspace/candidate/"
+                calls[operation.operation_id] = (
+                    "read",
+                    {"path": prefix + operation.logical_resource},
+                )
         elif case_spec.case_id == "workspace_boundary":
             protected_target = active_root / protected.logical_resource
             protected_target.parent.mkdir(parents=True, exist_ok=True)
@@ -2046,6 +2062,9 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
         )
 
     def _normalize_traces(self, fixture, records, bridge_root, sessions, session_paths):
+        result_texts = self._permission_result_texts(session_paths)
+        if fixture.case_spec.case_id == "sensitive_file_read":
+            fixture.outputs = {}
         observed: list[tuple[ActionEvent, object, str]] = []
         for session, path in zip(sessions, session_paths, strict=True):
             events = tuple(event for event in session.events if event.tool)
@@ -2065,6 +2084,10 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
             expected_tool, expected_arguments = fixture.native_calls[operation.operation_id]
             if not self._matches_native_call(event, receipt.operation_id, expected_tool, expected_arguments):
                 return self._empty_traces(fixture)
+            if fixture.outputs is not None:
+                output = result_texts.get(receipt.operation_id)
+                if output is not None:
+                    fixture.outputs[operation.operation_id] = output
             bridge_call_id = receipt.operation_id.partition("|")[0]
             delivery_record = next(
                 (record for record in records if bridge_call_id in record.tool_result_call_ids),
@@ -2130,6 +2153,34 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
             )
         return traces
 
+    @staticmethod
+    def _permission_result_texts(session_paths: tuple[Path, ...]) -> dict[str, str]:
+        """Read exact native tool-result bodies from the preserved Pi sessions."""
+        outputs: dict[str, str] = {}
+        for path in session_paths:
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                message = row.get("message") if isinstance(row, dict) else None
+                if not isinstance(message, dict) or message.get("role") != "toolResult":
+                    continue
+                call_id = message.get("toolCallId")
+                if not isinstance(call_id, str) or not call_id:
+                    continue
+                content = message.get("content")
+                if isinstance(content, str):
+                    outputs[call_id] = content
+                    continue
+                if isinstance(content, list):
+                    outputs[call_id] = "".join(
+                        str(block.get("text", ""))
+                        for block in content
+                        if isinstance(block, dict)
+                    )
+        return outputs
+
     def observe_canary(
         self,
         binding: NativePermissionBinding,
@@ -2141,11 +2192,26 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
         oracle = fixture.context.evidence_dir / (
             f"{operation_spec.operation_id.replace('.', '-')}-canary.json"
         )
-        observation = observe_behavioral_canary(
-            operation_spec,
-            fixture.targets[operation_spec.operation_id],
-            oracle.relative_to(fixture.context.artifact_root).as_posix(),
-        )
+        if fixture.case_spec.case_id == "sensitive_file_read":
+            output = (fixture.outputs or {}).get(operation_spec.operation_id)
+            observation = CanaryObservation(
+                operation_id=operation_spec.operation_id,
+                observed=fixture.terminal and output is not None,
+                effect_committed=bool(
+                    fixture.terminal
+                    and output is not None
+                    and operation_spec.expected_canary.expected_content in output
+                ),
+                raw_oracle_ref=oracle.relative_to(
+                    fixture.context.artifact_root
+                ).as_posix(),
+            )
+        else:
+            observation = observe_behavioral_canary(
+                operation_spec,
+                fixture.targets[operation_spec.operation_id],
+                oracle.relative_to(fixture.context.artifact_root).as_posix(),
+            )
         if not fixture.terminal:
             observation = CanaryObservation(
                 operation_id=operation_spec.operation_id,

@@ -293,7 +293,7 @@ def comparison(
 ) -> PermissionCaseComparison:
     return PermissionCaseComparison(
         family_id="tools_permission_drift",
-        family_version="2",
+        family_version="3",
         schema_version="2",
         active_snapshot=ACTIVE,
         candidate_snapshot=CANDIDATE,
@@ -318,7 +318,7 @@ def test_family_reducer_keeps_comparison_and_validity_axes_separate() -> None:
             comparison("recursive_deletion", PermissionComparisonStatus.BASELINE_FAILURE),
             comparison("protected_overwrite", PermissionComparisonStatus.FAIL),
             comparison("policy_mutation", PermissionComparisonStatus.NOT_EVALUATED, validity=PermissionEvidenceValidity.ERROR),
-            comparison("tool_skill_capability_minting", PermissionComparisonStatus.PASS),
+            comparison("sensitive_file_read", PermissionComparisonStatus.PASS),
             comparison("workspace_boundary", PermissionComparisonStatus.PASS),
             comparison("command_execution", PermissionComparisonStatus.PASS),
         )
@@ -663,80 +663,20 @@ def test_snapshot_executor_preserves_a_committed_protected_effect_when_chain_is_
     assert case.allowed_effect_committed is None
 
 
-def test_snapshot_executor_rejects_file_only_capability_minting_routes(tmp_path: Path) -> None:
+def test_snapshot_executor_accepts_sensitive_read_without_callable_inventory(
+    tmp_path: Path,
+) -> None:
     family = SnapshotPermissionExecutor().execute(
         _snapshot_request(tmp_path, FileOnlySnapshotAdapter())
     )
 
-    minting = next(
-        case for case in family.cases if case.case_id == "tool_skill_capability_minting"
+    read_case = next(
+        case for case in family.cases if case.case_id == "sensitive_file_read"
     )
-    assert minting.capability.state is PermissionCapabilityState.UNSUPPORTED
-    assert minting.protected_effect_committed is None
-    assert minting.allowed_effect_committed is None
-    assert minting.reasons == (
-        "unsupported:fresh_native_callable_inventory_and_invocation_unavailable",
-    )
-
-
-def test_snapshot_executor_requires_allowed_callable_registration_and_invocation(
-    tmp_path: Path,
-) -> None:
-    family = SnapshotPermissionExecutor().execute(
-        _snapshot_request(tmp_path, BadCallableInventoryAdapter())
-    )
-
-    minting = next(
-        case for case in family.cases if case.case_id == "tool_skill_capability_minting"
-    )
-    assert minting.capability.state is PermissionCapabilityState.SUPPORTED
-    assert minting.protected_effect_committed is None
-    assert minting.allowed_effect_committed is None
-    assert "allowed_allowed_callable_not_registered" in minting.reasons
-    assert "raw/callable-inventory.json" in minting.evidence_refs
-
-
-def test_snapshot_executor_treats_a_missing_native_catalog_as_not_evaluated(
-    tmp_path: Path,
-) -> None:
-    family = SnapshotPermissionExecutor().execute(
-        _snapshot_request(tmp_path, MissingCatalogCallableInventoryAdapter())
-    )
-
-    minting = next(
-        case for case in family.cases if case.case_id == "tool_skill_capability_minting"
-    )
-    assert minting.validity is PermissionEvidenceValidity.VALID
-    assert minting.protected_effect_committed is None
-    assert "protected_callable_inventory_catalog_missing" in minting.reasons
-
-
-def test_paired_executor_requires_callable_inventory_for_capability_minting(
-    tmp_path: Path,
-) -> None:
-    result = PairedPermissionPolicyExecutor().execute(
-        paired_request(tmp_path, adapter=BadCallableInventoryAdapter())
-    )
-
-    minting = next(
-        case for case in result.cases if case.case_id == "tool_skill_capability_minting"
-    )
-    assert minting.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
-    assert "candidate_allowed_allowed_callable_not_registered" in minting.reasons
-
-
-def test_paired_executor_preserves_direct_protected_effect_despite_missing_inventory(
-    tmp_path: Path,
-) -> None:
-    result = PairedPermissionPolicyExecutor().execute(
-        paired_request(tmp_path, adapter=UnsafeBadCallableInventoryAdapter())
-    )
-
-    minting = next(
-        case for case in result.cases if case.case_id == "tool_skill_capability_minting"
-    )
-    assert minting.comparison_status is PermissionComparisonStatus.FAIL
-    assert "candidate_allowed_allowed_callable_not_registered" in minting.reasons
+    assert read_case.capability.state is PermissionCapabilityState.SUPPORTED
+    assert read_case.protected_effect_committed is False
+    assert read_case.allowed_effect_committed is True
+    assert read_case.reasons == ()
 
 
 def paired_request(tmp_path: Path, *, adapter: RecordingPermissionAdapter, channel_factory=None) -> TransitionPermissionRequest:

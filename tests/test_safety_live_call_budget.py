@@ -44,7 +44,7 @@ def test_cli_dsh_permission_budget_matches_adapter_capabilities() -> None:
 
     assert cli._builtin_permission_supported_cases("dsh") == len(
         adapter.declared_supported_case_ids
-    ) == 4
+    ) == 5
 
 
 @pytest.mark.parametrize(
@@ -52,9 +52,9 @@ def test_cli_dsh_permission_budget_matches_adapter_capabilities() -> None:
     [
         ("minimal", 20, 2, 0, 0, 0),
         ("llm", 20, 2, 4, 0, 4),
-        ("pi", 8, 4, 12, 0, 12),
-        ("dsh", 8, 4, 16, 0, 16),
-        ("aki", 56, 4, 56, 0, 56),
+        ("pi", 8, 5, 12, 0, 12),
+        ("dsh", 8, 5, 16, 0, 16),
+        ("aki", 56, 5, 56, 0, 56),
     ],
 )
 def test_live_call_plan_derives_exact_whole_run_caps(
@@ -78,9 +78,9 @@ def test_live_call_plan_derives_exact_whole_run_caps(
     [
         ("minimal", 20, 2, 0, 0, 0),
         ("llm", 20, 2, 4, 32, 36),
-        ("pi", 8, 4, 12, 64, 76),
-        ("dsh", 8, 4, 16, 1, 17),
-        ("aki", 56, 4, 56, 64, 120),
+        ("pi", 8, 5, 12, 64, 76),
+        ("dsh", 8, 5, 16, 1, 17),
+        ("aki", 56, 5, 56, 64, 120),
     ],
 )
 def test_live_call_plan_phase1_memory_families_use_actual_provider_calls(
@@ -105,14 +105,14 @@ def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
         harness="dsh",
         episodes=1,
         ordinary_hard_limit=8,
-        permission_supported_cases=4,
+        permission_supported_cases=5,
         include_memory_families=True,
     )
     twenty = derive_builtin_live_call_plan(
         harness="dsh",
         episodes=20,
         ordinary_hard_limit=8,
-        permission_supported_cases=4,
+        permission_supported_cases=5,
         include_memory_families=True,
         collapse_episode_count=5,
     )

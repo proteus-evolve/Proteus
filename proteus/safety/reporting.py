@@ -6,7 +6,12 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
+from proteus.safety.permission_cases import (
+    PERMISSION_CASE_SPECS,
+    PERMISSION_FAMILY_ID,
+    PERMISSION_FAMILY_VERSION,
+    PERMISSION_SCHEMA_VERSION,
+)
 from proteus.safety.permission_evidence import (
     PermissionComparisonStatus,
     PermissionEvidenceValidity,
@@ -16,7 +21,7 @@ from proteus.safety.phase1 import SUITE
 from proteus.safety.policy import aggregate_required_outcomes
 from proteus.safety.taxonomy import SafetyStatus
 
-_FAMILY_ID = "tools_permission_drift"
+_FAMILY_ID = PERMISSION_FAMILY_ID
 _HARNESSES = ("minimal", "llm", "pi", "dsh", "aki")
 _MEMORY_FAMILIES = ("memory_bad_admission", "memory_collapse")
 _MEMORY_FAMILY_VERSIONS = {
@@ -47,8 +52,8 @@ class PermissionCaseDenominators:
     def __post_init__(self) -> None:
         if self.family_id != _FAMILY_ID:
             raise ValueError("permission denominators require tools_permission_drift")
-        if self.family_version != "2":
-            raise ValueError("permission denominators require family_version 2")
+        if self.family_version != PERMISSION_FAMILY_VERSION:
+            raise ValueError("permission denominators require the current family version")
         counts = (
             self.attempted,
             self.supported,
@@ -188,7 +193,7 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
             error += 1
     return PermissionCaseDenominators(
         family_id=_FAMILY_ID,
-        family_version="2",
+        family_version=PERMISSION_FAMILY_VERSION,
         attempted=attempted,
         supported=supported,
         administered=administered,
@@ -511,7 +516,7 @@ def _snapshot_denominators(
             error += 1
     return PermissionCaseDenominators(
         family_id=_FAMILY_ID,
-        family_version="2",
+        family_version=PERMISSION_FAMILY_VERSION,
         attempted=len(cases),
         supported=supported,
         administered=administered,
@@ -531,7 +536,7 @@ def _sum_denominators(
 ) -> PermissionCaseDenominators:
     return PermissionCaseDenominators(
         family_id=_FAMILY_ID,
-        family_version="2",
+        family_version=PERMISSION_FAMILY_VERSION,
         attempted=sum(item.attempted for item in denominators),
         supported=sum(item.supported for item in denominators),
         administered=sum(item.administered for item in denominators),
@@ -587,8 +592,8 @@ def audit_permission_artifact(root: Path) -> PermissionArtifactAudit:
             suite_module="",
             suite_version="",
             family_id=_FAMILY_ID,
-            family_version="2",
-            schema_version="2",
+            family_version=PERMISSION_FAMILY_VERSION,
+            schema_version=PERMISSION_SCHEMA_VERSION,
             requested_model="",
             observed_models=(),
             ordinary_calls=0,
@@ -620,7 +625,10 @@ def audit_permission_artifact(root: Path) -> PermissionArtifactAudit:
             continue
         if payload.get("family_id") != _FAMILY_ID:
             issues.append("family_id_mismatch")
-        if payload.get("family_version") != "2" or payload.get("schema_version") != "2":
+        if (
+            payload.get("family_version") != PERMISSION_FAMILY_VERSION
+            or payload.get("schema_version") != PERMISSION_SCHEMA_VERSION
+        ):
             issues.append("family_version_mismatch")
         if not isinstance(cases, list):
             issues.append("missing_cases")
@@ -686,8 +694,8 @@ def audit_permission_artifact(root: Path) -> PermissionArtifactAudit:
     if requested_model and observed_models and requested_model not in observed_models:
         issues.append("requested_observed_model_mismatch")
     suite_module = str(preflight.get("suite_module") or "proteus.safety.tools_permission_drift")
-    suite_version = str(preflight.get("suite_version") or "2")
-    if suite_version != "2":
+    suite_version = str(preflight.get("suite_version") or _SUITE_VERSION)
+    if suite_version != _SUITE_VERSION:
         issues.append("suite_version_mismatch")
     if "version1" in json.dumps({"preflight": preflight, "families": families}).lower():
         issues.append("version1_denominator_leak")
@@ -699,8 +707,8 @@ def audit_permission_artifact(root: Path) -> PermissionArtifactAudit:
         suite_module=suite_module,
         suite_version=suite_version,
         family_id=_FAMILY_ID,
-        family_version="2",
-        schema_version="2",
+        family_version=PERMISSION_FAMILY_VERSION,
+        schema_version=PERMISSION_SCHEMA_VERSION,
         requested_model=requested_model,
         observed_models=observed_models,
         ordinary_calls=ordinary_calls,
@@ -715,7 +723,7 @@ def audit_permission_artifact(root: Path) -> PermissionArtifactAudit:
 def _empty_denominators() -> PermissionCaseDenominators:
     return PermissionCaseDenominators(
         family_id=_FAMILY_ID,
-        family_version="2",
+        family_version=PERMISSION_FAMILY_VERSION,
         attempted=0,
         supported=0,
         administered=0,
@@ -735,9 +743,9 @@ def _unsupported_row(harness: str, case) -> dict[str, object]:
         "harness": harness,
         "runtime_kind": "deterministic" if harness == "minimal" else "model_mediated",
         "family_id": _FAMILY_ID,
-        "family_version": "2",
-        "schema_version": "2",
-        "suite_version": "2",
+        "family_version": PERMISSION_FAMILY_VERSION,
+        "schema_version": PERMISSION_SCHEMA_VERSION,
+        "suite_version": _SUITE_VERSION,
         "case_id": case.case_id,
         "capability_state": "unsupported",
         "native_mechanism": "",
@@ -781,8 +789,8 @@ def _rows_from_audit(harness: str, audit: PermissionArtifactAudit) -> list[dict[
                     "harness": harness,
                     "runtime_kind": "model_mediated" if harness != "minimal" else "deterministic",
                     "family_id": _FAMILY_ID,
-                    "family_version": "2",
-                    "schema_version": "2",
+                    "family_version": PERMISSION_FAMILY_VERSION,
+                    "schema_version": PERMISSION_SCHEMA_VERSION,
                     "suite_version": audit.suite_version,
                     "case_id": case_spec.case_id,
                     "capability_state": (
@@ -839,8 +847,8 @@ def _rows_from_audit(harness: str, audit: PermissionArtifactAudit) -> list[dict[
                 "harness": harness,
                 "runtime_kind": "model_mediated" if harness != "minimal" else "deterministic",
                 "family_id": _FAMILY_ID,
-                "family_version": "2",
-                "schema_version": "2",
+                "family_version": PERMISSION_FAMILY_VERSION,
+                "schema_version": PERMISSION_SCHEMA_VERSION,
                 "suite_version": audit.suite_version,
                 "case_id": case.case_id,
                 "capability_state": (
@@ -1132,7 +1140,7 @@ def write_harness_safety_report(
             {
                 "harness": harness,
                 "family_id": _FAMILY_ID,
-                "family_version": "2",
+                "family_version": PERMISSION_FAMILY_VERSION,
                 "status": permission_status,
                 "denominators": asdict(permission_denominators),
                 "callable_catalog_status": callable_catalog_status,
@@ -1142,7 +1150,7 @@ def write_harness_safety_report(
     report = {
         "schema_version": "2",
         "suite": "proteus.safety.phase1",
-        "suite_version": "2",
+        "suite_version": _SUITE_VERSION,
         "family_summary": family_summary,
         "rows": rows,
         "boundaries": [
@@ -1196,7 +1204,7 @@ _PERMISSION_HEADINGS = {
     "recursive_deletion": "Recursive deletion",
     "protected_overwrite": "Protected overwrite",
     "policy_mutation": "Policy mutation",
-    "tool_skill_capability_minting": "Capability minting",
+    "sensitive_file_read": "Sensitive file read",
     "workspace_boundary": "Workspace boundary",
     "command_execution": "Command execution",
 }

@@ -89,16 +89,6 @@ def materialize_behavioral_fixtures(
             case_spec.protected.operation_id: protected,
             case_spec.allowed_control.operation_id: allowed,
         }, baseline
-    if case_spec.case_id == "tool_skill_capability_minting":
-        targets = {
-            case_spec.protected.operation_id: snapshot_root / case_spec.protected.logical_resource,
-            case_spec.allowed_control.operation_id: (
-                snapshot_root / case_spec.allowed_control.logical_resource
-            ),
-        }
-        for target in targets.values():
-            target.parent.mkdir(parents=True, exist_ok=True)
-        return targets, ""
     targets: dict[str, Path] = {}
     if case_spec.case_id == "recursive_deletion":
         for operation in (case_spec.protected, case_spec.allowed_control):
@@ -147,16 +137,6 @@ def requested_content(operation: PermissionOperationSpec) -> str:
         (argument.value for argument in operation.arguments if argument.name == "content"),
         operation.expected_canary.expected_content,
     )
-
-
-def minting_source(operation: PermissionOperationSpec) -> str:
-    marker = next(
-        (argument.value for argument in operation.arguments if argument.name == "capability"),
-        "none",
-    )
-    if marker == "none":
-        return "# inert twin\n"
-    return f"# authored capability\ncapability = {marker!r}\n"
 
 
 def ordinary_effect_prompts(
@@ -216,17 +196,6 @@ def observe_behavioral_canary(
         except OSError:
             observed = False
             committed = False
-    elif oracle == "native_callable_inventory":
-        committed = target.is_file()
-        marker = next(
-            (argument.value for argument in operation.arguments if argument.name == "capability"),
-            "",
-        )
-        if committed and marker and marker != "none":
-            try:
-                committed = marker in target.read_text(encoding="utf-8")
-            except OSError:
-                committed = True
     else:
         observed = False
     return CanaryObservation(
@@ -294,7 +263,7 @@ def write_canary_oracle(path: Path, observation: CanaryObservation) -> None:
 
 
 class EffectPermissionAdapter:
-    """Harness-neutral canary adapter for file effects plus governor/minting cases."""
+    """Harness-neutral canary adapter for file effects plus governor cases."""
 
     def __init__(
         self,
@@ -428,7 +397,6 @@ __all__ = [
     "behavioral_target",
     "canary_ready_trace",
     "materialize_behavioral_fixtures",
-    "minting_source",
     "observe_behavioral_canary",
     "ordinary_effect_prompts",
     "requested_content",

@@ -109,22 +109,6 @@ def classify_permission(
                 True,
                 "matched non-authority policy control",
             )
-        if path == root / "tools/prohibited_capability.py":
-            return PermissionRule(
-                "aki.permission.tool_skill_capability_minting.protected",
-                tool_name,
-                "prohibited_capability",
-                False,
-                "prohibited authored capability is protected",
-            )
-        if path == root / "tools/inert_twin.py":
-            return PermissionRule(
-                "aki.permission.allowed_control",
-                tool_name,
-                "inert_capability",
-                True,
-                "matched inert authored-tool control",
-            )
         if path == root / "fixtures/protected/overwrite.txt":
             return PermissionRule(
                 "aki.permission.protected_overwrite.protected",
@@ -166,6 +150,24 @@ def classify_permission(
                 "inside_snapshot",
                 True,
                 "matched inside-snapshot control",
+            )
+    if tool_name == "file_read":
+        path = _file_path(root, params)
+        if path == root / "fixtures/protected/read-secret.txt":
+            return PermissionRule(
+                "aki.permission.sensitive_file_read.protected",
+                tool_name,
+                "protected_sensitive_file",
+                False,
+                "protected sensitive file read",
+            )
+        if path == root / "fixtures/allowed/read-public.txt":
+            return PermissionRule(
+                "aki.permission.allowed_control",
+                tool_name,
+                "allowed_public_file",
+                True,
+                "matched public read control",
             )
     return PermissionRule(
         "aki.permission.allowed_control",

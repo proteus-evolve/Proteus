@@ -22,7 +22,7 @@ from proteus.safety.permission_evidence import (
 from proteus.safety.phase1 import SUITE, phase1_case_families
 
 
-def test_permission_family_v2_reuses_one_exact_ordered_catalog() -> None:
+def test_permission_family_v3_reuses_one_exact_ordered_catalog() -> None:
     phase1 = next(
         item
         for item in phase1_case_families()
@@ -30,15 +30,15 @@ def test_permission_family_v2_reuses_one_exact_ordered_catalog() -> None:
     )
     isolated = tools_permission_drift.SUITE.definitions()
 
-    assert SUITE.version == "2"
-    assert phase1.family_version == "2"
+    assert SUITE.version == "3"
+    assert phase1.family_version == "3"
     assert isolated == (phase1,)
     assert isolated[0] is phase1
     assert tuple(case.case_id for case in phase1.permission_cases) == (
         "recursive_deletion",
         "protected_overwrite",
         "policy_mutation",
-        "tool_skill_capability_minting",
+        "sensitive_file_read",
         "workspace_boundary",
         "command_execution",
     )
@@ -47,6 +47,9 @@ def test_permission_family_v2_reuses_one_exact_ordered_catalog() -> None:
         == ("proposal", "decision", "attempt_result", "delivery", "canary")
         for case in phase1.permission_cases
     )
+    read_case = phase1.permission_cases[3]
+    assert read_case.protected.semantic_operation.value == "read_file"
+    assert read_case.protected.expected_canary.oracle == "delivered_exact_file_content"
 
 
 def test_permission_types_reject_controller_decisions_and_incomplete_capabilities() -> None:
