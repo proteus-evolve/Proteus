@@ -25,6 +25,8 @@ from proteus.safety.live_bridge import OpenAICompatibleBridge
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     MemoryFaultRequest,
+    MemoryOperationKind,
+    MemoryOperationRequest,
     MemoryStateRequest,
     RuntimeKind,
 )
@@ -313,24 +315,6 @@ class NativeSessionSandbox:
             (by_target["/tmp/.pi/agent"] / "models.json").read_text(encoding="utf-8")
         )
         provider = config["providers"]["proteus-openai"]
-        content_type, stream = _post_json(
-            f'{provider["baseUrl"]}/responses'.replace(
-                "host.docker.internal", "127.0.0.1"
-            ),
-            {
-                "model": command[command.index("--model") + 1],
-                "input": [{"role": "user", "content": "native phase"}],
-                "stream": True,
-                "store": False,
-            },
-        )
-        assert content_type == "text/event-stream"
-        completed = next(
-            json.loads(line.removeprefix("data: "))
-            for line in stream.splitlines()
-            if line.startswith("data: {") and '"type":"response.completed"' in line
-        )
-        response = completed["response"]
         state = by_target["/state"]
         session = state / f"session-{len(self.commands):03d}.jsonl"
         rows: list[dict[str, object]] = [
@@ -341,8 +325,34 @@ class NativeSessionSandbox:
                 "cwd": "/workspace",
             },
         ]
-        output = response["output"]
-        if output and output[0]["type"] == "function_call":
+        url = f'{provider["baseUrl"]}/responses'.replace(
+            "host.docker.internal", "127.0.0.1"
+        )
+        model = command[command.index("--model") + 1]
+        input_value: list[object] = [{"role": "user", "content": "native phase"}]
+        terminal = None
+        parent_id = "user"
+        for turn in range(100):
+            content_type, stream = _post_json(
+                url,
+                {
+                    "model": model,
+                    "input": input_value,
+                    "stream": True,
+                    "store": False,
+                },
+            )
+            assert content_type == "text/event-stream"
+            response = next(
+                json.loads(line.removeprefix("data: "))["response"]
+                for line in stream.splitlines()
+                if line.startswith("data: {")
+                and '"type":"response.completed"' in line
+            )
+            output = response["output"]
+            if not output or output[0]["type"] != "function_call":
+                terminal = response
+                break
             call = output[0]
             arguments = json.loads(call["arguments"])
             target = str(arguments.get("path", ""))
@@ -370,12 +380,14 @@ class NativeSessionSandbox:
                 tool_output = f"unsupported test tool: {tool_name}"
                 is_error = True
             composite_id = f'{call["call_id"]}|{call["id"]}'
+            assistant_id = f"assistant-tool-{turn}"
+            result_id = f"tool-result-{turn}"
             rows.extend(
                 [
                     {
                         "type": "message",
-                        "id": "assistant-tool",
-                        "parentId": "user",
+                        "id": assistant_id,
+                        "parentId": parent_id,
                         "message": {
                             "role": "assistant",
                             "api": "openai-responses",
@@ -395,8 +407,8 @@ class NativeSessionSandbox:
                     },
                     {
                         "type": "message",
-                        "id": "tool-result",
-                        "parentId": "assistant-tool",
+                        "id": result_id,
+                        "parentId": assistant_id,
                         "message": {
                             "role": "toolResult",
                             "toolCallId": composite_id,
@@ -407,8 +419,8 @@ class NativeSessionSandbox:
                     },
                 ]
             )
-            second_input = [
-                {"role": "user", "content": "native phase"},
+            input_value = [
+                *input_value,
                 call,
                 {
                     "type": "function_call_output",
@@ -416,25 +428,10 @@ class NativeSessionSandbox:
                     "output": tool_output,
                 },
             ]
-            _, second_stream = _post_json(
-                f'{provider["baseUrl"]}/responses'.replace(
-                    "host.docker.internal", "127.0.0.1"
-                ),
-                {
-                    "model": command[command.index("--model") + 1],
-                    "input": second_input,
-                    "stream": True,
-                    "store": False,
-                },
-            )
-            terminal = next(
-                json.loads(line.removeprefix("data: "))["response"]
-                for line in second_stream.splitlines()
-                if line.startswith("data: {")
-                and '"type":"response.completed"' in line
-            )
+            parent_id = result_id
         else:
-            terminal = response
+            raise AssertionError("native test transaction did not become terminal")
+        assert terminal is not None
         terminal_text = "".join(
             part.get("text", "")
             for item in terminal["output"]
@@ -445,7 +442,7 @@ class NativeSessionSandbox:
             {
                 "type": "message",
                 "id": "assistant-terminal",
-                "parentId": "tool-result" if len(rows) > 1 else "user",
+                "parentId": parent_id,
                 "message": {
                     "role": "assistant",
                     "api": "openai-responses",
@@ -571,6 +568,47 @@ def test_pi_runtime_uses_native_memory_write_and_read_with_direct_oracle(
         command[command.index("--tools") + 1] for command in sandbox.commands
     ] == ["write", "read"]
     assert not list(context.evidence_dir.rglob("active"))
+
+
+def test_pi_runtime_batches_memory_transaction_in_one_native_session(
+    tmp_path: Path,
+) -> None:
+    sandbox = NativeSessionSandbox()
+    runtime = PiHarness(sandbox=sandbox).safety_runtime()
+    context = _pi_safety_context(tmp_path)
+    long_body = "first body " + ("x" * 300) + "\n"
+    operations = (
+        MemoryOperationRequest(
+            MemoryOperationKind.INTRODUCE,
+            "first",
+            long_body,
+        ),
+        MemoryOperationRequest(MemoryOperationKind.READ, "first"),
+        MemoryOperationRequest(
+            MemoryOperationKind.INTRODUCE,
+            "second",
+            "second body\n",
+        ),
+        MemoryOperationRequest(MemoryOperationKind.READ, "second"),
+    )
+
+    receipts = runtime.execute_memory_transaction(operations, context)
+
+    assert len(sandbox.commands) == 1
+    assert sandbox.commands[0][sandbox.commands[0].index("--tools") + 1] == "write,read"
+    assert [receipt.operation_id for receipt in receipts] == [
+        operation.operation_id for operation in operations
+    ]
+    assert all(
+        receipt.proposed
+        and receipt.attempted
+        and receipt.completed
+        and receipt.result_delivered
+        for receipt in receipts
+    )
+    assert runtime.memory_oracle("first", long_body, context)
+    assert runtime.memory_oracle("second", "second body\n", context)
+    assert len({receipt.evidence_refs for receipt in receipts}) == 1
 
 
 def test_cli_preserves_default_pi_routing_without_opening_controller(

@@ -16,21 +16,15 @@ from proteus.safety.reporting import (
 _SUPPORTED = {
     "minimal": {
         "protected_overwrite",
-        "policy_mutation",
-        "tool_skill_capability_minting",
         "workspace_boundary",
     },
     "llm": {
         "protected_overwrite",
-        "policy_mutation",
-        "tool_skill_capability_minting",
         "workspace_boundary",
     },
     "pi": {
         "recursive_deletion",
         "protected_overwrite",
-        "policy_mutation",
-        "tool_skill_capability_minting",
         "workspace_boundary",
         "command_execution",
     },
@@ -43,7 +37,6 @@ _SUPPORTED = {
         "recursive_deletion",
         "protected_overwrite",
         "policy_mutation",
-        "tool_skill_capability_minting",
         "workspace_boundary",
     },
 }
@@ -341,12 +334,13 @@ def test_artifact_audit_requires_exact_suite_model_calls_and_case_denominators(
         family_id="tools_permission_drift",
         family_version="2",
         attempted=6,
-        supported=6,
-        administered=6,
-        evaluated=6,
-        passed=6,
+        supported=4,
+        administered=4,
+        evaluated=4,
+        passed=4,
         failed=0,
         baseline_failure=0,
+        structurally_unsupported=2,
         not_evaluated=0,
         invalid=0,
         error=0,
@@ -368,6 +362,29 @@ def test_artifact_audit_preserves_an_earlier_unresolved_evolved_callable(
 
     assert audit.callable_catalog_status == "not_evaluated"
     assert "uncovered_evolved_callables:new_tool" in audit.callable_catalog_reason
+
+
+def test_artifact_audit_excludes_permission_readiness_from_settled_denominators(
+    tmp_path: Path,
+) -> None:
+    root = write_complete_permission_fixture(tmp_path, harness="dsh")
+    _write_json(
+        root
+        / "preflight/runs/dsh-run/permission-readiness/episode-000"
+        / "tools_permission_drift/result.json",
+        {
+            "cases": [],
+            "readiness_only": True,
+        },
+    )
+
+    audit = audit_permission_artifact(root)
+
+    assert audit.complete
+    assert audit.callable_catalog_status == "pass"
+    assert audit.denominators.attempted == 6
+    assert audit.denominators.evaluated == 3
+    assert audit.denominators.structurally_unsupported == 3
 
 
 def test_snapshot_audit_excludes_incomplete_native_traces_from_all_claim_denominators(
@@ -397,7 +414,8 @@ def test_snapshot_audit_excludes_incomplete_native_traces_from_all_claim_denomin
         passed=2,
         failed=0,
         baseline_failure=0,
-        not_evaluated=4,
+        structurally_unsupported=3,
+        not_evaluated=1,
         invalid=0,
         error=0,
     )
@@ -476,7 +494,7 @@ def test_harness_safety_report_has_five_harnesses_three_families_and_claim_bound
         for row in report["family_summary"]
         if row["harness"] == "dsh" and row["family_id"] == "tools_permission_drift"
     )
-    assert dsh_permission["status"] == "not_evaluated"
+    assert dsh_permission["status"] == "pass"
     assert dsh_permission["callable_catalog_status"] == "pass"
     assert dsh_permission["callable_catalog_reason"] == ""
     assert "callable catalog audit" in text
@@ -492,8 +510,10 @@ def test_harness_report_keeps_observed_protected_harm_above_partial_coverage(
     )
     case_path = family_root / "cases/policy_mutation/result.json"
     case = json.loads(case_path.read_text(encoding="utf-8"))
-    case["protected"]["decision"] = None
-    case["protected"]["canary"]["effect_committed"] = True
+    case["protected"] = {
+        **_complete_trace(effect_committed=True),
+        "decision": None,
+    }
     case["protected_effect_committed"] = True
     _write_json(case_path, case)
     summary_path = family_root / "result.json"
@@ -511,13 +531,14 @@ def test_harness_report_keeps_observed_protected_harm_above_partial_coverage(
         family_id="tools_permission_drift",
         family_version="2",
         attempted=6,
-        supported=3,
-        administered=3,
-        evaluated=3,
-        passed=3,
+        supported=2,
+        administered=2,
+        evaluated=2,
+        passed=2,
         failed=1,
         baseline_failure=0,
-        not_evaluated=2,
+        structurally_unsupported=3,
+        not_evaluated=0,
         invalid=0,
         error=0,
     )

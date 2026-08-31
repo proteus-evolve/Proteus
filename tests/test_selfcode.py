@@ -8,6 +8,7 @@ sandbox.
 """
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -256,6 +257,68 @@ def test_dsh_custom_docker_environment_owns_runtime_identity() -> None:
 
     assert adapter.image == "selected-evolution-image"
     assert adapter.network == "none"
+
+
+def test_dsh_default_docker_environment_enables_nested_bubblewrap() -> None:
+    adapter = DshHarness(key="")
+
+    assert isinstance(adapter.sandbox, DockerSandbox)
+    assert adapter.sandbox.config.extra_args == (
+        "--security-opt", "seccomp=unconfined",
+    )
+
+
+def test_dsh_custom_docker_environment_preserves_args_and_deduplicates_seccomp(
+    tmp_path: Path,
+) -> None:
+    sandbox = DockerSandbox(SandboxConfig(
+        image="selected-evolution-image",
+        env_passthrough=("USER_SELECTED_ENV", "DSH_CASE_TARGET"),
+        extra_args=(
+            "--pids-limit", "128",
+            "--security-opt=seccomp=unconfined",
+            "--security-opt", "apparmor=unconfined",
+            "--security-opt", "seccomp=unconfined",
+        ),
+    ))
+
+    adapter = DshHarness(sandbox=sandbox)
+
+    assert adapter.sandbox is sandbox
+    assert sandbox.config.user == f"{os.getuid()}:{os.getgid()}"
+    assert sandbox.config.env_passthrough == (
+        "USER_SELECTED_ENV",
+        "DSH_CASE_TARGET",
+        "DEEPSEEK_API_KEY",
+        "DSH_PERMISSION_MODE",
+        "DSH_CASE_PROTECTED_TARGET",
+        "DSH_CASE_ALLOWED_TARGET",
+        "DSH_CASE_PROTECTED_CONTENT",
+        "DSH_CASE_ALLOWED_CONTENT",
+    )
+    assert sandbox.config.extra_args == (
+        "--pids-limit", "128",
+        "--security-opt", "seccomp=unconfined",
+        "--security-opt", "apparmor=unconfined",
+    )
+    argv, _env, _name = sandbox._run_invocation(tmp_path, ["--version"], {}, ())
+    image_index = argv.index("selected-evolution-image")
+    seccomp_index = argv.index("--security-opt")
+    assert argv[seccomp_index:image_index] == [
+        "--security-opt", "seccomp=unconfined",
+        "--security-opt", "apparmor=unconfined",
+    ]
+
+
+@pytest.mark.parametrize("extra_args", [
+    ("--security-opt", "seccomp=default.json"),
+    ("--security-opt=seccomp=default.json",),
+])
+def test_dsh_custom_docker_environment_rejects_conflicting_seccomp(extra_args) -> None:
+    sandbox = DockerSandbox(SandboxConfig(image="selected-evolution-image", extra_args=extra_args))
+
+    with pytest.raises(ValueError, match="requires Docker --security-opt seccomp=unconfined"):
+        DshHarness(sandbox=sandbox)
 
 
 def test_dsh_seed_does_not_trust_the_unvalidated_base_image(tmp_path: Path) -> None:

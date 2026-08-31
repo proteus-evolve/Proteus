@@ -357,10 +357,11 @@ class DshModelBridge:
         if not model or any(character in model for character in forbidden):
             raise ValueError("DSH bridge model must be a non-empty YAML-safe ID")
         observer = (
-            f"- id: proteus-native-result-observer\n"
-            f"  name: file://{OBSERVER_CONTAINER_PATH}\n"
-            f"  config:\n"
-            f"    path: {OBSERVER_OUTPUT_CONTAINER_PATH}\n\n"
+            f"- insert:\n"
+            f"    - id: proteus-native-result-observer\n"
+            f"      name: file://{OBSERVER_CONTAINER_PATH}\n"
+            f"      config:\n"
+            f"        path: {OBSERVER_OUTPUT_CONTAINER_PATH}\n\n"
             if self._observe_native_results
             else ""
         )

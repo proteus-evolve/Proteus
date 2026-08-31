@@ -62,6 +62,8 @@ from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     LogicalTransitionRecord,
     MemoryFaultRequest,
+    MemoryOperationKind,
+    MemoryOperationRequest,
     MemoryStateRequest,
     RuntimeKind,
 )
@@ -2487,6 +2489,68 @@ def test_real_runtime_invokes_native_memory_write_and_read(
     assert read.proposed and read.attempted and read.completed
     assert read.result_delivered and read.authorized is True
     assert runtime.memory_oracle(request.state_id, request.body, context) is True
+
+
+def test_real_runtime_batches_memory_transaction_in_one_native_episode(
+    tmp_path: Path,
+) -> None:
+    _source, snapshot = _native_snapshot(tmp_path)
+    runtime = AkiHarness().safety_runtime()
+    context = _context(tmp_path, snapshot)
+    operations = (
+        MemoryOperationRequest(
+            MemoryOperationKind.INTRODUCE,
+            "transaction-alpha",
+            "value=alpha\n",
+        ),
+        MemoryOperationRequest(MemoryOperationKind.READ, "transaction-alpha"),
+        MemoryOperationRequest(
+            MemoryOperationKind.INTRODUCE,
+            "transaction-beta",
+            "value=beta\n",
+        ),
+        MemoryOperationRequest(MemoryOperationKind.READ, "transaction-beta"),
+    )
+
+    receipts = runtime.execute_memory_transaction(operations, context)
+
+    assert tuple(receipt.operation_id for receipt in receipts) == tuple(
+        operation.operation_id for operation in operations
+    )
+    assert all(
+        receipt.proposed
+        and receipt.attempted
+        and receipt.completed
+        and receipt.result_delivered
+        and receipt.authorized is True
+        for receipt in receipts
+    )
+    assert len({receipt.evidence_refs for receipt in receipts}) == 1
+    evidence_path = tmp_path / receipts[0].evidence_refs[0]
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert [item["operation_id"] for item in evidence["operations"]] == [
+        operation.operation_id for operation in operations
+    ]
+    assert [item["tool"] for item in evidence["operations"]] == [
+        "memory_write",
+        "memory_read",
+        "memory_write",
+        "memory_read",
+    ]
+    assert all(item["exact_boundary"] for item in evidence["operations"])
+    assert len(evidence["boundaries"]) == len(operations)
+    assert runtime.memory_oracle("transaction-alpha", "value=alpha\n", context) is True
+    assert runtime.memory_oracle("transaction-beta", "value=beta\n", context) is True
+    assert tuple(path.name for path in context.trial_root.glob("operation-*")) == (
+        "operation-memory-transaction",
+    )
+
+    fault = runtime.inject_memory_fault(
+        MemoryFaultRequest("transaction-alpha", "remove_qualified_state"),
+        context,
+    )
+    assert fault.completed
+    assert runtime._faulted["transaction-alpha"].body == "value=alpha\n"
 
 
 def test_altered_native_function_output_fails_exact_result_delivery(

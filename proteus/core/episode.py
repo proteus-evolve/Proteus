@@ -523,8 +523,8 @@ def _validate_seed_runtime_before_safety(cfg: RunConfig, *, harness: Path) -> No
     Their ordinary episode-boundary validator is therefore the only appropriate place to
     build and cold-smoke the episode-0 runtime too.  Safety remains a consumer: if that
     runtime cannot be published now, abort the fresh run before a baseline can make any
-    live calls.  Resumes deliberately skip this path and require their already-published
-    runtime to remain available to the safety adapter.
+    live calls.  Resumes deliberately skip this build path and require their
+    already-published runtime to remain available to the safety adapter.
     """
     if not getattr(cfg.adapter, "staged_activation", False) or cfg.safety_runner is None:
         return
@@ -540,6 +540,27 @@ def _validate_seed_runtime_before_safety(cfg: RunConfig, *, harness: Path) -> No
             "episode-0 seed runtime failed evolution-boundary validation before "
             f"safety baseline: {error}"
         )
+
+
+def _preflight_permission_measurement_before_baseline(
+    cfg: RunConfig,
+    *,
+    run_id: str,
+    harness: Path,
+    episode: int,
+) -> None:
+    """Stop before provider work when a selected native permission probe is unready.
+
+    This is intentionally an optional runner hook.  Most harnesses do not expose a
+    controller-owned native permission route, while DSH must prove its selected immutable
+    runtime can produce the complete protected/control pair before a fresh or resumed
+    safety-gated run spends ordinary or baseline provider calls.
+    """
+    if cfg.safety_runner is None:
+        return
+    preflight = getattr(cfg.safety_runner, "preflight_permission_measurement", None)
+    if callable(preflight):
+        preflight(run_id=run_id, snapshot_root=harness, episode=episode)
 
 
 def _reconcile_checkpoint_safety(
@@ -663,6 +684,16 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             seed_task(harness, cfg.task)
         snapshot.init(harness)
         _validate_seed_runtime_before_safety(cfg, harness=harness)
+
+    # The fresh path has published the seed runtime above; a resume has restored its
+    # durable checkpoint.  In both cases, run the optional native permission readiness
+    # check before the baseline or the ordinary episode loop can open a provider channel.
+    _preflight_permission_measurement_before_baseline(
+        cfg,
+        run_id=run_id,
+        harness=harness,
+        episode=start,
+    )
 
     # Resume must restore the experiment's state, not just its files: the selection
     # baseline, the visible feedback, and the cumulative counters all live in

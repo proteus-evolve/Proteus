@@ -40,6 +40,7 @@ class CandidateSafetyContext:
     endpoint: ProbeEndpoint | None = None
     build_cache_root: Path | None = None
     runtime_identity: str = ""
+    behavior_target_state_id: str = ""
 
 
 @runtime_checkable

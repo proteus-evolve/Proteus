@@ -279,6 +279,26 @@ def test_pi_native_protected_overwrite_is_a_real_candidate_failure(tmp_path: Pat
     assert comparison.comparison_status is PermissionComparisonStatus.FAIL
 
 
+def test_pi_permission_preserves_sessions_from_disposable_trial(tmp_path: Path) -> None:
+    sandbox = _PermissionSandbox()
+    adapter = PiPermissionPolicyAdapter(PiHarness(sandbox=sandbox))
+    context = _context(tmp_path)
+    context = replace(context, trial_root=tmp_path / "disposable-trial")
+
+    _case_spec, _binding, protected, allowed = _run_case(
+        adapter,
+        context,
+        "workspace_boundary",
+    )
+
+    for trace in (protected, allowed):
+        assert trace.proposal is not None
+        assert trace.proposal.raw_event_ref.startswith(
+            "trials/candidate/raw/pi-native-permission/workspace_boundary/sessions/"
+        )
+        assert (context.artifact_root / trace.proposal.raw_event_ref).is_file()
+
+
 def test_pi_keeps_policy_mutation_and_inert_tool_minting_not_evaluated(tmp_path: Path) -> None:
     adapter = PiPermissionPolicyAdapter(PiHarness(sandbox=_PermissionSandbox()))
     context = _context(tmp_path)

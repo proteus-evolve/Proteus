@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from threading import Barrier, current_thread
 
 import pytest
 from safety_memory_fixtures import plant_harness_memory, synthetic_advbench
@@ -15,7 +16,22 @@ from proteus.adapters.pi import PiHarness
 from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation
-from proteus.safety.gate import PostEpisodeSafetyRunner, build_safety_runner_factory
+from proteus.safety.gate import (
+    PostEpisodeSafetyRunner,
+    _episode_audit_status,
+    build_safety_runner_factory,
+)
+from proteus.safety.indicators import (
+    EpisodeSafetyIndicators,
+    FamilyExecution,
+    PermissionCaseIndicators,
+    PermissionCaseState,
+    ToolsPermissionIndicators,
+    empty_admission,
+    empty_collapse,
+    empty_permission,
+    not_scheduled_execution,
+)
 from proteus.safety.live import LiveCallProvenance
 from proteus.safety.permission_adapter import PermissionSnapshotContext
 from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
@@ -200,6 +216,60 @@ class GateFixtureAdapter(MinimalHarness):
         return self.permission_adapter
 
 
+class DshReadinessPermissionAdapter(GatePermissionAdapter):
+    """Fixed native-pair fixture for the DSH readiness gate path."""
+
+    name = "dsh"
+    permission_requires_live_channel = False
+    declared_supported_case_ids = frozenset(
+        case.case_id
+        for case in PERMISSION_CASE_SPECS
+        if case.case_id
+        in {"recursive_deletion", "protected_overwrite", "workspace_boundary"}
+    )
+
+    def __init__(self, *, allowed_effect: bool = True) -> None:
+        self.allowed_effect = allowed_effect
+
+    @staticmethod
+    def live_call_cap(case_spec):
+        del case_spec
+        return 0
+
+    def capability(self, case_spec, snapshot_context):
+        del snapshot_context
+        if case_spec.case_id not in self.declared_supported_case_ids:
+            return PermissionCaseCapability(
+                PermissionCapabilityState.UNSUPPORTED,
+                "",
+                "native_dsh_permission_boundary_unavailable",
+            )
+        return PermissionCaseCapability(
+            PermissionCapabilityState.SUPPORTED,
+            "dsh.fixture.native-sandbox-policy",
+            "",
+        )
+
+    def observe_canary(self, binding, operation_spec):
+        allowed = operation_spec.operation_id == binding.allowed_control.operation_id
+        return CanaryObservation(
+            operation_spec.operation_id,
+            observed=True,
+            effect_committed=allowed and self.allowed_effect,
+            raw_oracle_ref="raw/canary.json",
+        )
+
+
+class DshReadinessHarness(GateFixtureAdapter):
+    name = "dsh"
+
+    def __init__(self, *, allowed_effect: bool = True) -> None:
+        super().__init__()
+        self.permission_adapter = DshReadinessPermissionAdapter(
+            allowed_effect=allowed_effect
+        )
+
+
 def _fixture_native_tool_schema(name: str, version: str = "1") -> dict[str, object]:
     return {
         "type": "function",
@@ -358,6 +428,187 @@ def _permission_snapshot_context(tmp_path: Path) -> PermissionSnapshotContext:
         evidence_dir=tmp_path / "permission-evidence",
         artifact_root=tmp_path,
     )
+
+
+def test_dsh_permission_readiness_uses_only_declared_cases_and_publishes_artifacts(
+    tmp_path: Path,
+) -> None:
+    adapter = DshReadinessHarness(allowed_effect=False)
+    configured_permission_adapter = DshReadinessPermissionAdapter(allowed_effect=True)
+    executor = RecordingSnapshotPermissionExecutor()
+    opened: list[str] = []
+    gate = PostEpisodeSafetyRunner(
+        adapter=adapter,
+        definitions=(TOOLS_PERMISSION_DRIFT,),
+        controller_root=tmp_path / "controller",
+        safety_model="gpt-5.6-luna",
+        channel_factory=lambda *_args: opened.append("provider") or pytest.fail(
+            "DSH readiness must not open a provider channel"
+        ),
+        permission_adapter=configured_permission_adapter,
+        permission_executor=executor,
+    )
+    snapshot_root = tmp_path / "dsh-seed"
+    MinimalHarness().seed(snapshot_root)
+
+    gate.preflight_permission_measurement(
+        run_id="dsh-readiness",
+        snapshot_root=snapshot_root,
+        episode=0,
+    )
+
+    root = (
+        tmp_path
+        / "controller/preflight/runs/dsh-readiness/permission-readiness/episode-000"
+    )
+    manifest = json.loads((root / "readiness.json").read_text(encoding="utf-8"))
+    result = json.loads(
+        (root / "tools_permission_drift/result.json").read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "ready"
+    assert manifest["supported_case_ids"] == [
+        "recursive_deletion",
+        "protected_overwrite",
+        "workspace_boundary",
+    ]
+    assert [case["case_id"] for case in result["cases"]] == manifest[
+        "supported_case_ids"
+    ]
+    assert all(case["ready"] is True for case in manifest["cases"])
+    assert executor.execute_calls == 1
+    assert opened == []
+    assert not (
+        root / "tools_permission_drift/cases/policy_mutation/result.json"
+    ).exists()
+
+
+def test_dsh_permission_readiness_stops_on_missing_allowed_effect(tmp_path: Path) -> None:
+    adapter = DshReadinessHarness(allowed_effect=False)
+    gate = PostEpisodeSafetyRunner(
+        adapter=adapter,
+        definitions=(TOOLS_PERMISSION_DRIFT,),
+        controller_root=tmp_path / "controller",
+        safety_model="gpt-5.6-luna",
+        channel_factory=lambda *_args: pytest.fail(
+            "DSH readiness must not open a provider channel"
+        ),
+        permission_adapter=adapter.permission_adapter,
+    )
+    snapshot_root = tmp_path / "dsh-seed"
+    MinimalHarness().seed(snapshot_root)
+
+    with pytest.raises(
+        RuntimeError,
+        match="DSH permission readiness failed before safety baseline",
+    ):
+        gate.preflight_permission_measurement(
+            run_id="dsh-unready",
+            snapshot_root=snapshot_root,
+            episode=0,
+        )
+
+    manifest = json.loads(
+        (
+            tmp_path
+            / "controller/preflight/runs/dsh-unready/permission-readiness/episode-000"
+            / "readiness.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "not_ready"
+    assert all(case["allowed_effect_committed"] is False for case in manifest["cases"])
+
+
+def test_dsh_builtin_family_measurements_overlap_then_return_in_fixed_order(
+    tmp_path: Path,
+) -> None:
+    class ParallelRunner(PostEpisodeSafetyRunner):
+        def __init__(self) -> None:
+            adapter = DshReadinessHarness()
+            super().__init__(
+                adapter=adapter,
+                definitions=SUITE.definitions(),
+                controller_root=tmp_path / "controller",
+                safety_model="",
+                channel_factory=None,
+            )
+            self.barrier = Barrier(3)
+            self.worker_names: set[str] = set()
+
+        def synchronized(self, result):
+            self.worker_names.add(current_thread().name)
+            self.barrier.wait(timeout=2)
+            return result
+
+        def _evaluate_admission(self, *_args):
+            return self.synchronized(empty_admission(not_scheduled_execution(None)))
+
+        def _evaluate_collapse(self, *_args):
+            return self.synchronized(empty_collapse(not_scheduled_execution(None)))
+
+        def _evaluate_permission(self, *_args):
+            return self.synchronized(empty_permission(not_scheduled_execution(None)))
+
+    runner = ParallelRunner()
+    context = _gate_context(tmp_path)
+    staging = tmp_path / "staging"
+    staging.mkdir()
+
+    admission, collapse, permission, timing = runner._evaluate_builtin_families(
+        context=context,
+        lineage=(),
+        staging=staging,
+        history=runner.history_for(context.run_id),
+    )
+
+    assert timing["mode"] == "parallel"
+    assert len(runner.worker_names) == 3
+    assert admission.execution.schedule_status == "not_scheduled"
+    assert collapse.execution.schedule_status == "not_scheduled"
+    assert permission.execution.schedule_status == "not_scheduled"
+
+
+def test_permission_terminal_ignores_structurally_unsupported_cases() -> None:
+    safe = PermissionCaseIndicators(
+        current=PermissionCaseState(
+            case_id="recursive_deletion",
+            protected_effect_committed=False,
+            allowed_effect_committed=True,
+            evidence_validity=PermissionEvidenceValidity.VALID,
+            protected_decision=NativePermissionDecisionValue.DENY,
+            allowed_decision=NativePermissionDecisionValue.ALLOW,
+        ),
+        change_from_previous=None,
+        change_from_baseline=None,
+    )
+    unsupported = PermissionCaseIndicators(
+        current=PermissionCaseState(
+            case_id="policy_mutation",
+            protected_effect_committed=None,
+            allowed_effect_committed=None,
+            evidence_validity=PermissionEvidenceValidity.VALID,
+            not_evaluated_reason="unsupported_capability",
+        ),
+        change_from_previous=None,
+        change_from_baseline=None,
+    )
+
+    def indicators(cases: tuple[PermissionCaseIndicators, ...]) -> EpisodeSafetyIndicators:
+        return EpisodeSafetyIndicators(
+            episode=0,
+            snapshot_ref="dsh:episode-000",
+            memory_bad_admission=empty_admission(not_scheduled_execution(None)),
+            memory_collapse=empty_collapse(not_scheduled_execution(None)),
+            tools_permission_drift=ToolsPermissionIndicators(
+                execution=FamilyExecution("evaluated", 0),
+                cases=cases,
+                callable_catalog_status=SafetyStatus.PASS,
+            ),
+            safety_calls=0,
+            wall_time_s=0.0,
+        )
+
+    assert _episode_audit_status(indicators((safe, unsupported))) == SafetyStatus.PASS.value
+    assert _episode_audit_status(indicators((unsupported,))) == SafetyStatus.NOT_EVALUATED.value
 
 
 @pytest.mark.parametrize(

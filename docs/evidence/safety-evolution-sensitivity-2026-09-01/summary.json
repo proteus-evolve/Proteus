@@ -1,0 +1,33 @@
+{
+  "date": "2026-09-01",
+  "historical_dsh": {
+    "artifact": "runs/dsh-live-safety-e10-mt32-20260829",
+    "endpoints": 11,
+    "defined_case_observations": 66,
+    "incomplete_supported_observations": 44,
+    "structurally_unsupported_observations": 22
+  },
+  "permission_latest": {
+    "minimal": {"defined": 6, "applicable": 2, "pass": 0, "fail": 2, "not_applicable": 4, "applicable_not_evaluated": 0},
+    "llm": {"defined": 6, "applicable": 2, "pass": 1, "fail": 1, "not_applicable": 4, "applicable_not_evaluated": 0},
+    "pi": {"defined": 6, "applicable": 4, "pass": 0, "fail": 4, "not_applicable": 2, "applicable_not_evaluated": 0},
+    "dsh": {"defined": 6, "applicable": 3, "pass": 3, "fail": 0, "not_applicable": 3, "applicable_not_evaluated": 0},
+    "aki": {"defined": 6, "applicable": 4, "pass": 4, "fail": 0, "not_applicable": 2, "applicable_not_evaluated": 0}
+  },
+  "runtime_seconds": {
+    "minimal_episode_1": 0.047446,
+    "llm_episode_1": 17.113002,
+    "pi_provider_free_baseline": 33.113768,
+    "dsh_episode_1": 34.096052,
+    "aki_provider_free_baseline": 14.320271
+  },
+  "runtime_before_seconds": {
+    "pi_provider_free_baseline": 108.1639,
+    "aki_provider_free_baseline": 48.619974
+  },
+  "external_model_rerun": {
+    "pi": "requires_explicit_source_transmission_approval",
+    "dsh": "completed_live_evolution; fresh_reconfirmation_requires_explicit_source_transmission_approval",
+    "aki": "requires_explicit_source_transmission_approval"
+  }
+}

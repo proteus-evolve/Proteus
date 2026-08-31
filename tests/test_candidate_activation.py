@@ -548,12 +548,22 @@ def test_staged_seed_runtime_validates_before_legacy_safety_baseline(tmp_path: P
             self._adapter = adapter
             self.episodes: list[int] = []
             self.validation_counts: list[int] = []
+            self.preflight_episodes: list[int] = []
+
+        def preflight_permission_measurement(
+            self, *, run_id: str, snapshot_root: Path, episode: int
+        ) -> None:
+            assert run_id == "run-staged-seed"
+            assert snapshot_root == self._adapter_root
+            assert self._adapter.validated
+            self.preflight_episodes.append(episode)
 
         def has_baseline(self, _run_id: str) -> bool:
             return False
 
         def evaluate_settled_episode(self, context):
             assert self._adapter.validated
+            assert self.preflight_episodes == [0]
             self.episodes.append(context.episode)
             self.validation_counts.append(len(self._adapter.validated))
             return SimpleNamespace(status="pass", decision_ref="safety/decision.json")
@@ -561,6 +571,7 @@ def test_staged_seed_runtime_validates_before_legacy_safety_baseline(tmp_path: P
     adapter = SeedRuntimeHarness()
     runner = LegacySafetyRunner(adapter)
     root = tmp_path / "staged-seed"
+    runner._adapter_root = root / "harness"
 
     run(RunConfig(
         name="staged-seed",
@@ -575,6 +586,7 @@ def test_staged_seed_runtime_validates_before_legacy_safety_baseline(tmp_path: P
     ))
 
     assert adapter.validated == [root / "harness", root / "harness"]
+    assert runner.preflight_episodes == [0]
     assert runner.episodes == [0, 1]
     assert runner.validation_counts == [1, 2]
 
@@ -612,3 +624,107 @@ def test_invalid_staged_seed_runtime_stops_before_legacy_safety_baseline(tmp_pat
         ))
 
     assert runner.calls == 0
+
+
+def test_permission_readiness_failure_stops_before_legacy_safety_baseline(
+    tmp_path: Path,
+) -> None:
+    class SeedRuntimeHarness(RecordingHarness):
+        staged_activation = True
+
+        def validate_candidate(self, _harness_root: Path) -> str:
+            return ""
+
+    class LegacySafetyRunner:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.preflight_calls = 0
+
+        def preflight_permission_measurement(self, **_kwargs) -> None:
+            self.preflight_calls += 1
+            raise RuntimeError("native sandbox backend is unavailable")
+
+        def has_baseline(self, _run_id: str) -> bool:
+            return False
+
+        def evaluate_settled_episode(self, _context):
+            self.calls += 1
+            return SimpleNamespace(status="pass", decision_ref="safety/decision.json")
+
+    runner = LegacySafetyRunner()
+    with pytest.raises(RuntimeError, match="native sandbox backend is unavailable"):
+        run(RunConfig(
+            name="unready-staged-seed",
+            run_id="run-unready-staged-seed",
+            adapter=SeedRuntimeHarness(),
+            disposition=review("notes"),
+            goal=GoalConfig(),
+            root=tmp_path / "unready-staged-seed",
+            model="mock",
+            episodes=1,
+            safety_runner=runner,
+        ))
+
+    assert runner.preflight_calls == 1
+    assert runner.calls == 0
+
+
+def test_permission_readiness_rechecks_a_resumed_runtime_before_baseline_or_episode(
+    tmp_path: Path,
+) -> None:
+    class SeedRuntimeHarness(RecordingHarness):
+        staged_activation = True
+
+        def validate_candidate(self, _harness_root: Path) -> str:
+            return ""
+
+    class LegacySafetyRunner:
+        def __init__(self) -> None:
+            self.baseline = False
+            self.preflight_episodes: list[int] = []
+            self.episodes: list[int] = []
+
+        def preflight_permission_measurement(self, *, episode: int, **_kwargs) -> None:
+            self.preflight_episodes.append(episode)
+
+        def has_baseline(self, _run_id: str) -> bool:
+            return self.baseline
+
+        def evaluate_settled_episode(self, context):
+            self.episodes.append(context.episode)
+            if context.episode == 0:
+                self.baseline = True
+            return SimpleNamespace(status="pass", decision_ref="safety/decision.json")
+
+    adapter = SeedRuntimeHarness()
+    runner = LegacySafetyRunner()
+    root = tmp_path / "resumed-staged-seed"
+    run(RunConfig(
+        name="resumed-staged-seed",
+        run_id="run-resumed-staged-seed",
+        adapter=adapter,
+        disposition=review("notes"),
+        goal=GoalConfig(),
+        root=root,
+        model="mock",
+        episodes=1,
+        safety_runner=runner,
+    ))
+    run(
+        RunConfig(
+            name="resumed-staged-seed",
+            run_id="run-resumed-staged-seed",
+            adapter=adapter,
+            disposition=review("notes"),
+            goal=GoalConfig(),
+            root=root,
+            model="mock",
+            episodes=2,
+            safety_runner=runner,
+        ),
+        start=1,
+        resume=True,
+    )
+
+    assert runner.preflight_episodes == [0, 1]
+    assert runner.episodes == [0, 1, 2]
