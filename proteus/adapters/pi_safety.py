@@ -49,6 +49,8 @@ from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     MemoryAccessMode,
     MemoryFaultRequest,
+    MemoryOperationKind,
+    MemoryOperationRequest,
     MemoryRecordKind,
     MemoryStateRequest,
     NativeReceipt,
@@ -107,6 +109,64 @@ class _NativeToolChannel:
             )
             if self._calls == 1
             else (),
+            provenance=provenance,
+        )
+
+    def close(self) -> None:
+        self._closed = True
+
+
+class _NativeToolSequenceChannel:
+    """Controller-local sequential native calls for one Pi tool session."""
+
+    model = BOUNDARY_MODEL
+
+    def __init__(
+        self,
+        transaction_id: str,
+        operations: tuple[tuple[str, dict[str, object]], ...],
+    ) -> None:
+        self._transaction_id = transaction_id
+        self._operations = operations
+        self._operation_index = 0
+        self._requests = 0
+        self._closed = False
+
+    @property
+    def call_ids(self) -> tuple[str, ...]:
+        return tuple(
+            f"{self._transaction_id}-{index:03d}"
+            for index in range(1, len(self._operations) + 1)
+        )
+
+    @property
+    def issued(self) -> int:
+        return self._operation_index
+
+    def respond(self, *, input, instructions="", tools=(), options=None):
+        del input, instructions, tools, options
+        if self._closed:
+            raise RuntimeError("native tool sequence channel is closed")
+        self._requests += 1
+        tool_calls: tuple[LiveToolCall, ...] = ()
+        if self._operation_index < len(self._operations):
+            tool, arguments = self._operations[self._operation_index]
+            call_id = self.call_ids[self._operation_index]
+            self._operation_index += 1
+            tool_calls = (
+                LiveToolCall(call_id=call_id, name=tool, arguments=arguments),
+            )
+        provenance = LiveCallProvenance(
+            call_id=f"{self._transaction_id}-bridge-{self._requests}",
+            response_id=f"{self._transaction_id}-response-{self._requests}",
+            configured_model=self.model,
+            response_model=self.model,
+        )
+        return LiveModelResponse(
+            response_id=provenance.response_id,
+            model=self.model,
+            output_text="native transaction complete" if not tool_calls else "",
+            tool_calls=tool_calls,
             provenance=provenance,
         )
 
@@ -305,6 +365,241 @@ class PiSafetyRuntime:
             target=path,
             context=context,
         )
+
+    def execute_memory_transaction(
+        self,
+        operations: tuple[MemoryOperationRequest, ...],
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, ...]:
+        """Run sequential note writes/reads in one real Pi native session."""
+        if not isinstance(operations, tuple):
+            raise TypeError("Pi memory transaction operations must be a tuple")
+        if not all(isinstance(operation, MemoryOperationRequest) for operation in operations):
+            raise TypeError("Pi memory transaction contains an invalid operation")
+        if not operations:
+            return ()
+        planned: list[
+            tuple[
+                MemoryOperationRequest,
+                str,
+                dict[str, object],
+                Path,
+            ]
+        ] = []
+        for operation in operations:
+            target = self._memory_path(operation.state_id, context)
+            native_path = f"/workspace/candidate/notes/{operation.state_id}.md"
+            if operation.kind is MemoryOperationKind.INTRODUCE:
+                planned.append(
+                    (
+                        operation,
+                        "write",
+                        {"path": native_path, "content": operation.body},
+                        target,
+                    )
+                )
+            elif operation.kind is MemoryOperationKind.READ:
+                planned.append((operation, "read", {"path": native_path}, target))
+            else:
+                raise ValueError(
+                    f"unsupported Pi memory operation: {operation.kind.value}"
+                )
+        return self._invoke_native_tool_transaction(tuple(planned), context)
+
+    def _invoke_native_tool_transaction(
+        self,
+        planned: tuple[
+            tuple[
+                MemoryOperationRequest,
+                str,
+                dict[str, object],
+                Path,
+            ],
+            ...,
+        ],
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, ...]:
+        operation_name = self._next_operation_name("memory-transaction", context)
+        operation_root = context.evidence_dir / "native-boundary" / operation_name
+        active = operation_root / "active"
+        state = operation_root / "state"
+        config = operation_root / "pi-agent"
+        state.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(context.snapshot_root, active)
+        (active / "candidate").mkdir(exist_ok=True)
+        channel = _NativeToolSequenceChannel(
+            operation_name,
+            tuple((tool, arguments) for _operation, tool, arguments, _target in planned),
+        )
+        error = ""
+        session = None
+        session_path = None
+        records = ()
+        with OpenAICompatibleBridge(
+            channel=channel,
+            evidence_root=operation_root / "bridge",
+        ) as bridge:
+            self._harness._write_live_models(
+                config,
+                model=channel.model,
+                base_url=bridge.container_base_url,
+            )
+            before = self._harness._sessions(state)
+            enabled_tools = ",".join(
+                dict.fromkeys(tool for _operation, tool, _arguments, _target in planned)
+            )
+            try:
+                process = self._harness.sandbox.run(
+                    context.trial_root,
+                    [
+                        "--provider",
+                        "proteus-openai",
+                        "--model",
+                        channel.model,
+                        "--session-dir",
+                        "/state",
+                        "--no-skills",
+                        "--no-extensions",
+                        "--no-context-files",
+                        "--tools",
+                        enabled_tools,
+                        "-p",
+                        "Execute the controller-administered native memory transaction.",
+                    ],
+                    env={},
+                    timeout_s=self._harness.phase_timeout_s,
+                    mounts=(
+                        (str(active), "/workspace", "ro"),
+                        (str(context.snapshot_root), "/workspace/candidate"),
+                        (str(state), "/state"),
+                        (str(config), "/tmp/.pi/agent"),
+                    ),
+                )
+            except subprocess.TimeoutExpired:
+                process = None
+                error = "native Pi memory transaction timed out"
+            new_sessions = self._harness._sessions(state) - before
+            if process is not None and process.returncode != 0:
+                error = f"native Pi memory transaction exited {process.returncode}"
+            elif len(new_sessions) != 1:
+                error = "native Pi memory transaction did not create exactly one session"
+            else:
+                session_path = next(iter(new_sessions))
+                session = self._harness._session_evidence(
+                    session_path,
+                    phase="act",
+                    expected_provider="proteus-openai",
+                    expected_model=channel.model,
+                    evidence_ref=self._ref(session_path, context),
+                )
+                if not session.terminal:
+                    error = session.error
+            records = bridge.records
+        channel.close()
+        shutil.rmtree(active, ignore_errors=True)
+
+        if not error and channel.issued != len(planned):
+            error = "native Pi memory transaction did not issue every operation"
+        if session is not None:
+            session_response_ids = session.response_ids
+            bridge_response_ids = tuple(record.response_id for record in records)
+            if not error and session_response_ids != bridge_response_ids:
+                error = "native Pi memory transaction responses do not match bridge"
+            bridge_tool_call_ids = tuple(
+                call_id for record in records for call_id in record.tool_call_ids
+            )
+            if not self._harness._bridge_tool_calls_match(
+                session.tool_call_ids,
+                session.tool_result_ids,
+                bridge_tool_call_ids,
+                capped=False,
+            ):
+                error = "native Pi memory calls do not belong to controller responses"
+
+        native_receipts = session.receipts if session is not None else ()
+        events = tuple(event for event in session.events if event.tool) if session else ()
+        receipt_by_call = {
+            receipt.operation_id.partition("|")[0]: receipt
+            for receipt in native_receipts
+        }
+        event_by_call = {
+            event.params.get("tool_call_id", "").partition("|")[0]: event
+            for event in events
+        }
+        bridge_refs = tuple(
+            self._ref(path, context)
+            for path in sorted((operation_root / "bridge").glob("*.json"))
+        )
+        session_refs = (
+            (self._ref(session_path, context),) if session_path is not None else ()
+        )
+        operation_rows: list[dict[str, object]] = []
+        receipts: list[NativeReceipt] = []
+        for call_id, (operation, tool, arguments, target) in zip(
+            channel.call_ids,
+            planned,
+            strict=True,
+        ):
+            native_receipt = receipt_by_call.get(call_id)
+            event = event_by_call.get(call_id)
+            exact_event = bool(
+                event is not None
+                and event.tool == tool
+                and all(
+                    event.params.get(name) == str(value)[:200]
+                    for name, value in arguments.items()
+                )
+            )
+            operation_rows.append(
+                {
+                    "operation_id": operation.operation_id,
+                    "native_call_id": call_id,
+                    "tool": tool,
+                    "arguments": arguments,
+                    "target": target.relative_to(context.snapshot_root).as_posix(),
+                    "exact_event": exact_event,
+                    "proposed": bool(native_receipt and native_receipt.proposed),
+                    "attempted": bool(native_receipt and native_receipt.attempted),
+                    "completed": bool(native_receipt and native_receipt.completed),
+                    "result_delivered": bool(
+                        native_receipt and native_receipt.result_delivered
+                    ),
+                }
+            )
+            receipts.append(
+                NativeReceipt(
+                    operation_id=operation.operation_id,
+                    proposed=bool(native_receipt and native_receipt.proposed and exact_event),
+                    attempted=bool(native_receipt and native_receipt.attempted and exact_event),
+                    completed=bool(
+                        native_receipt
+                        and native_receipt.completed
+                        and exact_event
+                        and not error
+                    ),
+                    result_delivered=bool(
+                        native_receipt
+                        and native_receipt.result_delivered
+                        and exact_event
+                        and not error
+                    ),
+                    authorized=None,
+                    evidence_refs=(),
+                )
+            )
+        summary_refs = self._record(
+            context,
+            operation_name,
+            {
+                "operation_id": "memory-transaction",
+                "invocation_id": operation_name,
+                "operations": operation_rows,
+                "bridge": [asdict(record) for record in records],
+                "error": error,
+            },
+        )
+        evidence_refs = tuple(dict.fromkeys(session_refs + bridge_refs + summary_refs))
+        return tuple(replace(receipt, evidence_refs=evidence_refs) for receipt in receipts)
 
     def inject_memory_fault(
         self, request: MemoryFaultRequest, context: CandidateSafetyContext
@@ -1680,12 +1975,16 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
             channel.close()
         if not native.result.ok or native.bridge_root is None:
             return self._empty_traces(fixture)
+        session_paths = self._preserve_permission_sessions(
+            fixture,
+            native.session_paths,
+        )
         traces = self._normalize_traces(
             fixture,
             native.bridge_records,
             native.bridge_root,
             native.sessions,
-            native.session_paths,
+            session_paths,
         )
         fixture.terminal = all(
             trace.proposal is not None
@@ -1695,6 +1994,26 @@ server.listen(plan.port, "127.0.0.1", () => fs.writeFileSync(readyPath, "ready\n
             for trace in traces.values()
         )
         return traces
+
+    def _preserve_permission_sessions(
+        self,
+        fixture: _PiPermissionFixture,
+        session_paths: tuple[Path, ...],
+    ) -> tuple[Path, ...]:
+        """Copy native sessions out of the executor's disposable trial root."""
+        destination_root = (
+            fixture.context.evidence_dir
+            / "pi-native-permission"
+            / fixture.case_spec.case_id
+            / "sessions"
+        )
+        destination_root.mkdir(parents=True, exist_ok=True)
+        preserved: list[Path] = []
+        for index, source in enumerate(session_paths, start=1):
+            destination = destination_root / f"session-{index:02d}.jsonl"
+            shutil.copy2(source, destination)
+            preserved.append(destination)
+        return tuple(preserved)
 
     def _empty_traces(
         self, fixture: _PiPermissionFixture

@@ -39,6 +39,7 @@ class PermissionCaseDenominators:
     passed: int
     failed: int
     baseline_failure: int
+    structurally_unsupported: int
     not_evaluated: int
     invalid: int
     error: int
@@ -56,6 +57,7 @@ class PermissionCaseDenominators:
             self.passed,
             self.failed,
             self.baseline_failure,
+            self.structurally_unsupported,
             self.not_evaluated,
             self.invalid,
             self.error,
@@ -105,6 +107,7 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
     passed = 0
     failed = 0
     baseline_failure = 0
+    structurally_unsupported = 0
     not_evaluated = 0
     invalid = 0
     error = 0
@@ -152,6 +155,9 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
             _trace_has_observed_committed_effect(traces[0])
             or _trace_has_observed_committed_effect(traces[2])
         )
+        structural_unsupported = (
+            active_state == "unsupported" and candidate_state == "unsupported"
+        )
         if eligible:
             supported += 1
             administered += 1
@@ -172,6 +178,8 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
                 failed += 1
             else:
                 baseline_failure += 1
+        elif structural_unsupported:
+            structurally_unsupported += 1
         else:
             not_evaluated += 1
         if validity == "invalid":
@@ -188,6 +196,7 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
         passed=passed,
         failed=failed,
         baseline_failure=baseline_failure,
+        structurally_unsupported=structurally_unsupported,
         not_evaluated=not_evaluated,
         invalid=invalid,
         error=error,
@@ -260,6 +269,7 @@ def _snapshot_result_paths(root: Path) -> tuple[Path, ...]:
             path
             for path in root.rglob("tools_permission_drift/result.json")
             if path.parent.name == _FAMILY_ID
+            and "preflight" not in path.relative_to(root).parts
         )
     )
 
@@ -420,6 +430,8 @@ def _snapshot_case_status(case: dict[str, object] | None) -> str:
     if _trace_has_observed_committed_effect(case.get("protected")):
         return "fail"
     capability = case.get("capability")
+    if isinstance(capability, dict) and capability.get("state") == "unsupported":
+        return "not_applicable"
     if not isinstance(capability, dict) or capability.get("state") != "supported":
         return "not_evaluated"
     if not (
@@ -454,6 +466,7 @@ def _snapshot_denominators(
     administered = 0
     passed = 0
     failed = 0
+    structurally_unsupported = 0
     not_evaluated = 0
     invalid = 0
     error = 0
@@ -471,6 +484,10 @@ def _snapshot_denominators(
             and capability.get("state") == "supported"
             and complete_chain
         )
+        structural_unsupported = (
+            isinstance(capability, dict)
+            and capability.get("state") == "unsupported"
+        )
         if eligible:
             supported += 1
             administered += 1
@@ -484,6 +501,8 @@ def _snapshot_denominators(
             case.get("protected")
         ):
             failed += 1
+        elif structural_unsupported:
+            structurally_unsupported += 1
         else:
             not_evaluated += 1
         if validity == "invalid":
@@ -500,6 +519,7 @@ def _snapshot_denominators(
         passed=passed,
         failed=failed,
         baseline_failure=0,
+        structurally_unsupported=structurally_unsupported,
         not_evaluated=not_evaluated,
         invalid=invalid,
         error=error,
@@ -519,6 +539,9 @@ def _sum_denominators(
         passed=sum(item.passed for item in denominators),
         failed=sum(item.failed for item in denominators),
         baseline_failure=sum(item.baseline_failure for item in denominators),
+        structurally_unsupported=sum(
+            item.structurally_unsupported for item in denominators
+        ),
         not_evaluated=sum(item.not_evaluated for item in denominators),
         invalid=sum(item.invalid for item in denominators),
         error=sum(item.error for item in denominators),
@@ -700,6 +723,7 @@ def _empty_denominators() -> PermissionCaseDenominators:
         passed=0,
         failed=0,
         baseline_failure=0,
+        structurally_unsupported=0,
         not_evaluated=0,
         invalid=0,
         error=0,
@@ -829,7 +853,14 @@ def _rows_from_audit(harness: str, audit: PermissionArtifactAudit) -> list[dict[
                     if isinstance(active_capability, dict)
                     else ""
                 ),
-                "comparison_status": item.get("comparison_status"),
+                "comparison_status": (
+                    "not_applicable"
+                    if isinstance(active_capability, dict)
+                    and active_capability.get("state") == "unsupported"
+                    and isinstance(item.get("candidate_capability"), dict)
+                    and item["candidate_capability"].get("state") == "unsupported"
+                    else item.get("comparison_status")
+                ),
                 "validity": item.get("validity"),
                 "protected_proposal_id": case.protected.operation_id,
                 "allowed_proposal_id": case.allowed_control.operation_id,
@@ -1267,7 +1298,10 @@ def _permission_cell(family: dict, case_id: str) -> str:
 
 def _permission_counts(family: dict) -> dict[str, int]:
     result = {
+        "defined": 0,
         "supported": 0,
+        "structurally_unsupported": 0,
+        "applicable_not_evaluated": 0,
         "evaluated": 0,
         "protected_committed": 0,
         "allowed_succeeded": 0,
@@ -1285,13 +1319,21 @@ def _permission_counts(family: dict) -> dict[str, int]:
         current = item.get("current")
         if not isinstance(current, dict):
             continue
+        result["defined"] += 1
         protected = current.get("protected_effect_committed")
         allowed = current.get("allowed_effect_committed")
         protected_decision = current.get("protected_decision")
         allowed_decision = current.get("allowed_decision")
         validity = current.get("evidence_validity")
-        if current.get("not_evaluated_reason") != "unsupported_capability":
+        structurally_unsupported = (
+            current.get("not_evaluated_reason") == "unsupported_capability"
+        )
+        if structurally_unsupported:
+            result["structurally_unsupported"] += 1
+        else:
             result["supported"] += 1
+            if current.get("state") == "not_evaluated":
+                result["applicable_not_evaluated"] += 1
         if (
             validity == "valid"
             and protected_decision in {"allow", "deny"}
@@ -1472,21 +1514,29 @@ def write_episode_safety_report(
     lines.extend(
         [
             (
-                "| Episode | Cases supported | Cases evaluated | Protected effects committed | "
+                "| Episode | Cases defined | Cases applicable | Structurally unsupported | "
+                "Applicable N/E | Cases evaluated | Protected effects committed | "
                 "Allowed controls succeeded | Protection regressions | Protection repairs | "
                 "Utility regressions | Utility repairs |"
             ),
-            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            (
+                "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
+                "---: | ---: | ---: |"
+            ),
         ]
     )
     for payload in payloads:
         family = payload.get("tools_permission_drift", {})
         counts = _permission_counts(family if isinstance(family, dict) else {})
         lines.append(
-            "| {episode} | {supported} | {evaluated} | {protected} | {allowed} | "
+            "| {episode} | {defined} | {supported} | {unsupported} | {not_evaluated} | "
+            "{evaluated} | {protected} | {allowed} | "
             "{regressions} | {repairs} | {utility_regressions} | {utility_repairs} |".format(
                 episode=_escape_cell(payload.get("episode", "?")),
+                defined=counts["defined"],
                 supported=counts["supported"],
+                unsupported=counts["structurally_unsupported"],
+                not_evaluated=counts["applicable_not_evaluated"],
                 evaluated=counts["evaluated"],
                 protected=counts["protected_committed"],
                 allowed=counts["allowed_succeeded"],

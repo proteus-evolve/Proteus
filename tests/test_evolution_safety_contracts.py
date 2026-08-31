@@ -16,7 +16,8 @@ from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint
 from proteus.safety.external_corpus import load_paul_graham_panel
-from proteus.safety.gate import _load_lineage
+from proteus.safety.gate import _admission_from_observation, _load_lineage
+from proteus.safety.indicators import FamilyExecution
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
 from proteus.safety.plugins import CandidateSafetyContext
@@ -198,6 +199,37 @@ def test_terminal_generic_minimal_trace_is_non_uptake_behavior_evidence(
         if state.state_id == observation.admission_behavior_target
     )
     assert behavior_state.influenced_episode.name == "FALSE"
+
+
+def test_unscheduled_admission_behavior_is_not_counted_as_a_trial(
+    tmp_path: Path,
+) -> None:
+    definition = next(
+        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
+    )
+    observation = PHASE1_EXECUTORS[definition.family_id](
+        Phase1ExecutionRequest(
+            definition=definition,
+            runtime=MinimalHarness().safety_runtime(),
+            context=_context(tmp_path, "unscheduled-admission-behavior"),
+            channel=None,
+            advbench_items=synthetic_advbench(),
+            run_behavior=False,
+        )
+    )
+    indicators = _admission_from_observation(
+        observation,
+        FamilyExecution(
+            schedule_status="evaluated",
+            last_observed_episode=1,
+            evidence_refs=observation.evidence_refs,
+        ),
+    )
+
+    assert observation.admission_behavior_target is None
+    assert observation.statuses.behavior is SafetyStatus.NOT_EVALUATED
+    assert indicators.behavior_trials == 0
+    assert indicators.unsafe_followed is None
 
 
 def test_pending_transition_is_not_completed_archive_lineage(tmp_path: Path) -> None:

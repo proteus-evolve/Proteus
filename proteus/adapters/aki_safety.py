@@ -55,6 +55,8 @@ from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
     MemoryAccessMode,
     MemoryFaultRequest,
+    MemoryOperationKind,
+    MemoryOperationRequest,
     MemoryRecordKind,
     MemoryStateRequest,
     NativeReceipt,
@@ -1206,13 +1208,12 @@ class _PermissionBoundaryChannel:
             configured_model=self.model,
             response_model=self.model,
         )
-        # Observe/propose consume the first two turns. Each scheduled operation is
-        # issued on an odd later turn so the following even turn can deliver it.
-        operation_index = (self.calls - 3) // 2
+        # Observe/propose consume the first two requests. The native Aki loop delivers
+        # each tool result before requesting the next response, so the controlled pair
+        # must be consecutive; an empty response would terminate the current phase.
+        operation_index = self.calls - 3
         tool_calls: tuple[LiveToolCall, ...] = ()
-        if self.calls >= 3 and (self.calls - 3) % 2 == 0 and 0 <= operation_index < len(
-            self.operations
-        ):
+        if 0 <= operation_index < len(self.operations):
             call_id, tool, arguments = self.operations[operation_index]
             tool_calls = (
                 LiveToolCall(call_id=call_id, name=tool, arguments=arguments),
@@ -1321,6 +1322,56 @@ class _NativeBoundaryChannel:
             response_id=provenance.response_id,
             model=self.model,
             output_text="native operation complete" if not tool_calls else "",
+            tool_calls=tool_calls,
+            provenance=provenance,
+            usage=LiveModelUsage(input_tokens=1, output_tokens=1),
+        )
+
+    def respond_bounded(
+        self, *, input, instructions="", tools=(), options=None, timeout_s
+    ):
+        del timeout_s
+        return self.respond(
+            input=input,
+            instructions=instructions,
+            tools=tools,
+            options=options,
+        )
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _MemoryTransactionChannel:
+    """Controller-owned sequential memory calls within one native Aki episode."""
+
+    model = "proteus-aki-memory-transaction"
+
+    def __init__(self, operations: tuple[tuple[str, str, dict[str, object]], ...]) -> None:
+        self.operations = operations
+        self.calls = 0
+        self.closed = False
+
+    def respond(self, *, input, instructions="", tools=(), options=None):
+        del input, instructions, tools, options
+        self.calls += 1
+        provenance = LiveCallProvenance(
+            call_id=f"memory-transaction-controller-{self.calls}",
+            response_id=f"memory-transaction-response-{self.calls}",
+            configured_model=self.model,
+            response_model=self.model,
+        )
+        operation_index = self.calls - 3
+        tool_calls: tuple[LiveToolCall, ...] = ()
+        if 0 <= operation_index < len(self.operations):
+            call_id, tool, arguments = self.operations[operation_index]
+            tool_calls = (
+                LiveToolCall(call_id=call_id, name=tool, arguments=arguments),
+            )
+        return LiveModelResponse(
+            response_id=provenance.response_id,
+            model=self.model,
+            output_text="memory operation complete" if not tool_calls else "",
             tool_calls=tool_calls,
             provenance=provenance,
             usage=LiveModelUsage(input_tokens=1, output_tokens=1),
@@ -1614,6 +1665,174 @@ class AkiSafetyRuntime:
             arguments={"memory_name": state_id},
             context=context,
         )
+
+    def execute_memory_transaction(
+        self,
+        operations: tuple[MemoryOperationRequest, ...],
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, ...]:
+        """Batch sequential memory actions while preserving one receipt per action."""
+        if not isinstance(operations, tuple):
+            raise TypeError("Aki memory transaction operations must be a tuple")
+        if not all(isinstance(operation, MemoryOperationRequest) for operation in operations):
+            raise TypeError("Aki memory transaction contains an invalid operation")
+        if not operations:
+            return ()
+        planned: list[
+            tuple[MemoryOperationRequest, str, dict[str, object]]
+        ] = []
+        for operation in operations:
+            if operation.kind is MemoryOperationKind.INTRODUCE:
+                self._memory[operation.state_id] = MemoryStateRequest(
+                    operation.state_id,
+                    operation.body,
+                    unsafe=operation.unsafe,
+                )
+                planned.append(
+                    (
+                        operation,
+                        "memory_write",
+                        {
+                            "memory_name": operation.state_id,
+                            "description": "Proteus controlled Phase 1 state",
+                            "body": operation.body,
+                            "type": "notes",
+                        },
+                    )
+                )
+            elif operation.kind is MemoryOperationKind.READ:
+                planned.append(
+                    (
+                        operation,
+                        "memory_read",
+                        {"memory_name": operation.state_id},
+                    )
+                )
+            else:
+                raise ValueError(
+                    f"unsupported Aki memory operation: {operation.kind.value}"
+                )
+        receipts: list[NativeReceipt] = []
+        # Aki's faithful native worker has 56 turns. Twenty operations leave the
+        # observe/propose turns, every result-delivery turn, and reflect terminal intact.
+        for start in range(0, len(planned), 20):
+            receipts.extend(
+                self._execute_memory_transaction_chunk(
+                    tuple(planned[start : start + 20]),
+                    context,
+                )
+            )
+        return tuple(receipts)
+
+    def _execute_memory_transaction_chunk(
+        self,
+        planned: tuple[tuple[MemoryOperationRequest, str, dict[str, object]], ...],
+        context: CandidateSafetyContext,
+    ) -> tuple[NativeReceipt, ...]:
+        invocation_id = self._next_invocation_id("memory-transaction")
+        scheduled = tuple(
+            (f"{invocation_id}-{index:03d}", tool, arguments)
+            for index, (_operation, tool, arguments) in enumerate(planned, start=1)
+        )
+        channel = _MemoryTransactionChannel(scheduled)
+        try:
+            result = self._run_worker(
+                context=context,
+                trial_name=f"operation-{self._safe_name(invocation_id)}",
+                plan=AkiWorkerPlan(
+                    episode=context.episode,
+                    model=channel.model,
+                    max_turns=56,
+                ),
+                channel=channel,
+            )
+        finally:
+            channel.close()
+        by_call_id = {boundary.call_id: boundary for boundary in result.boundaries}
+        structurally_complete = result.terminal and result.structural_bijection_complete
+        rows: list[dict[str, object]] = []
+        boundary_rows = [asdict(boundary) for boundary in result.boundaries]
+        for (call_id, tool, arguments), (operation, _tool, _arguments) in zip(
+            scheduled,
+            planned,
+            strict=True,
+        ):
+            boundary = by_call_id.get(call_id)
+            exact = bool(
+                boundary is not None
+                and boundary.tool_name == tool
+                and boundary.arguments == arguments
+            )
+            rows.append(
+                {
+                    "operation_id": operation.operation_id,
+                    "native_call_id": call_id,
+                    "tool": tool,
+                    "arguments": arguments,
+                    "exact_boundary": exact,
+                    "authorized": boundary.authorized if boundary else None,
+                    "attempted": boundary.attempted if boundary else False,
+                    "completed": boundary.completed if boundary else False,
+                    "result_delivered": boundary.result_delivered if boundary else False,
+                }
+            )
+        refs = self._record(
+            context,
+            invocation_id,
+            {
+                "operation_id": "memory-transaction",
+                "invocation_id": invocation_id,
+                "operations": rows,
+                "boundaries": boundary_rows,
+                "tool_links": [asdict(link) for link in result.tool_links],
+                "structural_bijection_complete": result.structural_bijection_complete,
+                "listener_threads_stopped": result.listener_threads_stopped,
+                "terminal": result.terminal,
+                "containment": result.containment,
+                "network_blocked": result.network_blocked,
+                "controller_artifacts_blocked": result.controller_artifacts_blocked,
+                "host_repository_blocked": result.host_repository_blocked,
+                "credential_environment_names": list(
+                    result.credential_environment_names
+                ),
+                "error": result.error,
+            },
+        )
+        receipts: list[NativeReceipt] = []
+        for (call_id, tool, arguments), (operation, _tool, _arguments) in zip(
+            scheduled,
+            planned,
+            strict=True,
+        ):
+            boundary = by_call_id.get(call_id)
+            exact = bool(
+                boundary is not None
+                and boundary.tool_name == tool
+                and boundary.arguments == arguments
+            )
+            receipts.append(
+                NativeReceipt(
+                    operation_id=operation.operation_id,
+                    proposed=bool(
+                        boundary and boundary.proposed and exact and structurally_complete
+                    ),
+                    attempted=bool(
+                        boundary and boundary.attempted and exact and structurally_complete
+                    ),
+                    completed=bool(
+                        boundary and boundary.completed and exact and structurally_complete
+                    ),
+                    result_delivered=bool(
+                        boundary
+                        and boundary.result_delivered
+                        and exact
+                        and structurally_complete
+                    ),
+                    authorized=(boundary.authorized if boundary and exact else None),
+                    evidence_refs=refs,
+                )
+            )
+        return tuple(receipts)
 
     @staticmethod
     def _native_memory_list_entries(result: object) -> tuple[dict[str, object], ...]:

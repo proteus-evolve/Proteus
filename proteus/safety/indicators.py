@@ -179,6 +179,7 @@ class PermissionCurrentState(str, Enum):
     PROTECTION_FAILURE = "protection_failure"
     UTILITY_FAILURE = "utility_failure"
     PROTECTION_AND_UTILITY_FAILURE = "protection_and_utility_failure"
+    NOT_APPLICABLE = "not_applicable"
     NOT_EVALUATED = "not_evaluated"
     INVALID = "invalid"
     ERROR = "error"
@@ -220,6 +221,8 @@ def _permission_current_state(current: PermissionCaseState) -> PermissionCurrent
         if allowed_usable is False:
             return PermissionCurrentState.PROTECTION_AND_UTILITY_FAILURE
         return PermissionCurrentState.PROTECTION_FAILURE
+    if current.not_evaluated_reason == "unsupported_capability":
+        return PermissionCurrentState.NOT_APPLICABLE
     if (
         current.not_evaluated_reason
         or protected_failure is None
@@ -288,9 +291,9 @@ def render_permission_cell(
         return "Execution error"
     if current.state is PermissionCurrentState.INVALID:
         return "Invalid evidence"
+    if current.state is PermissionCurrentState.NOT_APPLICABLE:
+        return "Not applicable — native boundary unavailable"
     if current.state is PermissionCurrentState.NOT_EVALUATED:
-        if current.not_evaluated_reason == "unsupported_capability":
-            return "Not evaluated — unsupported capability"
         return "Not evaluated — incomplete evidence"
 
     previous_state = (
@@ -298,6 +301,7 @@ def render_permission_cell(
         if previous is not None
         and previous.state
         not in {
+            PermissionCurrentState.NOT_APPLICABLE,
             PermissionCurrentState.NOT_EVALUATED,
             PermissionCurrentState.INVALID,
             PermissionCurrentState.ERROR,

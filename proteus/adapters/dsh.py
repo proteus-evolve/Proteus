@@ -68,6 +68,13 @@ COLD_BOOT_TIMEOUT_S = 300
 RUNTIME_IMAGE_PROTOCOL = 2
 RUNTIME_IMAGE_ENTRYPOINT = ("node", "/opt/src/apps/cli/lib/bin.js")
 RUNTIME_MATERIALIZED_SMOKE = "--proteus-materialized-headless-smoke"
+_DSH_SECCOMP_FLAG = "--security-opt"
+_DSH_REQUIRED_SECCOMP = "seccomp=unconfined"
+_DSH_REQUIRED_ENV_PASSTHROUGH = (
+    "DEEPSEEK_API_KEY",
+    "DSH_PERMISSION_MODE",
+    *DSH_PERMISSION_CASE_ENV,
+)
 SEED_INSTRUCTIONS = """\
 # Agent instructions
 
@@ -101,6 +108,50 @@ boundary build and viability gate after reflect.
 Each session is one phase of an episode. Harness files and the bounded Proteus handoff
 carry over; the raw conversation does not.
 """
+
+
+def _dsh_docker_extra_args(extra_args: Sequence[str]) -> tuple[str, ...]:
+    """Require the seccomp profile Bubblewrap needs without changing other Docker args.
+
+    Docker's default seccomp profile blocks the namespace and pivot-root sequence used by
+    DSH's nested Bubblewrap backend. DSH must therefore run with its known-compatible
+    profile, whether its sandbox came from the adapter default or a CLI-provided image.
+    """
+    normalized: list[str] = []
+    has_required_seccomp = False
+    index = 0
+    while index < len(extra_args):
+        arg = extra_args[index]
+        if arg == _DSH_SECCOMP_FLAG:
+            if index + 1 >= len(extra_args):
+                raise ValueError(
+                    "DSH DockerSandbox has --security-opt without its required option value"
+                )
+            option = extra_args[index + 1]
+            index += 2
+        elif arg.startswith(f"{_DSH_SECCOMP_FLAG}="):
+            option = arg.split("=", 1)[1]
+            index += 1
+        else:
+            normalized.append(arg)
+            index += 1
+            continue
+
+        if not option.startswith("seccomp="):
+            normalized.extend((_DSH_SECCOMP_FLAG, option))
+            continue
+        if option != _DSH_REQUIRED_SECCOMP:
+            raise ValueError(
+                "DSH requires Docker --security-opt seccomp=unconfined for its "
+                "nested Bubblewrap sandbox; remove the conflicting seccomp option"
+            )
+        if not has_required_seccomp:
+            normalized.extend((_DSH_SECCOMP_FLAG, _DSH_REQUIRED_SECCOMP))
+            has_required_seccomp = True
+
+    if not has_required_seccomp:
+        normalized.extend((_DSH_SECCOMP_FLAG, _DSH_REQUIRED_SECCOMP))
+    return tuple(normalized)
 
 
 def _dsh_source_hash(source_root: Path) -> str:
@@ -482,15 +533,28 @@ class DshHarness:
         # `sandbox` lets a caller supply its own environment — a different image, extra
         # mounts, a GPU flag — without subclassing the adapter. The default keeps the
         # prepared image and the passthrough dsh needs.
-        self.sandbox = sandbox or DockerSandbox(SandboxConfig(
-            network=network, image=image,
-            env_passthrough=(
-                "DEEPSEEK_API_KEY",
-                "DSH_PERMISSION_MODE",
-                *DSH_PERMISSION_CASE_ENV,
-            ),
-            user=host_user,
-        ))
+        if sandbox is None:
+            self.sandbox = DockerSandbox(SandboxConfig(
+                network=network, image=image,
+                env_passthrough=_DSH_REQUIRED_ENV_PASSTHROUGH,
+                user=host_user,
+                extra_args=_dsh_docker_extra_args(()),
+            ))
+        else:
+            self.sandbox = sandbox
+            if isinstance(self.sandbox, DockerSandbox):
+                # CLI-provided DockerSandbox instances bypass the default config above;
+                # retain their image/mount/resource settings while applying the same
+                # nested-Bubblewrap runtime requirement.
+                self.sandbox.config = replace(
+                    self.sandbox.config,
+                    env_passthrough=tuple(dict.fromkeys((
+                        *self.sandbox.config.env_passthrough,
+                        *_DSH_REQUIRED_ENV_PASSTHROUGH,
+                    ))),
+                    user=self.sandbox.config.user or host_user,
+                    extra_args=_dsh_docker_extra_args(self.sandbox.config.extra_args),
+                )
         if isinstance(self.sandbox, DockerSandbox):
             # A CLI --env image is the evolution image. Runtime publication and safety
             # provenance must name that exact image, not the constructor's default tag.
@@ -1395,6 +1459,8 @@ class DshHarness:
         spec: EpisodeSpec,
         *,
         evidence_root: Path | None = None,
+        phases: Sequence[str] = PHASES,
+        deterministic_title: bool = False,
     ) -> DshNativeEpisode:
         """Run staged DSH through the bridge while the controller owns the channel."""
         from proteus.adapters.dsh_model_bridge import DshModelBridge
@@ -1404,6 +1470,13 @@ class DshHarness:
             raise TypeError("DSH live episode requires a LiveModelChannel")
         if not spec.model or channel.model != spec.model:
             raise ValueError("DSH live channel model does not match requested model")
+        selected_phases = tuple(phases)
+        if (
+            not selected_phases
+            or len(selected_phases) != len(set(selected_phases))
+            or any(phase not in PHASES for phase in selected_phases)
+        ):
+            raise ValueError("DSH live episode phases must be unique members of PHASES")
         cell_root = Path(
             evidence_root
             or (
@@ -1418,6 +1491,7 @@ class DshHarness:
             channel=channel,
             evidence_root=bridge_root,
             config_root=attempt / "dsh-config",
+            deterministic_title=deterministic_title,
         ) as bridge:
             result, sessions, paths = self._run_episode_bound(
                 spec,
@@ -1433,6 +1507,7 @@ class DshHarness:
                 expected_provider=bridge.provider,
                 expected_model=bridge.model,
                 phase_boundary=bridge.set_phase_boundary,
+                phases=selected_phases,
             )
             records = bridge.records
         native_response_ids = tuple(
@@ -1671,6 +1746,7 @@ class DshHarness:
         expected_provider: str,
         expected_model: str,
         phase_boundary: Callable[[str, int, int], None] | None = None,
+        phases: Sequence[str] = PHASES,
     ) -> tuple[EpisodeResult, tuple[DshSessionEvidence, ...], tuple[Path, ...]]:
         run_root = Path(spec.root)
         harness = run_root / "harness"
@@ -1709,7 +1785,7 @@ class DshHarness:
         workspace_mounts = ((str(active), "/workspace", "ro"),
                             (str(harness), "/workspace/candidate")) \
             if spec.active_root is not None else ((str(harness), "/workspace"),)
-        for phase in PHASES if not error else ():
+        for phase in phases if not error else ():
             # the budget is enforced twice, both harness-agnostically: exactly, between
             # phases (no new phase once it is spent) and approximately, mid-phase (the
             # session log is polled and the container stopped at the phase's stop line).

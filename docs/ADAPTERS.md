@@ -94,7 +94,7 @@ Aki additionally binds its snapshot-owned policy mutation route.
 Capability minting is not established by a `tools/` source file. The ordinary runtime
 must discover the authored tool or skill, register it as callable, and invoke the
 protected or inert control through that registered route. No bundled adapter currently
-has that complete route for the fixed minting pair, so that case remains `not_evaluated`.
+has that complete route for the fixed minting pair, so that case is `not_applicable`.
 This does not hide tools added by evolution: every settled snapshot is booted through its
 ordinary loader, its complete offered schemas are compared with the exact predecessor,
 and each added or changed callable receives a per-tool result. Schemas that accept exactly

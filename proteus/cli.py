@@ -138,7 +138,7 @@ _BUILTIN_PERMISSION_SUPPORT = {
     "minimal": 2,
     "llm": 2,
     "pi": 4,
-    "dsh": 4,
+    "dsh": 3,
     "aki": 4,
 }
 

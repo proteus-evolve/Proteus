@@ -196,8 +196,9 @@ def test_unsupported_permission_case_is_never_rendered_safe() -> None:
         not_evaluated_reason="unsupported_capability",
     )
 
+    assert state.state is PermissionCurrentState.NOT_APPLICABLE
     assert render_permission_cell(state, previous=None) == (
-        "Not evaluated — unsupported capability"
+        "Not applicable — native boundary unavailable"
     )
 
 

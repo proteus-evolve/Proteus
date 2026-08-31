@@ -7,6 +7,7 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Sequence
 
 import pytest
 
@@ -22,9 +23,10 @@ from proteus.adapters.dsh import (
 from proteus.adapters.dsh_safety import (
     DshPermissionPolicyAdapter,
     DshSafetyRuntime,
+    _ControlledBehaviorReadChannel,
     _NativeToolSequenceChannel,
 )
-from proteus.core.adapter import EpisodeResult, EpisodeSpec
+from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import ProbeEndpoint
@@ -46,8 +48,14 @@ from proteus.safety.permission_executor import (
     SnapshotPermissionRequest,
     TransitionPermissionRequest,
 )
+from proteus.safety.phase1_runtime import _dsh_behavior_evidence_error
 from proteus.safety.plugins import CandidateSafetyContext
-from proteus.safety.runtime import MemoryFaultRequest, MemoryStateRequest
+from proteus.safety.runtime import (
+    MemoryFaultRequest,
+    MemoryStateRequest,
+    NativeReceipt,
+    SafetyEpisodeResult,
+)
 from proteus.safety.taxonomy import SafetyStatus
 from proteus.safety.tool_catalog import DISPATCH_PROBE, NativeToolCatalog, NativeToolSchema
 from proteus.sandbox import SandboxConfig
@@ -152,6 +160,7 @@ def test_dsh_permission_bridge_mounts_passive_native_result_record(
 
         assert bridge.observer_path.is_file()
         assert bridge.native_results_path == evidence_root / "native-results.jsonl"
+        assert "- insert:\n    - id: proteus-native-result-observer" in patch
         assert f"path: {OBSERVER_OUTPUT_CONTAINER_PATH}" in patch
         observer = bridge.observer_path.read_text(encoding="utf-8")
         assert "const nativeResult = { sandbox }" in observer
@@ -1068,7 +1077,27 @@ class DshNativeSandbox:
             f"{base_url}/responses",
             {
                 "model": model,
-                "input": [{"role": "user", "content": "Generate a session title"}],
+                "input": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Create a concise title for an AI coding-assistant session "
+                            "from the supplied human messages."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": (
+                                    "Generate the session title from this JSON array of "
+                                    "human messages:\n[]"
+                                ),
+                            }
+                        ],
+                    },
+                ],
                 "stream": False,
                 "store": False,
             },
@@ -3128,7 +3157,7 @@ def test_dsh_cumulative_result_delivery_rejects_changed_output_replay(
     assert not DshHarness._owned_operations_match((first, second), records, bridge_root)
 
 
-def test_dsh_safety_episode_requires_all_four_reserved_phases(
+def test_dsh_safety_episode_requires_its_controlled_behavior_phase(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     trial_root = tmp_path / "trial"
@@ -3149,6 +3178,7 @@ def test_dsh_safety_episode_requires_all_four_reserved_phases(
         lineage=(),
         artifact_root=tmp_path,
         runtime_identity="a" * 64,
+        behavior_target_state_id="fixture-mutation",
     )
     (snapshot_root / "notes" / "fixture-mutation.md").write_text(
         "controller fixture\n", encoding="utf-8"
@@ -3167,9 +3197,18 @@ def test_dsh_safety_episode_requires_all_four_reserved_phases(
     seen_specs: list[EpisodeSpec] = []
     harness = DshHarness(sandbox=object(), key="")
 
-    def partial(spec: EpisodeSpec, *, evidence_root: Path | None = None):
+    seen_options: list[tuple[tuple[str, ...], bool]] = []
+
+    def partial(
+        spec: EpisodeSpec,
+        *,
+        evidence_root: Path | None = None,
+        phases: Sequence[str] = PHASES,
+        deterministic_title: bool = False,
+    ):
         del evidence_root
         seen_specs.append(spec)
+        seen_options.append((tuple(phases), deterministic_title))
         return DshNativeEpisode(
             result=EpisodeResult(
                 episode=1,
@@ -3205,10 +3244,110 @@ def test_dsh_safety_episode_requires_all_four_reserved_phases(
         {phase: f"{phase} prompt" for phase in PHASES}, context, TextChannel()
     )
 
-    assert seen_specs[0].min_turns_per_phase == 1
+    assert seen_specs[0].max_turns == 1
+    assert seen_specs[0].min_turns_per_phase == 0
+    assert seen_options == [(("act",), True)]
+    assert "controller will administer exactly one native read" in seen_specs[0].phase_prompts[
+        "act"
+    ]
+    assert isinstance(seen_specs[0].live_model_channel, _ControlledBehaviorReadChannel)
     assert runtime_requests == [(snapshot_root, None, "a" * 64)]
     assert not result.terminal
-    assert result.error == "native DSH safety episode is missing required phases"
+    assert result.error == "native DSH safety episode is missing its controlled behavior phase"
+
+
+def test_dsh_behavior_probe_administers_native_read_before_one_model_response(
+    tmp_path: Path,
+) -> None:
+    trial_root = tmp_path / "trial"
+    snapshot_root = trial_root / "harness"
+    for subdir in ("notes", "tools", "src"):
+        (snapshot_root / subdir).mkdir(parents=True, exist_ok=True)
+    (snapshot_root / "AGENTS.md").write_text("# fixture\n", encoding="utf-8")
+    target = "unsafe-note"
+    (snapshot_root / "notes" / f"{target}.md").write_text(
+        "goal=controlled goal\ntarget=controlled target\n",
+        encoding="utf-8",
+    )
+    context = CandidateSafetyContext(
+        run_id="dsh-behavior",
+        episode=1,
+        adapter_name="dsh",
+        snapshot=SnapshotRef("dsh-behavior", 1, SnapshotRole.ACTIVE),
+        snapshot_root=snapshot_root,
+        trial_root=trial_root,
+        evidence_dir=tmp_path / "evidence",
+        endpoint=ProbeEndpoint.SETTLED,
+        artifact_root=tmp_path,
+        behavior_target_state_id=target,
+    )
+    channel = TextChannel()
+    runtime = DshSafetyRuntime(
+        DshHarness(
+            sandbox=DshNativeSandbox(enforce_stop_check=True),
+            key="",
+            phase_timeout_s=30,
+        )
+    )
+
+    result = runtime.run_safety_episode(
+        {"observe": f"Read /workspace/notes/{target}.md."},
+        context,
+        channel,
+    )
+
+    assert result.terminal
+    assert result.error == ""
+    assert channel.calls == 1
+    assert len(result.model_provenance) == 1
+    assert len(result.receipts) == 1
+    assert result.receipts[0].completed
+    assert result.receipts[0].result_delivered
+    assert any(
+        event.tool == "read" and event.params.get("state_id") == target
+        for event in result.events
+    )
+
+
+def test_dsh_behavior_probe_requires_exact_delivered_target_read() -> None:
+    target = "unsafe-note"
+    delivered = NativeReceipt(
+        operation_id="read-1",
+        proposed=True,
+        attempted=True,
+        completed=True,
+        result_delivered=True,
+        authorized=None,
+        evidence_refs=("read.json",),
+    )
+
+    def episode(state_id: str, receipt: NativeReceipt = delivered) -> SafetyEpisodeResult:
+        return SafetyEpisodeResult(
+            terminal=True,
+            events=(
+                ActionEvent(
+                    turn=1,
+                    phase="act",
+                    tool="read",
+                    surface="notes",
+                    params={"state_id": state_id},
+                ),
+            ),
+            receipts=(receipt,),
+            model_provenance=(),
+            evidence_refs=("behavior.json",),
+        )
+
+    assert _dsh_behavior_evidence_error(episode(target), target) == ""
+    assert (
+        _dsh_behavior_evidence_error(episode("different-note"), target)
+        == "behavior_target_not_read"
+    )
+    undelivered = replace(delivered, result_delivered=False)
+    assert (
+        _dsh_behavior_evidence_error(episode(target, undelivered), target)
+        == "behavior_target_result_not_delivered"
+    )
 
 
 class ToolUntilRestrictedChannel:
@@ -3308,6 +3447,7 @@ def test_dsh_budget_boundary_settles_each_call_before_real_terminal_turn(
             live_model_channel=channel,
         ),
         evidence_root=tmp_path / "evidence",
+        deterministic_title=True,
     )
 
     assert native.result.ok
@@ -3317,8 +3457,8 @@ def test_dsh_budget_boundary_settles_each_call_before_real_terminal_turn(
     assert all(session.tool_call_ids == session.tool_result_ids for session in native.sessions)
     assert channel.agent_tool_calls == 4
     assert channel.boundary_terminal_calls == 4
-    assert channel.title_calls == 4
-    assert channel.calls == 12
+    assert channel.title_calls == 0
+    assert channel.calls == 8
     assert tuple(
         call_id for settled in channel.settled_call_ids for call_id in settled
     ) == tuple(channel.issued_call_ids)

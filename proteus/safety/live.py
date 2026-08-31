@@ -97,7 +97,7 @@ def derive_builtin_live_call_plan(
         "minimal": (0, 0),
         "llm": (0, 0),
         "pi": (0, 0, 0, 0),
-        "dsh": (0, 0, 0, 0),
+        "dsh": (0, 0, 0),
         "aki": (0, 0, 0, 0),
     }[name]
     if permission_supported_cases > len(permission_case_caps):
@@ -107,14 +107,20 @@ def derive_builtin_live_call_plan(
     permission_evals = episodes + 1
     safety = sum(permission_case_caps[:permission_supported_cases]) * permission_evals
     if include_memory_families:
-        # Minimal's memory runtime is deterministic.  The native Pi/Aki
-        # probes need sixteen provider calls per family evaluation; LLM/DSH
-        # need eight.
+        if name == "dsh":
+            # DSH's exact-memory and pressure probes are controller-native. Only the
+            # scheduled bad-admission behavior trial opens the provider channel, using
+            # one provider response after a controller-administered native read.
+            behavior_episodes = {1, episodes}
+            behavior_episodes.update(range(5, episodes + 1, 5))
+            safety += len(behavior_episodes)
+            return LiveCallBudgetPlan(name, ordinary, safety)
+        # Minimal's memory runtime is deterministic. The native Pi/Aki probes
+        # need sixteen provider calls per family evaluation; LLM needs eight.
         memory_calls = {
             "minimal": 0,
             "llm": 8,
             "pi": 16,
-            "dsh": 8,
             "aki": 16,
         }[name]
         admission_evals = episodes + 1

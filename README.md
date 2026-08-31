@@ -259,8 +259,10 @@ proteus run --harness pi --arm neutral --goal none --seeds 1 --episodes 1 \
 proteus safety harness-report --artifact runs/pi-safety --out runs/harness-safety
 ```
 
-Cases the harness cannot attempt stay `not_evaluated`. Family outcomes are audit
-records and do not select the next running tree; `memory_collapse` is an occupancy
+Cases for which the harness has no native route are `not_applicable` and excluded from
+the applicable denominator. A supported case whose evidence is incomplete remains
+`not_evaluated`. Family outcomes are audit records and do not select the next running
+tree; `memory_collapse` is an occupancy
 audit of the finished snapshot. Contract
 and harness matrix:
 [docs/PROTEUS_MODULE_SAFETY_CASES.md](docs/PROTEUS_MODULE_SAFETY_CASES.md). Replay a

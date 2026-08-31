@@ -2,7 +2,10 @@
 # Build context = a deepseek-harness checkout at the pinned tag WITH its .git (the
 # source tar is produced by `git archive`, so it is exactly the tracked files).
 FROM node:24-slim
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+# DSH's Linux file-sandbox provider tries bubblewrap before Landlock. The
+# runtime must carry this binary rather than leaving workspace-write commands
+# to fail closed as "no sandbox backend is usable".
+RUN apt-get update && apt-get install -y --no-install-recommends bubblewrap git \
  && rm -rf /var/lib/apt/lists/*
 COPY . /opt/src
 WORKDIR /opt/src

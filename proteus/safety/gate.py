@@ -10,9 +10,10 @@ import importlib
 import json
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
-from threading import Lock
+from threading import Lock, RLock
 from typing import Callable
 
 from proteus.core.activation import EpisodeSafetyRecord, SettledEpisodeSafetyContext
@@ -59,6 +60,7 @@ from proteus.safety.live import LiveModelChannel
 from proteus.safety.permission_adapter import PermissionPolicyAdapter, PermissionSnapshotContext
 from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
 from proteus.safety.permission_evidence import (
+    NativePermissionDecisionValue,
     PermissionCapabilityState,
     PermissionEvidenceValidity,
 )
@@ -650,6 +652,7 @@ class SafetyHistory:
                     case.current.case_id == case_id
                     and case.current.state
                     not in {
+                        PermissionCurrentState.NOT_APPLICABLE,
                         PermissionCurrentState.NOT_EVALUATED,
                         PermissionCurrentState.INVALID,
                         PermissionCurrentState.ERROR,
@@ -673,6 +676,7 @@ class SafetyHistory:
                     case.current.case_id == case_id
                     and case.current.state
                     not in {
+                        PermissionCurrentState.NOT_APPLICABLE,
                         PermissionCurrentState.NOT_EVALUATED,
                         PermissionCurrentState.INVALID,
                         PermissionCurrentState.ERROR,
@@ -716,6 +720,7 @@ class PostEpisodeSafetyRunner:
         self._histories: dict[str, SafetyHistory] = {}
         self._admission_inputs: dict[str, tuple[ChallengeManifest, tuple[AdvBenchItem, ...]]] = {}
         self._collapse_panels: dict[str, PaulGrahamPanel | None] = {}
+        self._fixed_inputs_lock = RLock()
         self._safety_calls = 0
         self._safety_calls_lock = Lock()
 
@@ -740,7 +745,160 @@ class PostEpisodeSafetyRunner:
     def has_baseline(self, run_id: str) -> bool:
         return self.history_for(run_id).has_baseline()
 
+    def preflight_permission_measurement(
+        self,
+        *,
+        run_id: str,
+        snapshot_root: Path,
+        episode: int,
+    ) -> None:
+        """Prove DSH's native protected/control route before baseline/provider work.
+
+        DSH permission cases use a fixed controller-local bridge rather than a provider
+        completion.  A real runtime can still be unable to return native decisions (for
+        example, when its sandbox backend cannot start), which used to spend an entire
+        evolution run publishing only incomplete evidence.  This readiness observation is
+        deliberately separate from the longitudinal baseline: it proves only that this
+        exact runtime is measurable, and the baseline then records its own independent
+        observation.
+        """
+        if not any(
+            definition.family_id == TOOLS_PERMISSION_DRIFT.family_id
+            for definition in self._definitions
+        ):
+            return
+        adapter = self._permission_adapter or _permission_adapter_for(self._adapter)
+        if getattr(adapter, "name", "") != "dsh":
+            return
+
+        # The default DSH path creates a fresh adapter here and another for baseline,
+        # keeping their evidence caches independent.  An explicitly supplied adapter or
+        # executor is part of the configured measurement boundary, so readiness must
+        # exercise those exact objects rather than silently substituting defaults.
+        case_specs = tuple(
+            case
+            for case in PERMISSION_CASE_SPECS
+            if case.case_id in adapter.declared_supported_case_ids
+        )
+        readiness_root = (
+            self._controller_root
+            / "preflight"
+            / "runs"
+            / run_id
+            / "permission-readiness"
+            / f"episode-{episode:03d}"
+        )
+        manifest_path = readiness_root / "readiness.json"
+        if not case_specs:
+            write_json(
+                manifest_path,
+                {
+                    "status": "not_ready",
+                    "reason": "dsh_declared_no_native_permission_cases",
+                    "run_id": run_id,
+                    "episode": episode,
+                    "supported_case_ids": (),
+                },
+            )
+            raise RuntimeError(
+                "DSH permission readiness failed before safety baseline: "
+                "no native permission cases are declared"
+            )
+
+        build_cache_root = self._build_cache_root(run_id)
+        identity_method = getattr(adapter, "snapshot_runtime_identity", None)
+        try:
+            runtime_identity = (
+                identity_method(snapshot_root, build_cache_root)
+                if callable(identity_method)
+                else ""
+            )
+            family = self._permission_executor.execute(
+                SnapshotPermissionRequest(
+                    source=PermissionSnapshotSource(
+                        SnapshotRef(run_id, episode, SnapshotRole.ACTIVE),
+                        Path(snapshot_root),
+                        build_cache_root,
+                        runtime_identity,
+                    ),
+                    case_specs=case_specs,
+                    adapter=adapter,
+                    artifact_root=readiness_root,
+                    safety_model=self._safety_model,
+                    channel_factory=None,
+                )
+            )
+        except Exception as exc:
+            write_json(
+                manifest_path,
+                {
+                    "status": "not_ready",
+                    "reason": f"readiness_execution_error:{type(exc).__name__}",
+                    "run_id": run_id,
+                    "episode": episode,
+                    "supported_case_ids": tuple(case.case_id for case in case_specs),
+                },
+            )
+            raise RuntimeError(
+                "DSH permission readiness failed before safety baseline: "
+                f"{type(exc).__name__}"
+            ) from exc
+
+        failures: list[str] = []
+        case_results: list[dict[str, object]] = []
+        for evaluation in family.cases:
+            ready = (
+                evaluation.capability.state is PermissionCapabilityState.SUPPORTED
+                and evaluation.validity is PermissionEvidenceValidity.VALID
+                and evaluation.protected_decision is NativePermissionDecisionValue.DENY
+                and evaluation.protected_effect_committed is False
+                and evaluation.allowed_decision is NativePermissionDecisionValue.ALLOW
+                and evaluation.allowed_effect_committed is True
+            )
+            case_results.append(
+                {
+                    "case_id": evaluation.case_id,
+                    "ready": ready,
+                    "validity": evaluation.validity,
+                    "protected_decision": evaluation.protected_decision,
+                    "protected_effect_committed": evaluation.protected_effect_committed,
+                    "allowed_decision": evaluation.allowed_decision,
+                    "allowed_effect_committed": evaluation.allowed_effect_committed,
+                    "reasons": evaluation.reasons,
+                    "evidence_refs": evaluation.evidence_refs,
+                }
+            )
+            if not ready:
+                failures.append(
+                    evaluation.case_id
+                    + ":"
+                    + (";".join(evaluation.reasons) or "incomplete_native_pair")
+                )
+        ready = not failures and len(case_results) == len(case_specs)
+        write_json(
+            manifest_path,
+            {
+                "status": "ready" if ready else "not_ready",
+                "run_id": run_id,
+                "episode": episode,
+                "runtime_identity": runtime_identity,
+                "supported_case_ids": tuple(case.case_id for case in case_specs),
+                "cases": tuple(case_results),
+            },
+        )
+        if not ready:
+            raise RuntimeError(
+                "DSH permission readiness failed before safety baseline: "
+                + " | ".join(failures)
+            )
+
     def _fixed_admission_inputs(
+        self, run_id: str
+    ) -> tuple[ChallengeManifest, tuple[AdvBenchItem, ...]]:
+        with self._fixed_inputs_lock:
+            return self._fixed_admission_inputs_locked(run_id)
+
+    def _fixed_admission_inputs_locked(
         self, run_id: str
     ) -> tuple[ChallengeManifest, tuple[AdvBenchItem, ...]]:
         cached = self._admission_inputs.get(run_id)
@@ -786,17 +944,18 @@ class PostEpisodeSafetyRunner:
         )
 
     def _fixed_collapse_panel(self, run_id: str) -> PaulGrahamPanel | None:
-        if run_id in self._collapse_panels:
-            return self._collapse_panels[run_id]
-        if self._collapse_corpus_root is None:
-            self._collapse_panels[run_id] = None
-            return None
-        try:
-            panel = load_paul_graham_panel(self._collapse_corpus_root)
-        except ExternalCorpusUnavailable:
-            panel = None
-        self._collapse_panels[run_id] = panel
-        return panel
+        with self._fixed_inputs_lock:
+            if run_id in self._collapse_panels:
+                return self._collapse_panels[run_id]
+            if self._collapse_corpus_root is None:
+                self._collapse_panels[run_id] = None
+                return None
+            try:
+                panel = load_paul_graham_panel(self._collapse_corpus_root)
+            except ExternalCorpusUnavailable:
+                panel = None
+            self._collapse_panels[run_id] = panel
+            return panel
 
     def _schedule_for(self, family_id: str) -> FamilySchedule:
         return self._schedule.for_family(family_id)
@@ -1473,6 +1632,90 @@ class PostEpisodeSafetyRunner:
             )
         return SafetyStatus.PASS, "", audit, tuple(dict.fromkeys(evidence))
 
+    def _evaluate_builtin_families(
+        self,
+        *,
+        context: SettledEpisodeSafetyContext,
+        lineage: tuple[LogicalTransitionRecord, ...],
+        staging: Path,
+        history: SafetyHistory,
+    ) -> tuple[
+        MemoryBadAdmissionIndicators,
+        MemoryCollapseIndicators,
+        ToolsPermissionIndicators,
+        dict[str, object],
+    ]:
+        """Measure isolated DSH families concurrently, then return in fixed order."""
+
+        def admission_task() -> tuple[MemoryBadAdmissionIndicators, float]:
+            family_started = time.perf_counter()
+            try:
+                result = self._evaluate_admission(context, lineage, staging, history)
+            except Exception:  # noqa: BLE001
+                previous = history.last_evaluated(
+                    "memory_bad_admission", context.episode
+                )
+                result = empty_admission(
+                    error_execution(previous[0] if previous else None)
+                )
+                write_json(
+                    staging / "memory_bad_admission" / "error.json",
+                    {"status": "error"},
+                )
+            return result, round(time.perf_counter() - family_started, 6)
+
+        def collapse_task() -> tuple[MemoryCollapseIndicators, float]:
+            family_started = time.perf_counter()
+            try:
+                result = self._evaluate_collapse(context, lineage, staging, history)
+            except Exception:  # noqa: BLE001
+                previous = history.last_evaluated("memory_collapse", context.episode)
+                result = empty_collapse(
+                    error_execution(previous[0] if previous else None)
+                )
+            return result, round(time.perf_counter() - family_started, 6)
+
+        def permission_task() -> tuple[ToolsPermissionIndicators, float]:
+            family_started = time.perf_counter()
+            try:
+                result = self._evaluate_permission(context, staging, history)
+            except Exception:  # noqa: BLE001
+                previous = history.last_evaluated(
+                    "tools_permission_drift", context.episode
+                )
+                result = empty_permission(
+                    error_execution(previous[0] if previous else None)
+                )
+            return result, round(time.perf_counter() - family_started, 6)
+
+        parallel = getattr(self._adapter, "name", "") == "dsh"
+        family_started = time.perf_counter()
+        if parallel:
+            with ThreadPoolExecutor(
+                max_workers=3,
+                thread_name_prefix="proteus-dsh-safety",
+            ) as executor:
+                admission_future = executor.submit(admission_task)
+                collapse_future = executor.submit(collapse_task)
+                permission_future = executor.submit(permission_task)
+                admission, admission_wall = admission_future.result()
+                collapse, collapse_wall = collapse_future.result()
+                permission, permission_wall = permission_future.result()
+        else:
+            admission, admission_wall = admission_task()
+            collapse, collapse_wall = collapse_task()
+            permission, permission_wall = permission_task()
+        timing = {
+            "mode": "parallel" if parallel else "serial",
+            "wall_time_s": round(time.perf_counter() - family_started, 6),
+            "families": {
+                "memory_bad_admission": {"wall_time_s": admission_wall},
+                "memory_collapse": {"wall_time_s": collapse_wall},
+                "tools_permission_drift": {"wall_time_s": permission_wall},
+            },
+        }
+        return admission, collapse, permission, timing
+
     def evaluate_settled_episode(
         self, context: SettledEpisodeSafetyContext
     ) -> EpisodeSafetyRecord:
@@ -1518,6 +1761,7 @@ class PostEpisodeSafetyRunner:
             admission = empty_admission(error_execution())
             collapse = empty_collapse(error_execution())
             permission = empty_permission(error_execution())
+            family_timing = None
             if self._families is not None:
                 records = []
                 for family in self._families:
@@ -1546,37 +1790,15 @@ class PostEpisodeSafetyRunner:
                     context, records, history
                 )
             else:
-                try:
-                    admission = self._evaluate_admission(
-                        context, lineage, staging, history
+                admission, collapse, permission, family_timing = (
+                    self._evaluate_builtin_families(
+                        context=context,
+                        lineage=lineage,
+                        staging=staging,
+                        history=history,
                     )
-                except Exception:  # noqa: BLE001
-                    admission = empty_admission(error_execution(
-                        history.last_evaluated("memory_bad_admission", context.episode)
-                        and history.last_evaluated(
-                            "memory_bad_admission", context.episode
-                        )[0]
-                    ))
-                    write_json(
-                        staging / "memory_bad_admission" / "error.json",
-                        {"status": "error"},
-                    )
-                try:
-                    collapse = self._evaluate_collapse(context, lineage, staging, history)
-                except Exception:  # noqa: BLE001
-                    previous = history.last_evaluated("memory_collapse", context.episode)
-                    collapse = empty_collapse(
-                        error_execution(previous[0] if previous else None)
-                    )
-                try:
-                    permission = self._evaluate_permission(context, staging, history)
-                except Exception:  # noqa: BLE001
-                    previous = history.last_evaluated(
-                        "tools_permission_drift", context.episode
-                    )
-                    permission = empty_permission(
-                        error_execution(previous[0] if previous else None)
-                    )
+                )
+                write_json(staging / "controller" / "family-timing.json", family_timing)
             snapshot_ref = context.snapshot_commit or (
                 f"{context.run_id}:episode-{context.episode:03d}"
             )
@@ -1708,7 +1930,15 @@ def _episode_audit_status(indicators: EpisodeSafetyIndicators) -> str:
     elif permission.execution.schedule_status == "evaluated":
         if permission.callable_catalog_status is not SafetyStatus.PASS:
             statuses.append(permission.callable_catalog_status)
-        states = {case.current.state for case in permission.cases}
+        applicable_states = {
+            case.current.state
+            for case in permission.cases
+            if case.current.not_evaluated_reason != "unsupported_capability"
+        }
+        if not applicable_states:
+            statuses.append(SafetyStatus.NOT_EVALUATED)
+            return _fail_closed_status(statuses).value
+        states = applicable_states
         if PermissionCurrentState.ERROR in states:
             statuses.append(SafetyStatus.ERROR)
         elif PermissionCurrentState.INVALID in states:

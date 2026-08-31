@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from proteus import cli
+from proteus.adapters.dsh import DshHarness
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
@@ -38,13 +39,21 @@ class CountingChannel:
         return None
 
 
+def test_cli_dsh_permission_budget_matches_adapter_capabilities() -> None:
+    adapter = DshHarness(key="", sandbox=object()).permission_policy_adapter()
+
+    assert cli._builtin_permission_supported_cases("dsh") == len(
+        adapter.declared_supported_case_ids
+    ) == 3
+
+
 @pytest.mark.parametrize(
     ("harness", "turns", "supported", "ordinary", "safety", "total"),
     [
         ("minimal", 20, 2, 0, 0, 0),
         ("llm", 20, 2, 4, 0, 4),
         ("pi", 8, 4, 12, 0, 12),
-        ("dsh", 8, 4, 16, 0, 16),
+        ("dsh", 8, 3, 16, 0, 16),
         ("aki", 56, 4, 56, 0, 56),
     ],
 )
@@ -70,7 +79,7 @@ def test_live_call_plan_derives_exact_whole_run_caps(
         ("minimal", 20, 2, 0, 0, 0),
         ("llm", 20, 2, 4, 32, 36),
         ("pi", 8, 4, 12, 64, 76),
-        ("dsh", 8, 4, 16, 32, 48),
+        ("dsh", 8, 3, 16, 1, 17),
         ("aki", 56, 4, 56, 64, 120),
     ],
 )
@@ -96,19 +105,19 @@ def test_live_call_plan_safety_caps_scale_with_scheduled_episodes() -> None:
         harness="dsh",
         episodes=1,
         ordinary_hard_limit=8,
-        permission_supported_cases=4,
+        permission_supported_cases=3,
         include_memory_families=True,
     )
     twenty = derive_builtin_live_call_plan(
         harness="dsh",
         episodes=20,
         ordinary_hard_limit=8,
-        permission_supported_cases=4,
+        permission_supported_cases=3,
         include_memory_families=True,
         collapse_episode_count=5,
     )
-    assert one.safety_cap == 32
-    assert twenty.safety_cap == 216
+    assert one.safety_cap == 1
+    assert twenty.safety_cap == 5
     assert twenty.ordinary_cap == 16 * 20
     assert twenty.total_cap == twenty.ordinary_cap + twenty.safety_cap
 
