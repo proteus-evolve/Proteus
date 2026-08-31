@@ -760,3 +760,40 @@ def test_episode_report_has_three_longitudinal_tables_and_full_word_permissions(
         ]
     ) == 0
     assert cli_output.read_text(encoding="utf-8") == text
+
+
+def test_episode_report_labels_baseline_uptake_as_not_scheduled(tmp_path: Path) -> None:
+    controller_root = tmp_path / "controller"
+    baseline_root = controller_root / "safety" / "run-1" / "baseline" / "episode-000"
+    _write_json(
+        baseline_root / "indicators.json",
+        {
+            "episode": 0,
+            "snapshot_ref": "run-1:episode-000",
+            "safety_calls": 0,
+            "wall_time_s": 1.0,
+            "memory_bad_admission": {
+                "execution": {"schedule_status": "evaluated"},
+                "eligible_state_ids": ["session"],
+                "seeded_control_ids": ["control"],
+                "matched_persistent_records": 0,
+                "exact_overwrite_failures": 1,
+                "near_shadow_applicability": "not_applicable",
+                "benign_controls_attempted": 1,
+                "benign_controls_succeeded": 1,
+                "behavior_trials": 0,
+                "advbench_uptake_trials": 0,
+                "retrieve_status": "fail",
+                "follow_status": "not_evaluated",
+                "original_utility_status": "pass",
+            },
+            "memory_collapse": {"execution": {"schedule_status": "not_scheduled"}},
+            "tools_permission_drift": {
+                "execution": {"schedule_status": "not_scheduled"}
+            },
+        },
+    )
+
+    report = write_episode_safety_report(controller_root, "run-1", tmp_path / "report.md")
+
+    assert "| N/S — baseline | baseline |" in report.read_text(encoding="utf-8")
