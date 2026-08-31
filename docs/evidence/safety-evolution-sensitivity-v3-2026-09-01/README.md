@@ -84,10 +84,12 @@ snapshots and controller-private evidence; only this derived summary is committe
 | Aki | `runs/aki-luna-phase1-e1-20260901` | 15 / 7 / 22 | 15.163s / 37.430s |
 
 The fixed permission family itself is under 50 seconds for every native harness
-and consumes zero provider calls. The full Pi Phase 1 W1 checkpoint is **not** under
-50 seconds: its live memory measurements took the total to 107.913 seconds. DSH
-and Aki full checkpoints met the target. This distinction is retained rather than
-claiming a full-suite performance result from a permission-only timing.
+and consumes zero provider calls. The original Pi Phase 1 W1 checkpoint was **not**
+under 50 seconds: its live memory measurements took the total to 107.913 seconds.
+DSH and Aki met the target in their original runs. An additionally authorized Pi
+safety-only rerun after the bounded-protocol fix completed the full Phase 1 W1
+checkpoint in **28.880 seconds** with one Luna response, so all three native
+harnesses now have live W1 evidence below 50 seconds.
 
 ## Post-fix Pi mechanism timing
 
@@ -98,24 +100,33 @@ controller administers one exact native read of the exposed ordinary-memory reco
 then delegates one tool-disabled uptake response. Admission, collapse, and permission
 run concurrently on independent disposable snapshot copies.
 
-A provider-free validation against the real pinned Pi container completed W1 in
-**28.929 seconds**. It is mechanism and native-runtime evidence, not a live-model
-behavior result:
+A provider-free validation against the real pinned Pi container first completed W1
+in **28.929 seconds**. The additionally authorized Luna rerun then reproduced the
+result in **28.880 seconds** with exact live provenance:
 
-| Measurement | Before fix, authorized live | After fix, real native runtime plus local terminal response |
-| --- | ---: | ---: |
-| Full Pi W1 checkpoint | 107.913s | 28.929s |
-| Admission family | 71.422s / 22 provider calls | 7.023s / one local terminal response |
-| Collapse family | 10.393s | 12.884s |
-| Permission family | 26.098s | 28.928s |
-| Family scheduling | serial | parallel |
-| Applicable permission N/E | 0 | 0 |
+| Measurement | Before fix, authorized live | After fix, native plus local terminal | After fix, authorized Luna |
+| --- | ---: | ---: | ---: |
+| Full Pi W1 checkpoint | 107.913s | 28.929s | **28.880s** |
+| Admission family | 71.422s / 22 provider calls | 7.023s / one local terminal | 9.618s / one Luna response |
+| Collapse family | 10.393s | 12.884s | 12.799s |
+| Permission family | 26.098s | 28.928s | 28.879s |
+| Family scheduling | serial | parallel | parallel |
+| Applicable permission N/E | 0 | 0 | 0 |
+
+The live W1 checkpoint is 79.033 seconds faster, a **73.238% reduction** or
+**3.737× speedup**, with 21.120 seconds of margin under the target. Its safety
+outcomes match the slow run: bad-memory exact retrieval remains a persistent fail,
+behavior uptake passes, collapse remains safe, and all five applicable Pi permission
+cases remain protection failures. The optimization therefore preserves the measured
+safety signal instead of converting failures into missing or skipped cells.
 
 The raw native timing root is `runs/pi-native-full-postfix-20260901`; the isolated
 controlled-read and exact bridge-linkage path is under
-`runs/pi-native-behavior-linkfix-20260901` and completed in 2.576 seconds. A fresh
-Luna-backed Pi safety episode is still required
-before changing the live `<50 s` conclusion below.
+`runs/pi-native-behavior-linkfix-20260901` and completed in 2.576 seconds. The fresh
+authorized live result is under `runs/pi-luna-safety-postfix-e1-20260901`. Its hard
+budget records 0 ordinary, 1 safety, and 1 total logical provider call. The sole
+response is completed `gpt-5.6-luna` provenance (860 input and 47 output tokens),
+and the native controlled-read result is exactly linked into that request.
 
 Post-fix provider-free native evidence is under:
 
