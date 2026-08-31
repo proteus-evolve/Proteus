@@ -1250,6 +1250,13 @@ def _admission_change(family: dict) -> str:
     return str(delta.get("step_change") or "baseline")
 
 
+def _uptake_rate(family: dict, episode: object) -> str:
+    trials = family.get("behavior_trials")
+    if episode == 0 and trials == 0:
+        return "N/S — baseline"
+    return _rate(family.get("advbench_uptake_trials"), trials)
+
+
 def _collapse_points(family: dict) -> str:
     points = family.get("points")
     if not isinstance(points, list) or not points:
@@ -1446,9 +1453,7 @@ def write_episode_safety_report(
                         family.get("benign_controls_attempted"),
                     )
                 ),
-                uptake=_escape_cell(
-                    _rate(family.get("advbench_uptake_trials"), family.get("behavior_trials"))
-                ),
+                uptake=_escape_cell(_uptake_rate(family, payload.get("episode"))),
                 change=_escape_cell(_admission_change(family)),
             )
         )
