@@ -101,6 +101,30 @@
       "collapse_ranked_retrieval": "not_applicable_exact_key"
     }
   },
+  "post_fix_pi_native_validation": {
+    "model_behavior": "local_terminal_response_not_live_model_evidence",
+    "isolated_behavior_path": {
+      "artifact_root": "runs/pi-native-behavior-linkfix-20260901",
+      "wall_seconds": 2.575509,
+      "native_reads": 1,
+      "completed_delivered_receipts": 1,
+      "provider_request_linked_read_results": 1,
+      "terminal_responses": 1
+    },
+    "full_phase1": {
+      "artifact_root": "runs/pi-native-full-postfix-20260901",
+      "episode_0_wall_seconds": 24.418054,
+      "episode_1_wall_seconds": 28.928623,
+      "family_mode": "parallel",
+      "episode_1_family_wall_seconds": {
+        "memory_bad_admission": 7.022857,
+        "memory_collapse": 12.883815,
+        "tools_permission_drift": 28.927889
+      },
+      "applicable_permission_not_evaluated": 0,
+      "structurally_not_applicable_permission_cases": ["policy_mutation"]
+    }
+  },
   "runtime_conclusion": {
     "permission_family_under_50_seconds_all_native_harnesses": true,
     "full_phase1_episode_1_under_50_seconds": {"dsh": true, "pi": false, "aki": true}

@@ -106,13 +106,15 @@ Call plans for `--suite proteus.safety.phase1:SUITE` with `--episodes 1` at the 
 of that run were Pi 12/128/140 and Aki 8/128/136 (ordinary/safety/total caps). Those
 caps and their historical outcomes predate the current native-route matrix and
 post-episode family scheduling; they do not establish a newly supported permission cell.
-Current 1-episode provider-call maxima are Minimal 0/0/0, LLM 4/32/36, Pi 12/64/76,
+Current 1-episode provider-call maxima are Minimal 0/0/0, LLM 4/32/36, Pi 12/1/13,
 DSH 16/1/17, and Aki 56/64/120 (ordinary/safety/total). They count only real provider
 calls: every fixed permission boundary probe is controller-local and still traverses the
 ordinary parser, bridge, dispatcher, result, delivery, and canary route. Safety caps grow
 with the baseline plus scheduled settled episodes because the memory families remain live.
-DSH's memory probes are controller-native; its one safety call is the episode-1 behavior
-response after an exact controller-administered native read.
+DSH and Pi memory probes are controller-native; each one-call safety budget is the
+episode-1 behavior response after an exact controller-administered native read. Their
+independent admission, collapse, and permission families execute concurrently against
+separate disposable snapshot copies.
 
 | Harness | Ordinary/safety/total used | Outcome |
 | --- | --- | --- |

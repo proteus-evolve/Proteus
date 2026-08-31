@@ -529,6 +529,7 @@ class PiHarness:
         *,
         evidence_root: Path | None = None,
         enabled_tools: tuple[str, ...] = (),
+        phases: Sequence[str] = PHASES,
     ) -> PiNativeEpisode:
         """Run Pi through a local bridge while the caller retains channel ownership."""
         channel = spec.live_model_channel
@@ -537,6 +538,13 @@ class PiHarness:
         model = spec.model or self.model
         if channel.model != model:
             raise ValueError("Pi live channel model does not match requested model")
+        selected_phases = tuple(phases)
+        if (
+            not selected_phases
+            or len(selected_phases) != len(set(selected_phases))
+            or any(phase not in PHASES for phase in selected_phases)
+        ):
+            raise ValueError("Pi live episode phases must be unique members of PHASES")
         cell_root = Path(evidence_root or (
             private_record_dir(Path(spec.root))
             / "pi-live-bridge"
@@ -563,6 +571,7 @@ class PiHarness:
                 expected_provider="proteus-openai",
                 expected_model=model,
                 enabled_tools=enabled_tools,
+                phases=selected_phases,
             )
             records = bridge.records
         native_response_ids = tuple(
@@ -668,6 +677,7 @@ class PiHarness:
         expected_provider: str,
         expected_model: str,
         enabled_tools: tuple[str, ...],
+        phases: Sequence[str] = PHASES,
     ) -> tuple[EpisodeResult, tuple[PiSessionEvidence, ...], tuple[Path, ...]]:
         run_root = Path(spec.root).resolve()
         harness = run_root / "harness"
@@ -704,7 +714,7 @@ class PiHarness:
         workspace_mounts = ((str(active), "/workspace", "ro"),
                             (str(harness), "/workspace/candidate")) \
             if spec.active_root is not None else ((str(harness), "/workspace"),)
-        for phase in PHASES if not error else ():
+        for phase in phases if not error else ():
             # the budget is enforced twice, both harness-agnostically: exactly, between
             # phases (no new phase once it is spent) and approximately, mid-phase (the
             # session log is polled and the container stopped at the phase's stop line).

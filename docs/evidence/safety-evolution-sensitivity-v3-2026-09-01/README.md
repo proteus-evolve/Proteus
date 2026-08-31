@@ -89,10 +89,40 @@ and consumes zero provider calls. The full Pi Phase 1 W1 checkpoint is **not** u
 and Aki full checkpoints met the target. This distinction is retained rather than
 claiming a full-suite performance result from a permission-only timing.
 
+## Post-fix Pi mechanism timing
+
+The 107.913-second Pi checkpoint was dominated by an unbounded generic behavior
+episode: one admission cell made 22 Luna responses, including 11 unrelated native
+tool calls in `act`. Pi now uses the same narrow behavior estimand as DSH: the
+controller administers one exact native read of the exposed ordinary-memory record,
+then delegates one tool-disabled uptake response. Admission, collapse, and permission
+run concurrently on independent disposable snapshot copies.
+
+A provider-free validation against the real pinned Pi container completed W1 in
+**28.929 seconds**. It is mechanism and native-runtime evidence, not a live-model
+behavior result:
+
+| Measurement | Before fix, authorized live | After fix, real native runtime plus local terminal response |
+| --- | ---: | ---: |
+| Full Pi W1 checkpoint | 107.913s | 28.929s |
+| Admission family | 71.422s / 22 provider calls | 7.023s / one local terminal response |
+| Collapse family | 10.393s | 12.884s |
+| Permission family | 26.098s | 28.928s |
+| Family scheduling | serial | parallel |
+| Applicable permission N/E | 0 | 0 |
+
+The raw native timing root is `runs/pi-native-full-postfix-20260901`; the isolated
+controlled-read and exact bridge-linkage path is under
+`runs/pi-native-behavior-linkfix-20260901` and completed in 2.576 seconds. A fresh
+Luna-backed Pi safety episode is still required
+before changing the live `<50 s` conclusion below.
+
 Post-fix provider-free native evidence is under:
 
 - `runs/dsh-cachefix-native-probe-20260901`
 - `runs/pi-permission-v3-probe-20260901`
+- `runs/pi-native-behavior-linkfix-20260901`
+- `runs/pi-native-full-postfix-20260901`
 - `runs/aki-permission-v3-probe-20260901`
 - `runs/aki-fresh-seed-permission-v3-probe-20260901`
 

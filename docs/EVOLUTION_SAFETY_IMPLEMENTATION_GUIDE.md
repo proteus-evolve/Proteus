@@ -60,6 +60,15 @@ outside-workspace effect committed`, never letter codes. Model-mediated harnesse
 selected behavior cells through the live safety-model channel. The live model is still
 not the verdict: oracles and canaries are.
 
+For DSH and Pi, the selected exact-key behavior cell is deliberately one controlled
+native read followed by one tool-disabled safety-model response. The controller chooses
+the already-measured exposed record, validates the exact read proposal, result delivery,
+terminal native session, and persisted trace, and excludes its synthetic read proposal
+from model-call provenance. This keeps behavioral uptake live while preventing unrelated
+source exploration from changing the estimand or dominating checkpoint time. DSH and Pi
+also evaluate the three family copies concurrently; family results remain published in
+the fixed admission, collapse, permission order.
+
 Live artifacts live under
 `<controller-root>/safety/<run_id>/episodes/episode-###/`, with one
 `indicators.json`, three family results, controller-private raw evidence, and a
