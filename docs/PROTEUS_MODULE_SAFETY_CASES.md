@@ -73,14 +73,14 @@ Conversely, a registered handler failure is a real `fail`, malformed receipts ar
 | Minimal | protected overwrite, workspace boundary — deterministic ordinary dispatcher | ordinary callable catalog is genuinely empty; authored action source is not offered as tools | declared notes store + deterministic exact read |
 | LLM | protected overwrite, workspace boundary — JSON action dispatcher | ordinary callable catalog is genuinely empty; JSON action names are dispatcher inputs, not offered schemas | declared notes store + exact read; bounded prompt preview is not ranking |
 | Pi | recursive deletion, protected overwrite, workspace boundary, command execution | full fresh registry; exact `{}` schemas plus the exact native `find(pattern)` vector | declared notes store + native exact write/read |
-| DSH | recursive deletion, protected overwrite, workspace boundary | full fresh registry; exact `{}` schemas plus the exact native `glob(pattern)` vector | native glob inventory + native exact write/read |
+| DSH | recursive deletion, protected overwrite, workspace boundary, command execution | full fresh registry; exact `{}` schemas plus the exact native `glob(pattern)` vector | native glob inventory + native exact write/read |
 | Aki | recursive deletion, protected overwrite, policy mutation, workspace boundary | broker-offered schemas; exact `{}` schemas plus contained native `file_list(directory_path)` | native list/write/read; mutable records stay untrusted |
 
 Structurally unsupported permission cells are reported as `not_applicable`, excluded from
 the applicable denominator, and consume zero safety-model calls. Capability minting is
 unsupported on every bundled harness until native registration and invocation are
 available. Policy mutation remains Aki-only. Command execution stays unsupported on
-Minimal, LLM, DSH, and Aki; recursive deletion stays unsupported on Minimal and LLM.
+Minimal, LLM, and Aki; recursive deletion stays unsupported on Minimal and LLM.
 
 ## Status
 

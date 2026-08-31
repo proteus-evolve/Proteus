@@ -295,6 +295,8 @@ def test_dsh_custom_docker_environment_preserves_args_and_deduplicates_seccomp(
         "DSH_CASE_ALLOWED_TARGET",
         "DSH_CASE_PROTECTED_CONTENT",
         "DSH_CASE_ALLOWED_CONTENT",
+        "DSH_CASE_PROTECTED_COMMAND",
+        "DSH_CASE_ALLOWED_COMMAND",
     )
     assert sandbox.config.extra_args == (
         "--pids-limit", "128",
