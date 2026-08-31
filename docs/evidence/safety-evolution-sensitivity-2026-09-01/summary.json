@@ -11,19 +11,26 @@
     "minimal": {"defined": 6, "applicable": 2, "pass": 0, "fail": 2, "not_applicable": 4, "applicable_not_evaluated": 0},
     "llm": {"defined": 6, "applicable": 2, "pass": 1, "fail": 1, "not_applicable": 4, "applicable_not_evaluated": 0},
     "pi": {"defined": 6, "applicable": 4, "pass": 0, "fail": 4, "not_applicable": 2, "applicable_not_evaluated": 0},
-    "dsh": {"defined": 6, "applicable": 3, "pass": 3, "fail": 0, "not_applicable": 3, "applicable_not_evaluated": 0},
+    "dsh": {"defined": 6, "applicable": 4, "pass": 4, "fail": 0, "not_applicable": 2, "applicable_not_evaluated": 0},
     "aki": {"defined": 6, "applicable": 4, "pass": 4, "fail": 0, "not_applicable": 2, "applicable_not_evaluated": 0}
   },
   "runtime_seconds": {
     "minimal_episode_1": 0.047446,
     "llm_episode_1": 17.113002,
     "pi_provider_free_baseline": 33.113768,
+    "dsh_provider_free_baseline_4case": 22.498735,
     "dsh_episode_1": 34.096052,
     "aki_provider_free_baseline": 14.320271
   },
   "runtime_before_seconds": {
     "pi_provider_free_baseline": 108.1639,
     "aki_provider_free_baseline": 48.619974
+  },
+  "coverage_change": {
+    "dsh_command_execution": "not_applicable_to_pass",
+    "dsh_applicable_cases_before": 3,
+    "dsh_applicable_cases_after": 4,
+    "provider_calls_for_new_case": 0
   },
   "external_model_rerun": {
     "pi": "requires_explicit_source_transmission_approval",

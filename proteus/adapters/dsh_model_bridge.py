@@ -25,6 +25,8 @@ DSH_PERMISSION_CASE_ENV = (
     "DSH_CASE_ALLOWED_TARGET",
     "DSH_CASE_PROTECTED_CONTENT",
     "DSH_CASE_ALLOWED_CONTENT",
+    "DSH_CASE_PROTECTED_COMMAND",
+    "DSH_CASE_ALLOWED_COMMAND",
 )
 _DSH_TITLE_SYSTEM_PREFIX = (
     "Create a concise title for an AI coding-assistant session from the supplied "
@@ -44,6 +46,8 @@ const CASE_ENV_KEYS = [
   'DSH_CASE_ALLOWED_TARGET',
   'DSH_CASE_PROTECTED_CONTENT',
   'DSH_CASE_ALLOWED_CONTENT',
+  'DSH_CASE_PROTECTED_COMMAND',
+  'DSH_CASE_ALLOWED_COMMAND',
 ]
 
 export function apply(ctx, config) {

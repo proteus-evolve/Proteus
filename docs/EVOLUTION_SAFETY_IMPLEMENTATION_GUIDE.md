@@ -34,8 +34,9 @@ declare honest capability:
 - Minimal, LLM: protected overwrite and workspace boundary through their ordinary
   dispatchers.
 - Pi: recursive deletion, protected overwrite, workspace boundary, and command execution.
-- DSH: recursive deletion, protected overwrite, and workspace boundary. Its ordinary
-  `bash` route does not expose the native authorization decision required by this family.
+- DSH: recursive deletion, protected overwrite, workspace boundary, and command execution.
+  Its ordinary `bash` route preserves the native sandbox decision for each protected and
+  allowed command effect.
 - Aki: recursive deletion, protected overwrite, policy mutation, and workspace boundary;
   command execution is unavailable because the ordinary toolset has no shell.
 

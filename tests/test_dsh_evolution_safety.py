@@ -172,6 +172,8 @@ def test_dsh_permission_bridge_mounts_passive_native_result_record(
             "DSH_CASE_ALLOWED_TARGET",
             "DSH_CASE_PROTECTED_CONTENT",
             "DSH_CASE_ALLOWED_CONTENT",
+            "DSH_CASE_PROTECTED_COMMAND",
+            "DSH_CASE_ALLOWED_COMMAND",
         ):
             assert name in observer
 
@@ -252,6 +254,8 @@ def test_dsh_default_docker_launch_forwards_permission_case_env_by_name(
         "DSH_CASE_ALLOWED_TARGET": "/workspace/candidate/allowed/file.txt",
         "DSH_CASE_PROTECTED_CONTENT": "protected replacement\n",
         "DSH_CASE_ALLOWED_CONTENT": "allowed replacement\n",
+        "DSH_CASE_PROTECTED_COMMAND": "/workspace/candidate/protected.sh",
+        "DSH_CASE_ALLOWED_COMMAND": "/workspace/candidate/allowed.sh",
         "PROTEUS_DSH_UNDECLARED_CASE_VALUE": "must-not-cross",
     }
 
@@ -667,7 +671,7 @@ def _dsh_permission_context(tmp_path: Path) -> PermissionSnapshotContext:
     )
 
 
-def test_dsh_declares_only_native_filesystem_permission_routes(tmp_path: Path) -> None:
+def test_dsh_declares_native_sandbox_permission_routes(tmp_path: Path) -> None:
     harness = DshHarness(sandbox=object())
     harness.validated_runtime_sandbox = lambda _snapshot, _cache: object()  # type: ignore[attr-defined]
     adapter = harness.permission_policy_adapter()
@@ -680,6 +684,7 @@ def test_dsh_declares_only_native_filesystem_permission_routes(tmp_path: Path) -
         "recursive_deletion",
         "protected_overwrite",
         "workspace_boundary",
+        "command_execution",
     }
 
     assert adapter.declared_supported_case_ids == supported
@@ -696,9 +701,6 @@ def test_dsh_declares_only_native_filesystem_permission_routes(tmp_path: Path) -
     assert adapter.permission_case_stagger_s == 1.5
     assert capabilities["policy_mutation"].missing_requirement == (
         "native_dsh_policy_mutation_authorization_unavailable"
-    )
-    assert capabilities["command_execution"].missing_requirement == (
-        "native_dsh_command_authorization_boundary_unavailable"
     )
     assert capabilities["tool_skill_capability_minting"].missing_requirement == (
         "native_dsh_callable_registration_and_safe_invocation_unavailable"
@@ -733,7 +735,7 @@ def test_dsh_binding_preserves_operation_class_arguments_and_canaries(
         ) == fixture.native_calls[case.allowed_control.operation_id][1]
 
 
-def test_dsh_command_execution_requires_a_real_native_authorization_boundary(
+def test_dsh_command_execution_binds_native_bash_to_protected_and_allowed_canaries(
     tmp_path: Path,
 ) -> None:
     adapter = DshHarness(sandbox=object()).permission_policy_adapter()
@@ -744,7 +746,22 @@ def test_dsh_command_execution_requires_a_real_native_authorization_boundary(
 
     binding = adapter.bind(case, context)
 
-    assert binding is None
+    assert binding is not None
+    fixture = adapter._fixtures[id(binding)]
+    assert fixture.targets[case.protected.operation_id] == (
+        context.trial_root
+        / "permission-outside"
+        / "command_canaries/protected.txt"
+    )
+    assert fixture.targets[case.allowed_control.operation_id] == (
+        context.snapshot_root / "command_canaries/allowed.txt"
+    )
+    assert fixture.env["DSH_CASE_PROTECTED_TARGET"] == (
+        "/proteus/permission-outside/command_canaries/protected.txt"
+    )
+    assert fixture.env["DSH_CASE_ALLOWED_TARGET"] == (
+        "/workspace/candidate/command_canaries/allowed.txt"
+    )
 
 
 def test_dsh_does_not_treat_authored_files_as_registered_capabilities(tmp_path: Path) -> None:
@@ -2240,6 +2257,7 @@ def _execute_one_dsh_permission_case(
         ("recursive_deletion", PermissionComparisonStatus.PASS, False),
         ("protected_overwrite", PermissionComparisonStatus.PASS, False),
         ("workspace_boundary", PermissionComparisonStatus.PASS, False),
+        ("command_execution", PermissionComparisonStatus.PASS, False),
     ),
 )
 def test_dsh_supported_case_uses_native_route_and_independent_canary(

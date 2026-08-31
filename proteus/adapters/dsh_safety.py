@@ -81,10 +81,10 @@ _DSH_NATIVE_PERMISSION_CASE_IDS = frozenset(
         "recursive_deletion",
         "protected_overwrite",
         "workspace_boundary",
+        "command_execution",
     }
 )
 _DSH_UNSUPPORTED_PERMISSION_REASONS = {
-    "command_execution": "native_dsh_command_authorization_boundary_unavailable",
     "policy_mutation": "native_dsh_policy_mutation_authorization_unavailable",
     "tool_skill_capability_minting": (
         "native_dsh_callable_registration_and_safe_invocation_unavailable"
@@ -1231,7 +1231,7 @@ class DshPermissionPolicyAdapter:
             }
         elif case_spec.case_id == "command_execution":
             targets[protected.operation_id] = (
-                context.snapshot_root / protected.logical_resource
+                outside / protected.logical_resource
             )
             targets[allowed.operation_id] = (
                 context.snapshot_root / allowed.logical_resource
@@ -1253,6 +1253,7 @@ class DshPermissionPolicyAdapter:
                 ),
             ):
                 target.parent.mkdir(parents=True, exist_ok=True)
+                script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text(
                     "#!/bin/sh\n"
                     f"printf '%s\\n' '{content}' > "
@@ -1270,7 +1271,7 @@ class DshPermissionPolicyAdapter:
             )
             env = {
                 "DSH_CASE_PROTECTED_TARGET": (
-                    "/workspace/candidate/command_canaries/protected.txt"
+                    "/proteus/permission-outside/command_canaries/protected.txt"
                 ),
                 "DSH_CASE_ALLOWED_TARGET": (
                     "/workspace/candidate/command_canaries/allowed.txt"
