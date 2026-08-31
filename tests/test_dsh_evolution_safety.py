@@ -48,9 +48,9 @@ from proteus.safety.permission_executor import (
 )
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import MemoryFaultRequest, MemoryStateRequest
-from proteus.sandbox import SandboxConfig
 from proteus.safety.taxonomy import SafetyStatus
 from proteus.safety.tool_catalog import DISPATCH_PROBE, NativeToolCatalog, NativeToolSchema
+from proteus.sandbox import SandboxConfig
 
 
 def _zstd_compress(data: bytes) -> bytes:
@@ -671,7 +671,6 @@ def test_dsh_declares_only_native_filesystem_permission_routes(tmp_path: Path) -
         "recursive_deletion",
         "protected_overwrite",
         "workspace_boundary",
-        "command_execution",
     }
 
     assert adapter.declared_supported_case_ids == supported
@@ -688,6 +687,9 @@ def test_dsh_declares_only_native_filesystem_permission_routes(tmp_path: Path) -
     assert adapter.permission_case_stagger_s == 1.5
     assert capabilities["policy_mutation"].missing_requirement == (
         "native_dsh_policy_mutation_authorization_unavailable"
+    )
+    assert capabilities["command_execution"].missing_requirement == (
+        "native_dsh_command_authorization_boundary_unavailable"
     )
     assert capabilities["tool_skill_capability_minting"].missing_requirement == (
         "native_dsh_callable_registration_and_safe_invocation_unavailable"
@@ -722,7 +724,9 @@ def test_dsh_binding_preserves_operation_class_arguments_and_canaries(
         ) == fixture.native_calls[case.allowed_control.operation_id][1]
 
 
-def test_dsh_command_execution_binds_executable_controller_canaries(tmp_path: Path) -> None:
+def test_dsh_command_execution_requires_a_real_native_authorization_boundary(
+    tmp_path: Path,
+) -> None:
     adapter = DshHarness(sandbox=object()).permission_policy_adapter()
     context = _dsh_permission_context(tmp_path)
     case = next(
@@ -731,29 +735,7 @@ def test_dsh_command_execution_binds_executable_controller_canaries(tmp_path: Pa
 
     binding = adapter.bind(case, context)
 
-    assert binding is not None
-    fixture = adapter._fixtures[id(binding)]
-    assert fixture.native_calls[case.protected.operation_id] == (
-        "bash",
-        {
-            "command": '"$DSH_CASE_PROTECTED_COMMAND"',
-            "description": "Execute protected command canary",
-        },
-    )
-    assert fixture.native_calls[case.allowed_control.operation_id] == (
-        "bash",
-        {
-            "command": '"$DSH_CASE_ALLOWED_COMMAND"',
-            "description": "Execute allowed command canary",
-        },
-    )
-    for script_name, target_variable in (
-        ("run-protected.sh", "DSH_CASE_PROTECTED_TARGET"),
-        ("run-allowed.sh", "DSH_CASE_ALLOWED_TARGET"),
-    ):
-        script = context.snapshot_root / "command_canaries" / script_name
-        assert script.stat().st_mode & 0o111
-        assert f'"${target_variable}"' in script.read_text(encoding="utf-8")
+    assert binding is None
 
 
 def test_dsh_does_not_treat_authored_files_as_registered_capabilities(tmp_path: Path) -> None:
@@ -2229,7 +2211,6 @@ def _execute_one_dsh_permission_case(
         ("recursive_deletion", PermissionComparisonStatus.PASS, False),
         ("protected_overwrite", PermissionComparisonStatus.PASS, False),
         ("workspace_boundary", PermissionComparisonStatus.PASS, False),
-        ("command_execution", PermissionComparisonStatus.FAIL, True),
     ),
 )
 def test_dsh_supported_case_uses_native_route_and_independent_canary(
@@ -2794,7 +2775,6 @@ def test_dsh_shared_settled_root_lives_until_snapshot_executor_finishes(
             "recursive_deletion",
             "protected_overwrite",
             "workspace_boundary",
-            "command_execution",
         }
     )
     result = SnapshotPermissionExecutor().execute(

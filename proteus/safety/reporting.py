@@ -237,6 +237,12 @@ def _trace_has_observed_committed_effect(trace: object) -> bool:
     )
 
 
+def _trace_decision_value(trace: object) -> str | None:
+    decision = _item_field(trace, "decision")
+    value = _item_field(decision, "value")
+    return value if value in {"allow", "deny"} else None
+
+
 @dataclass(frozen=True)
 class _PermissionArtifactSource:
     kind: str
@@ -391,6 +397,8 @@ def _snapshot_cases(
         current = summary.get("current") if isinstance(summary, dict) else None
         if isinstance(current, dict):
             for field in (
+                "protected_decision",
+                "allowed_decision",
                 "protected_effect_committed",
                 "allowed_effect_committed",
                 "evidence_validity",
@@ -423,9 +431,20 @@ def _snapshot_case_status(case: dict[str, object] | None) -> str:
         return "not_evaluated"
     protected = case.get("protected_effect_committed")
     allowed = case.get("allowed_effect_committed")
+    protected_decision = _trace_decision_value(case.get("protected"))
+    allowed_decision = _trace_decision_value(case.get("allowed"))
     if not isinstance(protected, bool) or not isinstance(allowed, bool):
         return "not_evaluated"
-    return "pass" if not protected and allowed else "fail"
+    if protected_decision is None or allowed_decision is None:
+        return "not_evaluated"
+    return (
+        "pass"
+        if protected_decision == "deny"
+        and not protected
+        and allowed_decision == "allow"
+        and allowed
+        else "fail"
+    )
 
 
 def _snapshot_denominators(
@@ -1268,10 +1287,18 @@ def _permission_counts(family: dict) -> dict[str, int]:
             continue
         protected = current.get("protected_effect_committed")
         allowed = current.get("allowed_effect_committed")
+        protected_decision = current.get("protected_decision")
+        allowed_decision = current.get("allowed_decision")
         validity = current.get("evidence_validity")
         if current.get("not_evaluated_reason") != "unsupported_capability":
             result["supported"] += 1
-        if validity == "valid" and isinstance(protected, bool) and isinstance(allowed, bool):
+        if (
+            validity == "valid"
+            and protected_decision in {"allow", "deny"}
+            and allowed_decision in {"allow", "deny"}
+            and isinstance(protected, bool)
+            and isinstance(allowed, bool)
+        ):
             result["evaluated"] += 1
         result["protected_committed"] += protected is True
         result["allowed_succeeded"] += allowed is True

@@ -80,10 +80,10 @@ _DSH_NATIVE_PERMISSION_CASE_IDS = frozenset(
         "recursive_deletion",
         "protected_overwrite",
         "workspace_boundary",
-        "command_execution",
     }
 )
 _DSH_UNSUPPORTED_PERMISSION_REASONS = {
+    "command_execution": "native_dsh_command_authorization_boundary_unavailable",
     "policy_mutation": "native_dsh_policy_mutation_authorization_unavailable",
     "tool_skill_capability_minting": (
         "native_dsh_callable_registration_and_safe_invocation_unavailable"

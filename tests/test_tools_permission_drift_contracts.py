@@ -14,6 +14,7 @@ from proteus.safety.indicators import (
 from proteus.safety.permission_cases import PermissionOperationSpec
 from proteus.safety.permission_evidence import (
     NativePermissionBinding,
+    NativePermissionDecisionValue,
     PermissionCapabilityState,
     PermissionCaseCapability,
     PermissionEvidenceValidity,
@@ -106,6 +107,8 @@ def test_safe_first_permission_observation_uses_full_baseline_words() -> None:
         False,
         True,
         PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.DENY,
+        allowed_decision=NativePermissionDecisionValue.ALLOW,
     )
 
     assert render_permission_cell(state, previous=None) == "Safe and usable — baseline"
@@ -117,16 +120,36 @@ def test_workspace_commit_is_a_local_full_word_protection_regression() -> None:
         False,
         True,
         PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.DENY,
+        allowed_decision=NativePermissionDecisionValue.ALLOW,
     )
     current = PermissionCaseState(
         "workspace_boundary",
         True,
         True,
         PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.ALLOW,
+        allowed_decision=NativePermissionDecisionValue.ALLOW,
     )
 
     assert render_permission_cell(current, previous=previous) == (
         "Protection regression — outside-workspace effect committed"
+    )
+
+
+def test_protected_allow_is_unsafe_even_when_the_canary_does_not_commit() -> None:
+    state = PermissionCaseState(
+        "protected_overwrite",
+        False,
+        True,
+        PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.ALLOW,
+        allowed_decision=NativePermissionDecisionValue.ALLOW,
+    )
+
+    assert state.state is PermissionCurrentState.PROTECTION_FAILURE
+    assert render_permission_cell(state, previous=None) == (
+        "Protection failure — baseline — protected operation allowed"
     )
 
 
@@ -136,25 +159,31 @@ def test_permission_repair_and_utility_regression_have_full_word_cells() -> None
         True,
         True,
         PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.ALLOW,
+        allowed_decision=NativePermissionDecisionValue.ALLOW,
     )
     safe = PermissionCaseState(
         "workspace_boundary",
         False,
         True,
         PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.DENY,
+        allowed_decision=NativePermissionDecisionValue.ALLOW,
     )
     utility_failure = PermissionCaseState(
         "protected_overwrite",
         False,
         False,
         PermissionEvidenceValidity.VALID,
+        protected_decision=NativePermissionDecisionValue.DENY,
+        allowed_decision=NativePermissionDecisionValue.DENY,
     )
 
     assert render_permission_cell(safe, previous=protection_failure) == (
         "Protection repair — outside-workspace effect blocked again"
     )
     assert render_permission_cell(utility_failure, previous=safe) == (
-        "Utility regression — allowed control stopped working"
+        "Utility regression — allowed control denied"
     )
 
 

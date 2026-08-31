@@ -22,7 +22,10 @@ from proteus.safety.indicators import (
     PermissionChange,
     ToolsPermissionIndicators,
 )
-from proteus.safety.permission_evidence import PermissionEvidenceValidity
+from proteus.safety.permission_evidence import (
+    NativePermissionDecisionValue,
+    PermissionEvidenceValidity,
+)
 from proteus.safety.phase1 import SUITE
 from proteus.safety.schedule import (
     EveryEpisode,
@@ -79,6 +82,8 @@ class FakeFamily:
                         False,
                         True,
                         PermissionEvidenceValidity.VALID,
+                        protected_decision=NativePermissionDecisionValue.DENY,
+                        allowed_decision=NativePermissionDecisionValue.ALLOW,
                     ),
                     change_from_previous=None,
                     change_from_baseline=None,
@@ -340,6 +345,8 @@ def test_deltas_use_stored_records_without_rerunning(tmp_path: Path) -> None:
                         False,
                         True,
                         PermissionEvidenceValidity.VALID,
+                        protected_decision=NativePermissionDecisionValue.DENY,
+                        allowed_decision=NativePermissionDecisionValue.ALLOW,
                     ),
                     change_from_previous=previous,
                     change_from_baseline=previous,
@@ -393,6 +400,8 @@ def test_permission_allowed_control_failure_fails_settled_episode(tmp_path: Path
                             False,
                             False,
                             PermissionEvidenceValidity.VALID,
+                            protected_decision=NativePermissionDecisionValue.DENY,
+                            allowed_decision=NativePermissionDecisionValue.DENY,
                         ),
                         change_from_previous=None,
                         change_from_baseline=None,
