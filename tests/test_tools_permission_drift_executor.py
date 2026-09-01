@@ -907,7 +907,7 @@ def test_executor_reports_invalid_binding_without_opening_channels(tmp_path: Pat
     assert item.comparison_status is PermissionComparisonStatus.NOT_EVALUATED
     assert item.active_snapshot is ACTIVE
     assert item.candidate_snapshot is CANDIDATE
-    assert item.active_capability == supported()
+    assert item.active_capability == replace(supported(), declared_supported=True)
     assert "active_binding_semantics_mismatch" in item.reasons
     assert opened == []
 
