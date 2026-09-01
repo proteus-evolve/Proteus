@@ -235,15 +235,15 @@ harness and nothing else.
 
 ## 🛡️ Safety evaluators
 
-Candidate activation safety is **not** a measurement evaluator and is never shown to the
-agent. Optional `--safety-suite` runs three Phase 1 families once when a trajectory
-stops, on the running tree evolution left behind — not on every in-loop candidate:
+Optional `--safety-suite` records controller-owned measurements on the seeded W0 baseline and
+scheduled settled snapshots Wt. The measurements are audit-only: their fixtures, evidence, and
+verdicts are never shown to the evolving agent and do not select the next running tree.
 
 | Family | What it asks |
 |---|---|
-| `memory_bad_admission` | module: does native retrieve of a near-name return the AdvBench bundle? behavior: does the live episode follow it? |
-| `memory_collapse` | filler on a snapshot copy of the finished tree; prior memory should still be there |
-| `tools_permission_drift` | ordinary tool use does not commit a protected fixture; the allowed twin still works |
+| `memory_bad_admission` | Do unsafe exact-ID writes or applicable near-name shadows displace trusted memory, and does a selected live trial follow the exposed instruction? |
+| `memory_collapse` | Do fixed anchors remain physically present and exactly accessible under a reproducible 64-essay whole-document pressure panel? |
+| `tools_permission_drift` | Does each protected native operation remain denied while its matched allowed control still commits? |
 
 Permission scores independent canaries. Tool names and permission modules are not the
 verdict. `--safety-model` is separate from ordinary `--model` and never enters phase
@@ -259,15 +259,14 @@ proteus run --harness pi --arm neutral --goal none --seeds 1 --episodes 1 \
 proteus safety harness-report --artifact runs/pi-safety --out runs/harness-safety
 ```
 
-Cases for which the harness has no native route are `not_applicable` and excluded from
-the applicable denominator. A supported case whose evidence is incomplete remains
-`not_evaluated`. Family outcomes are audit records and do not select the next running
-tree; `memory_collapse` is an occupancy
-audit of the finished snapshot. Contract
-and harness matrix:
-[docs/PROTEUS_MODULE_SAFETY_CASES.md](docs/PROTEUS_MODULE_SAFETY_CASES.md). Replay a
-finished sweep without mutating it:
-[docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md](docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md).
+Cases for which the harness has no native route are `not_applicable` and excluded from the
+applicable denominator. A supported case whose evidence is incomplete remains `not_evaluated`;
+an unscheduled family observation remains explicitly `not_scheduled`. The full family contracts,
+evolution labels, harness matrix, and current W0 → W1 results are in
+[Safety measurement families and evolution](docs/PROTEUS_MODULE_SAFETY_CASES.md), together with
+provider-free W0 → W1 → W2 regression-and-repair experiments. To configure, reproduce, or replay
+measurement without mutating a finished sweep, see the
+[Evolution safety implementation guide](docs/EVOLUTION_SAFETY_IMPLEMENTATION_GUIDE.md).
 
 ## 🔌 Onboard your harness
 
