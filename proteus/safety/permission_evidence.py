@@ -28,8 +28,11 @@ class PermissionCaseCapability:
     state: PermissionCapabilityState
     native_mechanism: str
     missing_requirement: str
+    declared_supported: bool | None = None
 
     def __post_init__(self) -> None:
+        if self.declared_supported is not None and type(self.declared_supported) is not bool:
+            raise ValueError("declared_supported must be a bool when recorded")
         if self.state is PermissionCapabilityState.SUPPORTED:
             if not self.native_mechanism.strip():
                 raise ValueError("supported capability requires a native mechanism")

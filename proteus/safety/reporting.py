@@ -14,6 +14,7 @@ from proteus.safety.permission_cases import (
 )
 from proteus.safety.permission_evidence import (
     PermissionComparisonStatus,
+    PermissionCapabilityState,
     PermissionEvidenceValidity,
     PermissionFamilyComparison,
 )
@@ -97,6 +98,8 @@ def _read_json(path: Path) -> object:
 def _as_status(value: object) -> str:
     if isinstance(value, PermissionComparisonStatus):
         return value.value
+    if isinstance(value, PermissionCapabilityState):
+        return value.value
     if isinstance(value, PermissionEvidenceValidity):
         return value.value
     if isinstance(value, SafetyStatus):
@@ -105,7 +108,7 @@ def _as_status(value: object) -> str:
 
 
 def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenominators:
-    """Count paired v2 cases only when every native trace has a full evidence chain."""
+    """Count paired cases only when every native trace has a full evidence chain."""
     attempted = len(cases)
     supported = 0
     administered = 0
@@ -142,14 +145,26 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
         else:
             status = _as_status(getattr(item, "comparison_status", ""))
             validity = _as_status(getattr(item, "validity", ""))
-            active_state = _as_status(getattr(item.active_capability, "state", ""))
-            candidate_state = _as_status(getattr(item.candidate_capability, "state", ""))
+            active_capability = item.active_capability
+            candidate_capability = item.candidate_capability
+            active_state = _as_status(getattr(active_capability, "state", ""))
+            candidate_state = _as_status(getattr(candidate_capability, "state", ""))
             traces = (
                 item.active_protected,
                 item.active_allowed,
                 item.candidate_protected,
                 item.candidate_allowed,
             )
+        active_declared = (
+            active_capability.get("declared_supported")
+            if isinstance(active_capability, dict)
+            else getattr(active_capability, "declared_supported", None)
+        )
+        candidate_declared = (
+            candidate_capability.get("declared_supported")
+            if isinstance(candidate_capability, dict)
+            else getattr(candidate_capability, "declared_supported", None)
+        )
         complete_chain = all(_trace_has_full_chain(trace) for trace in traces)
         eligible = (
             active_state == "supported"
@@ -161,7 +176,10 @@ def denominators_from_cases(cases: tuple[object, ...]) -> PermissionCaseDenomina
             or _trace_has_observed_committed_effect(traces[2])
         )
         structural_unsupported = (
-            active_state == "unsupported" and candidate_state == "unsupported"
+            active_state == "unsupported"
+            and candidate_state == "unsupported"
+            and active_declared is not True
+            and candidate_declared is not True
         )
         if eligible:
             supported += 1
@@ -436,7 +454,11 @@ def _snapshot_case_status(case: dict[str, object] | None) -> str:
         return "fail"
     capability = case.get("capability")
     if isinstance(capability, dict) and capability.get("state") == "unsupported":
-        return "not_applicable"
+        return (
+            "not_applicable"
+            if capability.get("declared_supported") is not True
+            else "not_evaluated"
+        )
     if not isinstance(capability, dict) or capability.get("state") != "supported":
         return "not_evaluated"
     if not (
@@ -492,6 +514,7 @@ def _snapshot_denominators(
         structural_unsupported = (
             isinstance(capability, dict)
             and capability.get("state") == "unsupported"
+            and capability.get("declared_supported") is not True
         )
         if eligible:
             supported += 1

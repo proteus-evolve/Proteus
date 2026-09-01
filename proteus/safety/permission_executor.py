@@ -171,6 +171,18 @@ def _missing_native_callable_capability() -> PermissionCaseCapability:
     )
 
 
+def _record_declared_support(
+    capability: PermissionCaseCapability, *, declared_supported: bool
+) -> PermissionCaseCapability:
+    """Keep structural applicability separate from runtime availability."""
+    if (
+        capability.state is PermissionCapabilityState.SUPPORTED
+        and not declared_supported
+    ):
+        raise ValueError("adapter capability contradicts declared permission support")
+    return replace(capability, declared_supported=declared_supported)
+
+
 def _valid_live_call_cap(
     adapter: PermissionPolicyAdapter, *, declared_supported: bool, call_cap: object
 ) -> bool:
@@ -730,12 +742,21 @@ class PairedPermissionPolicyExecutor:
             ) as candidate_temp:
                 active_context = self._context(request, case_spec, request.active, Path(active_temp), "active")
                 candidate_context = self._context(request, case_spec, request.candidate, Path(candidate_temp), "candidate")
-                active_capability = request.adapter.capability(case_spec, active_context)
-                candidate_capability = request.adapter.capability(case_spec, candidate_context)
+                active_capability = _record_declared_support(
+                    request.adapter.capability(case_spec, active_context),
+                    declared_supported=declared_supported,
+                )
+                candidate_capability = _record_declared_support(
+                    request.adapter.capability(case_spec, candidate_context),
+                    declared_supported=declared_supported,
+                )
                 if _requires_native_callable_inventory(case_spec) and not isinstance(
                     request.adapter, NativeCallableInventoryAdapter
                 ):
-                    unsupported = _missing_native_callable_capability()
+                    unsupported = _record_declared_support(
+                        _missing_native_callable_capability(),
+                        declared_supported=declared_supported,
+                    )
                     return compare_permission_case(
                         active_snapshot=request.active.snapshot,
                         candidate_snapshot=request.candidate.snapshot,
@@ -864,8 +885,21 @@ class PairedPermissionPolicyExecutor:
     ) -> PermissionSnapshotContext:
         snapshot_root = temporary_root / "harness"
         shutil.copytree(source.source_root, snapshot_root, symlinks=True)
-        trial_root = request.artifact_root / "trials" / "tools_permission_drift" / case_spec.case_id / endpoint
-        evidence_dir = trial_root / "raw"
+        # Native operations run beside the disposable snapshot, matching the
+        # settled-snapshot executor.  Some ordinary dispatchers resolve an
+        # outside-workspace target relative to this sibling directory; putting
+        # ``trial_root`` under the persistent artifact tree made that real target
+        # unreachable from the disposable harness and turned complete evidence
+        # into an executor error.  Only raw evidence belongs in the publication.
+        trial_root = temporary_root / "trial"
+        evidence_dir = (
+            request.artifact_root
+            / "trials"
+            / "tools_permission_drift"
+            / case_spec.case_id
+            / endpoint
+            / "raw"
+        )
         evidence_dir.mkdir(parents=True, exist_ok=True)
         return PermissionSnapshotContext(
             snapshot=source.snapshot,
@@ -928,8 +962,18 @@ class PairedPermissionPolicyExecutor:
             candidate_snapshot=request.candidate.snapshot,
             case_id=case_spec.case_id,
             case_spec=case_spec,
-            active_capability=PermissionCaseCapability(PermissionCapabilityState.UNSUPPORTED, "", "execution error"),
-            candidate_capability=PermissionCaseCapability(PermissionCapabilityState.UNSUPPORTED, "", "execution error"),
+            active_capability=PermissionCaseCapability(
+                PermissionCapabilityState.UNSUPPORTED,
+                "",
+                "execution error",
+                case_spec.case_id in request.adapter.declared_supported_case_ids,
+            ),
+            candidate_capability=PermissionCaseCapability(
+                PermissionCapabilityState.UNSUPPORTED,
+                "",
+                "execution error",
+                case_spec.case_id in request.adapter.declared_supported_case_ids,
+            ),
             active_protected=None,
             active_allowed=None,
             candidate_protected=None,
@@ -1453,7 +1497,10 @@ class SnapshotPermissionExecutor:
                     Path(temporary),
                     settled_root=settled_root,
                 )
-                capability = request.adapter.capability(case_spec, context)
+                capability = _record_declared_support(
+                    request.adapter.capability(case_spec, context),
+                    declared_supported=declared_supported,
+                )
                 if capability.state is PermissionCapabilityState.UNSUPPORTED:
                     return self._case_result(
                         request, case_spec, capability, None, None, None
@@ -1464,7 +1511,10 @@ class SnapshotPermissionExecutor:
                     return self._case_result(
                         request,
                         case_spec,
-                        _missing_native_callable_capability(),
+                        _record_declared_support(
+                            _missing_native_callable_capability(),
+                            declared_supported=declared_supported,
+                        ),
                         None,
                         None,
                         None,
@@ -1503,7 +1553,10 @@ class SnapshotPermissionExecutor:
                 case_spec=case_spec,
                 snapshot=request.source.snapshot,
                 capability=PermissionCaseCapability(
-                    PermissionCapabilityState.UNSUPPORTED, "", "execution error"
+                    PermissionCapabilityState.UNSUPPORTED,
+                    "",
+                    "execution error",
+                    case_spec.case_id in request.adapter.declared_supported_case_ids,
                 ),
                 protected=None,
                 allowed=None,

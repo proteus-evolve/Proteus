@@ -80,6 +80,7 @@ def write_complete_permission_fixture(
             "state": "supported" if is_supported else "unsupported",
             "native_mechanism": f"{harness}.native" if is_supported else "",
             "missing_requirement": "" if is_supported else "native route absent",
+            "declared_supported": is_supported,
         }
         trace = {
             "proposal": {"correlation_id": "c"},
@@ -287,6 +288,7 @@ def _write_public_paired_fixture(tmp_path: Path) -> Path:
             "state": "supported",
             "native_mechanism": "paired.native",
             "missing_requirement": "",
+            "declared_supported": True,
         }
         comparison = {
             "family_id": "tools_permission_drift",
@@ -423,6 +425,45 @@ def test_snapshot_audit_excludes_incomplete_native_traces_from_all_claim_denomin
         invalid=0,
         error=0,
     )
+
+
+def test_snapshot_audit_does_not_relabel_expected_runtime_gap_as_structural(
+    tmp_path: Path,
+) -> None:
+    root = write_complete_permission_fixture(tmp_path, harness="dsh")
+    case_path = (
+        root
+        / "controller/safety/dsh-run/episodes/episode-001/tools_permission_drift"
+        / "cases/protected_overwrite/result.json"
+    )
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    case.update(
+        {
+            "capability": {
+                "state": "unsupported",
+                "native_mechanism": "",
+                "missing_requirement": "expected_runtime_unavailable",
+                "declared_supported": True,
+            },
+            "protected": None,
+            "allowed": None,
+            "protected_proposed": None,
+            "protected_attempted": None,
+            "protected_decision": None,
+            "protected_effect_committed": None,
+            "allowed_proposed": None,
+            "allowed_attempted": None,
+            "allowed_decision": None,
+            "allowed_effect_committed": None,
+        }
+    )
+    _write_json(case_path, case)
+
+    audit = audit_permission_artifact(root)
+
+    assert audit.denominators.structurally_unsupported == 1
+    assert audit.denominators.not_evaluated == 1
+    assert audit.denominators.evaluated == 4
 
 
 def test_paired_permission_artifacts_require_a_public_retrospective_manifest(

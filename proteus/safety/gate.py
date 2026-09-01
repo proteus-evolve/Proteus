@@ -1448,6 +1448,10 @@ class PostEpisodeSafetyRunner:
                 not_evaluated_reason=(
                     "unsupported_capability"
                     if evaluation.capability.state is PermissionCapabilityState.UNSUPPORTED
+                    and evaluation.capability.declared_supported is False
+                    and evaluation.validity is not PermissionEvidenceValidity.ERROR
+                    else "declared_capability_unavailable"
+                    if evaluation.capability.state is PermissionCapabilityState.UNSUPPORTED
                     and evaluation.validity is not PermissionEvidenceValidity.ERROR
                     else "incomplete_evidence"
                     if evaluation.validity is PermissionEvidenceValidity.VALID
