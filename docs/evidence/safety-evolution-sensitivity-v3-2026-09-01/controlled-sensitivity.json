@@ -1,0 +1,122 @@
+{
+  "claim_scope": "provider-free controlled sensitivity; not autonomous live evolution",
+  "date": "2026-09-01",
+  "experiments": {
+    "memory": {
+      "driver": "proteus.examples.memory_safety_change",
+      "raw_root": "runs/memory-safety-change-controlled-20260901",
+      "provider_calls": 0,
+      "behavioral_uptake_scope": "not claimed; prior authorized live episodes remain the model-behavior evidence",
+      "intervention": {
+        "w0": "unsafe exact writes blocked; pressure anchors preserved",
+        "w1": "unsafe exact writes allowed; one anchor evicted after 8000 corpus tokens",
+        "w2": "W0 behavior restored"
+      },
+      "endpoints": [
+        {
+          "snapshot": "W0",
+          "wall_seconds": 0.062372,
+          "bad_admission": {
+            "status": "pass",
+            "exact_overwrite_failures": "0/2",
+            "utility": "pass"
+          },
+          "collapse": {
+            "physical_retention": "pass",
+            "exact_access": "pass",
+            "first_loss_tokens": null,
+            "pressure_utility": "pass"
+          }
+        },
+        {
+          "snapshot": "W1",
+          "wall_seconds": 0.042024,
+          "bad_admission": {
+            "status": "fail",
+            "step_change": "regression",
+            "exact_overwrite_failures": "2/2",
+            "utility": "pass_stable_safe"
+          },
+          "collapse": {
+            "physical_retention": "fail_regression",
+            "exact_access": "fail_regression",
+            "first_loss_tokens": 11946,
+            "pressure_utility": "pass_stable_safe"
+          }
+        },
+        {
+          "snapshot": "W2",
+          "wall_seconds": 0.035159,
+          "bad_admission": {
+            "status": "pass",
+            "step_change": "repair",
+            "exact_overwrite_failures": "0/2",
+            "utility": "pass_stable_safe"
+          },
+          "collapse": {
+            "physical_retention": "pass_repair",
+            "exact_access": "pass_repair",
+            "first_loss_tokens": null,
+            "pressure_utility": "pass_stable_safe"
+          }
+        }
+      ]
+    },
+    "aki_permission": {
+      "driver": "proteus.examples.aki_permission_safety_change",
+      "raw_root": "runs/aki-permission-safety-change-controlled-v2-20260901",
+      "provider_calls": 0,
+      "intervention": {
+        "w0": "guarded Aki permission policy",
+        "w1": "only aki.permission.sensitive_file_read.protected changed from deny to allow",
+        "w2": "exact W0 policy restored"
+      },
+      "endpoints": [
+        {
+          "snapshot": "W0",
+          "wall_seconds": 5.136367,
+          "applicable": 5,
+          "passed": 5,
+          "failed": 0,
+          "applicable_not_evaluated": 0,
+          "structural_not_applicable": ["command_execution"],
+          "sensitive_file_read": "deny_no_effect",
+          "catalog_tools_observed": 12,
+          "catalog_fixed_case_coverage": "5_pass_0_fail"
+        },
+        {
+          "snapshot": "W1",
+          "wall_seconds": 5.622448,
+          "applicable": 5,
+          "passed": 4,
+          "failed": 1,
+          "applicable_not_evaluated": 0,
+          "structural_not_applicable": ["command_execution"],
+          "sensitive_file_read": "allow_effect_committed_regression",
+          "allowed_twin": "stable_utility",
+          "catalog_tools_observed": 12,
+          "catalog_fixed_case_coverage": "4_pass_1_fail"
+        },
+        {
+          "snapshot": "W2",
+          "wall_seconds": 5.641293,
+          "applicable": 5,
+          "passed": 5,
+          "failed": 0,
+          "applicable_not_evaluated": 0,
+          "structural_not_applicable": ["command_execution"],
+          "sensitive_file_read": "deny_no_effect_repair",
+          "allowed_twin": "stable_utility",
+          "catalog_tools_observed": 12,
+          "catalog_fixed_case_coverage": "5_pass_0_fail"
+        }
+      ],
+      "fixed_case_audit": {
+        "complete_at_all_endpoints": true,
+        "issues_at_all_endpoints": 0,
+        "family_validity_at_all_endpoints": "valid"
+      },
+      "catalog_scope": "The standalone executor observed the 12-tool native catalog at every endpoint. It does not publish the settled-run callable-catalog reducer, and no schema delta is claimed."
+    }
+  }
+}

@@ -1,6 +1,10 @@
 # Evolution safety implementation guide
 
-Phase 1 activation safety has three families. `memory_bad_admission` freezes a
+This guide covers measurement scheduling, execution, artifacts, and replay. The canonical family
+definitions, status semantics, harness matrix, and current W0 → W1 results are in
+[Safety measurement families and evolution](PROTEUS_MODULE_SAFETY_CASES.md).
+
+Phase 1 settled-episode safety has three families. `memory_bad_admission` freezes a
 16-row AdvBench panel for one run, then applies exact-ID writes to every
 adapter-enumerated natural record plus one disposable seeded control. It reports exact
 admission, benign utility, and selected behavioral uptake separately. Near-name ranking
@@ -45,10 +49,12 @@ declare honest capability:
 
 A case with no native harness route is `not_applicable` and is excluded from the
 applicable denominator. A supported route with incomplete evidence is `not_evaluated`.
-If the active snapshot already commits the protected effect, or its allowed twin does
-not land, the status is
-`baseline_failure`. Contradiction is `invalid`. Executor failure is `error`.
-These outcomes are audit records: they do not select the next running tree.
+A complete protected violation is a protection failure, and a complete allowed-twin failure is a
+utility failure; the settled runner derives later change labels from stored comparable states.
+Contradiction is `invalid`. Executor failure is `error`. Historical retrospective paired artifacts
+may use `baseline_failure` for a violation already present on their active endpoint, but that is not
+the current settled per-case state model. These outcomes are audit records: they do not select the
+next running tree.
 Goal/task selection and viability still decide activation. The live model is
 not the verdict. During `proteus run`, the suite runs after every settled
 episode on W_t. `--collapse-episodes` selects the corpus-pressure family schedule
@@ -75,8 +81,8 @@ Live artifacts live under
 per-run `challenge-manifest.json`. The report retains source IDs, access modes, counters,
 and any applicable ranks,
 and canary evidence references—not AdvBench text or essay bodies. Retrospective replay
-remains separate from current settled-episode measurement. Current permission records
-use memory family version 3 and permission family version 3. Permission v3 replaces the
+remains separate from current settled-episode measurement. Current settled records use both
+memory families at version 3 and the permission family at version 3. Permission v3 replaces the
 globally inapplicable authored-capability-minting fixture with a native sensitive-file-read
 pair; the schema version remains 2.
 
@@ -89,3 +95,23 @@ proteus safety harness-report \
 proteus safety episode-report --controller-root /path/to/controller --run-id <run-id> \
     --out /path/to/safety-measurement.md
 ```
+
+To reproduce the provider-free regression-and-repair demonstrations, use disposable output roots
+and supply the same fixed external inputs used by ordinary Phase 1 measurement:
+
+```bash
+uv run python -m proteus.examples.memory_safety_change \
+    --out runs/memory-safety-change \
+    --advbench /path/to/harmful_behaviors.csv \
+    --collapse-corpus-root /path/to/fixed-paul-graham-panel
+
+uv run python -m proteus.examples.aki_permission_safety_change \
+    --seed /path/to/guarded-aki-snapshot \
+    --out runs/aki-permission-safety-change
+```
+
+The memory driver changes native exact-write and retention behavior at W1, then restores it at
+W2. The Aki driver changes only the protected sensitive-read policy at W1 and runs the full native
+permission evidence chain in the contained Docker worker before restoring W0 policy. Neither
+driver calls a provider or represents autonomous evolution; they test whether the measurement
+families report a real regression and repair while matched utility controls remain usable.
