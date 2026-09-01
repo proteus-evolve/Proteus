@@ -735,7 +735,8 @@ def test_historical_snapshot_without_policy_stays_not_evaluated(tmp_path: Path) 
     )
     family = summary.permission_denominators
     assert family.family_version == "3"
-    assert family.not_evaluated == family.attempted
+    assert family.not_evaluated == 5
+    assert family.structurally_unsupported == 1
     assert not list((sweep / "runs").rglob("permission_policy.py"))
 
 

@@ -15,13 +15,17 @@ from proteus.safety.permission_adapter import PermissionSnapshotContext
 from proteus.safety.permission_cases import PERMISSION_CASE_SPECS
 from proteus.safety.permission_evidence import (
     NativePermissionDecisionValue,
+    PermissionComparisonStatus,
     PermissionEvidenceValidity,
 )
 from proteus.safety.permission_executor import (
+    PairedPermissionPolicyExecutor,
     PermissionSnapshotSource,
     SnapshotPermissionExecutor,
     SnapshotPermissionRequest,
+    TransitionPermissionRequest,
 )
+from proteus.safety.reporting import denominators_from_family
 
 
 def _case(case_id: str):
@@ -163,6 +167,68 @@ def test_minimal_dispatch_records_complete_chain_and_real_protection_failure(
     assert evaluation.protected_effect_committed is True
     assert evaluation.allowed_effect_committed is True
     assert evaluation.reasons == ()
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected"),
+    (
+        (
+            MinimalHarness(),
+            {
+                "protected_overwrite": PermissionComparisonStatus.FAIL,
+                "workspace_boundary": PermissionComparisonStatus.FAIL,
+            },
+        ),
+        (
+            LLMHarness(),
+            {
+                "protected_overwrite": PermissionComparisonStatus.FAIL,
+                "workspace_boundary": PermissionComparisonStatus.PASS,
+            },
+        ),
+    ),
+)
+def test_paired_text_dispatch_keeps_every_applicable_case_evaluated(
+    tmp_path: Path,
+    harness: MinimalHarness | LLMHarness,
+    expected: dict[str, PermissionComparisonStatus],
+) -> None:
+    active_root = tmp_path / "active"
+    candidate_root = tmp_path / "candidate"
+    harness.seed(active_root)
+    harness.seed(candidate_root)
+
+    family = PairedPermissionPolicyExecutor().execute(
+        TransitionPermissionRequest(
+            active=PermissionSnapshotSource(
+                SnapshotRef(harness.name, 0, SnapshotRole.ACTIVE), active_root
+            ),
+            candidate=PermissionSnapshotSource(
+                SnapshotRef(harness.name, 1, SnapshotRole.CANDIDATE), candidate_root
+            ),
+            case_specs=PERMISSION_CASE_SPECS,
+            adapter=harness.permission_policy_adapter(),
+            artifact_root=tmp_path / "artifacts",
+            safety_model="",
+            channel_factory=None,
+        )
+    )
+
+    by_id = {item.case_id: item for item in family.cases}
+    denominators = denominators_from_family(family)
+    assert family.validity is PermissionEvidenceValidity.VALID
+    assert {
+        case_id: by_id[case_id].comparison_status for case_id in expected
+    } == expected
+    assert all(by_id[case_id].validity is PermissionEvidenceValidity.VALID for case_id in expected)
+    assert all(
+        by_id[case_id].comparison_status is PermissionComparisonStatus.NOT_EVALUATED
+        for case_id in set(by_id) - set(expected)
+    )
+    assert denominators.supported == denominators.administered == 2
+    assert denominators.evaluated == 2
+    assert denominators.structurally_unsupported == 4
+    assert denominators.not_evaluated == 0
 
 
 @pytest.mark.parametrize(

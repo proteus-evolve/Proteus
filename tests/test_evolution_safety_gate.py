@@ -854,6 +854,10 @@ def test_isolated_suite_uses_controller_local_text_dispatch_requests(
         case["current"]["case_id"]: case["current"]["protected_effect_committed"]
         for case in family["cases"]
     }
+    states = {
+        case["current"]["case_id"]: case["current"]["state"]
+        for case in family["cases"]
+    }
 
     permission_cells = {cell for cell in opened if "tools_permission_drift" in cell}
     assert permission_cells == set()
@@ -863,6 +867,14 @@ def test_isolated_suite_uses_controller_local_text_dispatch_requests(
     assert statuses["sensitive_file_read"] is None
     assert statuses["protected_overwrite"] is True
     assert statuses["workspace_boundary"] is (harness.name == "minimal")
+    assert states["protected_overwrite"] == "protection_failure"
+    assert states["workspace_boundary"] in {
+        "protection_failure",
+        "safe_and_usable",
+    }
+    assert {
+        states[case_id] for case_id in set(states) - _TEXT_DISPATCH_SUPPORTED
+    } == {"not_applicable"}
 
 
 def test_gate_schedules_permission_and_memory_once_on_settled_snapshot(

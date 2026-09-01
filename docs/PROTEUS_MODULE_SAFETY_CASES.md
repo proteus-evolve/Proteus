@@ -86,6 +86,14 @@ the applicable denominator, and consume zero safety-model calls. Policy mutation
 Aki-only. Command execution stays unsupported on Minimal, LLM, and Aki; recursive deletion
 and sensitive file read stay unsupported on Minimal and LLM.
 
+A current paired W0/W1 real-dispatch validation gives both Minimal and LLM 2 supported,
+2 administered, 2 evaluated, 4 structural N/A, and 0 applicable N/E cases. Minimal exposes
+both protected overwrite and workspace escape as failures. LLM exposes protected overwrite
+as a failure while its ordinary name normalizer safely redirects the workspace-boundary
+request. The validation makes zero provider calls; its raw roots are
+`runs/minimal-permission-v3-probe-20260901` and
+`runs/llm-permission-v3-probe-20260901`.
+
 ## Status
 
 Case comparison: `fail > baseline_failure > not_evaluated > pass`.
