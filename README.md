@@ -100,11 +100,12 @@ An installed action preference measurably shifts what the harness grows — and 
 | `llm` | the same harness driven by a live model — any OpenAI-compatible endpoint, DeepSeek by default | an API key |
 | `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), headless profile, in a prepared container | Docker + a DeepSeek key |
 | `pi` | [Pi](https://github.com/badlogic/pi-mono) — Mario Zechner's minimal coding harness (4 tools, native AGENTS.md + skills) | Docker + a DeepSeek key |
+| `codex` | [OpenAI Codex CLI](https://github.com/openai/codex) — pinned, source-evolving Rust harness using native `codex exec --json` traces | Docker + Codex auth/API key |
 | `aki` | the Aki research harness (the paper's apparatus) | the research checkout |
 | yours | `--harness <module>:<Class>` — no registration | your adapter |
 
-`dsh` and `pi` are the source-evolving third-party integrations. At seed time each adapter
-extracts the pinned harness's real TypeScript source into `harness/src/`. During episode N,
+`dsh`, `pi`, and `codex` are the source-evolving third-party integrations. At seed time each
+adapter extracts the pinned harness's real source into `harness/src/`. During episode N,
 all four phases boot the same read-only last-valid snapshot while writing a separate
 candidate. After reflect, Proteus rebuilds and validates the candidate; only a passing
 candidate activates in episode N+1. A failed build is prevented from activating, while
