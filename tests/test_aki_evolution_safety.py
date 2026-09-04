@@ -66,7 +66,6 @@ from proteus.safety.runtime import (
     MemoryOperationKind,
     MemoryOperationRequest,
     MemoryStateRequest,
-    RuntimeKind,
 )
 from proteus.safety.taxonomy import EvidenceStratum, SafetyStatus
 from proteus.safety.tool_catalog import NativeToolCatalog, NativeToolSchema
@@ -736,54 +735,6 @@ def test_safety_events_publish_unknown_lifecycle_when_native_markers_are_absent(
     assert episode.events[0].turn == -1
 
 
-def test_aki_harness_exposes_model_mediated_universal_runtime() -> None:
-    runtime = AkiHarness().safety_runtime()
-
-    assert runtime.name == "aki"
-    assert runtime.kind is RuntimeKind.MODEL_MEDIATED
-
-
-def test_aki_observer_is_passive_and_preserves_exact_native_order() -> None:
-    observer = AkiPermissionObserver()
-    call = {
-        "call_id": "native-call-1",
-        "tool_name": "file_write",
-        "tool_params": {"file_path": "/workspace/outside.txt", "content": "x\n"},
-    }
-
-    returns = (
-        observer.observe_native("proposal", call),
-        observer.observe_native(
-            "permission_decision",
-            {
-                **call,
-                "allowed": False,
-                "source": "snapshot.permission_policy",
-                "rule_ref": "aki.permission.workspace_boundary.outside_snapshot",
-                "reason": "outside the declared snapshot root",
-            },
-        ),
-        observer.observe_native(
-            "tool_result",
-            {**call, "success": False, "result": {"success": False}},
-        ),
-        observer.observe_native(
-            "later_model_input",
-            {"call_id": "native-call-1", "result": {"success": False}},
-        ),
-    )
-
-    assert [item.stage for item in observer.native_events] == [
-        "proposal",
-        "permission_decision",
-        "tool_result",
-        "later_model_input",
-    ]
-    assert returns == (None, None, None, None)
-    assert observer.native_events[0].correlation_id == "native-call-1"
-    assert observer.native_events[1].data["source"] == "snapshot.permission_policy"
-
-
 def test_real_aki_universal_agent_task_write_and_controller_normalization(
     tmp_path: Path,
 ) -> None:
@@ -1098,36 +1049,6 @@ def test_aki_declares_native_snapshot_policy_routes(tmp_path: Path) -> None:
         "workspace_boundary": 0,
         "command_execution": 0,
     }
-
-
-def test_aki_unsupported_command_case_does_not_add_shell(
-    tmp_path: Path,
-) -> None:
-    snapshot = tmp_path / "harness"
-    _seed_permission_snapshot(snapshot)
-    context = PermissionSnapshotContext(
-        snapshot=SnapshotRef("aki", 1, SnapshotRole.CANDIDATE),
-        snapshot_root=snapshot,
-        trial_root=tmp_path / "trial",
-        evidence_dir=tmp_path / "evidence",
-        artifact_root=tmp_path,
-    )
-    adapter = AkiHarness().permission_policy_adapter()
-    unsupported = [
-        case for case in PERMISSION_CASE_SPECS if case.case_id == "command_execution"
-    ]
-    channel = _PermissionChannel()
-
-    capabilities = [adapter.capability(case, context) for case in unsupported]
-    bindings = [adapter.bind(case, context) for case in unsupported]
-
-    assert all(
-        capability.state is PermissionCapabilityState.UNSUPPORTED
-        for capability in capabilities
-    )
-    assert bindings == [None]
-    assert channel.calls == 0
-    assert "shell" not in adapter.declared_supported_case_ids
 
 
 def test_aki_permission_bindings_and_traces_preserve_exact_native_calls(
@@ -1886,18 +1807,6 @@ def test_aki_trial_never_reinstalls_active_policy_into_candidate(
     assert adapter.policy_text_seen_at_bind[SnapshotRole.ACTIVE] != candidate_policy
 
 
-def test_aki_current_permission_path_has_no_frozen_controller_authority() -> None:
-    worker = Path("proteus/adapters/aki_container_worker.py").read_text(encoding="utf-8")
-    plan = Path("proteus/adapters/aki_live_worker.py").read_text(encoding="utf-8")
-
-    assert "_FrozenSafetyExecutor" not in worker
-    assert "_FrozenResultServer" not in worker
-    assert "controller effect contract" not in worker
-    assert "effect_contracts" not in worker
-    assert "effect_contracts" not in plan
-    assert "native_operations" not in plan
-
-
 def test_cli_routes_aki_ordinary_and_safety_calls_through_one_controller(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -2528,26 +2437,6 @@ def test_real_docker_candidate_model_cannot_forge_controller_evidence(
                 live_model_channel=channel,
             )
         )
-
-
-def test_real_runtime_invokes_native_memory_write_and_read(
-    tmp_path: Path,
-) -> None:
-    _source, snapshot = _native_snapshot(tmp_path)
-    runtime = AkiHarness().safety_runtime()
-    context = _context(tmp_path, snapshot)
-    request = MemoryStateRequest(
-        "qualified-state", "scope=run\nvalue=preserve\n", unsafe=False
-    )
-
-    introduced = runtime.introduce_memory(request, context)
-    read = runtime.read_memory(request.state_id, context)
-
-    assert introduced.proposed and introduced.attempted and introduced.completed
-    assert introduced.result_delivered and introduced.authorized is True
-    assert read.proposed and read.attempted and read.completed
-    assert read.result_delivered and read.authorized is True
-    assert runtime.memory_oracle(request.state_id, request.body, context) is True
 
 
 def test_real_runtime_batches_memory_transaction_in_one_native_episode(

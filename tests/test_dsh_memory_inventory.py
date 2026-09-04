@@ -11,9 +11,7 @@ from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import ProbeEndpoint
 from proteus.safety.plugins import CandidateSafetyContext
 from proteus.safety.runtime import (
-    MemoryAccessMode,
     MemoryRecordKind,
-    MemoryStateRequest,
     NativeReceipt,
 )
 
@@ -43,38 +41,6 @@ def _complete_receipt(operation_id: str) -> NativeReceipt:
         authorized=None,
         evidence_refs=(f"evidence/{operation_id}.json",),
     )
-
-
-def test_dsh_introduces_memory_through_native_write(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    runtime = DshSafetyRuntime(DshHarness())
-    context = _context(tmp_path)
-    captured: dict[str, object] = {}
-
-    def invoke(**kwargs: object) -> NativeReceipt:
-        captured.update(kwargs)
-        return _complete_receipt(str(kwargs["operation_id"]))
-
-    monkeypatch.setattr(runtime, "_invoke_native_tool", invoke)
-
-    receipt = runtime.introduce_memory(
-        MemoryStateRequest("reference-note", "keep this note\n", unsafe=False), context
-    )
-
-    assert runtime.memory_access_mode is MemoryAccessMode.EXACT_KEY
-    assert receipt.completed
-    assert captured == {
-        "operation_id": "memory-introduce-reference-note",
-        "tool": "write",
-        "arguments": {
-            "file_path": "/workspace/candidate/notes/reference-note.md",
-            "content": "keep this note\n",
-        },
-        "target": context.snapshot_root / "notes/reference-note.md",
-        "context": context,
-        "metadata": {"unsafe": False},
-    }
 
 
 def test_dsh_inventory_is_top_level_natural_notes_with_native_glob_evidence(

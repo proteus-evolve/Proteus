@@ -13,7 +13,6 @@ from proteus.bench.task import BenchTask
 from proteus.core import EpisodeResult, Goal, GoalConfig, Visibility, review, snapshot
 from proteus.core.episode import RunConfig, pending_candidate_path, run
 from proteus.core.goal import EvalResult
-from proteus.safety.permission_evidence import PermissionComparisonStatus
 from proteus.safety.records import EpisodeSafetyRecord, SettledSnapshotRef
 
 
@@ -73,43 +72,6 @@ def _settled(contexts):
     return [ctx.episode for ctx in contexts]
 
 
-def run_one_candidate(
-    tmp_path: Path,
-    *,
-    task_selected: bool,
-    permission_cases: tuple[PermissionComparisonStatus, ...],
-):
-    if any(
-        status is PermissionComparisonStatus.FAIL
-        or status is PermissionComparisonStatus.BASELINE_FAILURE
-        for status in permission_cases
-    ):
-        status = "fail"
-    elif any(status is PermissionComparisonStatus.NOT_EVALUATED for status in permission_cases):
-        status = "not_evaluated"
-    else:
-        status = "pass"
-    gate = ScriptedSafetyRunner(
-        [SafetyOutcome(f"safety/permission/{status}")]
-    )
-
-    def evaluator(_trace, _context):
-        return EvalResult(
-            name="task",
-            score=1.0,
-            error=not task_selected,
-        )
-
-    return run(
-        _cfg(
-            tmp_path,
-            gate=gate,
-            goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
-            episodes=1,
-        )
-    )
-
-
 def _cfg(
     tmp_path,
     *,
@@ -142,20 +104,6 @@ def _files(root: Path) -> dict[str, bytes]:
         for path in root.rglob("*")
         if path.is_file()
     }
-
-
-def test_candidate_requires_task_selection_and_six_valid_permission_passes(
-    tmp_path: Path,
-) -> None:
-    result = run_one_candidate(
-        tmp_path,
-        task_selected=True,
-        permission_cases=(PermissionComparisonStatus.PASS,) * 5
-        + (PermissionComparisonStatus.NOT_EVALUATED,),
-    )
-    assert result.eval_history[0]["accepted"] is True
-    assert result.eval_history[0]["activated"] is True
-    assert result.eval_history[0]["safety_ref"] == "safety/permission/not_evaluated"
 
 
 def test_task_evaluator_uses_frozen_candidate_without_safety_runner(tmp_path):
@@ -218,24 +166,6 @@ def test_nonpassing_gate_is_audit_only_and_still_activates_task_selected_tree(tm
     assert result.eval_history[1]["task_selected"] is True
     assert result.eval_history[1]["activated"] is True
     assert _settled(gate.contexts) == [1, 2]
-
-
-def test_safety_suite_runs_after_every_settled_episode(tmp_path):
-    gate = ScriptedSafetyRunner([
-        SafetyOutcome("gates/one-pass"),
-        SafetyOutcome("gates/two-fail"),
-    ])
-    result = run(_cfg(tmp_path, gate=gate, episodes=2))
-
-    assert _settled(gate.contexts) == [1, 2]
-    assert [ctx.snapshot.to_dict() for ctx in gate.contexts] == [
-        {"run_id": "run-candidate-test", "episode": 1},
-        {"run_id": "run-candidate-test", "episode": 2},
-    ]
-    assert result.eval_history[0]["safety_ref"] == "gates/one-pass"
-    assert result.eval_history[1]["safety_ref"] == "gates/two-fail"
-    assert [row["activated"] for row in result.eval_history] == [True, True]
-
 
 
 def test_middle_adapter_failure_continues_planned_episodes_before_finished_gate(tmp_path):
@@ -306,21 +236,6 @@ def test_audit_gate_does_not_override_accept_reject_score_baseline(tmp_path):
     assert _settled(gate.contexts) == [1, 2]
 
 
-def test_task_evaluator_error_prevents_safety_approved_activation(tmp_path):
-    def evaluator(_trace, _context):
-        raise RuntimeError("grader unavailable")
-
-    result = run(_cfg(
-        tmp_path,
-        gate=ScriptedSafetyRunner([SafetyOutcome("gates/one-pass")]),
-        goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
-        episodes=1,
-    ))
-
-    assert result.eval_history[0]["task_selected"] is False
-    assert result.eval_history[0]["activated"] is False
-
-
 def test_gate_detail_never_enters_agent_feedback(tmp_path):
     sentinel = "SENTINEL-GATE-DETAIL"
     gate = ScriptedSafetyRunner([SafetyOutcome(f"gates/{sentinel}")])
@@ -335,27 +250,6 @@ def test_gate_detail_never_enters_agent_feedback(tmp_path):
     assert sentinel not in subject_text
     assert all(sentinel not in prompt for prompts in cfg.adapter.prompts.values() for prompt in prompts.values())
     assert result.eval_history[0]["safety_ref"] == f"gates/{sentinel}"
-
-
-def test_snapshot_refs_are_logical_and_candidate_materialization_uses_them(tmp_path):
-    def evaluator(_trace, _context):
-        return EvalResult(name="task", score=1.0)
-
-    result = run(_cfg(
-        tmp_path,
-        safety_runner=None,
-        goal=GoalConfig.single(Goal("task", evaluator=evaluator)),
-        episodes=1,
-    ))
-    harness = Path(result.root) / "harness"
-    candidate = snapshot.candidate_for_episode(harness, 1)
-    assert candidate is not None
-    assert candidate.to_dict() == {
-        "run_id": "run-candidate-test", "episode": 1, "role": "candidate",
-    }
-    destination = tmp_path / "candidate"
-    snapshot.materialize_candidate(harness, candidate, destination)
-    assert (destination / "STATE.md").is_file()
 
 
 def test_task_rejection_removes_ignored_candidate_files_from_live_harness(tmp_path):

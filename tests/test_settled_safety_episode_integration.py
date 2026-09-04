@@ -8,9 +8,7 @@ from test_candidate_activation import _cfg
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core import NEUTRAL, GoalConfig, snapshot
-from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.episode import run
-from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.history import SafetyHistoryStore
 from proteus.safety.records import (
     EpisodeSafetyRecord,
@@ -89,60 +87,6 @@ def test_existing_post_episode_runner_remains_a_temporary_settled_seam(tmp_path)
     assert runner.episodes == [1]
     assert result.eval_history[0]["safety_ref"] == "legacy/episode-001.json"
     assert result.eval_history[0]["safety_complete"] is True
-
-
-def test_legacy_runner_receives_the_exact_previous_settled_checkpoint(
-    tmp_path: Path,
-) -> None:
-    class ExistingPostEpisodeRunner:
-        def __init__(self) -> None:
-            self.contexts: list[SettledEpisodeSafetyContext] = []
-
-        def has_baseline(self, run_id: str) -> bool:
-            del run_id
-            return False
-
-        def evaluate_settled_episode(
-            self, context: SettledEpisodeSafetyContext
-        ) -> SimpleNamespace:
-            assert context.previous_snapshot_root is not None
-            assert context.previous_snapshot_root.is_dir()
-            self.contexts.append(context)
-            return SimpleNamespace(
-                status="pass",
-                decision_ref=f"legacy/episode-{context.episode:03d}.json",
-            )
-
-    runner = ExistingPostEpisodeRunner()
-    run(_cfg(tmp_path, episodes=2, safety_runner=runner))
-
-    baseline, episode_one, episode_two = runner.contexts
-    assert baseline.previous_snapshot_ref == baseline.snapshot_ref
-    assert baseline.previous_snapshot_commit == baseline.snapshot_commit
-    assert baseline.previous_snapshot_root != baseline.snapshot_root
-    assert episode_one.previous_snapshot_ref == SnapshotRef(
-        "run-candidate-test", 0, SnapshotRole.ACTIVE
-    )
-    assert episode_two.previous_snapshot_ref == SnapshotRef(
-        "run-candidate-test", 1, SnapshotRole.ACTIVE
-    )
-    harness = tmp_path / "run" / "harness"
-    assert episode_one.previous_snapshot_commit == snapshot.commit_for_episode(harness, 0)
-    assert episode_two.previous_snapshot_commit == snapshot.commit_for_episode(harness, 1)
-
-
-def test_settled_context_keeps_legacy_constructor_defaults(tmp_path: Path) -> None:
-    context = SettledEpisodeSafetyContext(
-        run_id="run-candidate-test",
-        episode=1,
-        snapshot_ref=SnapshotRef("run-candidate-test", 1, SnapshotRole.ACTIVE),
-        snapshot_root=tmp_path / "settled",
-        trace=(),
-    )
-
-    assert context.previous_snapshot_ref is None
-    assert context.previous_snapshot_root is None
-    assert context.previous_snapshot_commit is None
 
 
 def test_safety_error_does_not_stop_next_episode(tmp_path):

@@ -98,10 +98,7 @@ def test_aki_seed_installer_writes_snapshot_policy_and_updates_loop(
     control = snapshot / "permission_policy_control.py"
     assert policy.is_file()
     assert control.read_text(encoding="utf-8") == "control = 'baseline'\n"
-    assert (
-        "def build_permission_engine("
-        in policy.read_text(encoding="utf-8")
-    )
+    assert "def build_permission_engine(" in policy.read_text(encoding="utf-8")
     loop_text = loop.read_text(encoding="utf-8")
     assert "from permission_policy import build_permission_engine" in loop_text
     assert "ctx.config.snapshot_dir, getattr(ctx.config, 'task_dir', None)" in loop_text
@@ -2261,14 +2258,6 @@ def test_aki_rejects_generic_disposition_before_starting_docker(tmp_path):
 
     with pytest.raises(ValueError, match="no current native Aki condition"):
         harness.install_disposition(tmp_path / "seed-root/harness", review("memory"))
-
-
-def test_aki_seed_creates_host_bind_source_before_docker(tmp_path):
-    run_root = tmp_path / "seed-root"
-
-    AkiHarness().seed(run_root / "harness", rng_seed=0)
-
-    assert run_root.is_dir()
 
 
 def test_aki_rejects_sandbox_fields_that_change_the_worker_boundary(tmp_path):

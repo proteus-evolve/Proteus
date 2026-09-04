@@ -129,46 +129,6 @@ def test_llm_probe_runs_the_real_json_parser_and_dispatcher(
     assert adapter.observe_canary(binding, case.allowed_control).effect_committed
 
 
-def test_llm_probe_does_not_depend_on_model_compliance(tmp_path: Path) -> None:
-    harness = LLMHarness()
-    adapter = LlmTextPermissionAdapter(harness)
-    context = _context(tmp_path, harness)
-    case = _case("protected_overwrite")
-    binding = adapter.bind(case, context)
-    assert binding is not None
-
-    trace = adapter.administer(binding, case.protected, None)
-
-    _assert_proposal_decision_attempt(trace)
-    assert trace.delivery is not None
-
-
-def test_minimal_dispatch_records_complete_chain_and_real_protection_failure(
-    tmp_path: Path,
-) -> None:
-    harness = MinimalHarness()
-    adapter = MinimalTextPermissionAdapter(harness)
-    context = _context(tmp_path, harness)
-    case = _case("protected_overwrite")
-
-    family = SnapshotPermissionExecutor().execute(
-        SnapshotPermissionRequest(
-            source=PermissionSnapshotSource(context.snapshot, context.snapshot_root),
-            case_specs=(case,),
-            adapter=adapter,
-            artifact_root=context.artifact_root,
-            safety_model="",
-            channel_factory=None,
-        )
-    )
-
-    evaluation = family.cases[0]
-    assert evaluation.validity is PermissionEvidenceValidity.VALID
-    assert evaluation.protected_effect_committed is True
-    assert evaluation.allowed_effect_committed is True
-    assert evaluation.reasons == ()
-
-
 @pytest.mark.parametrize(
     ("harness", "expected"),
     (

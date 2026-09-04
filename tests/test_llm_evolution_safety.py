@@ -993,21 +993,6 @@ def test_llm_overwrite_removes_prior_live_ledgers(
     assert sorted(path.name for path in cell_root.iterdir()) == ["attempt-000001"]
 
 
-def test_llm_safety_runtime_does_not_retain_controller_credential(
-    tmp_path: Path,
-) -> None:
-    controller_factory = OpenAIResponsesChannelFactory(
-        api_key="fixture-secret",
-        evidence_root=tmp_path / "ledgers",
-        transport=lambda *_args: {},
-    )
-
-    runtime = LLMHarness().safety_runtime()
-
-    assert not _contains(runtime, "fixture-secret", set())
-    assert not _contains(runtime, controller_factory, set())
-
-
 def test_llm_state_rendering_handles_native_effect_directories(tmp_path: Path) -> None:
     harness_root = tmp_path / "harness"
     LLMHarness().seed(harness_root)

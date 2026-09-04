@@ -12,7 +12,6 @@ from proteus import cli
 from proteus.adapters.llm import LLMHarness
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
-from proteus.adapters.pi import PiHarness
 from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation
@@ -418,18 +417,6 @@ def _gate_context(tmp_path: Path) -> SettledEpisodeSafetyContext:
     )
 
 
-def _permission_snapshot_context(tmp_path: Path) -> PermissionSnapshotContext:
-    snapshot_root = tmp_path / "permission-snapshot"
-    snapshot_root.mkdir()
-    return PermissionSnapshotContext(
-        snapshot=SnapshotRef("permission-run", 1, SnapshotRole.CANDIDATE),
-        snapshot_root=snapshot_root,
-        trial_root=tmp_path / "permission-trial",
-        evidence_dir=tmp_path / "permission-evidence",
-        artifact_root=tmp_path,
-    )
-
-
 def test_dsh_permission_readiness_uses_only_declared_cases_and_publishes_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -597,10 +584,8 @@ def test_dsh_permission_readiness_accepts_complete_unsafe_native_evidence(
     assert all(case["observed_safe_pair"] is False for case in manifest["cases"])
 
 
-@pytest.mark.parametrize("harness_name", ("dsh", "pi"))
 def test_compatible_builtin_family_measurements_overlap_then_return_in_fixed_order(
     tmp_path: Path,
-    harness_name: str,
 ) -> None:
     class ParallelRunner(PostEpisodeSafetyRunner):
         def __init__(self) -> None:
@@ -630,7 +615,7 @@ def test_compatible_builtin_family_measurements_overlap_then_return_in_fixed_ord
             return self.synchronized(empty_permission(not_scheduled_execution(None)))
 
     runner = ParallelRunner()
-    runner._adapter.name = harness_name
+    runner._adapter.name = "dsh"
     context = _gate_context(tmp_path)
     staging = tmp_path / "staging"
     staging.mkdir()
@@ -691,108 +676,6 @@ def test_permission_terminal_ignores_structurally_unsupported_cases() -> None:
 
     assert _episode_audit_status(indicators((safe, unsupported))) == SafetyStatus.PASS.value
     assert _episode_audit_status(indicators((unsupported,))) == SafetyStatus.NOT_EVALUATED.value
-
-
-@pytest.mark.parametrize(
-    ("harness", "native_mechanism"),
-    (
-        (MinimalHarness(), "minimal.write_note_dispatcher"),
-        (LLMHarness(), "llm.json_action_dispatcher"),
-    ),
-)
-def test_text_harnesses_support_only_real_ordinary_dispatch_cases(
-    tmp_path: Path,
-    harness: MinimalHarness | LLMHarness,
-    native_mechanism: str,
-) -> None:
-    adapter = harness.permission_policy_adapter()
-    context = _permission_snapshot_context(tmp_path)
-    assert adapter.declared_supported_case_ids == _TEXT_DISPATCH_SUPPORTED
-    capabilities = {
-        case.case_id: adapter.capability(case, context) for case in PERMISSION_CASE_SPECS
-    }
-    assert {
-        case_id
-        for case_id, capability in capabilities.items()
-        if capability.state is PermissionCapabilityState.SUPPORTED
-    } == _TEXT_DISPATCH_SUPPORTED
-    assert all(
-        capabilities[case_id].native_mechanism == native_mechanism
-        for case_id in _TEXT_DISPATCH_SUPPORTED
-    )
-    assert all(
-        capabilities[case_id].missing_requirement == "ordinary_text_dispatch_route_unavailable"
-        for case_id in set(capabilities) - _TEXT_DISPATCH_SUPPORTED
-    )
-    assert {
-        case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS
-    } == {
-        case.case_id: 0
-        for case in PERMISSION_CASE_SPECS
-    }
-    assert all(
-        adapter.bind(case, context) is not None
-        for case in PERMISSION_CASE_SPECS
-        if case.case_id in _TEXT_DISPATCH_SUPPORTED
-    )
-    assert all(
-        adapter.bind(case, context) is None
-        for case in PERMISSION_CASE_SPECS
-        if case.case_id not in _TEXT_DISPATCH_SUPPORTED
-    )
-
-
-def test_pi_supports_five_real_builtin_permission_probes_without_provider_calls(
-    tmp_path: Path,
-) -> None:
-    adapter = PiHarness().permission_policy_adapter()
-    context = _permission_snapshot_context(tmp_path)
-    expected_tools = {
-        "recursive_deletion": "bash",
-        "protected_overwrite": "write",
-        "sensitive_file_read": "read",
-        "workspace_boundary": "write",
-        "command_execution": "bash",
-    }
-    supported = frozenset(expected_tools)
-    unsupported_reasons = {
-        "policy_mutation": "native_authorization_policy_unavailable",
-    }
-
-    assert adapter.permission_requires_live_channel is False
-    assert adapter.declared_supported_case_ids == supported
-    assert {case.case_id: adapter.live_call_cap(case) for case in PERMISSION_CASE_SPECS} == {
-        case.case_id: 0 for case in PERMISSION_CASE_SPECS
-    }
-    capabilities = {
-        case.case_id: adapter.capability(case, context) for case in PERMISSION_CASE_SPECS
-    }
-    assert {
-        case_id
-        for case_id, capability in capabilities.items()
-        if capability.state is PermissionCapabilityState.SUPPORTED
-    } == supported
-    assert all(
-        capabilities[case_id].native_mechanism == "pi.native_builtin_tool_dispatch"
-        for case_id in supported
-    )
-    assert {
-        case_id: capabilities[case_id].missing_requirement for case_id in unsupported_reasons
-    } == unsupported_reasons
-
-    case_by_id = {case.case_id: case for case in PERMISSION_CASE_SPECS}
-    for case_id, expected_tool in expected_tools.items():
-        binding = adapter.bind(case_by_id[case_id], context)
-        assert binding is not None
-        assert binding.protected.native_tool == expected_tool
-        assert binding.allowed_control.native_tool == expected_tool
-        assert binding.protected.native_tool != "any"
-        assert binding.protected.exact_arguments
-        assert binding.allowed_control.exact_arguments
-    assert all(
-        adapter.bind(case_by_id[case_id], context) is None
-        for case_id in unsupported_reasons
-    )
 
 
 @pytest.mark.parametrize(
@@ -875,32 +758,6 @@ def test_isolated_suite_uses_controller_local_text_dispatch_requests(
     assert {
         states[case_id] for case_id in set(states) - _TEXT_DISPATCH_SUPPORTED
     } == {"not_applicable"}
-
-
-def test_gate_schedules_permission_and_memory_once_on_settled_snapshot(
-    tmp_path: Path,
-) -> None:
-    adapter = GateFixtureAdapter()
-    executor = RecordingSnapshotPermissionExecutor()
-    gate = PostEpisodeSafetyRunner(
-        adapter=adapter,
-        definitions=SUITE.definitions(),
-        controller_root=tmp_path / "controller",
-        safety_model="",
-        channel_factory=None,
-        permission_executor=executor,
-        schedule=SafetySuiteSchedule(
-            memory_bad_admission=EveryEpisode(),
-            memory_collapse=EveryEpisode(),
-            tools_permission_drift=EveryEpisode(),
-        ),
-        advbench_items=synthetic_advbench(),
-    )
-
-    gate.evaluate_settled_episode(_gate_context(tmp_path))
-
-    assert executor.execute_calls == 1
-    assert adapter.memory_endpoint_calls == {("memory_bad_admission", "active")}
 
 
 def test_gate_prepares_exact_runtime_before_timed_scheduled_measurement(

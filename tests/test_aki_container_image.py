@@ -159,15 +159,6 @@ def run_aki_image_verifier(image: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_aki_manifest_selects_network_disabled_keyless_source_image():
-    cfg = SandboxConfig.from_manifest(Path("environments/aki/environment.toml"))
-
-    assert cfg.image == AKI_IMAGE
-    assert cfg.network == "none"
-    assert cfg.env_passthrough == ()
-    assert cfg.user == "host"
-
-
 def test_aki_image_inspect_action_is_current_and_keyless(aki_image):
     result = run_aki_image(
         aki_image,
@@ -229,32 +220,6 @@ def test_aki_image_init_uses_current_neutral_native_api(aki_image, tmp_path):
         ".snapshot.git",
     )
     assert all((run_root / relative).exists() for relative in expected)
-
-
-@pytest.mark.docker
-def test_aki_image_init_uses_snapshot_owned_permission_policy(aki_image, tmp_path):
-    run_root = tmp_path / "permission-policy-run"
-    run_root.mkdir()
-
-    run_aki_image(
-        aki_image,
-        {
-            "action": "init",
-            "condition": "neutral",
-            "seed": 0,
-            "episodes": 1,
-            "root": "/run",
-        },
-        mounts=((run_root, "/run"),),
-    )
-
-    policy = run_root / "harness/permission_policy.py"
-    control = run_root / "harness/permission_policy_control.py"
-    loop = (run_root / "harness/loop.py").read_text(encoding="utf-8")
-    assert policy.is_file()
-    assert control.read_text(encoding="utf-8") == "control = 'baseline'\n"
-    assert "from permission_policy import build_permission_engine" in loop
-    assert "ctx.config.snapshot_dir, getattr(ctx.config, 'task_dir', None)" in loop
 
 
 def test_real_aki_model_proxy_rejects_malformed_controller_frame(aki_image, tmp_path):

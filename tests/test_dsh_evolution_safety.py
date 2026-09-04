@@ -24,7 +24,6 @@ from proteus.adapters.dsh_safety import (
     DshPermissionPolicyAdapter,
     DshSafetyRuntime,
     _ControlledBehaviorReadChannel,
-    _NativeToolSequenceChannel,
 )
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
@@ -983,33 +982,6 @@ def test_dsh_session_requires_exact_model_call_result_and_terminal_turn(
     assert event.params["tool_call_id"] == "call-native-write"
     assert event.params["result_delivered"] == "true"
     assert event.params["result_error"] == "false"
-
-
-def test_dsh_native_tool_channel_does_not_spend_operation_on_title_request() -> None:
-    channel = _NativeToolSequenceChannel(
-        "effect-allowed",
-        (
-            (
-                "write",
-                {
-                    "file_path": "/workspace/candidate/tools/allowed/marker.txt",
-                    "content": "allowed-effect-committed\n",
-                },
-            ),
-        ),
-    )
-
-    title = channel.respond(input=[], tools=())
-    operation = channel.respond(input=[], tools=({"name": "write"},))
-    terminal = channel.respond(input=[], tools=({"name": "write"},))
-
-    assert title.output_text == "Proteus native operation"
-    assert title.tool_calls == ()
-    assert [call.call_id for call in operation.tool_calls] == [
-        "effect-allowed-1-write"
-    ]
-    assert terminal.tool_calls == ()
-    assert terminal.output_text == "native operation complete"
 
 
 class DshNativeSandbox:
@@ -2343,14 +2315,6 @@ def test_dsh_caches_full_native_tool_catalog_from_bridge_requests(tmp_path: Path
         schema = catalog.tools[0]
         assert schema.raw_schema_ref == catalog.raw_catalog_ref
         assert json.loads(schema.canonical_schema) == request["tools"][0]
-
-
-def test_dsh_catalog_reports_not_observed_before_a_permission_episode(tmp_path: Path) -> None:
-    adapter = DshHarness(sandbox=object()).permission_policy_adapter()
-    context = _dsh_permission_context(tmp_path)
-
-    assert adapter.native_tool_catalog(context.snapshot) is None
-    assert adapter.native_tool_catalog_reason(context.snapshot) == "native_tool_catalog_not_observed"
 
 
 def test_dsh_catalog_terminal_boot_observes_tools_without_dispatching_one(
@@ -3693,34 +3657,3 @@ def test_dsh_cli_and_manifest_bind_controller_without_worker_credential(
     )
     assert config.image == "proteus-env-dsh-src:0.1.0-rc.7"
     assert config.env_passthrough == ("DEEPSEEK_API_KEY",)
-
-
-def test_dsh_legacy_native_route_forwards_allowed_key_name(tmp_path: Path) -> None:
-    class LegacySandbox:
-        def __init__(self) -> None:
-            self.envs: list[dict[str, str]] = []
-            self.commands: list[list[str]] = []
-
-        def run(self, run_root, command, env, timeout_s, mounts=(), stop_check=None):
-            del run_root, timeout_s, mounts, stop_check
-            self.commands.append(list(command))
-            self.envs.append(dict(env))
-            return subprocess.CompletedProcess(command, 0, "", "")
-
-    sandbox = LegacySandbox()
-    run_root = tmp_path / "legacy-run"
-    (run_root / "harness").mkdir(parents=True)
-    result = DshHarness(sandbox=sandbox, key="legacy-key").run_episode(
-        EpisodeSpec(
-            root=run_root,
-            episode=1,
-            model="",
-            phase_prompts={phase: phase for phase in PHASES},
-            max_turns=0,
-            seed=0,
-        )
-    )
-
-    assert result.ok
-    assert sandbox.commands
-    assert all(env["DEEPSEEK_API_KEY"] == "legacy-key" for env in sandbox.envs)

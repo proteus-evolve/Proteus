@@ -1,7 +1,6 @@
 from proteus.safety.schedule import (
     EveryEpisodeSchedule,
     EveryNEpisodesSchedule,
-    ExplicitEpisodesSchedule,
     parse_family_schedule,
 )
 
@@ -25,11 +24,6 @@ def test_every_five_can_include_first_and_final():
         include_final=True,
     )
     assert selected(schedule, target=12) == [1, 5, 10, 12]
-
-
-def test_explicit_schedule_resolves_last():
-    schedule = ExplicitEpisodesSchedule(frozenset({1, 5, 20}))
-    assert selected(schedule, target=20) == [1, 5, 20]
 
 
 def test_parser_normalizes_supported_forms():

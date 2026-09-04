@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
-from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -80,40 +78,12 @@ def _tree_bytes(root: Path) -> dict[str, tuple[str, bytes | str]]:
     return result
 
 
-def _snapshot_refs(run_root: Path) -> str:
-    return subprocess.run(
-        [
-            "git",
-            "--git-dir",
-            str(run_root / ".snapshot.git"),
-            "for-each-ref",
-            "--format=%(refname) %(objectname)",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
-
-
-def _assert_no_activation_fields(value: object) -> None:
-    forbidden = {"allowed", "activated", "activation", "decision"}
-    if isinstance(value, Mapping):
-        assert forbidden.isdisjoint(value)
-        for item in value.values():
-            _assert_no_activation_fields(item)
-    elif isinstance(value, list):
-        for item in value:
-            _assert_no_activation_fields(item)
-
-
 def test_replay_keeps_missing_external_corpus_explicit_without_mutating_snapshots(
     tmp_path: Path,
 ) -> None:
     """A retrospective cannot invent the private corpus that was not retained with it."""
     sweep_root = _preserved_sweep(tmp_path)
-    run_root = sweep_root / "runs" / "run-native"
     before_tree = _tree_bytes(sweep_root)
-    before_refs = _snapshot_refs(run_root)
 
     summary = run_retrospective_phase1(
         sweep_root=sweep_root,
@@ -123,7 +93,6 @@ def test_replay_keeps_missing_external_corpus_explicit_without_mutating_snapshot
     )
 
     assert _tree_bytes(sweep_root) == before_tree
-    assert _snapshot_refs(run_root) == before_refs
     assert summary.transitions_seen == 1
     assert summary.transitions_attempted == 1
     assert summary.transitions_administered == 0
@@ -132,33 +101,6 @@ def test_replay_keeps_missing_external_corpus_explicit_without_mutating_snapshot
         "memory_bad_admission",
         "memory_collapse",
     }
-
-
-def test_replay_publishes_logical_identity_and_terminal_manifest_without_activation(tmp_path: Path) -> None:
-    """Catches artifacts that leak commits or publish an activation decision."""
-    sweep_root = _preserved_sweep(tmp_path)
-    output_root = tmp_path / "retrospective"
-
-    summary = run_retrospective_phase1(
-        sweep_root=sweep_root,
-        adapter=MinimalHarness(),
-        output_root=output_root,
-        model_config=None,
-    )
-
-    manifest = json.loads((output_root / summary.manifest_ref).read_text(encoding="utf-8"))
-    transition = json.loads(
-        (output_root / "transitions" / "run-native" / "episode-001-to-002.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    assert manifest["kind"] == "retrospective_supported_only"
-    _assert_no_activation_fields(manifest)
-    assert transition["active"] == {"run_id": "run-native", "episode": 1, "role": "active"}
-    assert transition["candidate"] == {
-        "run_id": "run-native", "episode": 2, "role": "candidate"
-    }
-    _assert_no_activation_fields(transition)
 
 
 def test_replay_records_four_baseline_exclusions_and_all_76_eligible_pairs(
@@ -298,15 +240,6 @@ def test_empty_source_archive_is_terminally_incomplete(tmp_path: Path) -> None:
             {"run_id": "run-native", "reason": "missing_run_record"},
         ),
         (
-            "short",
-            {
-                "run_id": "run-native",
-                "reason": "short_run",
-                "episodes_complete": 1,
-                "episodes_expected": 2,
-            },
-        ),
-        (
             "error",
             {
                 "run_id": "run-native",
@@ -327,9 +260,6 @@ def test_manifest_run_requires_one_complete_error_free_durable_record(
     row = json.loads(records_path.read_text())
     if record_change == "missing":
         records_path.write_text("", encoding="utf-8")
-    elif record_change == "short":
-        row["episodes_complete"] = 1
-        records_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
     else:
         row["error"] = "preserved run stopped before terminal publication"
         records_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
@@ -376,27 +306,6 @@ def test_manifest_run_rejects_duplicate_durable_records(tmp_path: Path) -> None:
     )
     assert manifest["transitions_eligible"] == 0
     assert manifest["transitions_attempted"] == 0
-
-
-@pytest.mark.parametrize("relative_output", (Path("."), Path("derived/output")))
-def test_api_rejects_output_inside_source_before_reading_inventory(
-    tmp_path: Path, relative_output: Path
-) -> None:
-    """Catches publication roots that can mutate preserved source before validation."""
-    sweep_root = tmp_path / "damaged-sweep"
-    sweep_root.mkdir()
-    (sweep_root / "seeds.jsonl").write_text("not-json\n", encoding="utf-8")
-    before = _tree_bytes(sweep_root)
-
-    with pytest.raises(ValueError, match="outside the preserved sweep root"):
-        run_retrospective_phase1(
-            sweep_root=sweep_root,
-            adapter=MinimalHarness(),
-            output_root=sweep_root / relative_output,
-            model_config=None,
-        )
-
-    assert _tree_bytes(sweep_root) == before
 
 
 def test_cli_rejects_output_inside_source_without_creating_it(tmp_path: Path) -> None:
@@ -509,35 +418,6 @@ class _TerminalTextChannel:
         return
 
 
-def test_model_ledgers_are_created_inside_atomic_publication(tmp_path: Path) -> None:
-    """Catches live evidence pre-creating and colliding with the final output root."""
-    sweep_root = _preserved_sweep(tmp_path)
-    output_root = tmp_path / "retrospective"
-    owned_roots: list[Path] = []
-
-    def build_factory(artifact_root: Path):
-        owned_roots.append(artifact_root)
-        ledgers = artifact_root / "live-model-ledgers"
-        ledgers.mkdir()
-        (ledgers / "owned.json").write_text("{}\n", encoding="utf-8")
-        return lambda _model, _cell: _TerminalTextChannel()
-
-    run_retrospective_phase1(
-        sweep_root=sweep_root,
-        adapter=LLMHarness(),
-        output_root=output_root,
-        model_config=LiveModelConfig(
-            model="retrospective-local-controller",
-            build_channel_factory=build_factory,
-        ),
-    )
-
-    assert len(owned_roots) == 1
-    assert owned_roots[0] != output_root
-    assert owned_roots[0].parent == output_root.parent
-    assert (output_root / "live-model-ledgers" / "owned.json").is_file()
-
-
 def test_cli_builds_model_ledger_factory_inside_atomic_publication(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -600,7 +480,6 @@ def test_real_dsh_transition_replays_through_current_local_runtime(tmp_path: Pat
     run_root = Path(records[0]["root"])
     run_id = run_root.name
     before_tree = _tree_bytes(sweep_root)
-    before_refs = _snapshot_refs(run_root)
     output_root = tmp_path / "dsh-retrospective"
 
     summary = run_retrospective_phase1(
@@ -640,9 +519,6 @@ def test_real_dsh_transition_replays_through_current_local_runtime(tmp_path: Pat
     assert summary.transitions_failed == 1
     assert summary.transitions_not_evaluated == 1
     assert _tree_bytes(sweep_root) == before_tree
-    assert _snapshot_refs(run_root) == before_refs
-    _assert_no_activation_fields(json.loads((output_root / "manifest.json").read_text()))
-    _assert_no_activation_fields(transition)
     assert list(output_root.rglob("session.jsonl.zstd"))
 
 

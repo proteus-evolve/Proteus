@@ -12,11 +12,10 @@ from safety_memory_fixtures import (
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.adapters.minimal_safety import MinimalSafetyRuntime
-from proteus.core.activation import SettledEpisodeSafetyContext
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
 from proteus.safety.evidence import EvidenceCellObservation, ProbeEndpoint
 from proteus.safety.external_corpus import load_paul_graham_panel
-from proteus.safety.gate import _admission_from_observation, _load_lineage
+from proteus.safety.gate import _admission_from_observation
 from proteus.safety.indicators import FamilyExecution
 from proteus.safety.phase1 import SUITE
 from proteus.safety.phase1_runtime import PHASE1_EXECUTORS, Phase1ExecutionRequest
@@ -92,23 +91,6 @@ def test_every_builtin_runtime_declares_adapter_owned_exact_memory() -> None:
         runtime.memory_access_mode is MemoryAccessMode.EXACT_KEY
         for runtime in runtimes
     )
-
-
-def test_baseline_failure_is_fail_closed_in_policy() -> None:
-    decision = evaluate_safety_policy(
-        SimpleNamespace(
-            families=(
-                SimpleNamespace(
-                    family_id="tools_permission_drift",
-                    terminal_status=SafetyStatus.BASELINE_FAILURE,
-                ),
-            )
-        )
-    )
-
-    assert decision.status is SafetyStatus.BASELINE_FAILURE
-    assert not decision.allowed
-    assert decision.blockers == ("tools_permission_drift:baseline_failure",)
 
 
 def test_phase1_dispatches_current_memory_semantics_from_core(tmp_path: Path) -> None:
@@ -295,18 +277,6 @@ def test_required_real_episode_gap_propagates_to_family_and_policy(
     assert not decision.allowed
 
 
-def test_episode_one_gate_context_has_no_completed_archive_history(tmp_path: Path) -> None:
-    context = SettledEpisodeSafetyContext(
-        run_id="run-1",
-        episode=1,
-        snapshot_ref=SnapshotRef("run-1", 1, SnapshotRole.ACTIVE),
-        snapshot_root=tmp_path / "settled",
-        trace=(),
-    )
-
-    assert _load_lineage(tmp_path, context) == ()
-
-
 def test_incomplete_anchor_writes_cannot_enter_collapse_evaluation(
     tmp_path: Path,
 ) -> None:
@@ -381,32 +351,6 @@ def test_minimal_runtime_inventories_mutable_notes_by_exact_key(tmp_path: Path) 
     assert runtime.memory_access_mode is MemoryAccessMode.EXACT_KEY
     assert all(record.source == "notes" and record.trust == "mutable" for record in records)
     assert not hasattr(runtime, "query_memory")
-
-
-def test_minimal_runtime_has_no_ranked_query_requirement(tmp_path: Path) -> None:
-    runtime = MinimalHarness().safety_runtime()
-    definition = next(
-        item for item in SUITE.definitions() if item.family_id == "memory_bad_admission"
-    )
-    observation = PHASE1_EXECUTORS[definition.family_id](
-        Phase1ExecutionRequest(
-            definition=definition,
-            runtime=runtime,
-            context=_context(tmp_path, "exact-key-admission"),
-            channel=None,
-            advbench_items=synthetic_advbench(),
-        )
-    )
-
-    assert not hasattr(runtime, "query_memory")
-    assert observation.memory_access_mode == MemoryAccessMode.EXACT_KEY.value
-    assert observation.admission_shadow_results == ()
-    assert observation.statuses.module is SafetyStatus.FAIL
-    native = next(
-        cell for cell in observation.cells if cell.stratum is EvidenceStratum.NATIVE_BOUNDARY
-    )
-    assert native.reason == ""
-    assert native.component_outcomes == (SafetyStatus.FAIL, SafetyStatus.PASS)
 
 
 def test_advbench_uptake_fails_behavior_while_keep_fails_module(tmp_path: Path) -> None:

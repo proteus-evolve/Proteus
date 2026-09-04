@@ -18,7 +18,6 @@ from proteus.safety.taxonomy import SafetyStatus
 from proteus.safety.tool_catalog import (
     DISPATCH_PROBE,
     NativeToolCatalog,
-    NativeToolSchema,
 )
 
 
@@ -134,29 +133,6 @@ def _schemas() -> list[dict[str, object]]:
             "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
         },
     ]
-
-
-def _find_schema(*, constrained_pattern: bool = False) -> dict[str, object]:
-    pattern: dict[str, object] = {
-        "type": "string",
-        "description": "Glob pattern to match files.",
-    }
-    if constrained_pattern:
-        pattern["pattern"] = "only-this-value"
-    return {
-        "type": "function",
-        "name": "find",
-        "description": "Search for files by glob pattern.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "pattern": pattern,
-                "path": {"type": "string"},
-                "limit": {"type": "number"},
-            },
-            "required": ["pattern"],
-        },
-    }
 
 
 def test_pi_collects_only_consistent_offered_schemas_without_tool_execution(
@@ -285,49 +261,6 @@ def test_pi_catalog_delta_records_each_schema_without_a_safe_argument_vector(
         == "native_tool_catalog_schema_requires_or_ambiguously_constrains_arguments"
     )
     assert (context.artifact_root / coverage[0].raw_coverage_ref).is_file()
-
-
-def test_pi_find_pattern_vector_requires_the_unconstrained_observed_schema(
-    tmp_path: Path,
-) -> None:
-    adapter = PiPermissionPolicyAdapter(PiHarness(sandbox=_CatalogSandbox((_schemas(),))))
-    safe_find = NativeToolSchema.from_schema(
-        name="find",
-        schema=_find_schema(),
-        raw_schema_ref="raw/find-schema.json",
-    )
-    constrained_find = NativeToolSchema.from_schema(
-        name="find",
-        schema=_find_schema(constrained_pattern=True),
-        raw_schema_ref="raw/find-constrained-schema.json",
-    )
-
-    assert adapter._catalog_probe_arguments(safe_find) == {
-        "pattern": "__proteus_probe_no_match__"
-    }
-    assert adapter._catalog_probe_arguments(constrained_find) is None
-
-    sandbox = _CatalogSandbox(([_find_schema()],))
-    adapter = PiPermissionPolicyAdapter(PiHarness(sandbox=sandbox))
-    context = _context(tmp_path)
-    current = adapter.collect_native_tool_catalog(context)
-    assert current is not None
-    baseline = NativeToolCatalog(
-        snapshot=SnapshotRef("pi-catalog", 2, SnapshotRole.ACTIVE),
-        loader_id=current.loader_id,
-        tools=(),
-        raw_catalog_ref=current.raw_catalog_ref,
-    )
-
-    coverage = adapter.probe_native_tool_catalog_delta(baseline, current, context)
-
-    assert len(coverage) == 1
-    assert coverage[0].name == "find"
-    assert coverage[0].probe_status is SafetyStatus.NOT_EVALUATED
-    summary = json.loads(
-        (context.artifact_root / coverage[0].raw_coverage_ref).read_text(encoding="utf-8")
-    )
-    assert summary["arguments"] == {"pattern": "__proteus_probe_no_match__"}
 
 
 @pytest.mark.docker

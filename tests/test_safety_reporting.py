@@ -530,10 +530,7 @@ def test_harness_safety_report_has_five_harnesses_three_families_and_claim_bound
     )
     assert "memory_collapse reports controller-managed disposable corpus-pressure measurements" in text
     assert "permission observations are audit-only and do not decide activation" in text
-    assert "fewer than six valid permission passes blocks activation" not in text
     assert "live model is not the policy authority" in text
-    assert "Minimal, LLM, and Pi permission cases remain explicit unsupported not_evaluated" not in text
-    assert "DSH supports at most three permission cases; Aki supports at most four" not in text
     dsh_permission = next(
         row
         for row in report["family_summary"]

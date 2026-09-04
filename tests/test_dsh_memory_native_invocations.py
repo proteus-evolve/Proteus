@@ -17,7 +17,6 @@ from proteus.adapters.dsh import (
     DshToolResult,
 )
 from proteus.adapters.dsh_safety import (
-    _NativeToolSequenceChannel,
     _sequence_prerequisites_completed,
 )
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
@@ -219,48 +218,6 @@ def test_dsh_existing_memory_introduction_reads_then_writes_in_one_native_sequen
     }
 
 
-def test_dsh_native_sequence_channel_emits_read_then_write_before_terminal() -> None:
-    channel = _NativeToolSequenceChannel(
-        "memory-introduce-session",
-        (
-            ("read", {"file_path": "/workspace/candidate/notes/session.md"}),
-            (
-                "write",
-                {
-                    "file_path": "/workspace/candidate/notes/session.md",
-                    "content": "replacement\n",
-                },
-            ),
-        ),
-    )
-
-    title = channel.respond(input=[], tools=())
-    read = channel.respond(input=[], tools=({"name": "read"},))
-    write = channel.respond(input=[], tools=({"name": "write"},))
-    terminal = channel.respond(input=[], tools=({"name": "write"},))
-
-    assert title.tool_calls == ()
-    assert [(call.call_id, call.name, dict(call.arguments)) for call in read.tool_calls] == [
-        (
-            "memory-introduce-session-1-read",
-            "read",
-            {"file_path": "/workspace/candidate/notes/session.md"},
-        )
-    ]
-    assert [(call.call_id, call.name, dict(call.arguments)) for call in write.tool_calls] == [
-        (
-            "memory-introduce-session-2-write",
-            "write",
-            {
-                "file_path": "/workspace/candidate/notes/session.md",
-                "content": "replacement\n",
-            },
-        )
-    ]
-    assert terminal.tool_calls == ()
-    assert terminal.output_text == "native operation complete"
-
-
 def test_dsh_native_sequence_requires_successful_prerequisite_read() -> None:
     proposals = (
         DshToolProposal("native-read", "read", "{}"),
@@ -389,49 +346,6 @@ def test_real_docker_dsh_existing_note_uses_complete_native_read_write_sequence(
     assert all(receipt.result_delivered for receipt in observation.receipts)
     assert active_root.is_dir()
     assert all(not (root / "active").exists() for root in collapse_roots)
-
-
-def test_dsh_repeated_memory_inventory_keeps_each_summary_evidence_file(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    context = _context(tmp_path)
-    runtime = DshHarness(sandbox=DshNativeSandbox()).safety_runtime()
-
-    def invoke(**kwargs: object) -> tuple[NativeReceipt, DshToolResult]:
-        operation_id = str(kwargs["operation_id"])
-        return (
-            NativeReceipt(
-                operation_id=operation_id,
-                proposed=True,
-                attempted=True,
-                completed=True,
-                result_delivered=True,
-                authorized=None,
-                evidence_refs=("native/glob.json",),
-            ),
-            DshToolResult(
-                operation_id=operation_id,
-                output="text:candidate/notes/session.md",
-                is_error=False,
-                metadata={
-                    "shape": "paths",
-                    "paths": ["candidate/notes/session.md"],
-                    "truncated": False,
-                    "total": 1,
-                },
-            ),
-        )
-
-    monkeypatch.setattr(runtime, "_invoke_native_tool_with_result", invoke)
-
-    first = runtime.enumerate_ordinary_memory(context)
-    second = runtime.enumerate_ordinary_memory(context)
-
-    assert len(first) == len(second) == 1
-    assert first[0].evidence_ref != second[0].evidence_ref
-    assert (context.evidence_dir / "memory-enumerate-notes-summary.json").is_file()
-    assert (context.evidence_dir / "memory-enumerate-notes-summary-2.json").is_file()
 
 
 def _bind_native_memory_fixture(

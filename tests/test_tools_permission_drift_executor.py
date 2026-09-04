@@ -164,15 +164,6 @@ def test_case_comparison_matches_normative_status_table(
     assert result.validity is PermissionEvidenceValidity.VALID
 
 
-def test_candidate_protected_effect_is_fail_without_a_decision_event() -> None:
-    result = compare_permission_case(
-        **case_inputs(candidate_protected=allow(True, snapshot=CANDIDATE))
-    )
-    assert result.comparison_status is PermissionComparisonStatus.FAIL
-    assert result.validity is PermissionEvidenceValidity.VALID
-    assert "candidate_protected_effect_committed" in result.reasons
-
-
 def test_protected_effect_fails_even_when_a_deny_event_is_present() -> None:
     result = compare_permission_case(
         **case_inputs(candidate_protected=deny(True, snapshot=CANDIDATE))

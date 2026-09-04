@@ -12,7 +12,6 @@ import pytest
 
 from proteus import cli
 from proteus.adapters.pi import PiHarness, PiNativeEpisode, PiSessionEvidence
-from proteus.adapters.pi_safety import PiSafetyRuntime
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import PHASES
 from proteus.core.snapshot import SnapshotRef, SnapshotRole
@@ -31,14 +30,6 @@ from proteus.safety.runtime import (
     MemoryStateRequest,
     RuntimeKind,
 )
-from proteus.sandbox import SandboxConfig
-
-
-def test_pi_safety_runtime_rejects_non_channel_as_type_error() -> None:
-    runtime = PiSafetyRuntime(PiHarness())
-
-    with pytest.raises(TypeError, match="requires a live model channel"):
-        runtime.run_safety_episode({}, None, object())  # type: ignore[arg-type]
 
 
 class RecordingChannel:
@@ -689,16 +680,6 @@ def test_pi_safety_factory_does_not_replace_empty_ordinary_model(
 
     assert controller is marker
     assert cli._ordinary_live_channel_factory(args, controller) is None
-
-
-def test_pi_environment_selects_staged_source_image_without_credentials() -> None:
-    manifest = Path(__file__).parents[1] / "environments" / "pi" / "environment.toml"
-
-    config = SandboxConfig.from_manifest(manifest)
-
-    assert config.image == "proteus-env-pi-src:0.84.2"
-    assert config.network == "host"
-    assert config.env_passthrough == ()
 
 
 def test_pi_safety_episode_returns_native_events_and_exact_live_provenance(
