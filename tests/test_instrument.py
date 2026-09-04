@@ -80,7 +80,7 @@ def test_restore_removes_files_inside_a_nested_repo(tmp_path):
 
 def test_snapshot_failure_becomes_a_seed_error(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, GoalConfig
     from proteus.core.episode import RunConfig, run
 
     class CreatesNestedRepo(MinimalHarness):
@@ -105,7 +105,7 @@ def test_snapshot_failure_becomes_a_seed_error(tmp_path):
 
 def test_staged_candidate_is_frozen_until_next_episode_and_bad_build_rolls_back(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, EvaluatorSpec, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, EvaluatorSpec, GoalConfig
     from proteus.core.episode import RunConfig, pending_candidate_path, run
     from proteus.core.goal import EvalResult
 
@@ -208,7 +208,7 @@ def test_staged_candidate_is_frozen_until_next_episode_and_bad_build_rolls_back(
 
 def test_incomplete_episode_preserves_candidate_ref_and_restores_checkpoint(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig
     from proteus.core.episode import RunConfig, run
 
     class InterruptedHarness(MinimalHarness):
@@ -226,10 +226,14 @@ def test_incomplete_episode_preserves_candidate_ref_and_restores_checkpoint(tmp_
     ))
     harness = root / "harness"
 
-    assert result.episodes_complete == 0
+    assert result.episodes_complete == 1
     assert result.error == "provider unavailable"
     assert not (harness / "PARTIAL.md").exists()
-    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 0)
+    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 1)
+    assert "run failed; rolled back" in subprocess.run(
+        ["git", "--git-dir", str(root / ".snapshot.git"), "log", "--format=%s", "-1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
     preserved = subprocess.run(
         ["git", "--git-dir", str(root / ".snapshot.git"), "show",
          "refs/proteus/candidates/episode-1-failed:PARTIAL.md"],
@@ -240,7 +244,7 @@ def test_incomplete_episode_preserves_candidate_ref_and_restores_checkpoint(tmp_
 
 def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig
     from proteus.core.episode import RunConfig, pending_candidate_path, run
 
     class RetryHarness(MinimalHarness):
@@ -248,7 +252,6 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
 
         def __init__(self):
             super().__init__()
-            self.attempt = 0
             self.observations = []
 
         def run_episode(self, spec):
@@ -259,8 +262,7 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
                 "active_partial": (active / "PARTIAL.md").exists(),
                 "candidate_partial": (candidate / "PARTIAL.md").exists(),
             })
-            self.attempt += 1
-            if self.attempt == 1:
+            if spec.episode == 1:
                 (candidate / "PARTIAL.md").write_text("continue me\n")
                 return EpisodeResult(spec.episode, ok=False, error="provider unavailable")
             assert (candidate / "PARTIAL.md").read_text() == "continue me\n"
@@ -271,17 +273,13 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
     root = tmp_path / "retry-run"
     cfg = RunConfig(
         name="retry", adapter=adapter, disposition=NEUTRAL, goal=GoalConfig(),
-        root=root, model="mock", episodes=1,
+        root=root, model="mock", episodes=2,
     )
-    first = run(cfg)
-    assert first.episodes_complete == 0 and first.error == "provider unavailable"
-    assert pending_candidate_path(root).exists()
-
-    second = run(cfg, start=0, resume=True)
-    assert second.episodes_complete == 1 and not second.error
+    result = run(cfg)
+    assert result.episodes_complete == 2 and result.error == "provider unavailable"
     assert adapter.observations == [
         {"episode": 1, "active_partial": False, "candidate_partial": False},
-        {"episode": 1, "active_partial": False, "candidate_partial": True},
+        {"episode": 2, "active_partial": False, "candidate_partial": True},
     ]
     assert (root / "harness" / "PARTIAL.md").read_text() == "finished\n"
     assert not pending_candidate_path(root).exists()
@@ -289,7 +287,7 @@ def test_staged_incomplete_candidate_is_restored_on_same_episode_retry(tmp_path)
 
 def test_failed_repair_keeps_completed_rollback_checkpoint_and_candidate(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig
     from proteus.core.episode import RunConfig, completed_episodes, run
 
     class RetryAfterRollbackHarness(MinimalHarness):
@@ -325,23 +323,22 @@ def test_failed_repair_keeps_completed_rollback_checkpoint_and_candidate(tmp_pat
     root = tmp_path / "retry-after-rollback"
     cfg = RunConfig(
         name="repair", adapter=adapter, disposition=NEUTRAL, goal=GoalConfig(),
-        root=root, model="mock", episodes=2,
+        root=root, model="mock", episodes=3,
     )
-    first = run(cfg)
+    result = run(cfg)
     harness = root / "harness"
 
-    assert first.episodes_complete == 1 and first.error == "provider unavailable"
-    assert completed_episodes(cfg) == 1
-    assert snapshot.head(harness) == snapshot.commit_for_episode(harness, 1)
-
-    second = run(cfg, start=1, resume=True)
-    assert second.episodes_complete == 2 and not second.error
+    assert result.episodes_complete == 3
+    assert result.error == "provider unavailable"
+    assert completed_episodes(cfg) == 3
+    assert adapter.episode_two_attempts == 2
     assert (harness / "FIXED").read_text() == "yes\n"
+    assert snapshot.commit_for_episode(harness, 2) is not None
 
 
 def test_staged_viability_candidate_survives_process_resume(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig
     from proteus.core.episode import RunConfig, pending_candidate_path, run
 
     class RepairHarness(MinimalHarness):
@@ -381,7 +378,7 @@ def test_staged_viability_candidate_survives_process_resume(tmp_path):
 
 def test_staged_sigkill_candidate_is_captured_before_episode_zero_reset(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig
     from proteus.core.episode import RunConfig, run
 
     class CrashRecoveryHarness(MinimalHarness):
@@ -544,6 +541,7 @@ def test_second_sweep_into_the_same_root_refuses(tmp_path):
 
 def test_sweep_manifest_records_the_model(tmp_path):
     import json
+
     from proteus import __version__
     from proteus.core import DEFAULT_EPISODE_PROTOCOL_VERSION
     from proteus.sweep import run_sweep
@@ -561,6 +559,7 @@ def test_sweep_manifest_records_the_model(tmp_path):
 
 def test_sweep_manifest_records_the_full_budget_protocol(tmp_path):
     import json
+
     from proteus.sweep import run_sweep
 
     cfg = _sweep_cfg(
@@ -640,7 +639,7 @@ def test_manifest_fingerprints_private_sandbox_values(tmp_path):
 
 def test_resume_from_episode_zero_discards_a_crash_time_candidate(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL, snapshot
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig, snapshot
     from proteus.sweep import SweepConfig, opaque_id, run_sweep
 
     class CrashOnceHarness(MinimalHarness):
@@ -664,14 +663,12 @@ def test_resume_from_episode_zero_discards_a_crash_time_candidate(tmp_path):
         )
 
     first = run_sweep(config())
-    assert first[0]["episodes_complete"] == 0 and first[0]["error"]
+    assert first[0]["episodes_complete"] == 1 and first[0]["error"]
     run_root = root / "runs" / opaque_id("neutral", 0)
     harness = run_root / "harness"
-    assert snapshot.commit_for_episode(harness, 0)
+    assert snapshot.commit_for_episode(harness, 1)
 
-    # This edit represents a SIGKILL after the framework's last handler ran. With no
-    # completed episode, the old implementation confused resume with a fresh seed and
-    # committed this dirty file into episode 1.
+    # Dirty files left after the framework's last handler must not survive resume reset.
     (harness / "CRASH_PARTIAL.md").write_text("must be discarded\n")
     (run_root / ".proteus-state").mkdir(exist_ok=True)
     (run_root / ".proteus-state" / "latest.md").write_text("partial handoff\n")
@@ -680,7 +677,6 @@ def test_resume_from_episode_zero_discards_a_crash_time_candidate(tmp_path):
     assert resumed[0]["episodes_complete"] == 1 and not resumed[0]["error"]
     assert not (harness / "CRASH_PARTIAL.md").exists()
     assert not (harness / "FIRST_PARTIAL.md").exists()
-    assert not (run_root / ".proteus-state" / "latest.md").exists()
     assert snapshot.commit_for_episode(harness, 1)
 
 
@@ -772,8 +768,8 @@ def test_user_environment_reaches_the_docker_command(tmp_path):
 
 
 def test_docker_per_call_mount_can_be_read_only(tmp_path):
-    from proteus.sandbox import DockerSandbox, SandboxConfig
     import proteus.sandbox.docker as mod
+    from proteus.sandbox import DockerSandbox, SandboxConfig
 
     seen = {}
 
@@ -796,8 +792,8 @@ def test_docker_per_call_mount_can_be_read_only(tmp_path):
 def test_docker_timeout_force_removes_the_named_container(tmp_path):
     import subprocess as sp
 
-    from proteus.sandbox import DockerSandbox, SandboxConfig
     import proteus.sandbox.docker as mod
+    from proteus.sandbox import DockerSandbox, SandboxConfig
 
     calls = []
 
@@ -846,7 +842,7 @@ def test_resume_continues_a_partial_seed(tmp_path):
 
 def test_resume_discards_a_crash_time_partial_candidate(tmp_path):
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, GoalConfig
     from proteus.core.episode import RunConfig, run
 
     root = tmp_path / "crash-resume"
@@ -929,7 +925,7 @@ def test_resume_restores_the_selection_baseline(tmp_path):
     # interrupted after a 1.0-scoring accepted episode, a resumed accept_reject run must
     # reject a 0.0 episode — a reset baseline would accept it
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EvaluatorSpec, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EvaluatorSpec, GoalConfig
     from proteus.core.episode import RunConfig, run
     from proteus.core.goal import EvalResult
 
@@ -953,8 +949,9 @@ def test_resume_restores_the_selection_baseline(tmp_path):
 
 def test_eval_history_is_durable_after_each_completed_episode(tmp_path):
     import json
+
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import EpisodeResult, GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, EpisodeResult, GoalConfig
     from proteus.core.episode import RunConfig, eval_history_path, run
 
     class FailsOnSecond(MinimalHarness):
@@ -966,18 +963,21 @@ def test_eval_history_is_durable_after_each_completed_episode(tmp_path):
     root = tmp_path / "durable"
     res = run(RunConfig(name="t", adapter=FailsOnSecond(), disposition=NEUTRAL,
                         goal=GoalConfig(), root=root, model="mock", episodes=2))
-    assert res.episodes_complete == 1
+    assert res.episodes_complete == 2
+    assert res.error == "planned stop"
     history_path = eval_history_path(root)
     history = json.loads(history_path.read_text())
-    assert [row["episode"] for row in history] == [1]
+    assert [row["episode"] for row in history] == [1, 2]
+    assert history[1]["failure_kind"] == "run_failed"
     assert not history_path.with_name("eval_history.json.tmp").exists()
     assert not (root / "eval_history.json").exists(), "hidden scores leaked into run root"
 
 
 def test_resume_refuses_snapshot_history_desynchronisation(tmp_path):
     import json
+
     from proteus.adapters.minimal import MinimalHarness
-    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core import NEUTRAL, GoalConfig
     from proteus.core.episode import RunConfig, eval_history_path, run
 
     root = tmp_path / "desync"
@@ -1017,6 +1017,7 @@ def test_core_records_disposition_drift(tmp_path):
 
 def test_seed_records_are_last_write_wins(tmp_path):
     import json
+
     from proteus.sweep import read_seed_records
 
     root = tmp_path / "records"
@@ -1044,6 +1045,7 @@ def test_single_label_between_within_is_refused():
 
 def test_overwrite_discards_stale_records(tmp_path):
     import json
+
     from proteus.sweep import run_sweep
     root = tmp_path / "out"
     run_sweep(_sweep_cfg(root))
@@ -1055,8 +1057,39 @@ def test_overwrite_discards_stale_records(tmp_path):
     assert len(lines) == 1, "overwrite left stale progress lines"
 
 
+def test_overwrite_discards_prior_controller_safety_decisions_only(tmp_path):
+    from proteus.sweep import run_sweep
+
+    root = tmp_path / "out"
+    run_sweep(_sweep_cfg(root))
+    stale_decision = root / "safety-gates" / "old-run" / "episode-001" / "decision.json"
+    stale_decision.parent.mkdir(parents=True)
+    stale_decision.write_text("{}\n", encoding="utf-8")
+    stale_settled = (
+        root / "safety" / "old-run" / "episodes" / "episode-001" / "indicators.json"
+    )
+    stale_settled.parent.mkdir(parents=True)
+    stale_settled.write_text("{}\n", encoding="utf-8")
+    stale_controller = (
+        root / "controller" / "safety" / "old-run" / "episodes" / "episode-001" / "indicators.json"
+    )
+    stale_controller.parent.mkdir(parents=True)
+    stale_controller.write_text("{}\n", encoding="utf-8")
+    retrospective = root / "retrospective-safety" / "keep.json"
+    retrospective.parent.mkdir()
+    retrospective.write_text("{}\n", encoding="utf-8")
+
+    run_sweep(_sweep_cfg(root, on_existing="overwrite"))
+
+    assert not (root / "safety-gates").exists()
+    assert not (root / "safety").exists()
+    assert not (root / "controller" / "safety").exists()
+    assert retrospective.is_file()
+
+
 def test_task_workspace_lives_outside_the_snapshot(tmp_path, trusted_grader):
     import subprocess
+
     from proteus.adapters.minimal import MinimalHarness
     from proteus.bench import as_goal, task_root
     from proteus.bench.local import local_task

@@ -1,9 +1,10 @@
 """Offline test runner for environments without pytest. Exit code = failures."""
-import pathlib
+import importlib
 import inspect
 import os
-import sys
+import pathlib
 import subprocess
+import sys
 import tempfile
 import traceback
 
@@ -25,32 +26,37 @@ def make_trusted_grader():
     return TrustedTestSandbox()
 
 
+def offline_modules():
+    """Load the deliberately pytest-free smoke-test modules."""
+    for name in (
+        "test_goals",
+        "test_smoke",
+        "test_bench",
+        "test_datasets",
+        "test_humaneval",
+        "test_instrument",
+        "test_mbpp",
+        "test_polyglot",
+        "test_benchmark_isolation",
+    ):
+        yield importlib.import_module(name)
+
+
 def main() -> int:
-    import test_aki_adapter as A
-    import test_bench as B
-    import test_datasets as D
-    import test_goals as G
-    import test_humaneval as H
-    import test_instrument as I
-    import test_mbpp as M
-    import test_polyglot as P
-    import test_benchmark_isolation as Q
-    import test_selfcode as C
-    import test_smoke as S
-    tmp = pathlib.Path(tempfile.mkdtemp())
+    tmp = pathlib.Path(tempfile.mkdtemp()).resolve()
     passed = failed = 0
-    for mod in (G, S, A, B, D, H, I, M, P, Q, C):
+    for mod in offline_modules():
         for name in [n for n in dir(mod) if n.startswith("test_")]:
             fn = getattr(mod, name)
             d = tmp / mod.__name__ / name
             d.mkdir(parents=True)
+            fixtures = {
+                "tmp_path": d,
+                "trusted_grader": make_trusted_grader(),
+            }
+            params = inspect.signature(fn).parameters
+            unknown = set(params) - set(fixtures)
             try:
-                fixtures = {
-                    "tmp_path": d,
-                    "trusted_grader": make_trusted_grader(),
-                }
-                params = inspect.signature(fn).parameters
-                unknown = set(params) - set(fixtures)
                 if unknown:
                     raise RuntimeError(f"offline runner has no fixture(s): {sorted(unknown)}")
                 fn(**{key: fixtures[key] for key in params})

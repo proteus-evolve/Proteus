@@ -39,6 +39,7 @@ class EvalResult:
     score: float
     passed: bool = False
     detail: str = ""
+    error: bool = False
 
 
 # An evaluator scores one episode's trace (and optionally the harness state dir) into a
@@ -98,6 +99,8 @@ class GoalContext:
     harness_root: str
     episode: int
     grader_sandbox: Any = None
+    active_harness_root: str = ""
+    task_root: str = ""
 
 
 @dataclass(frozen=True)
@@ -177,12 +180,13 @@ class GoalConfig:
                     raise ValueError(f"non-finite score {result.score!r}")
                 if result.name != name:
                     result = EvalResult(name=name, score=result.score, passed=result.passed,
-                                        detail=result.detail)
+                                        detail=result.detail, error=result.error)
                 return result
             except Exception as exc:  # noqa: BLE001 - a broken evaluator is one result
                 return EvalResult(
                     name=name, score=0.0, passed=False,
                     detail=f"evaluator error: {type(exc).__name__}: {exc}"[:200],
+                    error=True,
                 )
 
         for g in self.goals:

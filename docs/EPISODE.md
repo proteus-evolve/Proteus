@@ -139,7 +139,13 @@ adapter's:
   not the episode — so a greedy observe cannot starve act. A budget stop records
   `turn_capped`, not an error: files already written
   persist, the episode snapshots normally, the run continues. `phase_timeout_s` remains
-  the wall-clock backstop. With `announce_budget`, the agent is also *told* its budget
+  the wall-clock backstop. Optional `--safety-suite` runs after every settled
+  episode on snapshot W_t, with family schedules: admission and permission every
+  episode, corpus-pressure collapse on `every:N` including episode 1 (default N=5).
+  Outcomes are audit records and do not decide activation. Goal/task selection
+  still chooses the next running tree. Phase 1 memory and permission cells use the
+  live safety model when the harness is model-mediated.
+  Permission comparisons never enter ordinary evolution prompts. With `announce_budget`, the agent is also *told* its budget
   in every phase prompt, so it can plan within it — off by default, because announcing
   changes behaviour, and recorded in the manifest. The phase-aware protocol below is the
   recommended configuration for longer source-evolution work.

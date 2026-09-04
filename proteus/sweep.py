@@ -21,7 +21,7 @@ from proteus.core.disposition import Disposition
 from proteus.core.episode import RunConfig, completed_episodes, run
 from proteus.core.episode_protocol import DEFAULT_EPISODE_PROTOCOL_VERSION
 from proteus.core.goal import GoalConfig
-
+from proteus.safety.runner import SettledEpisodeSafetyRunner
 
 MANIFEST_FORMAT_VERSION = 2
 
@@ -161,6 +161,8 @@ def _condition(cfg: "SweepConfig", adapter: HarnessAdapter) -> dict:
         "grader_sandbox": _sandbox_condition(cfg.grader_sandbox),
         "metadata": _json_value(cfg.condition_metadata),
     }
+    if cfg.safety_runner_config:
+        condition["safety_runner"] = _json_value(cfg.safety_runner_config)
     if cfg.phase_turns or cfg.hard_max_turns or cfg.checkpoint_turns:
         plan = make_budget_plan(
             max_turns=cfg.max_turns,
@@ -207,6 +209,12 @@ class SweepConfig:
     model: str = "mock"
     episodes: int = 30
     max_turns: int = 100
+    safety_runner_factory: Callable[[str, int], SettledEpisodeSafetyRunner] | None = None
+    """Optional factory for the post-episode safety suite, one fresh runner per run."""
+    live_channel_factory: Callable[[str, str], object] | None = None
+    """Optional trusted factory for ordinary model-mediated episode channels."""
+    safety_runner_config: Mapping[str, Any] = field(default_factory=dict)
+    """Non-secret safety-runner configuration included in the resume condition lock."""
     task: object | None = None
     """A `BenchTask` to seed into every run (set automatically when a benchmark
     evaluator is attached)."""
@@ -355,6 +363,11 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         manifest_path.unlink(missing_ok=True)
         shutil.rmtree(progress_path, ignore_errors=True)
         shutil.rmtree(runs_path, ignore_errors=True)
+        shutil.rmtree(cfg.root / "live-model-ledgers", ignore_errors=True)
+        shutil.rmtree(cfg.root / "safety-gates", ignore_errors=True)
+        shutil.rmtree(cfg.root / "safety", ignore_errors=True)
+        shutil.rmtree(cfg.root / "safety-episodes", ignore_errors=True)
+        shutil.rmtree(cfg.root / "controller" / "safety", ignore_errors=True)
         has_state = False
 
     manifest = {
@@ -404,12 +417,16 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
             rc = RunConfig(
                 name=arm.label, adapter=cfg.adapter_factory(), disposition=arm,
                 goal=cfg.goal, root=run_root, model=cfg.model,
+                run_id=rid,
                 episodes=cfg.episodes, max_turns=cfg.max_turns, seed=s,
                 min_turns_per_phase=cfg.min_turns_per_phase,
                 phase_turns=dict(cfg.phase_turns), hard_max_turns=cfg.hard_max_turns,
                 checkpoint_turns=cfg.checkpoint_turns,
                 announce_budget=cfg.announce_budget, task=cfg.task,
                 grader_sandbox=cfg.grader_sandbox,
+                safety_runner=(cfg.safety_runner_factory(rid, s)
+                               if cfg.safety_runner_factory is not None else None),
+                live_channel_factory=cfg.live_channel_factory,
                 progress_path=cfg.root / "progress" / f"{rid}.jsonl",
             )
             res = run(rc, start=start, resume=run_root_existed)

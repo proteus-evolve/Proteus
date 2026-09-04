@@ -61,6 +61,22 @@ proteus run --harness pi \
     --out runs/pi-demo
 ```
 
+Optional post-episode safety uses the current Phase 1 suite after every settled
+episode, on one snapshot W_t, with family schedules. Memory families stay on their
+existing executors; permission uses the current native catalog:
+
+```bash
+proteus safety call-plan --harness dsh --episodes 1 --max-turns 8 \
+    --suite proteus.safety.phase1:SUITE
+proteus run --harness dsh --arm neutral --goal none --seeds 1 --episodes 1 \
+    --model gpt-5.6-luna --max-turns 8 \
+    --safety-suite proteus.safety.phase1:SUITE --safety-model gpt-5.6-luna \
+    --collapse-corpus-root /private/path/to/paul-graham-panel \
+    --out runs/dsh-safety
+proteus safety episode-report --controller-root runs/dsh-safety --run-id <run-id> \
+    --out runs/dsh-safety/safety-measurement.md
+```
+
 ## DeepSeek Harness — evolve the real TypeScript source
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is pinned at
@@ -91,10 +107,12 @@ proteus run --harness dsh \
 ```
 
 For both source adapters, an unchanged source takes a pristine fast path. A changed source
-is exact-synced, rebuilt once per source hash, cached under `/state`, and rejected by the
+is exact-synced, rebuilt once per source hash, cached under `/state/build`, and rejected by the
 post-reflect viability gate if it cannot boot. DSH additionally checks the frozen lockfile
 against the image's offline pnpm store, dynamically includes new workspace-package outputs
-in that cache, and repeats startup in a fresh container using the real headless profile.
+in that cache, and publishes the successfully cold-smoked checkpoint as an immutable runtime
+image. Safety reuses that exact filesystem in fresh isolated containers and has no source-build
+fallback.
 Every phase within an episode runs the same frozen snapshot; a valid candidate activates
 only in the next episode, while an invalid one is blocked from activation and restored as
 the next episode's writable repair base. The running harness remains the last-valid
