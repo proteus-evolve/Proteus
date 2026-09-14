@@ -76,6 +76,22 @@ if [ "${1:-}" = "--proteus-validate" ]; then
       exit 98
     fi
 
+    # Cargo fingerprints build-script environment values per profile. The image's
+    # release build used the checksum-verified files in /opt/rusty-v8 directly, while
+    # the prewarmed test profile used the stable aliases above. Restore the release
+    # build's exact paths here so an unrelated source edit does not relink V8 and the
+    # code-mode host on every boundary validation.
+    RELEASE_V8_ARCHIVE="$(find /opt/rusty-v8 -maxdepth 1 -type f \
+        -name 'librusty_v8_*.a.gz' -print -quit)"
+    RELEASE_V8_BINDING="$(find /opt/rusty-v8 -maxdepth 1 -type f \
+        -name 'src_binding_*.rs' -print -quit)"
+    if [ -z "$RELEASE_V8_ARCHIVE" ] || [ -z "$RELEASE_V8_BINDING" ]; then
+      echo "Pinned Codex release V8 inputs are missing" >&2
+      exit 97
+    fi
+    export RUSTY_V8_ARCHIVE="$RELEASE_V8_ARCHIVE"
+    export RUSTY_V8_SRC_BINDING_PATH="$RELEASE_V8_BINDING"
+
     BUILD_LOG="$OUTPUT/build.log"
     if ! (cd /opt/src/codex-rs \
           && cargo build --locked -p codex-cli -p codex-code-mode-host --release) \

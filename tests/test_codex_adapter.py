@@ -113,6 +113,11 @@ def test_boot_gate_is_offline_single_job_and_mtime_safe():
     assert '"$OUTPUT/codex"' in boot
     assert '"$STATE/bin"' not in boot
     assert "codex-code-mode-host" in boot
+    # Preserve the image's profile-specific V8 build-script fingerprints: test uses
+    # the stable aliases, while release uses the checksum-verified source paths.
+    assert "RELEASE_V8_ARCHIVE" in boot and "RELEASE_V8_BINDING" in boot
+    assert "find /opt/rusty-v8 -maxdepth 1 -type f" in boot
+    assert boot.index("RELEASE_V8_ARCHIVE") > boot.index("cargo test --locked")
 
 
 def test_boot_gate_runs_as_root_but_phases_do_not_install():
