@@ -79,9 +79,11 @@ RUN cd /opt/src/codex-rs \
 # Compute its hash through the entrypoint helper so image and controller framing cannot drift.
 COPY boot.sh /usr/local/bin/proteus-codex
 RUN chmod +x /usr/local/bin/proteus-codex \
+    && printf '%s\n' "${CARGO_BUILD_JOBS:-1}" > /opt/proteus-cargo-build-jobs \
     && tar --exclude=.git --exclude=target -cf /opt/codex-source.tar -C /opt/src . \
     && cp -a /usr/local/cargo /opt/cargo-home-seed \
     && proteus-codex --proteus-source-hash /opt/src > /opt/codex-source.sha256 \
     && chmod -R a+rX /opt/cargo-home-seed /opt/codex-target /opt/src /opt/codex-source.tar \
-                      /opt/codex-source.sha256 /opt/rusty-v8-archive.a.gz /opt/rusty-v8-binding.rs
+                      /opt/codex-source.sha256 /opt/proteus-cargo-build-jobs \
+                      /opt/rusty-v8-archive.a.gz /opt/rusty-v8-binding.rs
 ENTRYPOINT ["/usr/local/bin/proteus-codex"]

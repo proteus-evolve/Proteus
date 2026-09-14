@@ -102,6 +102,7 @@ def test_boot_gate_is_offline_single_job_and_mtime_safe():
     boot = _joined(_repo_file("environments", "codex-src", "boot.sh"))
     assert "CARGO_NET_OFFLINE=true" in boot
     assert "CARGO_BUILD_JOBS" in boot
+    assert "/opt/proteus-cargo-build-jobs" in boot
     assert "CARGO_HOME=/usr/local/cargo" in boot
     # the changed candidate is overlaid onto the image-baked /opt/src by content
     # (--checksum) with no timestamp trust, keeping Cargo fingerprints valid
@@ -185,6 +186,21 @@ def test_boundary_validation_uses_read_only_source_and_separate_output(tmp_path)
     assert all(mount[1] not in {"/state", "/codex-state"} for mount in mounts)
     source_hash, publication = adapter._publication_for(tmp_path, harness)
     assert adapter._publication_is_valid(publication, source_hash)
+
+
+def test_boundary_validation_timeout_is_a_viability_error(tmp_path):
+    harness = tmp_path / "harness"
+    source = harness / "src" / "codex-rs"
+    source.mkdir(parents=True)
+    (source / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            raise subprocess.TimeoutExpired(command, timeout_s)
+
+    error = CodexHarness(sandbox=Sandbox()).check_boot(harness)
+
+    assert error == f"self-edited Codex source build timed out after {BOOT_TIMEOUT_S}s"
 
 
 def test_source_hash_tracks_symlink_targets(tmp_path):
@@ -297,6 +313,7 @@ def test_dockerfile_prewarms_test_profile_for_gate():
     assert cmd in dockerfile
     assert dockerfile.index(cmd) < dockerfile.index("codex-source.tar")
     assert "codex-code-mode-host" in dockerfile
+    assert "/opt/proteus-cargo-build-jobs" in dockerfile
     boot = _repo_file("environments", "codex-src", "boot.sh")
     assert "-type l" in boot and "readlink -z" in boot
     assert "proteus-codex --proteus-source-hash /opt/src" in dockerfile
@@ -312,7 +329,7 @@ def test_dockerfile_and_build_docs_pin_linux_amd64():
 
 
 def test_boot_timeout_and_image_tag():
-    assert BOOT_TIMEOUT_S == 3600
+    assert BOOT_TIMEOUT_S == 7200
     # adapter default image tag must match the documented build tag
     assert IMAGE == "proteus-env-codex-src:test-compile"
     readme = _repo_file("environments", "codex-src", "README.md")

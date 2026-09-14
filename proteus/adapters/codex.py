@@ -30,10 +30,10 @@ from proteus.core.disposition import Disposition
 IMAGE = os.environ.get("PROTEUS_CODEX_IMAGE", "proteus-env-codex-src:test-compile")
 PHASE_TIMEOUT_S = 900
 #: The candidate boundary compiles the changed Rust source twice (test profile, then
-#: release) as container root against the image's baked Cargo cache, so it is normally
-#: incremental. The generous bound only widens the wait on slow/shared hosts; the
-#: build-success condition itself is not relaxed.
-BOOT_TIMEOUT_S = 3600
+#: release) as container root against the image's baked Cargo cache. A high-fanout core
+#: edit still has to ThinLTO-link Codex's large release binaries; that took more than one
+#: hour on a 2-vCPU smoke host, so leave enough room for the valid build to finish.
+BOOT_TIMEOUT_S = 7200
 SOURCE_TAR = "/opt/codex-source.tar"
 
 SEED_INSTRUCTIONS = """\
@@ -270,12 +270,16 @@ class CodexHarness:
                 prefix=".validation-", dir=publication.parent
             ) as output_name:
                 output = Path(output_name)
-                proc = self._boundary_sandbox().run(
-                    run_root, ["--proteus-validate", source_hash], env={},
-                    timeout_s=BOOT_TIMEOUT_S,
-                    mounts=((str(harness), "/workspace", "ro"),
-                            (str(output), "/output")),
-                )
+                try:
+                    proc = self._boundary_sandbox().run(
+                        run_root, ["--proteus-validate", source_hash], env={},
+                        timeout_s=BOOT_TIMEOUT_S,
+                        mounts=((str(harness), "/workspace", "ro"),
+                                (str(output), "/output")),
+                    )
+                except subprocess.TimeoutExpired:
+                    return (f"self-edited Codex source build timed out after "
+                            f"{BOOT_TIMEOUT_S}s"), publication
                 if proc.returncode != 0:
                     detail = proc.stderr or proc.stdout or ""
                     return (f"self-edited Codex source does not build/boot "
