@@ -7,26 +7,37 @@ an exact source tar at `/opt/codex-source.tar`. Each Proteus run extracts that t
 
 During an episode, the frozen active harness is mounted read-only at `/workspace` and the
 candidate is mounted at `/workspace/candidate`. Model-driven phases run as the host user and
-only *execute* the last validated Codex binaries, which live in the run-private
-`/state/bin/`. A failed candidate therefore cannot replace the active runtime.
+only execute the binary pair for the active source hash. The controller mounts that exact
+`.codex-builds/<source-hash>/` directory read-only at `/opt/proteus-bin`; authentication,
+sessions, PATH aliases, and app-server state remain in the separate writable `.codex-state`.
+A candidate therefore cannot replace the executable used by a later phase.
 
-The candidate-boundary gate runs as **container root**: it overlays the changed source onto
-the image's baked `/opt/src` and compiles with the image's own Cargo home and target dir
-(`/usr/local/cargo`, `/opt/codex-target`) — the exact paths the image cache was built with —
+The candidate-boundary gate runs as **container root** in a clean `network=none` container.
+It receives only the candidate source as a read-only mount and a fresh output directory—no
+authentication, model environment, user mounts, or extra Docker arguments. It overlays the
+changed source onto the image's baked `/opt/src` and compiles with the image's own Cargo home
+and target dir (`/usr/local/cargo`, `/opt/codex-target`) — the exact paths the image cache was
+built with —
 so Cargo's fingerprints stay valid and only files whose contents really changed recompile
 (overlay uses `rsync --checksum`; snapshot mtimes are never trusted). Two stages run over
 the offline cache: `cargo test --lib --no-run` for `codex-tui`/`codex-core`/`codex-cli` (a
 release build skips `#[cfg(test)]` code, so this catches candidates whose test modules no
-longer compile), then the release build of `codex-cli` + `codex-code-mode-host`. Only the
-validated binary pair is published (atomically) to `/state/bin/`, and the image and host are
-never modified. The adapter allows up to 60 minutes for this boundary (`BOOT_TIMEOUT_S`);
-it only widens the wait, never the build-success condition.
+longer compile), then the release build of `codex-cli` + `codex-code-mode-host`. After the
+version probe succeeds, the controller checks the output and atomically caches it by source
+hash. Validation does not activate it: the next episode selects binaries from its frozen
+active snapshot, so an evaluator-rejected candidate cannot disturb the accepted runtime.
+The adapter allows up to 60 minutes for this boundary (`BOOT_TIMEOUT_S`); it only widens the
+wait, never the build-success condition.
 
 Build:
 
 ```bash
-docker build -t proteus-env-codex-src:test-compile environments/codex-src
+docker build --platform linux/amd64 \
+  -t proteus-env-codex-src:test-compile environments/codex-src
 ```
+
+This image is intentionally `linux/amd64`-only because the pinned OpenAI rusty-v8 artifact
+is `x86_64-unknown-linux-gnu`. Arm hosts need Docker's amd64 emulation for this build/run.
 
 Authentication options:
 

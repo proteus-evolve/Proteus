@@ -12,10 +12,12 @@ outside the snapshotted harness tree.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -152,29 +154,141 @@ class CodexHarness:
     def _boundary_sandbox(self):
         """Sandbox for model-free boundary validation.
 
-        Boundary compilation overlays the changed source onto the image's baked /opt/src
-        and owns its root-owned Cargo cache (/usr/local/cargo, /opt/codex-target), so it
-        must run as container root; the model-driven phases keep the host uid/gid via
-        ``self.sandbox``. When a caller injected a non-Docker sandbox (tests), reuse it.
+        Candidate build scripts and proc macros are untrusted. Keep their container off the
+        network and discard every model-phase mount, environment value, and Docker escape
+        hatch. Only resource limits and the image itself are safe to inherit. When a caller
+        injected a non-Docker sandbox (tests), reuse it.
         """
-        from dataclasses import replace
-        from proteus.sandbox import DockerSandbox
+        from proteus.sandbox import DockerSandbox, SandboxConfig
         if isinstance(self.sandbox, DockerSandbox):
-            return DockerSandbox(replace(self.sandbox.config, user=""))
+            config = self.sandbox.config
+            return DockerSandbox(SandboxConfig(
+                network="none",
+                image=config.image,
+                mem_limit=config.mem_limit,
+                cpus=config.cpus,
+                user="",
+            ))
         return self.sandbox
+
+    @staticmethod
+    def _source_hash(source: Path) -> str:
+        """Match the image/entrypoint's framed file and symlink hash."""
+        def file_hash(path: Path) -> bytes:
+            digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            return digest.hexdigest().encode("ascii")
+
+        source = Path(source)
+        records = hashlib.sha256()
+        entries = []
+        for parent, directories, files in os.walk(source, followlinks=False):
+            parent_path = Path(parent)
+            kept_directories = []
+            for name in directories:
+                path = parent_path / name
+                if path.is_symlink():
+                    entries.append((path.relative_to(source).as_posix(), path))
+                elif name not in {".git", "target"}:
+                    kept_directories.append(name)
+            directories[:] = kept_directories
+            for name in files:
+                path = parent_path / name
+                if path.is_file() or path.is_symlink():
+                    entries.append((path.relative_to(source).as_posix(), path))
+        for relative, path in sorted(entries, key=lambda item: os.fsencode(item[0])):
+            kind = b"L" if path.is_symlink() else b"F"
+            value = (os.fsencode(os.readlink(path))
+                     if path.is_symlink()
+                     else file_hash(path))
+            records.update(
+                kind + b"\0" + os.fsencode(f"./{relative}") + b"\0" + value + b"\0"
+            )
+        return records.hexdigest()
+
+    def _publication_for(self, run_root: Path, harness_root: Path) -> tuple[str, Path]:
+        source_hash = self._source_hash(Path(harness_root) / "src")
+        return source_hash, Path(run_root) / ".codex-builds" / source_hash
+
+    @staticmethod
+    def _publication_is_valid(path: Path, source_hash: str) -> bool:
+        try:
+            marker = path / "source.sha256"
+            binaries = (path / "codex", path / "codex-code-mode-host")
+            return (
+                marker.is_file()
+                and not marker.is_symlink()
+                and marker.read_text(encoding="utf-8").strip() == source_hash
+                and all(binary.is_file() and not binary.is_symlink()
+                        and binary.stat().st_size > 0 and os.access(binary, os.X_OK)
+                        for binary in binaries)
+            )
+        except OSError:
+            return False
+
+    def _publish_validation(self, output: Path, publication: Path, source_hash: str) -> None:
+        if self._publication_is_valid(publication, source_hash):
+            return
+        publication.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(
+            prefix=f".publish-{source_hash[:12]}-", dir=publication.parent
+        ))
+        try:
+            for name in ("codex", "codex-code-mode-host"):
+                source = output / name
+                if not source.is_file() or source.is_symlink() or source.stat().st_size == 0:
+                    raise RuntimeError(f"validation produced an invalid {name} executable")
+                target = staging / name
+                shutil.copy2(source, target)
+                target.chmod(0o755)
+            (staging / "source.sha256").write_text(source_hash + "\n", encoding="utf-8")
+            if publication.exists():
+                if self._publication_is_valid(publication, source_hash):
+                    return
+                raise RuntimeError(f"invalid existing Codex publication: {publication}")
+            try:
+                os.replace(staging, publication)
+            except OSError:
+                if not self._publication_is_valid(publication, source_hash):
+                    raise
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
+
+    def _ensure_validated(self, harness_root: Path, run_root: Path) -> tuple[str, Path]:
+        harness = Path(harness_root).resolve()
+        run_root = Path(run_root).resolve()
+        source_hash, publication = self._publication_for(run_root, harness)
+        if self._publication_is_valid(publication, source_hash):
+            return "", publication
+
+        publication.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with tempfile.TemporaryDirectory(
+                prefix=".validation-", dir=publication.parent
+            ) as output_name:
+                output = Path(output_name)
+                proc = self._boundary_sandbox().run(
+                    run_root, ["--proteus-validate", source_hash], env={},
+                    timeout_s=BOOT_TIMEOUT_S,
+                    mounts=((str(harness), "/workspace", "ro"),
+                            (str(output), "/output")),
+                )
+                if proc.returncode != 0:
+                    detail = proc.stderr or proc.stdout or ""
+                    return (f"self-edited Codex source does not build/boot "
+                            f"(exit {proc.returncode}): {detail[-1200:]}"), publication
+                self._publish_validation(output, publication, source_hash)
+        except (OSError, RuntimeError) as exc:
+            return f"could not publish validated Codex binaries: {exc}", publication
+        return "", publication
 
     def check_boot(self, harness_root: Path) -> str:
         harness = Path(harness_root).resolve()
-        state = harness.parent / ".codex-state"
-        state.mkdir(exist_ok=True)
-        proc = self._boundary_sandbox().run(
-            harness.parent, ["--version"], env={}, timeout_s=BOOT_TIMEOUT_S,
-            mounts=((str(harness), "/workspace"), (str(state), "/state")),
-        )
-        if proc.returncode != 0:
-            return (f"self-edited Codex source does not build/boot (exit {proc.returncode}): "
-                    f"{(proc.stderr or proc.stdout)[-1200:]}")
-        return ""
+        error, _ = self._ensure_validated(harness, harness.parent)
+        return error
 
     def validate_candidate(self, harness_root: Path) -> str:
         return self.check_boot(harness_root)
@@ -332,8 +446,11 @@ class CodexHarness:
         capped = False
 
         active = Path(spec.active_root).resolve() if spec.active_root is not None else harness
-        if spec.active_root is None and (harness / "src").is_dir():
-            error = self.check_boot(harness)
+        publication = None
+        if (active / "src").is_dir():
+            error, publication = self._ensure_validated(active, run_root)
+        else:
+            error = f"Proteus Codex source surface missing: {active / 'src'}"
         if spec.active_root is not None:
             (active / "candidate").mkdir(exist_ok=True)
             (active / ".proteus").mkdir(exist_ok=True)
@@ -344,6 +461,8 @@ class CodexHarness:
             (str(active), "/workspace", "ro"),
             (str(harness), "/workspace/candidate"),
         ) if spec.active_root is not None else ((str(harness), "/workspace"),)
+        if not error:
+            assert publication is not None
 
         for phase in PHASES if not error else ():
             if budget and used >= budget:
@@ -393,6 +512,7 @@ class CodexHarness:
                     }.items() if v},
                     timeout_s=self.phase_timeout_s,
                     mounts=workspace_mounts + ((str(state), "/state"),
+                            (str(publication), "/opt/proteus-bin", "ro"),
                             (str(handoffs.root), CONTAINER_ROOT))
                            + self._task_mount(run_root),
                     stop_check=stop_check if plan.enabled else None,

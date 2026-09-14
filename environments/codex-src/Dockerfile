@@ -1,6 +1,10 @@
 # Source-evolving OpenAI Codex environment for Proteus.
-# Pin by immutable SHA for reproducible experiments.
-FROM rust:1.95-bookworm
+# The pinned rusty-v8 release is x86_64-only, so keep the whole image on linux/amd64.
+ARG CODEX_PLATFORM=linux/amd64
+FROM --platform=${CODEX_PLATFORM} rust:1.95-bookworm
+
+RUN test "$(dpkg --print-architecture)" = amd64 \
+    || { echo "Proteus Codex supports only linux/amd64" >&2; exit 1; }
 
 ARG CODEX_REF=a7b86b6201d35200280e3d24ca5ebccd8122d6ca
 ENV DEBIAN_FRONTEND=noninteractive
@@ -60,7 +64,7 @@ RUN cd /opt/src/codex-rs \
        cargo build --locked -p codex-cli -p codex-code-mode-host --release
 
 # Prewarm the candidate gate's test profile. boot.sh runs the exact same `cargo test
-# --lib --no-run` (offline, against the /state copy of this target dir) before the release
+# --lib --no-run` (offline, against this baked target dir) before the release
 # build at every changed-candidate boundary, so the debug artifacts and dev-dependencies
 # for codex-tui/codex-core/codex-cli must already be baked here: network is available at
 # image build time but not at boot. Env/flags must stay identical to boot.sh's gate 1.
@@ -72,15 +76,12 @@ RUN cd /opt/src/codex-rs \
        cargo test --locked -p codex-tui -p codex-core -p codex-cli --lib --no-run
 
 # Seed tar is exactly the source used above; generated build state and .git are excluded.
-# The hash uses the same recipe as boot.sh's SOURCE_HASH so a first boot's freshly
-# extracted /workspace/src hashes identically and can reuse /opt/codex-target as-is.
-RUN tar --exclude=.git --exclude=target -cf /opt/codex-source.tar -C /opt/src . \
+# Compute its hash through the entrypoint helper so image and controller framing cannot drift.
+COPY boot.sh /usr/local/bin/proteus-codex
+RUN chmod +x /usr/local/bin/proteus-codex \
+    && tar --exclude=.git --exclude=target -cf /opt/codex-source.tar -C /opt/src . \
     && cp -a /usr/local/cargo /opt/cargo-home-seed \
-    && (cd /opt/src && { find . -type f ! -path '*/.git/*' ! -path '*/target/*' -print0 | \
-         sort -z | xargs -0 sha256sum; } | sha256sum | awk '{print $1}') > /opt/codex-source.sha256 \
+    && proteus-codex --proteus-source-hash /opt/src > /opt/codex-source.sha256 \
     && chmod -R a+rX /opt/cargo-home-seed /opt/codex-target /opt/src /opt/codex-source.tar \
                       /opt/codex-source.sha256 /opt/rusty-v8-archive.a.gz /opt/rusty-v8-binding.rs
-
-COPY boot.sh /usr/local/bin/proteus-codex
-RUN chmod +x /usr/local/bin/proteus-codex
 ENTRYPOINT ["/usr/local/bin/proteus-codex"]
