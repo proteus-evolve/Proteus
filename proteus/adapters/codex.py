@@ -3,7 +3,7 @@
 This mirrors Proteus' dsh/pi staged-activation pattern:
 - every phase runs the same frozen last-valid Codex source snapshot at /workspace;
 - the agent edits /workspace/candidate, including the real openai/codex Rust source;
-- after reflect, Proteus invokes validate_candidate(), which rebuilds the candidate;
+- after the episode, Proteus invokes validate_candidate(), which rebuilds the candidate;
 - only a passing candidate becomes the active harness for the next episode.
 
 Codex' native ``codex exec --json --ephemeral`` output is retained as JSONL and normalized
@@ -23,7 +23,7 @@ from typing import Optional, Sequence
 
 from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -53,7 +53,7 @@ Your candidate surfaces are:
 - `/workspace/candidate/src/` — your own program: the real openai/codex repository source
 
 Do not execute or reload `/workspace/candidate/src` during the episode. Proteus owns the
-model-free boundary build and viability gate after reflect. If a candidate fails to build,
+model-free boundary build and viability gate after the episode. If a candidate fails to build,
 the currently-running harness stays healthy and the exact failed candidate is kept for the
 next episode to repair.
 
@@ -67,6 +67,7 @@ class CodexHarness:
     """HarnessAdapter for the open-source Codex CLI, rebuilt from editable Rust source."""
 
     name = "codex"
+    supports_custom_phases = True
     continuity_mode = "framework"
     staged_activation = True
     disposition_in_files = True
@@ -439,7 +440,7 @@ class CodexHarness:
 
         native = state / "sessions"
         native.mkdir(exist_ok=True)
-        handoffs = HandoffStore(run_root)
+        handoffs = HandoffStore(run_root, phases=spec.phases)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, str] = {}
         error = ""
@@ -468,7 +469,7 @@ class CodexHarness:
         if not error:
             assert publication is not None
 
-        for phase in PHASES if not error else ():
+        for phase in spec.phases if not error else ():
             if budget and used >= budget:
                 capped = True
                 break
@@ -557,7 +558,7 @@ class CodexHarness:
         trace = self.read_trace(run_root, spec.episode)
         phase_counts = {
             phase: sum(1 for event in trace if event.phase == phase and event.tool)
-            for phase in PHASES
+            for phase in spec.phases
         }
         counters = {
             "phases": len(mapping),
@@ -581,7 +582,7 @@ class CodexHarness:
         state = root / ".codex-state" / "sessions"
         events: list[ActionEvent] = []
         offset = 0
-        for phase in PHASES:
+        for phase in mapping:
             name = mapping.get(phase)
             if not name:
                 continue

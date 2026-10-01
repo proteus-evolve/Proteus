@@ -56,7 +56,7 @@ Three things set it apart from every existing harness-evolution system:
 2. **Goal *and* no-goal, with visible or hidden evaluators.** Others hard-code a single
    regime: one benchmark verifier, agent blind to the score, goal mandatory. Proteus spans
    the space — `no-goal | one goal | many goals`, and evaluators the agent either **sees**
-   (in the observe phase) or **never sees**. No-goal, unpressured evolution is a
+   (in context-fresh phases) or **never sees**. No-goal, unpressured evolution is a
    first-class mode.
 3. **A measurement instrument, not just a score.** Others report task pass-rates. Proteus
    ships the ruler for the harness itself: **structural distance** between harness states
@@ -131,7 +131,7 @@ flowchart LR
 
 Every seed runs `N` context-fresh **episodes**. Evolved harness files cross the episode
 boundary; adapters that opt into framework continuity also receive a bounded operational
-handoff stored outside the measured snapshot. One episode is four phases:
+handoff stored outside the measured snapshot. By default, one episode is four phases:
 
 ```
 observe  →  propose  →  act  →  reflect
@@ -190,6 +190,12 @@ GoalConfig.of(text="Pursue A and B together.",
 
 An evaluator is any callable `(trace, ctx) -> EvalResult`; bring a benchmark verifier, an
 LLM judge, or one of the built-ins (`proteus.core.evaluators`).
+
+Evaluator visibility, selection eligibility, and scheduling are independent. You can
+evaluate H0, every N episodes, or explicit checkpoints while retaining dated feedback
+across fresh contexts. See [evaluator controls](docs/BENCHMARKS.md#evaluator-roles-schedules-and-feedback).
+The default four-phase protocol can also be customized; DSH supports explicit
+interrupted-phase recovery without refilling the tool budget. See [episode controls](docs/EPISODE.md).
 
 ### Sandbox
 

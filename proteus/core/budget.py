@@ -8,11 +8,25 @@ adapter responsible for counting and stopping its own native tool loop.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Mapping
 
 
 PHASES = ("observe", "propose", "act", "reflect")
 BUDGET_PROTOCOL_VERSION = 1
+
+
+def validate_phases(phases) -> tuple[str, ...]:
+    """Phase names also identify trace/handoff files: keep them safe and unambiguous."""
+    if isinstance(phases, str):
+        raise ValueError("phases must be a sequence, not a string")
+    names = tuple(phases)
+    if not names or any(not isinstance(p, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,47}", p)
+                        for p in names):
+        raise ValueError("phases must be nonempty safe lowercase identifiers")
+    if len(set(names)) != len(names):
+        raise ValueError("phase names must be unique")
+    return names
 
 
 def _integer(name: str, value: object) -> int:
@@ -37,6 +51,7 @@ class BudgetPlan:
     phase_allowances: Mapping[str, int]
     min_turns_per_phase: int = 0
     checkpoint_turns: int = 0
+    phases: tuple[str, ...] = PHASES
 
     @property
     def enabled(self) -> bool:
@@ -66,20 +81,23 @@ class BudgetPlan:
         if not self.enabled:
             return 0
         if not self.explicit:
-            later = len(PHASES) - idx - 1
+            later = len(self.phases) - idx - 1
             return self.hard_limit - self.min_turns_per_phase * later
 
         if phase != "act":
             return min(self.hard_limit, used_before + self.planned_allowance(phase))
         later_reserve = sum(
-            int(self.phase_allowances[name]) for name in PHASES[idx + 1:]
+            int(self.phase_allowances[name]) for name in self.phases[idx + 1:]
         )
         return max(used_before, self.hard_limit - later_reserve)
 
     def prompt(self, phase: str, used_before: int, episode: int,
-               continuity_mode: str = "native") -> str:
+               continuity_mode: str = "native", *, phase_start_used: int | None = None) -> str:
         """Render the live phase-start budget contract shown to the subject agent."""
-        stop = self.stop_at(phase, used_before)
+        if phase_start_used is not None and (
+                type(phase_start_used) is not int or not 0 <= phase_start_used <= used_before):
+            raise ValueError("phase_start_used must be an integer between zero and used calls")
+        stop = self.stop_at(phase, used_before if phase_start_used is None else phase_start_used)
         if not stop:
             return ""
         used = max(0, int(used_before))
@@ -123,18 +141,19 @@ class BudgetPlan:
                 )
         return "\n".join(lines)
 
-    @staticmethod
-    def _phase_index(phase: str) -> int:
+    def _phase_index(self, phase: str) -> int:
         try:
-            return PHASES.index(phase)
+            return self.phases.index(phase)
         except ValueError as exc:
             raise ValueError(f"unknown episode phase {phase!r}") from exc
 
 
 def make_budget_plan(*, max_turns: int, min_turns_per_phase: int = 0,
                      phase_turns: Mapping[str, int] | None = None,
-                     hard_max_turns: int = 0, checkpoint_turns: int = 0) -> BudgetPlan:
+                     hard_max_turns: int = 0, checkpoint_turns: int = 0,
+                     phases: tuple[str, ...] = PHASES) -> BudgetPlan:
     """Validate public budget knobs and return their canonical execution plan."""
+    phases = validate_phases(phases)
     normal = _integer("max_turns", max_turns)
     minimum = _integer("min_turns_per_phase", min_turns_per_phase)
     hard_arg = _integer("hard_max_turns", hard_max_turns)
@@ -150,18 +169,18 @@ def make_budget_plan(*, max_turns: int, min_turns_per_phase: int = 0,
 
     raw = dict(phase_turns or {})
     if raw:
-        missing = [phase for phase in PHASES if phase not in raw]
-        extra = sorted(repr(key) for key in raw if key not in PHASES)
+        missing = [phase for phase in phases if phase not in raw]
+        extra = sorted(repr(key) for key in raw if key not in phases)
         if missing or extra:
             detail = []
             if missing:
                 detail.append(f"missing {', '.join(missing)}")
             if extra:
                 detail.append(f"unknown {', '.join(extra)}")
-            raise ValueError("phase_turns must name observe, propose, act, reflect (" +
+            raise ValueError("phase_turns must name " + ", ".join(phases) + " (" +
                              "; ".join(detail) + ")")
         canonical = {phase: _integer(f"phase_turns[{phase}]", raw[phase])
-                     for phase in PHASES}
+                     for phase in phases}
         if any(value < 0 for value in canonical.values()):
             raise ValueError("phase_turns values must be 0 or positive integers")
         if not normal:
@@ -181,18 +200,18 @@ def make_budget_plan(*, max_turns: int, min_turns_per_phase: int = 0,
             raise ValueError(
                 "checkpoint_turns cannot exceed the smallest phase_turns allowance"
             )
-        return BudgetPlan(normal, hard, canonical, checkpoint_turns=checkpoint)
+        return BudgetPlan(normal, hard, canonical, checkpoint_turns=checkpoint, phases=phases)
 
     if hard_arg:
         raise ValueError("hard_max_turns requires an explicit phase_turns plan")
     if checkpoint:
         raise ValueError("checkpoint_turns requires an explicit phase_turns plan")
-    if normal and minimum * len(PHASES) > normal:
+    if normal and minimum * len(phases) > normal:
         raise ValueError(
             f"max_turns={normal} cannot honour min_turns_per_phase={minimum}: "
-            f"{len(PHASES)} phases need at least {minimum * len(PHASES)} turns"
+            f"{len(phases)} phases need at least {minimum * len(phases)} turns"
         )
-    return BudgetPlan(normal, normal, {}, min_turns_per_phase=minimum)
+    return BudgetPlan(normal, normal, {}, min_turns_per_phase=minimum, phases=phases)
 
 
 def budget_plan(spec: object) -> BudgetPlan:
@@ -203,10 +222,12 @@ def budget_plan(spec: object) -> BudgetPlan:
         phase_turns=getattr(spec, "phase_turns", None),
         hard_max_turns=getattr(spec, "hard_max_turns", 0) or 0,
         checkpoint_turns=getattr(spec, "checkpoint_turns", 0) or 0,
+        phases=getattr(spec, "phases", PHASES),
     )
 
 
-def phase_prompt(spec: object, phase: str, used_before: int) -> str:
+def phase_prompt(spec: object, phase: str, used_before: int, *,
+                 phase_start_used: int | None = None) -> str:
     """Add a live budget header when this experimental condition announces it."""
     prompt = str(getattr(spec, "phase_prompts", {}).get(phase, ""))
     if not bool(getattr(spec, "announce_budget", False)):
@@ -214,5 +235,6 @@ def phase_prompt(spec: object, phase: str, used_before: int) -> str:
     note = budget_plan(spec).prompt(
         phase, used_before, int(getattr(spec, "episode", 0) or 0),
         str(getattr(spec, "continuity_mode", "native")),
+        phase_start_used=phase_start_used,
     )
     return f"{note}\n\n{prompt}" if note else prompt

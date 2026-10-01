@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Sequence
 
 from proteus.core.adapter import ActionEvent
+from proteus.core.budget import PHASES, validate_phases
 
 PROTOCOL_VERSION = 2
 MODES = frozenset({"native", "framework", "none"})
@@ -53,7 +54,8 @@ def validate_mode(mode: str) -> str:
     return mode
 
 
-def framework_prompt(phase: str, *, goal_present: bool = True) -> str:
+def framework_prompt(phase: str, *, goal_present: bool = True,
+                     phases: Sequence[str] = PHASES) -> str:
     """The portable protocol text appended to a framework-continuity phase prompt."""
     observe_action = (
         "Record objective-relevant findings and evidence for propose."
@@ -66,6 +68,8 @@ def framework_prompt(phase: str, *, goal_present: bool = True) -> str:
         "act": "Replace it with edits attempted, files changed, and verification still needed.",
         "reflect": "Replace it with validation results, unresolved risks, and the next step.",
     }.get(phase, "Replace it with concise continuation notes for the next phase.")
+    if tuple(phases) != PHASES:
+        action = "Replace it with findings, work performed, and concise continuation notes."
     return (
         f"Proteus continuity protocol v{PROTOCOL_VERSION}: this phase has a fresh model "
         f"context. Read {CONTAINER_HANDOFF} before acting; it is an external nested mount "
@@ -159,7 +163,8 @@ class HandoffStart:
 class HandoffStore:
     """Run-local framework continuity store, always outside ``root/harness``."""
 
-    def __init__(self, run_root: Path):
+    def __init__(self, run_root: Path, phases: Sequence[str] = PHASES):
+        self.phases = validate_phases(phases)
         self.run_root = Path(run_root)
         self.root = self.run_root / ".proteus-state"
         self.history = self.root / "handoffs"
@@ -178,6 +183,8 @@ class HandoffStore:
             "persists_raw_reasoning": False,
             "persistent_controller_notices": True,
         }
+        if self.phases != PHASES:
+            desired["phases"] = list(self.phases)
         try:
             current = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -220,6 +227,8 @@ class HandoffStore:
 
     def begin(self, episode: int, phase: str) -> HandoffStart:
         """Expose the latest archived handoff and return a modification baseline."""
+        if phase not in self.phases or type(episode) is not int or episode < 1:
+            raise ValueError("invalid episode/phase handoff identity")
         self.initialise()
         previous = self.latest.read_text(encoding="utf-8") if self.latest.exists() else ""
         if not previous:
@@ -244,8 +253,10 @@ class HandoffStore:
         chosen: Path | None = None
         if completed_episode > 0:
             phase_dir = self.history / f"ep{completed_episode:03d}"
-            for phase in ("reflect", "act", "propose", "observe"):
+            for phase in reversed(self.phases):
                 candidates = sorted(phase_dir.glob(f"{phase}*.md"))
+                candidates = [p for p in candidates if re.fullmatch(
+                    re.escape(phase) + r"(?:-\d+)?\.md", p.name)]
                 if candidates:
                     chosen = candidates[-1]
                     break
@@ -257,9 +268,31 @@ class HandoffStore:
         self._atomic_text(self.latest, content)
         self._atomic_text(self.current, content)
 
+    def restore_phase_handoff(self, episode: int, phase: str, attempt: int,
+                              expected_sha256: str) -> None:
+        """Restore one explicit, hash-checked interrupted-phase handoff, not a new summary."""
+        if phase not in self.phases or type(attempt) is not int or attempt < 1:
+            raise ValueError("invalid phase handoff identity")
+        stem = phase if attempt == 1 else f"{phase}-{attempt:02d}"
+        path = self.history / f"ep{episode:03d}" / f"{stem}.json"
+        if path.is_symlink():
+            raise ValueError("archived phase handoff became a symlink")
+        payload = path.read_bytes()
+        if hashlib.sha256(payload).hexdigest() != expected_sha256:
+            raise ValueError("archived phase handoff changed")
+        record = json.loads(payload)
+        if (record.get("episode") != episode or record.get("phase") != phase
+                or record.get("attempt") != attempt or not isinstance(record.get("content"), str)):
+            raise ValueError("archived phase handoff identity mismatch")
+        content = _with_controller_notice(record["content"], self._read_controller_notice())
+        self._atomic_text(self.latest, content + "\n")
+        self._atomic_text(self.current, content + "\n")
+
     def finish(self, start: HandoffStart, events: Sequence[ActionEvent] = (),
                interrupted: bool = False) -> dict:
         """Archive one phase and make its handoff available to the next fresh context."""
+        if start.phase not in self.phases or type(start.episode) is not int or start.episode < 1:
+            raise ValueError("invalid episode/phase handoff identity")
         self.initialise()
         try:
             current = self.current.read_text(encoding="utf-8")

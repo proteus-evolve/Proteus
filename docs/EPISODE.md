@@ -35,6 +35,39 @@ any resume, Proteus restores files, index, and HEAD to the exact episode-N check
 This removes a half-written candidate left by SIGKILL or a machine restart before it can
 leak into the next attempt.
 
+## Opt-in DSH interrupted-phase recovery
+
+Ordinary resume still retries the episode. For a DSH phase timeout or nonzero exit whose
+native sessions, interrupted handoff, and failed candidate have been durably recorded,
+set `RunConfig.resume_phase="act"` (the actual interrupted phase) and call
+`run(cfg, start=N, resume=True)`. `N` is the **completed** checkpoint, not the interrupted
+episode number. The CLI equivalent adds `--resume-phase act --on-existing resume` to the
+original command; it requires a single arm and `--seeds 1`.
+
+This is an explicit recovery action, not an automatic retry loop:
+
+- an exclusive controller lease rejects a second `run()` writer;
+- model, runtime, goal, disposition, phases, prompts, and budgets must match the original
+  private contract; a fresh run, completed episode, manual dirty edits, or a viability-
+  rejected candidate cannot use this shortcut;
+- all completed phases are skipped; their native sessions and handoffs remain intact;
+- the interrupted phase starts a **fresh context** with its archived operational handoff
+  and exact writable candidate. The active runtime remains the previous valid snapshot;
+- prior tool calls count toward both the episode ceiling and the original interrupted
+  phase stop line. There is no budget refill. Subsequent phases retain their reserves;
+- trace mappings are appended, not replaced. The previous mapping is preserved as
+  `traces/epNNN.attempt-<hash>.json`; hashes detect changes to captured native evidence;
+- `phase_recovery.json` records source hashes, call offsets, and active/candidate commits
+  outside the subject-visible root. A failed retry can be recovered explicitly again.
+
+This does not restore hidden reasoning, guarantee exactly-once external tool side effects,
+or recover an arbitrary SIGKILL with incomplete evidence. Missing native sessions or
+handoffs fail closed; use normal episode resume in that case. Direct low-level
+`DshPhaseResume` use requires the caller to enforce the same run lock and runtime/candidate
+checks; `run()` is the supported controller entry point. Live provider/Docker recovery
+still depends on the adapter's runtime; offline tests exercise the transaction with
+synthetic native logs.
+
 ## Every episode N
 
 ```
@@ -44,6 +77,30 @@ while writing a separate candidate → read trace → boundary viability gate �
 ```
 
 ## Scope of the transaction contract
+
+The default remains observe → propose → act → reflect. To declare another ordered
+protocol, set `RunConfig.phases` (or `SweepConfig.phases`) and provide a prompt for each
+non-default name in `phase_prompts`. Existing names can also have their base prompt
+overridden. Goal text, visible feedback, budgets, continuity, and staged-activation
+rules still wrap those prompts; custom phases do not bypass the episode transaction.
+
+```bash
+proteus run --harness minimal --seeds 1 --episodes 2 --out runs/custom-phases \
+  --phases inspect,act,verify \
+  --phase-prompt 'inspect=Inspect the current harness and identify one scoped change.' \
+  --phase-prompt 'verify=Verify the change and record what remains uncertain.' \
+  --max-turns 12 --phase-turns inspect=2,act=8,verify=2 --announce-budget
+```
+
+Names are unique lowercase identifiers (letters, digits, underscores; no paths). Every
+phase needs a budget entry when using an explicit plan. `act`, if present, retains the
+unused/burst allocation priority; no other phase implicitly becomes `act` when it is
+absent. Phase order and prompt hashes enter the resume condition. Minimal, LLM, DSH, Pi,
+and Codex honor custom phases. A custom adapter must declare `supports_custom_phases=True`
+and execute `spec.phases`; Aki's delegated native supervisor currently does not support
+this, so custom phases/prompts are rejected rather than silently ignored.
+
+No extra self-evaluator phase or research-specific protocol is enabled by these options.
 
 The current implementation has two layers that must not be conflated:
 
@@ -82,8 +139,10 @@ applies fixed rules:
   formulate its own provisional goals and evaluators as evolved state;
 - the **goal text** (freeform, decoupled from evaluators) joins **all four phases** because
   a fresh observe or propose otherwise investigates and plans against the wrong objective;
-- **last episode's OBSERVE-visible evaluator feedback** joins the **observe** phase
-  (HIDDEN results never appear here);
+- **latest available OBSERVE-visible evaluator feedback** joins **every context-fresh
+  phase**. It names the source episode, status, candidate, and whether that candidate was
+  kept; a skipped evaluation retains the previous result with an explicit age label.
+  HIDDEN results never appear here;
 - the **disposition's phase text** joins each phase — *unless* the adapter declares
   `disposition_in_files = True` (dsh/pi carry the perturbation in `AGENTS.md`; adding
   the prompt copy would double the dose, through a channel outside `F`).
@@ -228,23 +287,34 @@ The gate runs before arbitrary evaluators, so invalid candidate code is not acci
 executed by benchmark or custom evaluation either. If an adapter does not implement the
 hook, Proteus has no harness-specific compile/boot command to run and this gate is skipped.
 
-### 6. Run every evaluator — framework
+### 6. Run due evaluators — framework
 
-`cfg.goal.evaluate(trace, ctx)` runs all evaluators **before the snapshot** (so
+`cfg.goal.evaluate(trace, ctx)` runs scheduled evaluators **before the snapshot** (so
 selection can still reject the episode):
 
-- each evaluator carries its own kind (measurement / benchmark / custom) and visibility
-  (HIDDEN / OBSERVE);
+- each evaluator independently declares kind, visibility, selection eligibility, and
+  schedule. Defaults remain every episode, HIDDEN, and selection-eligible;
 - an evaluator is user code — **its crash must not take the trajectory down**; it
-  degrades to a scored zero and the run continues;
+  records `status="error"` and a redacted diagnostic. `error_policy="missing"` records
+  `score=None`; the legacy default retains zero for storage compatibility. Neither is
+  treated as a successful measurement by acceptance selection;
 - the timing contract: between one episode's end and the next one's start, every result
   is complete.
 
 ### 7. Selection — framework
 
-Under `selection="accept_reject"`: mean score below the best so far → reject. Selection
+Under `selection="accept_reject"`: the mean of **selection-eligible** scores below the
+best so far → reject. All eligible evaluators must share a schedule; comparing means of
+different subsets would create a false baseline. An eligible evaluator's unavailable
+result rejects the current candidate without lowering the baseline. Selection
 reads scores directly and is independent of visibility — an outer loop may act on scores
 the agent itself never sees.
+
+Episodes with no scheduled selection evaluation still use the viability gate and are
+accepted if viable. Scheduled selection is **not** proof that intermediate snapshots
+passed the benchmark. A later rejection restores the last accepted snapshot, not the
+last benchmark-measured snapshot. Use every-episode selection if each accepted candidate
+must be benchmark-qualified; use sparse non-selecting evaluation to track costly metrics.
 
 ### 8. Snapshot / promotion — framework (the rejection semantics matter)
 
@@ -278,8 +348,10 @@ candidate is rejected.
   atomically after every snapshot checkpoint;
 - numeric counters (`tokens_in` / `tokens_out`, …) sum across episodes into
   `RunResult.counters`;
-- `prior_feedback` becomes the OBSERVE-visible feedback text for the next episode's
-  step 1 (with a "your changes were not kept" note after a rejection);
+- `EvaluatorFeedback` reconstructs the latest result per OBSERVE evaluator from private
+  history. All subsequent phases see the same bounded, redacted observations; errors
+  replace stale successes, skipped episodes do not erase evidence, and rejected
+  candidates are labelled. The channel is independent of who authored the evaluator;
 - the progress line — which carries the condition label and **HIDDEN scores** — goes to
   `progress_path`, which **must live outside the run root**: the subject can read its
   own run root.
@@ -295,6 +367,10 @@ identity/runtime knobs, surfaces, disposition fingerprints, model, goal, evaluat
 budgets, continuity, and caller-supplied non-secret metadata. `--on-existing resume`
 compares it before touching the run; `refuse` also checks before writing anything. A v0.1
 manifest has no condition lock and is deliberately not resumable under v0.2.
+
+The unified feedback channel has its own `feedback_protocol_version` in this condition.
+Older sweeps without that version must finish with the code that created them, or start
+a new run: silently adding all-phase feedback would change an ongoing experiment.
 
 ### 10. Next episode — framework
 
@@ -358,7 +434,7 @@ evolved memory. Raw conversation and process state never survive.
 |---|---|
 | a phase times out / the CLI exits nonzero | partial candidate is preserved under a dedicated ref; prior valid runtime is restored; resume retries the same episode with the partial tree as its writable repair candidate |
 | the agent breaks its own code | boundary gate preserves the failed candidate, keeps the next runtime on healthy code, and restores the failed tree as the next writable repair candidate |
-| one evaluator crashes or returns a non-finite score | that evaluator gets a named zero; other evaluator results survive |
+| one evaluator crashes or returns a non-finite score | a named error (legacy zero or optional null); other results survive; unavailable evidence never becomes a selection baseline |
 | a nested `.git` appears in the harness | the episode records a snapshot error; nested metadata is refused and automatic restore removes its contents |
 | the episode is rejected by selection | candidate tree preserved in history, working tree rolled back, mapping gapless |
 | the process is killed mid-run | for staged adapters, resume captures the dirty tree under a failed-attempt ref, restores the last-valid runtime, and retries with that tree as writable candidate; native adapters hard-restore the checkpoint |

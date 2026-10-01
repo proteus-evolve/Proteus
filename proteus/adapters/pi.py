@@ -27,7 +27,7 @@ from typing import Optional, Sequence
 
 from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -54,7 +54,7 @@ candidate surfaces are:
 - `/workspace/candidate/tools/` — small python utilities you may want later
 - `/workspace/candidate/skills/` — pi skill files, loaded after activation
 - `/workspace/candidate/src/` — your own program: the real TypeScript source of the
-  agent that runs you. Proteus validates it only after reflect. A valid candidate is
+  agent that runs you. Proteus validates it only after the episode. A valid candidate is
   activated in the next episode. An invalid one cannot run, but its exact tree becomes the
   next episode's writable candidate so you can repair it instead of starting over.
 
@@ -65,7 +65,7 @@ into it.
 
 Each session is one phase of an episode. Candidate files and the bounded Proteus handoff
 carry over; the raw conversation does not. Do not reload or execute candidate code during
-the episode; Proteus owns the model-free boundary build and viability gate after reflect.
+the episode; Proteus owns the model-free boundary build and viability gate after the episode.
 """
 
 
@@ -73,6 +73,7 @@ class PiHarness:
     """`HarnessAdapter` for pi-coding-agent's non-interactive mode, containerized."""
 
     name = "pi"
+    supports_custom_phases = True
     continuity_mode = "framework"
     staged_activation = True
     disposition_in_files = True   # carried by AGENTS.md; keep it out of the phase prompts
@@ -229,7 +230,7 @@ class PiHarness:
         harness = run_root / "harness"
         state = run_root / ".pi-state"
         state.mkdir(exist_ok=True)
-        handoffs = HandoffStore(run_root)
+        handoffs = HandoffStore(run_root, phases=spec.phases)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, list[str]] = {}
         error = ""
@@ -254,7 +255,7 @@ class PiHarness:
         workspace_mounts = ((str(active), "/workspace", "ro"),
                             (str(harness), "/workspace/candidate")) \
             if spec.active_root is not None else ((str(harness), "/workspace"),)
-        for phase in PHASES if not error else ():
+        for phase in spec.phases if not error else ():
             # the budget is enforced twice, both harness-agnostically: exactly, between
             # phases (no new phase once it is spent) and approximately, mid-phase (the
             # session log is polled and the container stopped at the phase's stop line).
@@ -327,7 +328,7 @@ class PiHarness:
         trace = self.read_trace(run_root, spec.episode)
         phase_counts = {
             phase: sum(1 for event in trace if event.phase == phase and event.tool)
-            for phase in PHASES
+            for phase in spec.phases
         }
         counters = {"phases": len(mapping), "turn_capped": capped,
                     "checkpoint_misses": checkpoint_misses}
@@ -382,7 +383,7 @@ class PiHarness:
         state = root / ".pi-state"
         events: list[ActionEvent] = []
         turn = 0
-        for phase in PHASES:
+        for phase in mapping:
             names = mapping.get(phase)
             if not names:
                 continue

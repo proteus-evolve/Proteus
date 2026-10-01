@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.disposition import Disposition
 
 # A policy maps (phase, prompt, episode, rng) -> list of (tool, surface, text) actions.
@@ -55,6 +55,7 @@ class MinimalHarness:
     """A `HarnessAdapter` for the minimal reference harness."""
 
     name = "minimal"
+    supports_custom_phases = True
     continuity_mode = "none"
     disposition_in_files = False   # the perturbation reaches this harness via prompts
 
@@ -94,11 +95,11 @@ class MinimalHarness:
         trace_path.parent.mkdir(parents=True, exist_ok=True)
         turn = 0
         writes = {"notes": 0, "tools": 0}
-        phase_counts = {phase: 0 for phase in PHASES}
+        phase_counts = {phase: 0 for phase in spec.phases}
         capped = False
         plan = budget_plan(spec)
         with trace_path.open("w", encoding="utf-8") as sink:
-            for phase in PHASES:
+            for phase in spec.phases:
                 if plan.enabled and turn >= plan.hard_limit:
                     capped = True
                 if capped:

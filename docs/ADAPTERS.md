@@ -128,11 +128,11 @@ Every adapter receives the same optional phase-aware budget fields in `EpisodeSp
 Use the core helpers rather than reproducing allocation arithmetic inside the adapter:
 
 ```python
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.core.budget import budget_plan, phase_prompt
 
 plan = budget_plan(spec)
 used = 0
-for phase in PHASES:
+for phase in plan.phases:
     if plan.enabled and used >= plan.hard_limit:
         break
     stop_at = plan.stop_at(phase, used)
@@ -149,6 +149,14 @@ by watching its native log during a phase. The adapter defines what one native c
 but must use the same definition for stopping, `EpisodeResult.turns`, and trace counters.
 Do not implement checkpointing by synthesizing semantic memory: a framework-continuity
 adapter archives the agent-written handoff and reports a miss when it remains unchanged.
+
+Declare `supports_custom_phases = True` only if the adapter honors `spec.phases`, executes
+the matching `spec.phase_prompts`, and preserves their order in native trace mappings.
+Use `HandoffStore(run_root, phases=spec.phases)` for framework continuity. Unknown phase
+names require caller-supplied prompts; the standard four remain the default. Adapters
+without this capability keep working with the default protocol, but customized runs are
+rejected before provisioning. DSH, Pi, Codex, Minimal, and LLM implement this capability;
+Aki's delegated supervisor does not yet.
 
 ### 5. Fingerprint
 `disposition_fingerprint` hashes the currently-installed disposition carrier. The core

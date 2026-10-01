@@ -34,7 +34,8 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.adapters.dsh_resume import DshPhaseResume
+from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -65,7 +66,7 @@ candidate surfaces are:
 - `/workspace/candidate/notes/` — markdown knowledge for future episodes
 - `/workspace/candidate/tools/` — small node utilities you may want later
 - `/workspace/candidate/src/` — your own program: the real TypeScript source of the
-  harness that runs you. Proteus validates it only after reflect. A valid candidate is
+  harness that runs you. Proteus validates it only after the episode. A valid candidate is
   activated in the next episode. An invalid one cannot run, but its exact tree becomes the
   next episode's writable candidate so you can repair it instead of starting over.
 
@@ -81,7 +82,7 @@ package manifests, but keep `pnpm-lock.yaml` aligned. The boundary gate recreate
 a frozen offline install, so an inconsistent lockfile or a dependency absent from the baked
 store is rejected for repair. `/opt/src` is the build of the frozen active snapshot. Do not
 sync, reload, or execute candidate source during a phase; Proteus owns the model-free
-boundary build and viability gate after reflect.
+boundary build and viability gate after the episode.
 
 Each session is one phase of an episode. Harness files and the bounded Proteus handoff
 carry over; the raw conversation does not.
@@ -166,6 +167,7 @@ class DshHarness:
     """`HarnessAdapter` for DeepSeek Harness's headless profile, containerized."""
 
     name = "dsh"
+    supports_custom_phases = True
     continuity_mode = "framework"
     staged_activation = True
     disposition_in_files = True   # carried by AGENTS.md; keep it out of the phase prompts
@@ -185,7 +187,8 @@ class DshHarness:
     def __init__(self, image: str = IMAGE, network: str = "host",
                  key: str | None = None, sandbox=None,
                  phase_timeout_s: int = PHASE_TIMEOUT_S,
-                 permission_mode: str = "workspace-write") -> None:
+                 permission_mode: str = "workspace-write",
+                 phase_resume: DshPhaseResume | None = None) -> None:
         if permission_mode not in {"workspace-write", "danger-full-access"}:
             raise ValueError(
                 "DSH permission_mode must be 'workspace-write' or 'danger-full-access'"
@@ -193,6 +196,7 @@ class DshHarness:
         self.image = image
         self.network = network
         self.phase_timeout_s = phase_timeout_s
+        self.phase_resume = phase_resume
         self.permission_mode = permission_mode
         # per-instance key injection first (multi-tenant runs must not share env)
         self.key = key or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_KEY", "")
@@ -350,12 +354,26 @@ class DshHarness:
         harness = run_root / "harness"
         state = run_root / ".dsh-state"
         state.mkdir(exist_ok=True)
-        handoffs = HandoffStore(run_root)
+        handoffs = HandoffStore(run_root, phases=spec.phases)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, list[str]] = {}
+        recovery = self.phase_resume
+        self.phase_resume = None
+        used_offset = 0
+        remaining_phases = spec.phases
+        if recovery is not None:
+            if not isinstance(recovery, DshPhaseResume) or recovery.phases != spec.phases:
+                raise ValueError("explicit matching phase recovery record required")
+            recovery.verify(run_root, spec.episode, original_trace=True)
+            recovery.preserve_trace()
+            mapping = {phase: list(paths) for phase, paths in recovery.mapping.items()}
+            used_offset = recovery.used_calls
+            remaining_phases = spec.phases[spec.phases.index(recovery.phase):]
+            handoffs.restore_phase_handoff(spec.episode, recovery.phase,
+                                          recovery.handoff_attempt, recovery.handoff_sha256)
         error = ""
         capped = False
-        checkpoint_misses = 0
+        checkpoint_misses = recovery.checkpoint_misses if recovery and spec.checkpoint_turns else 0
         plan = budget_plan(spec)
         budget = plan.hard_limit
         episode_dirs: set = set()
@@ -377,18 +395,19 @@ class DshHarness:
         workspace_mounts = ((str(active), "/workspace", "ro"),
                             (str(harness), "/workspace/candidate")) \
             if spec.active_root is not None else ((str(harness), "/workspace"),)
-        for phase in PHASES if not error else ():
+        for phase in remaining_phases if not error else ():
             # the budget is enforced twice, both harness-agnostically: exactly, between
             # phases (no new phase once it is spent) and approximately, mid-phase (the
             # session log is polled and the container stopped at the phase's stop line).
             # BudgetPlan preserves the legacy later-phase reserve or applies the explicit
             # act-priority plan. A phase stop moves on; only the hard ceiling caps the
             # episode.
-            used = self._live_calls(state, episode_dirs, set()) if plan.enabled else 0
+            used = used_offset + self._live_calls(state, episode_dirs, set())
             if budget and used >= budget:
                 capped = True
                 break
-            stop_at = plan.stop_at(phase, used)
+            start_used = recovery.phase_start_calls if recovery and phase == recovery.phase else used
+            stop_at = plan.stop_at(phase, start_used)
             if budget and used >= stop_at:
                 continue
             handoff_start = handoffs.begin(spec.episode, phase)
@@ -396,20 +415,23 @@ class DshHarness:
             fired = [False]
 
             def stop_check(before=before, fired=fired, stop_at=stop_at):
-                if self._live_calls(state, episode_dirs,
+                if used_offset + self._live_calls(state, episode_dirs,
                                     self._session_dirs(state) - before) >= stop_at:
                     fired[0] = True
                     return True
                 return False
 
             timed_out = False
+            phase_timeout = min(self.phase_timeout_s, recovery.timeout_s) \
+                if recovery and phase == recovery.phase else self.phase_timeout_s
             try:
                 proc = self.sandbox.run(
                     run_root,
-                    ["--profile", "headless", phase_prompt(spec, phase, used)],
+                    ["--profile", "headless", phase_prompt(
+                        spec, phase, used, phase_start_used=start_used)],
                     env={"DEEPSEEK_API_KEY": self.key,
                          "DSH_PERMISSION_MODE": self.permission_mode},
-                    timeout_s=self.phase_timeout_s,
+                    timeout_s=phase_timeout,
                     mounts=workspace_mounts + ((str(state), "/state"),
                             (str(handoffs.root), CONTAINER_ROOT))
                            + self._task_mount(run_root),
@@ -422,38 +444,45 @@ class DshHarness:
             phase_events: list[ActionEvent] = []
             if new:
                 session_dirs = sorted(new, key=str)
-                mapping[phase] = [str(d.relative_to(state)) for d in session_dirs]
+                mapping.setdefault(phase, []).extend(str(d.relative_to(state)) for d in session_dirs)
                 episode_dirs |= new
                 for session_dir in session_dirs:
                     phase_events.extend(
                         self._session_trace(session_dir, phase, partial=True))
             handoff = handoffs.finish(handoff_start, phase_events,
-                                      interrupted=timed_out or fired[0])
+                                      interrupted=timed_out or fired[0]
+                                      or (proc is not None and proc.returncode != 0))
+            HandoffStore._atomic_text(run_root / "traces" / f"ep{spec.episode:03d}.json",
+                                      json.dumps(mapping, indent=1))
             if spec.checkpoint_turns and handoff["source"] != "agent":
                 checkpoint_misses += 1
             if timed_out:
-                error = f"phase {phase}: timeout after {self.phase_timeout_s}s"
+                error = f"phase {phase}: timeout after {phase_timeout}s"
                 break
             assert proc is not None
             if proc.returncode != 0:
                 if fired[0]:
                     # stopped at the phase's line: continue if it was only the reserve,
                     # end the episode only when the whole budget is spent
-                    if budget and self._live_calls(state, episode_dirs, set()) >= budget:
+                    if budget and used_offset + self._live_calls(state, episode_dirs, set()) >= budget:
                         capped = True
                         break
                     continue
                 error = f"phase {phase}: exit {proc.returncode}: {proc.stderr[-400:]}"
                 break
-        (run_root / "traces" / f"ep{spec.episode:03d}.json").write_text(
-            json.dumps(mapping, indent=1))
+        if recovery is not None:
+            recovery.verify(run_root, spec.episode)
+        HandoffStore._atomic_text(run_root / "traces" / f"ep{spec.episode:03d}.json",
+                                  json.dumps(mapping, indent=1))
         trace = self.read_trace(run_root, spec.episode)
         phase_counts = {
             phase: sum(1 for event in trace if event.phase == phase and event.tool)
-            for phase in PHASES
+            for phase in spec.phases
         }
         counters = {"phases": len(mapping), "turn_capped": capped,
                     "checkpoint_misses": checkpoint_misses}
+        if recovery:
+            counters.update(phase_recoveries=1, prior_attempt_tool_calls=used_offset)
         counters.update({f"phase_{phase}_turns": count
                          for phase, count in phase_counts.items()})
         return EpisodeResult(
@@ -502,7 +531,7 @@ class DshHarness:
         state = root / ".dsh-state"
         events: list[ActionEvent] = []
         turn_base = 0
-        for phase in PHASES:
+        for phase in mapping:
             rels = mapping.get(phase)
             if not rels:
                 continue
@@ -512,7 +541,9 @@ class DshHarness:
                 log = state / rel / "session.jsonl.zstd"
                 if not log.exists():
                     continue
-                phase_events = self._session_trace(log.parent, phase)
+                # A recovered attempt can end mid-frame. Keep its complete leading
+                # events instead of making every future combined trace unreadable.
+                phase_events = self._session_trace(log.parent, phase, partial=True)
                 for event in phase_events:
                     events.append(ActionEvent(
                         turn=turn_base + event.turn, phase=event.phase, tool=event.tool,

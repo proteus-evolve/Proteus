@@ -19,6 +19,7 @@ from proteus.core.goal import (
     GoalContext,
     Visibility,
 )
+from proteus.core.feedback import EvaluatorFeedback
 
 __all__ = [
     "NEUTRAL",
@@ -31,6 +32,7 @@ __all__ = [
     "EpisodeSpec",
     "EvalResult",
     "Evaluator",
+    "EvaluatorFeedback",
     "EvaluatorSpec",
     "Goal",
     "GoalConfig",

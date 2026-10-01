@@ -91,6 +91,70 @@ score is `0.0` or `1.0` rather than MBPP's per-assert fraction.
 
 ## What a contributed benchmark must get right
 
+### Evaluator roles, schedules, and feedback
+
+Use the same `EvaluatorSpec` / `EvalResult` interface for an external benchmark, a user
+check, or a caller-registered harness-authored check. Proteus routes **results**, not
+producer-specific messages. It does not automatically discover or run agent-authored
+evaluator code; that lifecycle and research benchmark integrations are separate concerns.
+
+```python
+from proteus.core import EvalResult, EvaluatorSpec, GoalConfig, Visibility
+
+def benchmark(trace, ctx):
+    # Invoke your isolated benchmark runner here; ctx.episode == 0 means seeded H0.
+    # On infrastructure failure, report status="error" and score=None, not a valid zero.
+    return EvalResult("dev", score=0.75, passed=False, detail="3/4 checks passed")
+
+goal = GoalConfig.of("Improve robustness", evaluators=(
+    EvaluatorSpec("dev", benchmark, kind="benchmark", visibility=Visibility.OBSERVE,
+                  every_n_episodes=5, include_initial=True, error_policy="missing"),
+    EvaluatorSpec("audit", benchmark, visibility=Visibility.HIDDEN,
+                  selection_eligible=False, episodes=(0, 10, 30)),
+), selection="none")
+```
+
+- `visibility`: `OBSERVE` feeds bounded observations to every fresh phase of subsequent
+  episodes; `HIDDEN` remains in private history only. The legacy enum name is retained.
+- `selection_eligible`: independent of visibility; defaults to `True`. Set it to `False`
+  for diagnostics/audits that must never affect acceptance. `selection="none"` disables
+  score-based selection globally, regardless of eligibility.
+- `every_n_episodes=N`: episodes N, 2N, …; `include_initial=True` additionally evaluates
+  the seeded H0 with an empty trace. `episodes=(0, 5, 10)` instead specifies exact
+  checkpoints and cannot be combined with periodic/initial options.
+- H0 results live in private `initial_evaluation.json`, separate from the gapless
+  episode 1…N history. They supply visible episode-1 feedback and an initial selection
+  baseline when eligible. Resume reuses a recorded H0 result rather than re-evaluating it.
+- Skipped evaluations are not zeroes. Latest visible results persist with source-episode
+  and acceptance labels. An error replaces that evaluator's stale success. Feedback is
+  reconstructed from private history on resume, with HIDDEN rows filtered out.
+- `EvalResult.status` is `ok`, `error`, or `missing`. Successful measurements require
+  finite numeric scores. Exceptions become `error`; `error_policy="missing"` stores
+  null, while default `"zero"` retains legacy numeric storage. Neither unavailable form
+  qualifies for score-based selection. Existing benchmark wrappers that return an
+  ordinary zero without an error status retain their old meaning; the framework cannot
+  infer infrastructure failures from arbitrary text.
+- Under `accept_reject`, eligible evaluators must share a schedule. Diagnostic evaluators
+  can use different schedules. See [selection semantics](EPISODE.md#7-selection--framework)
+  for the limits of sparse selection; intermediate snapshots are not benchmark-certified.
+- Visibility, eligibility, and schedule are locked on resume. API callers should put
+  additional evaluator parameters in `SweepConfig.condition_metadata` too.
+
+CLI controls use the evaluator's canonical name (`units:notes`, not its input alias):
+
+```bash
+proteus run --harness minimal --seeds 1 --episodes 10 --out runs/scheduled \
+  --evaluator tool-calls@observe --eval-every tool-calls=5 --eval-initial tool-calls \
+  --evaluator units:notes@hidden --eval-at units:notes=0,10 \
+  --selection-exclude units:notes --eval-missing-on-error tool-calls
+```
+
+`--selection accept_reject` enables selection explicitly. Unknown control names and
+inconsistent schedules fail before seeding. Evaluator callbacks remain trusted controller
+code; if they execute candidate-authored code, use the isolated grader boundary below.
+
+### Benchmark implementation checklist
+
 Each of these exists because an agent found the exploit or a run hit the failure:
 
 1. **The seeded task must start failing.** A task whose stub already passes is a dead

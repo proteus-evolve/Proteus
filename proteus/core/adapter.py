@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
 
+from proteus.core.budget import PHASES
+
 
 @dataclass(frozen=True)
 class Surface:
@@ -103,6 +105,8 @@ class EpisodeSpec:
     episode-boundary validator may execute them; they never become the controlling harness
     until the next episode.
     """
+    phases: tuple[str, ...] = PHASES
+    """Execution order. Adapters opting into custom phases must honor this sequence."""
 
 
 @runtime_checkable
