@@ -77,6 +77,184 @@ def test_read_trace_offsets_phases(tmp_path: Path):
     assert trace[0].phase == 'observe' and trace[1].phase == 'act'
 
 
+def _jsonl(*events):
+    return "\n".join(json.dumps(event) for event in events) + "\n"
+
+
+def _patch_event(paths):
+    return {"type": "item.completed", "item": {
+        "id": "patch-1", "type": "file_change", "status": "completed",
+        "changes": [{"path": path, "kind": "update"} for path in paths],
+    }}
+
+
+def _seeded_codex(tmp_path, sandbox):
+    """Exercise the real episode/trace path with only a fixture binary publication."""
+    class SeededCodex(CodexHarness):
+        def seed(self, harness_root, rng_seed=0):
+            source = Path(harness_root) / "src" / "codex-rs"
+            source.mkdir(parents=True, exist_ok=True)
+            (source / "version.txt").write_text("fixture source")
+            (Path(harness_root) / "AGENTS.md").write_text("# Fixture\n")
+            _fake_publication(self, Path(harness_root).parent, Path(harness_root))
+
+    auth = tmp_path / "fixture-auth.json"
+    auth.write_text("{}")
+    return SeededCodex(auth_file=auth, sandbox=sandbox)
+
+
+def test_multifile_patch_spends_one_call_in_budget_measurement_and_progress(tmp_path):
+    from proteus.core import EvaluatorSpec, GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, run
+    from proteus.core.evaluators import tool_calls
+    from proteus.measure.stream import tool_stream
+
+    paths = [f"/workspace/candidate/notes/{i}.md" for i in range(12)]
+    stops = []
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            if not stops:
+                patch = _patch_event(paths)
+                output = _jsonl({**patch, "type": "item.started"},
+                                {**patch, "type": "item.updated"}, patch)
+            else:
+                output = _jsonl({"type": "item.completed", "item": {
+                    "id": "command-1", "type": "command_execution", "command": "pwd",
+                    "status": "completed", "exit_code": 0,
+                }})
+            log = Path(root) / ".codex-state" / "sessions" / Path(command[1]).name
+            log.write_text(output)
+            stopped = stop_check()
+            stops.append(stopped)
+            return subprocess.CompletedProcess(command, 137 if stopped else 0, output, "")
+
+    adapter = _seeded_codex(tmp_path, Sandbox())
+    cfg = RunConfig(
+        name="codex-count", adapter=adapter, disposition=NEUTRAL,
+        goal=GoalConfig.of(evaluators=(EvaluatorSpec(name="calls", run=tool_calls("calls")),)),
+        root=tmp_path / "run", model="mock", episodes=1, max_turns=2,
+        progress_path=tmp_path / "progress.jsonl",
+    )
+    result = run(cfg)
+    assert result.episodes_complete == 1 and not result.error
+    assert stops == [False, True]  # One patch leaves room for propose's command.
+    trace = adapter.read_trace(cfg.root, 1)
+    assert tool_stream(trace) == ["file_change", "command"]
+    assert trace[0].surface == "notes"
+    assert [change["path"] for change in trace[0].params["changes"]] == paths
+    assert result.eval_history[0]["results"][0]["score"] == 2
+    progress = json.loads(cfg.progress_path.read_text())
+    assert progress["turns"] == progress["tool_calls"] == 2
+    assert progress["counters"]["phase_observe_turns"] == 1
+    assert progress["counters"]["phase_propose_turns"] == 1
+    assert progress["counters"]["turn_capped"] is True
+
+
+def test_patch_retains_mixed_surface_attribution_without_extra_calls():
+    adapter = object.__new__(CodexHarness)
+    paths = ["/workspace/candidate/AGENTS.md", "/workspace/candidate/src/main.rs"]
+    trace = adapter._jsonl_trace(_jsonl(_patch_event(paths)), "act")
+    assert len(trace) == 1 and trace[0].tool == "file_change"
+    assert trace[0].surface is None
+    assert [change["surface"] for change in trace[0].params["changes"]] == [
+        "instructions", "loop",
+    ]
+
+
+def test_diagnostics_do_not_spend_calls_or_turn_recovered_errors_into_failures(tmp_path):
+    from proteus.core.adapter import EpisodeSpec
+
+    output = _jsonl(
+        {"type": "error", "message": "retryable transport error"},
+        {"type": "item.completed", "item": {
+            "id": "warning-1", "type": "error", "message": "deprecation notice",
+        }},
+        {"type": "turn.completed", "usage": {}},
+    )
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            return subprocess.CompletedProcess(command, 0, output, "")
+
+    adapter = _seeded_codex(tmp_path, Sandbox())
+    root = tmp_path / "run"
+    adapter.seed(root / "harness")
+    result = adapter.run_episode(EpisodeSpec(
+        root=root, episode=1, model="", phase_prompts={}, phases=("observe",),
+    ))
+    assert result.ok and result.turns == 0
+    trace = adapter.read_trace(root, 1)
+    assert len(trace) == 2 and all(event.tool is None for event in trace)
+    log = root / ".codex-state" / "sessions" / "ep001-observe.jsonl"
+    assert adapter._live_calls(log) == 0
+
+
+@pytest.mark.parametrize(("events", "stderr", "expected"), [
+    ([{"type": "turn.failed", "error": {"message": "quota exhausted"}}],
+     "unrelated startup warning", "quota exhausted"),
+    ([{"type": "error", "message": "connection failed"}], "", "connection failed"),
+    ([], "permission denied api_key=fixture_stderr_secret",
+     "permission denied api_key=[REDACTED]"),
+    ([], "", "Codex exited without an error diagnostic"),
+])
+def test_failed_episode_retains_jsonl_diagnostic_or_stderr_fallback(
+        tmp_path, events, stderr, expected):
+    from proteus.core.adapter import EpisodeSpec
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            # Exercise stdout fallback, including an incomplete final JSONL frame.
+            return subprocess.CompletedProcess(command, 1, _jsonl(*events) + '{"type":', stderr)
+
+    adapter = _seeded_codex(tmp_path, Sandbox())
+    root = tmp_path / "run"
+    adapter.seed(root / "harness")
+    result = adapter.run_episode(EpisodeSpec(root=root, episode=1, model="", phase_prompts={}))
+    assert not result.ok and result.turns == 0
+    assert result.error == f"phase observe: exit 1: {expected}"
+    handoff = json.loads((root / ".proteus-state/handoffs/ep001/observe.json").read_text())
+    assert handoff["interrupted"] is True
+
+
+def test_native_failure_is_redacted_and_reaches_every_resumed_phase(tmp_path):
+    from proteus.core import GoalConfig, NEUTRAL
+    from proteus.core.episode import RunConfig, pending_candidate_path, run
+
+    secret = "fixture_provider_secret"
+    message = f"quota exhausted api_key={secret}"
+    prompts = []
+    notices = []
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            prompts.append(command[-1])
+            if len(prompts) == 1:
+                return subprocess.CompletedProcess(command, 1, _jsonl(
+                    {"type": "error", "message": "reconnecting"},
+                    {"type": "turn.failed", "error": {"message": message}},
+                ), "")
+            notices.append((Path(root) / ".proteus-state/handoff.md").read_text())
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+    adapter = _seeded_codex(tmp_path, Sandbox())
+    cfg = RunConfig(name="codex-failure", adapter=adapter, disposition=NEUTRAL,
+                    goal=GoalConfig.no_goal(), root=tmp_path / "run", model="mock", episodes=1)
+    failed = run(cfg)
+    assert failed.episodes_complete == 0 and "quota exhausted" in failed.error
+    pending = pending_candidate_path(cfg.root).read_text()
+    trace = adapter.read_trace(cfg.root, 1)
+    assert "quota exhausted" in pending and "[REDACTED]" in pending
+    assert secret not in pending and secret not in failed.error
+    assert all(secret not in event.text for event in trace)
+
+    resumed = run(cfg, resume=True)
+    assert resumed.episodes_complete == 1 and not resumed.error
+    assert len(prompts) == 5 and len(notices) == 4
+    assert all("quota exhausted" in text and secret not in text
+               for text in prompts[1:] + notices)
+
+
 # ------------------------------------------------------------------ boundary gate wiring
 # These are structural tests: the candidate gate in the image (boot.sh + Dockerfile) is
 # what makes staged activation safe for real Rust edits, so the wiring below is load-bearing
