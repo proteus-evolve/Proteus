@@ -32,12 +32,21 @@ jobs:
           if [ -z "${{ secrets.DEEPSEEK_API_KEY }}" ]; then
             echo "::error::add DEEPSEEK_API_KEY under Settings -> Secrets -> Actions"; exit 1
           fi
+      - name: checkout latest upstream main
+        id: source
+        run: |
+          set -e
+          if [ "${{ matrix.harness }}" = "pi" ]; then
+            git clone --depth 1 https://github.com/badlogic/pi-mono /tmp/src
+          else
+            git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness /tmp/src
+          fi
+          echo "sha=$(git -C /tmp/src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: bake from latest upstream main
         id: bake
         run: |
           set -e
           if [ "${{ matrix.harness }}" = "pi" ]; then
-            git clone --depth 1 https://github.com/badlogic/pi-mono /tmp/src
             docker run --rm -v /tmp/src:/opt/src -w /opt/src node:24-slim \
               sh -c 'npm ci --no-audit --no-fund && npm run hydrate:model-data'
             sudo rm -rf /tmp/src/node_modules /tmp/src/packages/*/dist /tmp/src/packages/*/*/dist
@@ -45,13 +54,12 @@ jobs:
             docker build -f environments/pi-src/Dockerfile \
               -t proteus-env-pi-src:0.84.2 /tmp/src
           else
-            git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness /tmp/src
             cp environments/dsh-src/boot.sh /tmp/src/.proteus-boot.sh
             docker build -f environments/dsh-src/Dockerfile \
               -t proteus-env-dsh-src:0.1.0-rc.7 /tmp/src
           fi
-          echo "sha=$(git -C /tmp/src rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: one live seed against latest
+        id: live
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
@@ -61,15 +69,73 @@ jobs:
             --goal "Get better at your work, however you judge it." \
             --evaluator units:notes --evaluator step@observe --evaluator tool-calls \
             --out /tmp/canary
+      - name: validate live seed output
+        id: smoke
+        if: success()
+        run: |
           python scripts/smoke_check.py /tmp/canary --harness ${{ matrix.harness }}
+      - name: write canary diagnostics
+        if: always()
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          UPSTREAM_SHA: ${{ steps.source.outputs.sha }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+          BAKE_OUTCOME: ${{ steps.bake.outcome }}
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          python scripts/canary_diagnostics.py /tmp/canary \
+            --output "$RUNNER_TEMP/canary-diagnostics.txt"
+      - name: upload canary diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: canary-diagnostics-${{ matrix.harness }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/canary-diagnostics.txt
+          if-no-files-found: error
+          retention-days: 14
       - name: open an issue on failure
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
+          UPSTREAM_SHA: ${{ steps.source.outputs.sha }}
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+          BAKE_OUTCOME: ${{ steps.bake.outcome }}
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
         run: |
-          title="upstream canary: ${{ matrix.harness }} latest (${{ steps.bake.outputs.sha }}) broke the adapter"
-          existing=$(gh issue list --search "$title" --state open --json number --jq '.[0].number' || true)
-          if [ -z "$existing" ]; then
-            gh issue create --title "$title" \
-              --body "The weekly canary against ${{ matrix.harness }} upstream main failed. Advisory: releases gate on pinned versions, but the adapter will need attention before the next version bump. See the run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [ "$SOURCE_OUTCOME" = "failure" ]; then
+            stage="upstream checkout"
+          elif [ "$BAKE_OUTCOME" = "failure" ]; then
+            stage="image build"
+          elif [ "$LIVE_OUTCOME" = "failure" ]; then
+            stage="live execution"
+          elif [ "$SMOKE_OUTCOME" = "failure" ]; then
+            stage="smoke validation"
+          else
+            stage="workflow"
+          fi
+          title="upstream canary: ${{ matrix.harness }} failed during $stage"
+          if [ -n "$UPSTREAM_SHA" ]; then
+            source="Upstream source SHA: $UPSTREAM_SHA"
+          else
+            source="Upstream source SHA: unavailable; upstream checkout did not complete."
+          fi
+          existing=$(gh issue list --state open --limit 100 --json number,title |
+            jq -r --arg title "$title" 'map(select(.title == $title))[0].number // empty')
+          cat > "$RUNNER_TEMP/canary-issue-body.md" <<EOF
+          The weekly upstream canary for ${{ matrix.harness }} failed during **$stage**.
+
+          $source
+          Upstream checkout outcome: $SOURCE_OUTCOME
+          Bake outcome: $BAKE_OUTCOME
+          Live execution outcome: $LIVE_OUTCOME
+          Smoke validation outcome: $SMOKE_OUTCOME
+
+          This alert records a failed canary stage; it does not by itself establish an adapter regression. See the [Actions run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) and its canary-diagnostics-${{ matrix.harness }}-${{ github.run_id }} artifact for the recorded per-seed error.
+          EOF
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/canary-issue-body.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/canary-issue-body.md"
           fi
