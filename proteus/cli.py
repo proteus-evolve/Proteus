@@ -7,7 +7,7 @@
 `--arm` is `neutral`, or `review:<surface>` / `record:<surface>` (repeatable). `--goal` is
 freeform objective text (`none` for no-goal); repeatable `--evaluator` flags independently
 choose what is measured and whether the agent sees it. The default harness is `minimal`,
-which runs offline; `dsh` and `pi` are the source-evolving container adapters, and `aki`
+which runs offline; `dsh`, `pi`, and `codex` are the source-evolving container adapters, and `aki`
 plugs in the reference research harness.
 """
 
@@ -51,6 +51,9 @@ def _adapter_factory(name: str):
     if name == "pi":
         from proteus.adapters.pi import PiHarness
         return PiHarness
+    if name == "codex":
+        from proteus.adapters.codex import CodexHarness
+        return CodexHarness
     if name == "aki":
         from proteus.adapters.aki import AkiHarness
         return AkiHarness
@@ -75,7 +78,7 @@ def _adapter_factory(name: str):
                 pass
         return cls
     raise SystemExit(f"unknown harness {name!r} "
-                     "(built-in: minimal, llm, dsh, pi, aki; or use <module>:<Class>)")
+                     "(built-in: minimal, llm, dsh, pi, codex, aki; or use <module>:<Class>)")
 
 
 def _sandbox_factory(args):
@@ -112,7 +115,7 @@ def _harness_factory(args):
     if sandbox is not None and "sandbox" not in params:
         raise SystemExit(
             f"harness {args.harness!r} does not take a sandbox, so --env/--network/--mem/"
-            "--cpus/--docker-arg cannot apply to it (containerised built-ins: dsh, pi)")
+            "--cpus/--docker-arg cannot apply to it (containerised built-ins: dsh, pi, codex)")
 
     def make():
         call = dict(kw)
