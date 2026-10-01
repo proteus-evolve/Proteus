@@ -26,7 +26,7 @@ from typing import Mapping
 
 from proteus.core import snapshot
 from proteus.core.adapter import EpisodeSpec, HarnessAdapter
-from proteus.core.budget import PHASES, make_budget_plan
+from proteus.core.budget import PHASES, make_budget_plan, validate_phases
 from proteus.core.disposition import Disposition
 from proteus.core.episode_protocol import (
     EPISTEMIC_PROTOCOL,
@@ -34,7 +34,8 @@ from proteus.core.episode_protocol import (
     OPEN_PHASE_PROMPTS,
     default_phase_prompts,
 )
-from proteus.core.goal import GoalConfig, GoalContext
+from proteus.core.feedback import FEEDBACK_PROTOCOL_VERSION, EvaluatorFeedback
+from proteus.core.goal import EvalResult, GoalConfig, GoalContext
 
 def _write_json_atomic(path: Path, value) -> None:
     """Replace one JSON record without exposing a truncated crash-time file."""
@@ -183,6 +184,11 @@ class RunConfig:
     """Where to append one JSON line per finished episode (live tracking). Must live
     OUTSIDE `root`: the subject agent can read its own run root, and a progress record
     carries the condition label and HIDDEN evaluator scores."""
+    phases: tuple[str, ...] = PHASES
+    phase_prompts: Mapping[str, str] = field(default_factory=dict)
+    """Overrides or explicit prompts for custom phases. Default phases remain unchanged."""
+    resume_phase: str | None = None
+    """DSH only: explicitly continue this interrupted phase on resume, under the same budget."""
 
 
 @dataclass
@@ -207,12 +213,22 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str,
     """
     gt = cfg.goal.goal_text()
     has_goal = bool(gt.strip())
-    prompts = default_phase_prompts(gt)
+    phases = validate_phases(cfg.phases)
+    defaults = default_phase_prompts(gt)
+    if set(cfg.phase_prompts) - set(phases):
+        raise ValueError("phase_prompts contains names outside the configured phases")
+    prompts = {}
+    for ph in phases:
+        text = cfg.phase_prompts.get(ph, defaults.get(ph))
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(f"phase {ph!r} requires an explicit nonempty prompt")
+        prompts[ph] = text
     from proteus.core.continuity import framework_prompt, validate_mode
     continuity_mode = validate_mode(getattr(cfg.adapter, "continuity_mode", "native"))
     if continuity_mode == "framework":
-        for ph in PHASES:
-            prompts[ph] = f"{prompts[ph]}\n\n{framework_prompt(ph, goal_present=has_goal)}"
+        for ph in phases:
+            prompts[ph] = (f"{prompts[ph]}\n\n"
+                           f"{framework_prompt(ph, goal_present=has_goal, phases=phases)}")
     if getattr(cfg.adapter, "staged_activation", False):
         staging_note = (
             "Episode isolation contract: the harness running this phase is the frozen "
@@ -222,16 +238,16 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str,
             "do not become the running harness in any phase of this episode, including "
             "reflect; do not replace or reload the active process from the candidate. "
             "Reflect may inspect the candidate and its diff. Proteus validates it after "
-            "reflect and activates it only in the next episode if the gate passes. If a "
+            "the final phase and activates it only in the next episode if the gate passes. If a "
             "prior candidate failed viability, this writable tree is that exact failed "
             "candidate restored for repair; the active runtime still remains last-valid."
         )
-        for ph in PHASES:
+        for ph in phases:
             prompts[ph] = f"{staging_note}\n\n{prompts[ph]}"
     # This is part of Proteus's default episode protocol, not a disposition and not an
     # evaluator. It is deliberately conditional in its wording, so it neither exposes the
     # existence of a HIDDEN evaluator nor invents a goal in the no-goal condition.
-    for ph in PHASES:
+    for ph in phases:
         prompts[ph] = f"{EPISTEMIC_PROTOCOL}\n\n{prompts[ph]}"
     # Phases are context-fresh.  Every phase therefore needs the objective: if only act
     # sees it, observe and propose spend most of a bounded episode investigating and
@@ -239,17 +255,18 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str,
     # budget to pursue the actual goal.  Empty text preserves the no-goal condition.
     if has_goal:
         objective = f"Evolution objective for this run:\n{gt}"
-        for ph in PHASES:
+        for ph in phases:
             prompts[ph] = f"{objective}\n\n{prompts[ph]}"
     # A viability/run failure is a controller-owned fact, not evaluator feedback. Every
     # fresh phase must retain it until the restored candidate passes the boundary gate;
     # otherwise an interrupted observe can leave propose/act repairing without the error.
     if repair_notice:
-        for ph in PHASES:
+        for ph in phases:
             prompts[ph] = f"{repair_notice}\n\n{prompts[ph]}"
-    # evaluator feedback the agent is allowed to see enters the observe phase
+    # Every phase is context-fresh: the same allowlisted evidence survives all of them.
     if prior_feedback:
-        prompts["observe"] = f"{prior_feedback}\n\n{prompts['observe']}"
+        for ph in prompts:
+            prompts[ph] = f"{prior_feedback}\n\n{prompts[ph]}"
     # the budget announcement comes first: it frames how the agent plans the episode
     if cfg.announce_budget and cfg.max_turns:
         hard = cfg.hard_max_turns or cfg.max_turns
@@ -258,19 +275,21 @@ def _phase_prompts(cfg: RunConfig, prior_feedback: str,
                 "report live used and remaining counts at phase start.")
         if cfg.phase_turns:
             allocation = ", ".join(
-                f"{phase}={cfg.phase_turns[phase]}" for phase in PHASES
+                f"{phase}={cfg.phase_turns[phase]}" for phase in phases
             )
-            note += f" Planned phase allocation: {allocation}; unused quota goes to act."
+            note += f" Planned phase allocation: {allocation}."
+            if "act" in phases:
+                note += " Unused quota goes to act."
         elif cfg.min_turns_per_phase:
             note += (f" Each later phase reserves at least {cfg.min_turns_per_phase} "
                      "calls; a phase may be ended early to protect that reserve.")
-        for ph in PHASES:
+        for ph in phases:
             prompts[ph] = f"{note}\n\n{prompts[ph]}"
     # the disposition contributes its (per-phase) text — unless the adapter already carries
     # it in a file the harness loads itself, in which case adding it here would deliver the
     # same perturbation twice per phase (see HarnessAdapter.disposition_in_files)
     if not getattr(cfg.adapter, "disposition_in_files", False):
-        for ph in PHASES:
+        for ph in phases:
             suffix = cfg.disposition.phase_text(ph)
             if suffix:
                 prompts[ph] = f"{prompts[ph]}\n\n{suffix}"
@@ -291,6 +310,7 @@ def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, result
         "units": {k: len(v) for k, v in units.items()},
         "accepted": accepted,
         "scores": {r.name: r.score for r in results},
+        "evaluation_status": {r.name: r.status for r in results},
         "counters": dict(res.counters or {}),
     }
     cfg.progress_path.parent.mkdir(parents=True, exist_ok=True)
@@ -315,6 +335,13 @@ def completed_episodes(cfg: RunConfig) -> int:
 
 
 def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
+    """Run or resume one seed under an exclusive controller lease."""
+    from proteus.core.run_lock import run_lock
+    with run_lock(cfg.root):
+        return _run(cfg, start, resume=resume)
+
+
+def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     """Run one seed's full trajectory, harness retained under `cfg.root`.
 
     `start` resumes an interrupted seed: episodes up to and including `start` are taken as
@@ -328,12 +355,18 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     harness = cfg.root / "harness"
     records = private_record_dir(cfg.root)
     staged_activation = bool(getattr(cfg.adapter, "staged_activation", False))
+    validate_phases(cfg.phases)
+    if (tuple(cfg.phases) != PHASES or cfg.phase_prompts) and not getattr(
+            cfg.adapter, "supports_custom_phases", False):
+        raise ValueError(f"adapter {cfg.adapter.name!r} does not support custom phases/prompts")
+    _phase_prompts(cfg, "")  # fail before seeding or restoring anything
     make_budget_plan(
         max_turns=cfg.max_turns,
         min_turns_per_phase=cfg.min_turns_per_phase,
         phase_turns=cfg.phase_turns,
         hard_max_turns=cfg.hard_max_turns,
         checkpoint_turns=cfg.checkpoint_turns,
+        phases=cfg.phases,
     )
     if cfg.checkpoint_turns and not cfg.announce_budget:
         raise ValueError("checkpoint_turns requires announce_budget")
@@ -343,6 +376,54 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         )
     completed = completed_episodes(cfg)
     is_resume = resume or bool(start)
+    contract_path = records / "evaluator_contract.json"
+    contract = {"selection": cfg.goal.selection, "evaluators": cfg.goal.describe(),
+                "feedback_protocol_version": FEEDBACK_PROTOCOL_VERSION}
+    if tuple(cfg.phases) != PHASES or cfg.phase_prompts:
+        from proteus.sweep import _sha256_json
+        contract["phases"] = list(cfg.phases)
+        contract["phase_prompt_sha256"] = _sha256_json(dict(cfg.phase_prompts))
+    if is_resume and contract_path.exists():
+        try:
+            previous_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"cannot resume: unreadable evaluator contract: {exc}") from exc
+        if previous_contract != contract:
+            raise ValueError("cannot resume: evaluator contract differs; use a new run")
+    elif is_resume and (cfg.goal._visible() or tuple(cfg.phases) != PHASES or cfg.phase_prompts or any(
+            set(row) - {"name", "kind", "visibility"} for row in cfg.goal.describe())):
+        raise ValueError("cannot change feedback/evaluator policies in a legacy run; use a new run")
+    from proteus.sweep import _adapter_condition, _disposition_condition, _sha256_json
+    runtime_path = records / "runtime_contract.json"
+    runtime_contract = {
+        "model": cfg.model, "seed": cfg.seed, "adapter": _adapter_condition(cfg.adapter),
+        "disposition": _disposition_condition(cfg.disposition),
+        "phases": list(cfg.phases), "phase_prompts": _sha256_json(_phase_prompts(cfg, "")),
+        "goal": _sha256_json(cfg.goal.goal_text()), "evaluators": contract,
+        "max_turns": cfg.max_turns, "hard_max_turns": cfg.hard_max_turns,
+        "phase_turns": dict(cfg.phase_turns), "checkpoint_turns": cfg.checkpoint_turns,
+        "min_turns_per_phase": cfg.min_turns_per_phase, "announce_budget": cfg.announce_budget,
+    }
+    recovery = None
+    if cfg.resume_phase:
+        from proteus.adapters.dsh import DshHarness
+        from proteus.adapters.dsh_resume import DshPhaseResume
+        if (not is_resume or not isinstance(cfg.adapter, DshHarness)
+                or completed != start or start >= cfg.episodes):
+            raise ValueError("phase recovery requires DSH at the exact unfinished checkpoint")
+        if not runtime_path.exists() or json.loads(runtime_path.read_text()) != runtime_contract:
+            raise ValueError("phase recovery requires the original runtime/goal/budget contract")
+        candidate_path = pending_candidate_path(cfg.root)
+        if not candidate_path.exists():
+            raise ValueError("phase recovery requires a durably preserved interrupted candidate")
+        candidate = json.loads(candidate_path.read_text())
+        if (candidate.get("resume_episode") != start + 1
+                or candidate.get("reason") != "run_failed"):
+            raise ValueError("phase recovery cannot continue a completed or rejected episode")
+        if snapshot.has_changes(harness):
+            raise ValueError("phase recovery refuses uncheckpointed edits; resume the episode instead")
+        recovery = DshPhaseResume.capture(cfg.root, start + 1, cfg.resume_phase,
+            timeout_s=cfg.adapter.phase_timeout_s, phases=cfg.phases)
     if is_resume:
         if completed != start:
             raise ValueError(
@@ -380,6 +461,9 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             from proteus.bench.task import seed_task
             seed_task(harness, cfg.task)
         snapshot.init(harness)
+    _write_json_atomic(contract_path, contract)
+    if not is_resume or not runtime_path.exists():
+        _write_json_atomic(runtime_path, runtime_contract)
 
     # Resume must restore the experiment's state, not just its files: the selection
     # baseline, the visible feedback, and the cumulative counters all live in
@@ -390,6 +474,21 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     repair_notice = ""
     totals: dict = {}
     best_score: float | None = None
+    feedback = EvaluatorFeedback(cfg.goal)
+    baseline_path = records / "initial_evaluation.json"
+    baseline = None
+    if is_resume and baseline_path.exists():
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    elif not start and any(s.due(0) for s in cfg.goal.evaluators):
+        baseline_results = cfg.goal.evaluate(
+            [], GoalContext(str(harness), 0, grader_sandbox=cfg.grader_sandbox))
+        baseline = {"episode": 0, "accepted": True,
+                    "candidate_commit": snapshot.commit_for_episode(harness, 0),
+                    "results": [r.__dict__ for r in baseline_results]}
+        _write_json_atomic(baseline_path, baseline)
+    if baseline is not None:
+        feedback.replay([baseline])
+        best_score = cfg.goal.selection_score([EvalResult(**r) for r in baseline["results"]])
     history_path = eval_history_path(cfg.root)
     fingerprint_path = records / "disposition_fingerprint.json"
     fingerprint = cfg.adapter.disposition_fingerprint(harness)
@@ -439,11 +538,11 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             )
         if getattr(cfg.adapter, "continuity_mode", "native") == "framework":
             from proteus.core.continuity import HandoffStore
-            HandoffStore(cfg.root).reconcile(start)
+            HandoffStore(cfg.root, phases=cfg.phases).reconcile(start)
         for row in eval_history:
-            results = row.get("results") or []
-            if results:
-                score = sum(r.get("score", 0.0) for r in results) / len(results)
+            results = [EvalResult(**r) for r in row.get("results", ())]
+            score = cfg.goal.selection_score(results)
+            if score is not None:
                 if row.get("accepted") and (best_score is None or score >= best_score):
                     best_score = score
             for key, value in (row.get("counters") or {}).items():
@@ -451,40 +550,37 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     totals[key] = totals.get(key, 0) + value
         if eval_history:
             last = eval_history[-1]
-            from proteus.core.goal import EvalResult
-            by_name = {r["name"]: EvalResult(**r) for r in (last.get("results") or [])}
-            prior_feedback = cfg.goal.observe_feedback(by_name)
             if last.get("failure_kind") == "viability":
                 repair_notice = (
                     "Your last candidate failed the episode-boundary viability gate and "
                     "was rolled back. Fix the underlying issue in a new candidate: "
                     f"{str(last.get('error', 'validation failed'))[:600]}"
                 )
-            elif prior_feedback and not last.get("accepted", True):
-                prior_feedback += "\n(Your last episode's changes were not kept.)"
+        feedback.replay(eval_history)
     pending = (
         _load_pending_candidate(cfg.root, harness, start + 1)
         if staged_activation else None
     )
     if pending:
-        if pending["reason"] == "viability" and eval_history:
-            # Replace the older generic rollback wording while retaining only evaluator
-            # feedback the agent is allowed to observe.
-            from proteus.core.goal import EvalResult
-            last_results = {
-                r["name"]: EvalResult(**r) for r in (eval_history[-1].get("results") or [])
-            }
-            prior_feedback = cfg.goal.observe_feedback(last_results)
         repair_notice = _repair_notice(pending)
+    if recovery is not None:
+        if pending is None:
+            raise ValueError("phase recovery lost its writable candidate")
+        cfg.adapter.phase_resume = recovery
+        _write_json_atomic(records / "phase_recovery.json", {
+            **recovery.describe(), "candidate_commit": pending["commit"],
+            "active_commit": snapshot.commit_for_episode(harness, start),
+        })
     handoffs = None
     if getattr(cfg.adapter, "continuity_mode", "native") == "framework":
         from proteus.core.continuity import HandoffStore
-        handoffs = HandoffStore(cfg.root)
+        handoffs = HandoffStore(cfg.root, phases=cfg.phases)
     error = ""
     done = start
     last_checkpoint = snapshot.head(harness)  # gapless episode mapping, including rollbacks
     last_accepted = last_checkpoint            # same valid tree at start/resume
     for ep in range(start + 1, cfg.episodes + 1):
+        prior_feedback = feedback.render(next_episode=ep)
         if handoffs is not None:
             if repair_notice:
                 handoffs.set_controller_notice(repair_notice)
@@ -515,6 +611,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             announce_budget=cfg.announce_budget,
             continuity_mode=getattr(cfg.adapter, "continuity_mode", "native"),
             active_root=active_root,
+            phases=tuple(cfg.phases),
         )
         try:
             res = cfg.adapter.run_episode(spec)
@@ -568,7 +665,7 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
 
         # Evaluate a viable candidate BEFORE snapshotting, so selection can still reject
         # it. An evaluator is user (or benchmark) code — a crash in it must not take the
-        # whole trajectory down; a failed evaluator records a zero and the run continues.
+        # whole trajectory down; unavailable results retain an explicit error status.
         results = []
         if not viability_error:
             try:
@@ -576,17 +673,21 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
                 )
             except Exception as exc:  # noqa: BLE001
-                from proteus.core.goal import EvalResult
-                results = [EvalResult(name="evaluator-error", score=0.0,
-                                      detail=f"{type(exc).__name__}: {exc}"[:200])]
-        by_name = {r.name: r for r in results}
+                results = [EvalResult(name=name, score=None, status="error",
+                                      detail=f"{type(exc).__name__}: {exc}"[:200])
+                           for name in cfg.goal.selection_names()]
 
         # outer-loop selection on the scores (visibility-independent: an outer loop may
         # act on scores the agent itself never sees)
         accepted = not viability_error
-        if accepted and cfg.goal.selection == "accept_reject" and results:
-            score = sum(r.score for r in results) / len(results)
-            if best_score is not None and score < best_score:
+        selection_unavailable = False
+        if (accepted and cfg.goal.selection == "accept_reject"
+                and any(r.name in cfg.goal.selection_names() for r in results)):
+            score = cfg.goal.selection_score(results)
+            if score is None:
+                accepted = False
+                selection_unavailable = True
+            elif best_score is not None and score < best_score:
                 accepted = False
             else:
                 best_score = score
@@ -645,13 +746,15 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                              "disposition_fingerprint": checkpoint_fingerprint,
                              "disposition_drift": candidate_fingerprint != fingerprint,
                              "failure_kind": "viability" if viability_error else "",
+                             "selection_unavailable": selection_unavailable,
                              "error": viability_error})
         # The snapshot and experiment state are two halves of one durable checkpoint.
         # Persist after every episode, atomically. A crash in the tiny interval after the
         # git commit but before this replace is detected by the strict resume guard above
         # instead of silently resetting selection history.
         _write_json_atomic(history_path, eval_history)
-        prior_feedback = cfg.goal.observe_feedback(by_name)  # OBSERVE-visible only
+        feedback.record(results, episode=ep, accepted=accepted,
+                        candidate_commit=candidate_commit)
         if viability_error:
             if not pending:
                 repair_notice = (
@@ -659,8 +762,6 @@ def run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     "was rolled back. Fix the underlying issue in a new candidate: "
                     f"{viability_error[:600]}"
                 )
-        elif prior_feedback and not accepted:
-            prior_feedback += "\n(Your last episode's changes were not kept.)"
 
         if cfg.progress_path is not None:
             if viability_error:

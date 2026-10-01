@@ -21,6 +21,7 @@ from proteus.core.disposition import Disposition
 from proteus.core.episode import RunConfig, completed_episodes, run
 from proteus.core.episode_protocol import DEFAULT_EPISODE_PROTOCOL_VERSION
 from proteus.core.goal import GoalConfig
+from proteus.core.feedback import FEEDBACK_PROTOCOL_VERSION
 
 
 MANIFEST_FORMAT_VERSION = 2
@@ -140,6 +141,7 @@ def _condition(cfg: "SweepConfig", adapter: HarnessAdapter) -> dict:
     condition = {
         "proteus_version": __version__,
         "default_episode_protocol_version": DEFAULT_EPISODE_PROTOCOL_VERSION,
+        "feedback_protocol_version": FEEDBACK_PROTOCOL_VERSION,
         "continuity_protocol_version": (
             PROTOCOL_VERSION
             if getattr(adapter, "continuity_mode", "native") == "framework" else None
@@ -168,15 +170,19 @@ def _condition(cfg: "SweepConfig", adapter: HarnessAdapter) -> dict:
             phase_turns=cfg.phase_turns,
             hard_max_turns=cfg.hard_max_turns,
             checkpoint_turns=cfg.checkpoint_turns,
+            phases=cfg.phases,
         )
         condition["budget_protocol"] = {
             "version": BUDGET_PROTOCOL_VERSION,
             "normal_limit": plan.normal_limit,
             "hard_limit": plan.hard_limit,
-            "phase_turns": {phase: plan.phase_allowances[phase] for phase in PHASES},
+            "phase_turns": dict(plan.phase_allowances),
             "checkpoint_turns": plan.checkpoint_turns,
-            "unused_priority": "act",
+            "unused_priority": "act" if "act" in cfg.phases else None,
         }
+    if tuple(cfg.phases) != PHASES or cfg.phase_prompts:
+        condition["phases"] = list(cfg.phases)
+        condition["phase_prompt_sha256"] = _sha256_json(dict(cfg.phase_prompts))
     return condition
 
 
@@ -233,6 +239,10 @@ class SweepConfig:
     from the adapter/evaluator contracts. The CLI records its raw evaluator specs here;
     API callers with configurable custom evaluators should do the same. Resume compares
     this metadata byte-for-byte after canonical JSON normalization."""
+    phases: tuple[str, ...] = PHASES
+    phase_prompts: Mapping[str, str] = field(default_factory=dict)
+    resume_phase: str | None = None
+    """Opt-in DSH interrupted-phase recovery for a single unfinished seed."""
 
 
 def opaque_id(arm: str, seed: int) -> str:
@@ -292,10 +302,21 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
         phase_turns=cfg.phase_turns,
         hard_max_turns=cfg.hard_max_turns,
         checkpoint_turns=cfg.checkpoint_turns,
+        phases=cfg.phases,
     )
     if cfg.checkpoint_turns and not cfg.announce_budget:
         raise ValueError("checkpoint_turns requires announce_budget")
     manifest_adapter = cfg.adapter_factory()
+    from proteus.core.episode import _phase_prompts
+    if (tuple(cfg.phases) != PHASES or cfg.phase_prompts) and not getattr(
+            manifest_adapter, "supports_custom_phases", False):
+        raise ValueError("this adapter does not support custom phases/prompts")
+    _phase_prompts(RunConfig(name=cfg.name, adapter=manifest_adapter,
+                            disposition=cfg.arms[0] if cfg.arms else Disposition("neutral"),
+                            goal=cfg.goal, root=cfg.root, model=cfg.model,
+                            phases=cfg.phases, phase_prompts=cfg.phase_prompts), "")
+    if cfg.resume_phase and (cfg.on_existing != "resume" or cfg.seeds != 1 or len(cfg.arms) != 1):
+        raise ValueError("resume_phase requires resume mode with exactly one arm and seed")
     continuity_mode = getattr(manifest_adapter, "continuity_mode", "native")
     if cfg.checkpoint_turns and continuity_mode == "none":
         raise ValueError(
@@ -376,9 +397,9 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
             "protocol_version": BUDGET_PROTOCOL_VERSION,
             "normal_limit": plan.normal_limit,
             "hard_limit": plan.hard_limit,
-            "phase_turns": {phase: plan.phase_allowances[phase] for phase in PHASES},
+            "phase_turns": dict(plan.phase_allowances),
             "checkpoint_turns": plan.checkpoint_turns,
-            "unused_priority": "act",
+            "unused_priority": "act" if "act" in cfg.phases else None,
         }
     # Preserve an already-validated resume manifest exactly. A refused or failed resume
     # must be observationally read-only; a new/overwrite sweep publishes atomically.
@@ -411,6 +432,8 @@ def run_sweep(cfg: SweepConfig) -> list[dict]:
                 announce_budget=cfg.announce_budget, task=cfg.task,
                 grader_sandbox=cfg.grader_sandbox,
                 progress_path=cfg.root / "progress" / f"{rid}.jsonl",
+                phases=tuple(cfg.phases), phase_prompts=dict(cfg.phase_prompts),
+                resume_phase=cfg.resume_phase,
             )
             res = run(rc, start=start, resume=run_root_existed)
             rec = {"arm": arm.label, "seed": s, "root": str(run_root),

@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.disposition import Disposition
 
 
@@ -41,6 +41,7 @@ class TemplateHarness:
 
     #: Short, stable identifier for this harness. Appears in run manifests and reports.
     name = "template"
+    supports_custom_phases = True  # the stub honors spec.phases and matching prompts
 
     #: How fresh phases continue across an episode. "none" (phases independent, like this
     #: stub and `minimal`), "native" (your harness owns continuity — the default if you
@@ -140,7 +141,7 @@ class TemplateHarness:
         capped = False
         plan = budget_plan(spec)
         with trace_path.open("w", encoding="utf-8") as sink:
-            for phase in PHASES:
+            for phase in plan.phases:
                 if plan.enabled and turn >= plan.hard_limit:
                     capped = True
                 if capped:

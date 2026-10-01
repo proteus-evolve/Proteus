@@ -92,7 +92,7 @@ async function tick(){
     const units = last ? Object.entries(last.units)
         .map(([k,v])=>`${k}:${v}`).join("  ") : "—";
     const score = last && Object.keys(last.scores||{}).length
-      ? Object.entries(last.scores).map(([k,v])=>`${k}=${(+v).toFixed(2)}`).join(" ") : "—";
+      ? Object.entries(last.scores).map(([k,v])=>`${k}=${v == null || (last.evaluation_status && last.evaluation_status[k] !== 'ok') ? 'unavailable' : (+v).toFixed(2)}`).join(" ") : "—";
     const calls = recs.reduce((a,r)=>a+(r.tool_calls||0),0);
     rows.push(`<tr><td>${r.arm}</td><td>${r.seed}</td>
       <td><div class="bar ${errored?"err":""}"><i style="width:${pct}%"></i></div></td>

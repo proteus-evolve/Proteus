@@ -27,7 +27,7 @@ from pathlib import Path
 
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
-from proteus.core.budget import PHASES, budget_plan, phase_prompt
+from proteus.core.budget import budget_plan, phase_prompt
 
 SYSTEM = """\
 You are an agent that can inspect and change its own harness — the set of files it wakes up
@@ -96,6 +96,7 @@ class LLMHarness(MinimalHarness):
     """`minimal`'s surfaces and trace format, driven by a live model."""
 
     name = "llm"
+    supports_custom_phases = True
 
     def __init__(self, model: str | None = None, base_url: str | None = None,
                  key: str | None = None) -> None:
@@ -118,12 +119,12 @@ class LLMHarness(MinimalHarness):
         turn = 0
         writes = {"notes": 0, "tools": 0}
         tokens_in = tokens_out = 0
-        phase_counts = {phase: 0 for phase in PHASES}
+        phase_counts = {phase: 0 for phase in spec.phases}
         error = ""
         capped = False
         plan = budget_plan(spec)
         with trace_path.open("w", encoding="utf-8") as sink:
-            for phase in PHASES:
+            for phase in spec.phases:
                 if plan.enabled and turn >= plan.hard_limit:
                     capped = True
                 if capped:

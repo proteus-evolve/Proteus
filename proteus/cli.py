@@ -136,11 +136,41 @@ def _arm(spec: str):
     raise SystemExit(f"bad --arm {spec!r} (use neutral | review:<surface> | record:<surface>)")
 
 
-def _goal(spec: str, evaluators) -> GoalConfig:
+def _goal(spec: str, evaluators, *, selection="none") -> GoalConfig:
     """`--goal` is freeform text ("none" for the no-goal condition); evaluators attach
     independently via --evaluator. `task:<text>` is accepted for compatibility."""
     text = "" if spec == "none" else spec.partition(":")[2] if spec.startswith("task:") else spec
-    return GoalConfig.of(text=text, evaluators=evaluators)
+    return GoalConfig.of(text=text, evaluators=evaluators, selection=selection)
+
+
+def _assignments(values: list[str] | None, label: str) -> dict[str, str]:
+    out = {}
+    for raw in values or ():
+        name, sep, value = raw.partition("=")
+        if not sep or not name or not value or name in out:
+            raise ValueError(f"{label} requires unique NAME=VALUE entries")
+        out[name] = value
+    return out
+
+
+def _evaluator_controls(evaluators, args):
+    from dataclasses import replace
+    every = _assignments(getattr(args, "eval_every", None), "--eval-every")
+    episodes = _assignments(getattr(args, "eval_at", None), "--eval-at")
+    initial = set(getattr(args, "eval_initial", None) or ())
+    missing = set(getattr(args, "eval_missing_on_error", None) or ())
+    excluded = set(getattr(args, "selection_exclude", None) or ())
+    unknown = (set(every) | set(episodes) | initial | missing | excluded) - {
+        spec.name for spec in evaluators}
+    if unknown:
+        raise ValueError("unknown evaluator names: " + ", ".join(sorted(unknown)))
+    return tuple(replace(spec,
+        selection_eligible=spec.name not in excluded,
+        every_n_episodes=int(every.get(spec.name, "1")),
+        episodes=tuple(int(ep) for ep in episodes[spec.name].split(","))
+            if spec.name in episodes else None,
+        include_initial=spec.name in initial,
+        error_policy="missing" if spec.name in missing else "zero") for spec in evaluators)
 
 
 def _phase_turns(spec: str) -> dict[str, int]:
@@ -235,11 +265,12 @@ def cmd_run(args) -> int:
         raise SystemExit("--max-turns must be 0 (unlimited) or a positive integer")
     if args.min_turns_per_phase < 0:
         raise SystemExit("--min-turns-per-phase must be 0 or a positive integer")
-    required = args.min_turns_per_phase * 4
+    phases = tuple(p.strip() for p in getattr(args, "phases", "observe,propose,act,reflect").split(","))
+    required = args.min_turns_per_phase * len(phases)
     if required and (not args.max_turns or required > args.max_turns):
         raise SystemExit(
             f"--max-turns={args.max_turns} cannot reserve "
-            f"--min-turns-per-phase={args.min_turns_per_phase} across 4 phases; "
+            f"--min-turns-per-phase={args.min_turns_per_phase} across {len(phases)} phases; "
             f"use --max-turns >= {required}"
         )
     try:
@@ -249,6 +280,7 @@ def cmd_run(args) -> int:
             phase_turns=args.phase_turns,
             hard_max_turns=args.hard_max_turns,
             checkpoint_turns=args.checkpoint_turns,
+            phases=phases,
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
@@ -257,6 +289,12 @@ def cmd_run(args) -> int:
     factory = _harness_factory(args)
     parsed = [_evaluator(e, factory) for e in (args.evaluator or ())]
     evaluators = tuple(spec for spec, _ in parsed)
+    try:
+        evaluators = _evaluator_controls(evaluators, args)
+        phase_prompts = _assignments(getattr(args, "phase_prompt", None), "--phase-prompt")
+        goal = _goal(args.goal, evaluators, selection=getattr(args, "selection", "none"))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
     tasks = [task for _, task in parsed if task is not None]
     if len(tasks) > 1:
         raise SystemExit("only one benchmark evaluator per run: each run has one task "
@@ -266,7 +304,7 @@ def cmd_run(args) -> int:
         adapter_factory=factory,
         arms=[_arm(a) for a in args.arm],
         seeds=args.seeds,
-        goal=_goal(args.goal, evaluators),
+        goal=goal,
         root=Path(args.out).expanduser(),
         model=args.model,
         episodes=args.episodes,
@@ -287,6 +325,8 @@ def cmd_run(args) -> int:
         checkpoint_turns=args.checkpoint_turns,
         announce_budget=args.announce_budget,
         on_existing=args.on_existing,
+        phases=phases, phase_prompts=phase_prompts,
+        resume_phase=getattr(args, "resume_phase", None),
     )
     try:
         records = run_sweep(cfg)
@@ -494,6 +534,25 @@ def main(argv=None) -> int:
                         "contains:<relpath>:<needle>, each with optional @hidden "
                         "(default) or @observe; at most one benchmark task per run")
     r.add_argument("--seeds", type=int, default=4)
+    r.add_argument("--selection", choices=("none", "accept_reject"), default="none",
+                   help="outer-loop selection, independent of feedback visibility")
+    r.add_argument("--selection-exclude", action="append", metavar="NAME",
+                   help="record this evaluator without using it for selection (repeatable)")
+    r.add_argument("--eval-every", action="append", metavar="NAME=N",
+                   help="run this evaluator every N episodes (repeatable)")
+    r.add_argument("--eval-at", action="append", metavar="NAME=0,5,10",
+                   help="explicit evaluation episodes; 0 evaluates H0 before episode 1")
+    r.add_argument("--eval-initial", action="append", metavar="NAME",
+                   help="also evaluate H0 before episode 1 for a periodic evaluator")
+    r.add_argument("--eval-missing-on-error", action="append", metavar="NAME",
+                   help="record unavailable scores as null instead of legacy zero")
+    r.add_argument("--phases", default="observe,propose,act,reflect",
+                   help="ordered comma-separated phase names")
+    r.add_argument("--phase-prompt", action="append", metavar="NAME=TEXT",
+                   help="override a default phase or supply a custom phase prompt")
+    r.add_argument("--resume-phase", metavar="PHASE",
+                   help="DSH only: recover the interrupted phase, retaining spent calls; "
+                        "requires --on-existing resume, one arm and --seeds 1")
     r.add_argument("--episodes", type=int, default=10)
     r.add_argument("--max-turns", type=int, default=100)
     r.add_argument("--min-turns-per-phase", type=int, default=0,
