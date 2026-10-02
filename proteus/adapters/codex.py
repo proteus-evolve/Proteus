@@ -24,7 +24,7 @@ from typing import Optional, Sequence
 from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import budget_plan, phase_prompt
-from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
+from proteus.core.continuity import CONTAINER_ROOT, HandoffStore, _redact
 from proteus.core.disposition import Disposition
 
 IMAGE = os.environ.get("PROTEUS_CODEX_IMAGE", "proteus-env-codex-src:test-compile")
@@ -337,9 +337,9 @@ class CodexHarness:
     def _jsonl_trace(self, text: str, phase: str) -> list[ActionEvent]:
         """Normalize `codex exec --json` JSONL.
 
-        We consume terminal item.completed events only, avoiding item.started/updated
-        duplicates. A FileChangeItem is expanded to one event per changed path so Proteus
-        can attribute edits to surfaces precisely.
+        One completed native tool item becomes one tool event, including multi-file
+        patches. Per-file attribution is retained in params["changes"]. Diagnostics
+        carry no tool name, so they cannot spend the tool-call budget.
         """
         events: list[ActionEvent] = []
         turn = 0
@@ -348,9 +348,27 @@ class CodexHarness:
                 event = json.loads(raw)
             except json.JSONDecodeError:
                 continue
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            if event_type in ("error", "turn.failed"):
+                payload = event.get("error") if event_type == "turn.failed" else event
+                if not isinstance(payload, dict):
+                    continue
+                message = str(payload.get("message") or "").strip()
+                if message:
+                    turn += 1
+                    events.append(ActionEvent(
+                        turn=turn, phase=phase, tool=None, surface=None,
+                        params={"kind": "error", "event_type": event_type},
+                        text=_redact(message)[:1000],
+                    ))
+                continue
             if event.get("type") != "item.completed":
                 continue
             item = event.get("item") or {}
+            if not isinstance(item, dict):
+                continue
             kind = item.get("type", "")
             turn += 1
 
@@ -372,20 +390,25 @@ class CodexHarness:
                             "status": str(item.get("status", ""))}, text="",
                 ))
             elif kind == "file_change":
-                changes = item.get("changes") or []
-                if not changes:
-                    events.append(ActionEvent(turn=turn, phase=phase, tool="file_change",
-                                              surface=None,
-                                              params={"status": str(item.get("status", ""))},
-                                              text=""))
-                for change in changes:
+                changes = []
+                for change in item.get("changes") or []:
+                    if not isinstance(change, dict):
+                        continue
                     path = str(change.get("path", ""))
-                    events.append(ActionEvent(
-                        turn=turn, phase=phase, tool="file_change",
-                        surface=self._surface_for_path(path),
-                        params={"path": path[:500], "kind": str(change.get("kind", "")),
-                                "status": str(item.get("status", ""))}, text="",
-                    ))
+                    changes.append({"path": path[:500], "kind": str(change.get("kind", "")),
+                                    "surface": self._surface_for_path(path)})
+                surfaces = {change["surface"] for change in changes}
+                params = {"status": str(item.get("status", "")), "changes": changes}
+                if changes:
+                    # Keep a bounded, readable path summary for the generic handoff.
+                    params["path"] = ", ".join(change["path"] for change in changes)[:500]
+                if len(changes) == 1:
+                    params["kind"] = changes[0]["kind"]
+                events.append(ActionEvent(
+                    turn=turn, phase=phase, tool="file_change",
+                    surface=next(iter(surfaces)) if len(surfaces) == 1 else None,
+                    params=params, text="",
+                ))
             elif kind == "mcp_tool_call":
                 name = f"mcp:{item.get('server', '')}/{item.get('tool', '')}".rstrip("/")
                 events.append(ActionEvent(
@@ -408,10 +431,20 @@ class CodexHarness:
                 events.append(ActionEvent(turn=turn, phase=phase, tool="todo_list",
                                           surface=None, params={}, text=""))
             elif kind == "error":
-                events.append(ActionEvent(turn=turn, phase=phase, tool="error",
-                                          surface=None, params={},
-                                          text=str(item.get("message", ""))[:1000]))
+                events.append(ActionEvent(turn=turn, phase=phase, tool=None,
+                                          surface=None, params={"kind": "error"},
+                                          text=_redact(str(item.get("message", "")))[:1000]))
         return events
+
+    @staticmethod
+    def _failure_detail(events: Sequence[ActionEvent], stderr: str) -> str:
+        """Prefer the terminal JSONL failure; stderr may be empty or incidental."""
+        for event_type in ("turn.failed", "error"):
+            message = next((event.text for event in reversed(events)
+                            if event.params.get("event_type") == event_type and event.text), "")
+            if message:
+                return message
+        return _redact(stderr).strip()[-1000:] or "Codex exited without an error diagnostic"
 
     # ------------------------------------------------------------------ episodes
 
@@ -535,7 +568,8 @@ class CodexHarness:
             phase_events = self._jsonl_trace(stdout, phase)
             used += sum(1 for e in phase_events if e.tool)
             handoff = handoffs.finish(handoff_start, phase_events,
-                                      interrupted=timed_out or fired[0])
+                                      interrupted=timed_out or fired[0]
+                                      or (proc is not None and proc.returncode != 0))
             if spec.checkpoint_turns and handoff["source"] != "agent":
                 checkpoint_misses += 1
 
@@ -549,7 +583,8 @@ class CodexHarness:
                         capped = True
                         break
                     continue
-                error = f"phase {phase}: exit {proc.returncode}: {(proc.stderr or '')[-1000:]}"
+                detail = self._failure_detail(phase_events, proc.stderr or "")
+                error = f"phase {phase}: exit {proc.returncode}: {detail}"
                 break
 
         (run_root / "traces" / f"ep{spec.episode:03d}.json").write_text(
