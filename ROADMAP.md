@@ -1,78 +1,94 @@
 # Proteus Roadmap
 
-Proteus measures how an agent harness changes itself. Growing it means growing two axes —
-**what can evolve** (harness adapters) and **what gets measured** (benchmarks) — plus the
-layer that makes results legible (analysis) and the plumbing that makes runs cheap to
-trust and reproduce.
+Proteus provides infrastructure for an agent harness to evolve its own instructions,
+memory, skills, tools, and source code, with a goal, multiple goals, or no predefined goal.
+Its roadmap has **four parallel development directions**: runtime infrastructure,
+developer experience, measurement and visualization, and ecosystem integrations.
+All four can advance concurrently; their order here does not express priority.
 
-The contributor on-ramp for the first two is already in place: a checked `HarnessAdapter`
-contract, a `BenchTask` contract, copy-paste templates under `examples/`, a scaffolder
-(`python -m proteus.scaffold`), and a CI conformance gate (`tests/test_conformance.py`).
-Start at [`CONTRIBUTING.md`](CONTRIBUTING.md). Items below are tagged
-**[good first issue]**, **[medium]**, **[large]**.
+Status as of **2026-10-01**:
 
-## T1 — More harnesses
+- **Completed** — implemented on the public repository's `main` branch; availability in
+  a published package follows the release notes.
+- **In progress** — an active implementation is linked.
+- **Planned** — an intended improvement or candidate integration, without a promised date.
 
-Each harness is one adapter (seven methods; see `CONTRIBUTING.md`). The framework's thesis
-is that the *harness's own source* is the thing that evolves, so the most valuable targets
-are ones whose source is tractable to rebuild from an episode's edits and that already
-expose named, self-editable surfaces. The framework now provides **staged activation**
-(`staged_activation = True` — an edit takes effect the next episode, gated by an optional
-`validate_candidate()`) and **framework continuity** (`continuity_mode = "framework"`), so
-a from-source coding harness that executes its own edits is well supported. Priority order:
+## Runtime infrastructure
 
-| Priority | Harness | Why | Fit |
-|---|---|---|---|
-| ★ first | **Hermes Agent** ([NousResearch](https://github.com/NousResearch/hermes-agent)) | Python, no build step (from-source is trivial), and a *built-in self-improvement loop* over named surfaces the agent already edits — skills, persistent memory, config, context files — plus recorded trajectories and session resets. The most on-thesis target available. | very high |
-| ★ | **SWE-agent** | pairs directly with the SWE-bench track (T2) | high |
-| ○ | **OpenClaw** ([openclaw](https://github.com/openclaw/openclaw)) | TS + `pnpm build` → the same containerized rebuild-from-source shape as the shipped `dsh`/`pi`; rich tools/skills/plugins surfaces (Plugin SDK, ClawHub). Its gateway/daemon means an episode drives one headless session. | medium-high |
-| ○ | **Codex CLI** ([openai/codex](https://github.com/openai/codex)) | Rust + Bazel → the same containerized rebuild-from-source shape as `dsh`/`pi`, but a heavier compile per boot; a natural `AGENTS.md` disposition-in-files channel plus `.codex` config. A coding-agent CLI, so it also pairs with the benchmark tracks. | medium |
-| ○ | **OpenHands** (ex-OpenDevin) | ships its own runtime/sandbox; large community | medium (heavy) |
-| ○ | **OpenCode**, **Goose** | broaden language/loop coverage | medium |
+**Goal:** make long-running self-evolution reliable, recoverable, and reproducible.
 
-- **[medium]** Add the **Hermes** adapter (recommended first harness): its skills/memory
-  surfaces map straight onto `surfaces()`, and no build step keeps `run_episode` simple.
-- **[large]** Add a containerized adapter (**OpenClaw** / **Codex CLI** / OpenHands)
-  following the `dsh`/`pi` rebuild-from-source + boot pattern, declaring
-  `staged_activation = True`. Codex's Rust/Bazel build is the heaviest per-boot cost of the
-  three — cache the compiled output on `/state` as `dsh`/`pi` do.
-- Proposing another harness? Open an issue describing its editable surfaces and how one
-  episode maps onto `run_episode`/`read_trace` before writing code.
+| Status | Work |
+|---|---|
+| Completed | Staged activation for source-evolving adapters: each episode runs a frozen active snapshot, writes a separate candidate, and validates it before activation in the next episode. Failed candidates remain available for repair. |
+| Completed | Framework handoff and persistent controller notices across fresh contexts; producer-neutral feedback for registered evaluators, filtered by visibility. |
+| Completed | Independent evaluator visibility and selection eligibility; scheduled evaluation, optional initial H0 evaluation, and explicit error/unavailable result status. |
+| Completed | Configurable episode phases and prompts, phase budgets, and opt-in DSH interrupted-phase recovery under the original budget and runtime contract. |
+| In progress | Correct Codex native-call accounting and preserve redacted failure diagnostics through resume: [PR #32](https://github.com/proteus-evolve/Proteus/pull/32). |
+| Planned | Extend recovery support across adapters with capability checks and integration tests for interruption, rollback, and resume. |
+| Planned | Maintain a tested matrix of harness versions, models, and runtime environments; investigate upstream canary failures and validate supported upgrades. |
+| Planned | Pin image digests, harness revisions, and complete run configuration in a portable reproducibility manifest, with a one-command reproduction workflow. |
 
-## T2 — More benchmarks
+The episode lifecycle and adapter contract are documented in
+[`docs/EPISODE.md`](docs/EPISODE.md) and [`docs/ADAPTERS.md`](docs/ADAPTERS.md).
 
-Each benchmark is one `BenchTask` (`setup` + `grade`); see `CONTRIBUTING.md`.
+## Developer experience
 
-- **Shipped:** HumanEval and MBPP lightweight packs.
-- **[good first issue]** More lightweight, offline-gradable packs, one `BenchTask` each:
-  BigCodeBench (lite), a LiveCodeBench subset.
-- **[medium]** SWE-bench is already implemented (`proteus/bench/swe.py`) but heavy
-  (x86_64 + large disk). Make it usable: wire **SWE-bench Lite / Verified** subsets, and
-  degrade result-shape drift to a legible `0.0` instead of raising.
-- **[medium]** Finish routing grading through the episode sandbox. The plumbing exists
-  (`proteus/bench/sandbox.py::run_python`, injected via a `grade(..., sandbox=...)`
-  parameter) and `local`/`polyglot` already use it; migrate **`swe`** onto it and document
-  the `PROTEUS_GRADER_IMAGE` knob. (Grading agent-authored code on the host, outside the
-  episode's isolation, was a review finding — keep new benchmarks on the sandbox path.)
+**Goal:** make it straightforward to start a real run, diagnose a problem, and add an extension.
 
-## T3 — Output & analysis
+| Status | Work |
+|---|---|
+| Completed | Offline quick start, adapter and benchmark contracts, extension templates, scaffolding, and CI conformance checks. |
+| Completed | Guides for adding a harness, benchmark, or measurement; runtime recipes and environment build configuration. |
+| Planned | A unified run configuration file covering harness, model, goals, evaluators, phases, budgets, and environment settings. |
+| Planned | An environment diagnostic command that checks dependencies, credentials, image availability, and adapter readiness, with actionable failure messages. |
+| Planned | Publish versioned, tested prebuilt images and document supported platforms, resource needs, and build-cache behavior. |
+| Planned | Expand end-to-end recipes for real harnesses, covering first run, evaluation, interruption, repair, and continuation. |
+| Planned | Keep installation instructions, examples, compatibility information, and release notes aligned with each release. |
 
-Live tracking already exists: `proteus watch` serves a self-contained `report.html`
-(per-run progress, per-surface growth curves, evaluator scores), and `web/server.py` is
-the hosted playground. The gap is **post-hoc, cross-run analysis** — `measure` /
-`reliability` / `audit` emit numbers, with no comparative view.
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md),
+[`docs/RECIPES.md`](docs/RECIPES.md), and [`environments/README.md`](environments/README.md).
+Extension templates live in [`proteus/examples/`](proteus/examples/).
 
-- **[medium]** `proteus compare`: put several arms/runs side by side — structural and
-  behavioural measurements with effect sizes, confidence intervals, and crystallization
-  points — as one page or table.
-- **[large]** Generalize the one-off "atlas" (browse every episode's evolution path across
-  a whole grid) into a reusable view driven by any sweep's snapshot chain.
+## Measurement and visualization
 
-## T5 — Reproducibility & cost
+**Goal:** show what changed, whether it helped, and how much the evolution cost.
 
-- **[medium]** Per-episode token / cost accounting, surfaced in the run manifest and the
-  tracking page. The manifest already records the model per sweep; extend it to token and
-  cost counters — anyone running a grid needs them.
-- **[medium]** One-command reproduce: pin the environment image + config so a published
-  run can be re-executed, building on `proteus repo export` / `push` (which already turn a
-  run's snapshot chain into a normal git history).
+| Status | Work |
+|---|---|
+| Completed | Structural measurements over editable surfaces, behavioural trace distances, reliability analysis, and crystallization/swap measurements. |
+| Completed | `proteus watch` and generated reports for run progress, surface growth, and evaluator scores; snapshot-chain export through `proteus repo export` / `push`. |
+| Planned | Per-phase and per-episode tool calls, token usage, elapsed time, and cost accounting, recording evolution and evaluation expenses separately. |
+| Planned | `proteus compare`: compare runs and experimental arms by episode, cumulative tool calls, or cost, with effect sizes and uncertainty estimates where supported. |
+| Planned | Reusable episode detail views showing code changes, validation evidence, acceptance or rollback, failure reasons, and recovery history. |
+| Planned | Generalize the website's evolution replay and trajectory views into a reusable viewer for any run or sweep, including looping replay. |
+| Planned | Shareable, redacted trace and report exports with explicit control over which evaluation results and artifacts are public. |
+
+Measurement extensions are documented in [`docs/MEASUREMENTS.md`](docs/MEASUREMENTS.md).
+
+## Ecosystem and integrations
+
+**Goal:** support more real harnesses, evaluation tasks, models, and execution environments.
+
+| Status | Work |
+|---|---|
+| Completed | Source-evolving DeepSeek Harness, Pi, and Codex CLI adapters; offline `minimal` and model-backed `llm` reference harnesses. The Aki adapter requires its separate research checkout. |
+| Completed | Local/polyglot tasks and HumanEval and MBPP benchmark integrations. |
+| Planned | Candidate harness integrations: Hermes Agent, SWE-agent, OpenClaw, OpenHands, OpenCode, and Goose. Each needs a declared editable surface model and a tested episode lifecycle. |
+| Planned | Qualify the existing SWE-bench bridge for supported Lite/Verified subsets, with pinned dependencies, verified grading isolation, and infrastructure failures distinguished from measured task failures. |
+| Planned | Additional lightweight, offline-gradable benchmark packs, including suitable BigCodeBench and LiveCodeBench subsets. |
+| Planned | General-purpose third-party agent benchmark integrations, including evaluation at selected snapshots, validated independently of research campaign machinery. |
+| Planned | Broaden tested model/provider and execution-environment combinations; give each integration a reproducible recipe and conformance coverage. |
+
+Use [`docs/ADAPTERS.md`](docs/ADAPTERS.md) and
+[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) to propose an integration. Describe its editable
+surfaces, execution boundary, native trace format, or grading contract in an issue before
+starting a substantial implementation.
+
+## Releases and research graduation
+
+Releases collect mature, tested contributions from all four directions. Update statuses
+as implementations merge and describe package availability in the release notes.
+
+Research-derived features graduate through separate validation, API review, tests, and
+documentation. Experimental self-evaluator modules and LENS-specific integrations remain
+subject to that review once the research is stable; they are not committed release items.
