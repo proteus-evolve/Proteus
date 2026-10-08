@@ -128,6 +128,9 @@ def test_failed_candidate_is_measured_separately(tmp_path):
     assert ep["distance"] == 0 and ep["step"] == 0
     assert ep["files"] and ep["score"] is None
     assert data["episodesComplete"] == 2
+    endpoint = next(m for m in data["measurements"] if m["id"] == "endpoint")
+    assert endpoint["value"] == 0 and endpoint["status"] == "ok"
+    assert endpoint["reason"] == ""
 
 
 def test_snapshot_measurement_ignores_symlinks_and_supports_root_surface(tmp_path):
@@ -273,6 +276,11 @@ def test_explicit_offline_launch_uses_existing_cli(tmp_path):
         process = server.launches.jobs[job["id"]]["process"]
         assert process.wait(timeout=20) == 0
         assert server.launches.status()[0]["status"] == "completed"
+        output = tmp_path / job["output"]
+        controller = server.launches.controller_for(output)
+        assert controller["pid"] == process.pid
+        assert controller["running"] is False and controller["exitCode"] == 0
+        assert server.launches.controller_for(tmp_path / "unowned") is None
         data = Workspace(tmp_path)
         assert len(data.summary()["runs"]) == 1
         assert data.load(data.summary()["runs"][0]["id"])["episodesComplete"] == 1

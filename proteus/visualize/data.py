@@ -277,7 +277,8 @@ def _scores(row, specs):
 
 def _metric(name, value, unit, source, reason="", **extra):
     return {"id": name, "value": value, "unit": unit, "source": source,
-            "status": "ok" if finite(value) else "missing", "reason": reason, **extra}
+            "status": "ok" if finite(value) else "missing",
+            "reason": "" if finite(value) else reason, **extra}
 
 
 class Workspace:

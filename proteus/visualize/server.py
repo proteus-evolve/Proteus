@@ -141,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
                     if url.path == "/api/run":
                         result = self.server.workspace.load(identity)
                         entries, _ = self.server.workspace.catalog()
-                        sweep = next(row["sweep"] for row in entries if row["id"] == identity)
+                        sweep = next((row["sweep"] for row in entries if row["id"] == identity), None)
                         controller = self.server.launches.controller_for(sweep)
                         if controller is not None:
                             result["controller"] = controller
