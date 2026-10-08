@@ -501,6 +501,14 @@ class CodexHarness:
         ) if spec.active_root is not None else ((str(harness), "/workspace"),)
         if not error:
             assert publication is not None
+            # Controller evidence for the source/binary pair actually selected for this
+            # episode. Keep it outside the evolving snapshot and native model logs.
+            (run_root / "traces" / f"ep{spec.episode:03d}-runtime.json").write_text(
+                json.dumps({"version": 1, "episode": spec.episode,
+                            "active_source_sha256": publication.name,
+                            "publication": publication.relative_to(run_root).as_posix()}, indent=1),
+                encoding="utf-8",
+            )
 
         for phase in spec.phases if not error else ():
             if budget and used >= budget:

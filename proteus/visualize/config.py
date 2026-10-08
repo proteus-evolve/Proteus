@@ -12,7 +12,7 @@ from proteus.core.goal import EvaluatorSpec, GoalConfig, Visibility
 BUILTINS = ("minimal", "llm", "dsh", "pi", "codex", "aki")
 DEFAULT = {
     "harness": "minimal", "model": "", "goal": "", "episodes": 10, "seeds": 1,
-    "arms": ["neutral"], "normal": 300, "hard": 500, "checkpoint": 2,
+    "arms": ["neutral"], "normal": 300, "hard": 500, "checkpoint": 0,
     "phase_names": list(PHASES),
     "phase_turns": {"observe": 40, "propose": 25, "act": 200, "reflect": 35},
     "phase_prompts": {}, "announce_budget": True, "selection": "none",
@@ -67,6 +67,8 @@ def validate(config, *, allowed_adapters=()):
                      phases=tuple(c["phase_names"]))
     if c["checkpoint"] and not c["announce_budget"]:
         raise ValueError("checkpoint reserve requires announce_budget")
+    if c["checkpoint"] and c["harness"] in ("minimal", "llm"):
+        raise ValueError("checkpoint reserve requires a harness with native or framework continuity")
     if set(c["phase_prompts"]) - set(c["phase_names"]):
         raise ValueError("prompt names must belong to the configured phases")
     for name in c["phase_names"]:

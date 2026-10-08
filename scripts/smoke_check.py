@@ -24,6 +24,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -53,6 +54,28 @@ def episode_commits(run_root: Path, episodes: int) -> list[int]:
     return found
 
 
+def codex_runtime_matches_checkpoint(adapter, run_root: Path, episode: int) -> bool:
+    """Prove the final episode selected binaries for its preceding valid checkpoint."""
+    from proteus.core import snapshot
+
+    harness = run_root / "harness"
+    checkpoint = snapshot.commit_for_episode(harness, episode - 1)
+    if checkpoint is None:
+        return False
+    try:
+        record = json.loads((run_root / "traces" / f"ep{episode:03d}-runtime.json").read_text())
+        with tempfile.TemporaryDirectory(prefix="proteus-codex-smoke-") as temporary:
+            active = Path(temporary) / "active"
+            snapshot.materialize(harness, checkpoint, active)
+            source_hash = adapter._source_hash(active / "src")
+        relative = f".codex-builds/{source_hash}"
+        return (record == {"version": 1, "episode": episode,
+                           "active_source_sha256": source_hash, "publication": relative}
+                and adapter._publication_is_valid(run_root / relative, source_hash))
+    except (OSError, ValueError, RuntimeError):
+        return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
@@ -65,6 +88,7 @@ def main() -> int:
     args = ap.parse_args()
 
     from proteus.cli import _adapter_factory
+    from proteus.core import snapshot
     adapter = _adapter_factory(args.harness)()
 
     root = Path(args.root).expanduser()
@@ -130,9 +154,11 @@ def main() -> int:
         src = run_root / "harness" / "src"
         if src.is_dir() and hasattr(adapter, "check_boot"):
             git_dir = run_root / ".snapshot.git"
+            initial = snapshot.commit_for_episode(run_root / "harness", 0)
+            preceding = snapshot.commit_for_episode(run_root / "harness", episodes - 1)
             ep0 = subprocess.run(
                 ["git", "--git-dir", str(git_dir), "ls-tree", "-r", "--name-only",
-                 f"HEAD~{episodes}" if episodes else "HEAD"],
+                 initial or "HEAD"],
                 capture_output=True, text=True, errors="replace", check=False).stdout
             check("src/" in ep0, "episode-0 snapshot contains src/")
             check(adapter.check_boot(run_root / "harness") == "",
@@ -143,12 +169,14 @@ def main() -> int:
             patterns = ("packages/*/src/cli.ts", "apps/*/src/bin.ts",
                         "packages/*/src/*.ts", "packages/*/*/src/*.ts",
                         "apps/*/src/*.ts", "lib/*.js")
+            if args.harness == "codex":
+                patterns = ("codex-rs/cli/src/main.rs",)
             if args.require_self_edit:
                 # 1) the agent edited its own source before the final episode, so at
                 # least one later boot loaded the edit
                 diff = subprocess.run(
                     ["git", "--git-dir", str(git_dir), "diff", "--name-only",
-                     f"HEAD~{episodes}", "HEAD~1", "--", "src/"],
+                     initial or "HEAD", preceding or "HEAD", "--", "src/"],
                     capture_output=True, text=True, errors="replace", check=False).stdout
                 edited = [line for line in diff.splitlines()
                           if line.strip() and "node_modules" not in line]
@@ -167,24 +195,34 @@ def main() -> int:
                 def _dist_tars() -> set:
                     return {t for d in state_dirs for t in d.glob("dist-*.tar")}
 
-                tars_before = _dist_tars()
-                check(bool(tars_before),
-                      "a rebuild happened during the run (dist cache exists)",
-                      f"no dist-*.tar under {[d.name for d in state_dirs]}")
-                boot_msg = adapter.check_boot(run_root / "harness")
-                tars_after = _dist_tars()
-                check(boot_msg == "" and bool(tars_before) and tars_after == tars_before,
-                      "booting the final source hits the cache (it was built and "
-                      "loaded during the run)",
-                      boot_msg or f"new tars: {[t.name for t in tars_after - tars_before]}")
+                if args.harness == "codex":
+                    check(codex_runtime_matches_checkpoint(adapter, run_root, episodes),
+                          "the final episode loaded the validated binary pair for the edited checkpoint")
+                else:
+                    tars_before = _dist_tars()
+                    check(bool(tars_before),
+                          "a rebuild happened during the run (dist cache exists)",
+                          f"no dist-*.tar under {[d.name for d in state_dirs]}")
+                    boot_msg = adapter.check_boot(run_root / "harness")
+                    tars_after = _dist_tars()
+                    check(boot_msg == "" and bool(tars_before) and tars_after == tars_before,
+                          "booting the final source hits the cache (it was built and "
+                          "loaded during the run)",
+                          boot_msg or f"new tars: {[t.name for t in tars_after - tars_before]}")
             victims = [v for pat in patterns for v in sorted(src.glob(pat))]
+            check(bool(victims), "a compiled source file is available for the rejection probe")
             if victims:
                 victim = victims[0]
                 original = victim.read_text(encoding="utf-8", errors="replace")
-                victim.write_text("const proteusSmokeBroken: string = 42;\n" + original)
-                msg = adapter.check_boot(run_root / "harness")
-                check("does not boot" in msg, "planted error refused by the boot gate")
-                victim.write_text(original)
+                planted = ('compile_error!("Proteus smoke planted error");\n'
+                           if args.harness == "codex" else "const proteusSmokeBroken: string = 42;\n")
+                try:
+                    victim.write_text(planted + original)
+                    msg = adapter.check_boot(run_root / "harness")
+                    expected = "does not build/boot" if args.harness == "codex" else "does not boot"
+                    check(expected in msg, "planted error refused by the boot gate", msg)
+                finally:
+                    victim.write_text(original)
                 check(adapter.check_boot(run_root / "harness") == "",
                       "restore clears the gate")
 

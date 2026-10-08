@@ -424,6 +424,10 @@ def test_model_phases_mount_only_the_active_publication_read_only(tmp_path):
     ))
 
     assert result.ok and calls
+    runtime = json.loads((run_root / "traces/ep001-runtime.json").read_text())
+    assert runtime == {"version": 1, "episode": 1,
+                       "active_source_sha256": adapter._source_hash(active / "src"),
+                       "publication": publication.relative_to(run_root).as_posix()}
     for mounts in calls:
         assert (str(publication), "/opt/proteus-bin", "ro") in mounts
         assert all(mount[1] != "/opt/proteus-bin" or mount[2] == "ro" for mount in mounts)

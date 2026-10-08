@@ -26,6 +26,10 @@ longer compile), then the release build of `codex-cli` + `codex-code-mode-host`.
 version probe succeeds, the controller checks the output and atomically caches it by source
 hash. Validation does not activate it: the next episode selects binaries from its frozen
 active snapshot, so an evaluator-rejected candidate cannot disturb the accepted runtime.
+The controller records the selected source hash and publication path in
+`traces/epNNN-runtime.json`. The release smoke compares this evidence to the preceding
+episode's committed source, so a later successful candidate build cannot stand in for
+proof that the edited binary pair actually ran in the next episode.
 The adapter allows up to 120 minutes for this boundary (`BOOT_TIMEOUT_S`); a high-fanout
 core edit may need to ThinLTO-link the large release binaries even with warm dependencies.
 The timeout only widens the wait, never the build-success condition. The image also records
