@@ -26,6 +26,7 @@
   <a href="docs/RECIPES.md">Recipes</a> •
   <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
   <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
+  <a href="docs/VISUALIZE.md">Visualize Runs</a> •
   <a href="docs/releases/v0.3.0.md">v0.3.0 Notes</a> •
   <a href="environments/README.md">Environments</a> •
   <a href="#-measurement">Measurement</a>
@@ -78,6 +79,7 @@ proteus run --harness minimal \
     --arm neutral --arm review:notes --arm review:tools \
     --seeds 4 --episodes 8 --out runs/demo
 proteus measure --harness minimal --out runs/demo
+proteus visualize --out runs/demo  # local UI: http://127.0.0.1:8301
 ```
 
 ```
@@ -91,6 +93,11 @@ behavioural R (between/within arms, last episode): 3.075  p=0.0150
 
 An installed action preference measurably shifts what the harness grows — and the same
 `measure` reads a no-goal run and a goal run identically.
+
+**Proteus Visualize** opens existing sweeps with looping replay, episode details,
+snapshot/candidate identities, and the same structural and behavioral instruments.
+Viewing makes no model calls; explicit CLI-backed launches are opt-in. See
+[`docs/VISUALIZE.md`](docs/VISUALIZE.md) for configuration, evidence and export boundaries.
 
 ## 🧩 Harnesses in the box
 

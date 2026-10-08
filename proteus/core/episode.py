@@ -312,6 +312,9 @@ def _append_progress(cfg: RunConfig, ep: int, res, trace, accepted: bool, result
         "scores": {r.name: r.score for r in results},
         "evaluation_status": {r.name: r.status for r in results},
         "counters": dict(res.counters or {}),
+        # Adapter-neutral viewer evidence, never model text or tool parameters.
+        "action_metadata": [{"turn": e.turn, "phase": e.phase,
+                             "tool": e.tool, "surface": e.surface} for e in trace],
     }
     cfg.progress_path.parent.mkdir(parents=True, exist_ok=True)
     with cfg.progress_path.open("a", encoding="utf-8") as sink:

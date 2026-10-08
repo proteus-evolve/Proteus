@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  frontend:
+    name: Visualize presentation helpers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/visualize/model.test.mjs
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -49,6 +59,8 @@ jobs:
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
+          /tmp/proteus-wheel/bin/proteus visualize --help
+          /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
       - name: Sdist scaffolder works outside the checkout
         run: |
           python -m venv /tmp/proteus-sdist
@@ -57,3 +69,5 @@ jobs:
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
+          /tmp/proteus-sdist/bin/proteus visualize --help
+          /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
