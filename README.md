@@ -13,7 +13,7 @@
   <a href="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml"><img src="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml/badge.svg" alt="release smoke"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/version-0.3.0-informational.svg" alt="v0.3.0">
+  <img src="https://img.shields.io/badge/version-0.4.0-informational.svg" alt="v0.4.0">
   <img src="https://img.shields.io/badge/status-research%20preview-orange.svg" alt="research preview">
 </p>
 
@@ -27,7 +27,7 @@
   <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
   <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
   <a href="docs/VISUALIZE.md">Visualize Runs</a> •
-  <a href="docs/releases/v0.3.0.md">v0.3.0 Notes</a> •
+  <a href="docs/releases/v0.4.0.md">v0.4.0 Notes</a> •
   <a href="environments/README.md">Environments</a> •
   <a href="#-measurement">Measurement</a>
 </p>
@@ -68,7 +68,7 @@ Three things set it apart from every existing harness-evolution system:
 ## 🚀 60-second demo (no API key, no Docker)
 
 ```bash
-pip install proteus-evolve  # no model SDK; Python 3.10 adds only a TOML compatibility package
+pip install proteus-evolve==0.4.0  # no model SDK; Python 3.10 adds only a TOML compatibility package
 ```
 
 The bundled `minimal` harness runs fully offline, so you can see the whole pipeline before
@@ -287,16 +287,17 @@ roots, so the evolving agent can never read its own condition.
 
 ## 📊 Status
 
-`v0.3.0` (research preview). Working today: the offline `minimal` harness; the live `llm`
-harness; pinned, source-evolving DeepSeek Harness and Pi adapters with frozen per-episode
+`v0.4.0` (research preview). Working today: the offline `minimal` harness; the live `llm`
+harness; pinned, source-evolving DeepSeek Harness, Pi, and Codex CLI adapters with frozen per-episode
 activation, automatic rollback, exact-tree boundary gates, rebuild caching, turn budgets,
 phase-aware act-priority budget plans and agent-authored checkpoint tracking, and task
 mounts; the Aki research adapter; local, Polyglot, and SWE-bench task integrations;
-resume-safe sweeps; the full measurement,
+resume-safe sweeps, configurable phases, scheduled evaluators, and a local Visualize workspace;
+the full measurement,
 audit, reliability, report, and repository-export paths; and adapter/environment tooling.
 CI covers Python 3.10–3.14. The separate release-smoke workflow runs two episodes across
-the public release set (`minimal`, `llm`, `dsh`, `pi`), exercises the benchmark path, and
-requires both container harnesses to edit their own source and boot the edit; releases use
+the public release set (`minimal`, `llm`, `dsh`, `pi`, `codex`), exercises the benchmark path, and
+requires all three container harnesses to edit their own source and boot the edit; releases use
 pinned upstream versions, while the weekly upstream canary is advisory. As a
 cross-implementation check, Proteus's
 behavioural ruler applied to the research runs independently reproduces their headline
@@ -321,7 +322,7 @@ Where help is wanted, in one line each — the full list with difficulty tags is
 [ROADMAP.md](ROADMAP.md):
 
 - **More harnesses** — Hermes Agent first (Python, built-in self-improvement surfaces),
-  then SWE-agent, OpenClaw, Codex CLI, OpenHands, OpenCode, Goose.
+  then SWE-agent, OpenClaw, OpenHands, OpenCode, Goose.
 - **More benchmarks** — BigCodeBench-lite and a LiveCodeBench subset, SWE-bench
   Lite/Verified wiring, and finishing sandboxed grading for `swe` (HumanEval and MBPP
   are shipped).

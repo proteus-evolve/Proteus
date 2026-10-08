@@ -36,19 +36,39 @@ reserve the name before that upload.
 4. Smoke-test both installed distributions outside the checkout. This is also enforced in
    CI and the publishing workflow: the scaffolder must generate a working adapter from the
    wheel and a working benchmark from the sdist.
-5. Push the annotated release tag. The tag automatically starts `release-smoke`:
+5. Before tagging, run `release-smoke` manually against the preparation branch. Configure
+   both `DEEPSEEK_API_KEY` (LLM, DSH, Pi) and `CODEX_API_KEY` or `OPENAI_API_KEY` (Codex)
+   as repository Actions secrets. `PROTEUS_CODEX_MODEL` is an optional repository variable;
+   an empty value uses the pinned Codex source's default model. Missing Codex authentication
+   fails the required job; it never silently removes Codex from the release gate.
 
    ```bash
-   VERSION=0.2.0
+   gh workflow run release-smoke.yml --ref <preparation-branch>
+   ```
+
+   The Codex job builds the pinned `linux/amd64` Rust environment, runs two episodes
+   with a required CLI source edit, checks that episode 2 selected the binary pair for
+   the edited episode-1 checkpoint, and verifies rejection of a planted compile error.
+   Allow up to six hours for the complete image build and offline boundary gates.
+
+6. After the preparation PR and its CI are green and merged, push the annotated release
+   tag. The tag automatically starts another `release-smoke` against the exact release:
+
+   ```bash
+   VERSION=0.4.0
    git tag -a "v$VERSION" -m "Proteus v$VERSION"
    git push origin "v$VERSION"
    ```
 
-6. Do not create the GitHub Release until every `release-smoke` job for that tag passes.
-7. Publish the GitHub Release from the same tag. `.github/workflows/publish.yml` verifies
-   that the tag matches `proteus.__version__`, builds an sdist and wheel in a non-publishing
+7. Do not create the GitHub Release until every `release-smoke` job for that tag passes:
+   offline, minimal, LLM, Pi, DSH, and Codex. A manual run on an older commit does not
+   qualify the tag. Use `docs/releases/v0.4.0.md` as the release body for this candidate.
+8. Publish the GitHub Release from the same tag. `.github/workflows/publish.yml` verifies
+   that the tag matches `proteus.__version__` and that a successful tag-triggered smoke run
+   for the exact commit includes every required job, including Codex. It then builds an
+   sdist and wheel in a non-publishing
    job, then uploads them through the protected `pypi` environment using OIDC.
-8. Verify `pip install proteus-evolve==<version>` in a fresh environment and check the
+9. Verify `pip install proteus-evolve==<version>` in a fresh environment and check the
    PyPI provenance/attestation before announcing the release.
 
 PyPI files and versions cannot be replaced. If upload verification fails after a version
