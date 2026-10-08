@@ -22,6 +22,8 @@
   A 15-second evolution trace. <a href="https://proteus-evolve.github.io/">Explore the interactive demo →</a>
 </p>
 
+https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
+
 <p align="center">
   <a href="#-60-second-demo-no-api-key-no-docker">Quick Start</a> •
   <a href="#-harnesses-in-the-box">Harnesses</a> •
