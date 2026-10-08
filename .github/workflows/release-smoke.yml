@@ -133,9 +133,9 @@ jobs:
           set -e
           if [ "${{ matrix.harness }}" = "pi" ]; then
             git clone --depth 1 --branch "$PI_TAG" https://github.com/badlogic/pi-mono /tmp/src
-            docker run --rm -v /tmp/src:/opt/src -w /opt/src node:24-slim \
-              sh -c 'npm ci --no-audit --no-fund && npm run hydrate:model-data'
-            sudo rm -rf /tmp/src/node_modules /tmp/src/packages/*/dist /tmp/src/packages/*/*/dist
+            docker run --rm -v /tmp/src:/opt/src -w /opt/src \
+              -v "$PWD/environments/pi-src/hydrate-model-data.sh:/hydrate-model-data.sh:ro" \
+              node:24-slim sh /hydrate-model-data.sh
             cp environments/pi-src/boot.sh /tmp/src/.proteus-boot.sh
             docker build -f environments/pi-src/Dockerfile \
               -t proteus-env-pi-src:0.84.2 /tmp/src
