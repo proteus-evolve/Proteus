@@ -18,6 +18,11 @@
 </p>
 
 <p align="center">
+  <b>Choose your harness. Start evolving.</b><br>
+  A 15-second evolution trace. <a href="https://proteus-evolve.github.io/">Explore the interactive demo →</a>
+</p>
+
+<p align="center">
   <a href="#-60-second-demo-no-api-key-no-docker">Quick Start</a> •
   <a href="#-harnesses-in-the-box">Harnesses</a> •
   <a href="#%EF%B8%8F-how-it-works">How It Works</a> •
