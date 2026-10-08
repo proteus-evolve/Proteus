@@ -48,6 +48,9 @@ namespaces = false  # do not crawl large run artefacts as implicit namespace pac
 [tool.setuptools.dynamic]
 version = {attr = "proteus.__version__"}
 
+[tool.setuptools.package-data]
+"proteus.visualize.static" = ["*.html", "*.css", "*.js", "package.json"]
+
 [tool.ruff]
 line-length = 100
 

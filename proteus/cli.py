@@ -514,6 +514,19 @@ def cmd_repo(args) -> int:
     return 0
 
 
+def cmd_visualize(args) -> int:
+    from proteus.visualize.server import serve
+    if not 0 <= args.port <= 65535:
+        raise SystemExit("--port must be between 0 and 65535")
+    root = Path(args.out).expanduser().resolve()
+    if args.allow_run_control and (root / "manifest.json").is_file() and not args.launch_out:
+        raise SystemExit("viewing a single sweep: provide a separate --launch-out for new sweeps")
+    serve(root, args.port, allow_run_control=args.allow_run_control,
+          launch_out=Path(args.launch_out).expanduser() if args.launch_out else None,
+          allowed_adapters=args.allow_adapter)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="proteus", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -646,6 +659,16 @@ def main(argv=None) -> int:
     w.add_argument("--out", required=True)
     w.add_argument("--port", type=int, default=8300)
     w.set_defaults(func=cmd_watch)
+
+    v = sub.add_parser("visualize", help="local evolution workspace: real traces, measurements and configuration")
+    v.add_argument("--out", required=True, help="one sweep or a directory containing sweeps")
+    v.add_argument("--port", type=int, default=8301, help="loopback port (0 chooses a free port)")
+    v.add_argument("--allow-run-control", action="store_true",
+                   help="allow explicit UI launches via proteus run (may cost money)")
+    v.add_argument("--launch-out", help="directory for new sweeps; existing runs are never overwritten")
+    v.add_argument("--allow-adapter", action="append", default=[], metavar="MODULE:CLASS",
+                   help="explicitly trust this custom adapter for UI launches (repeatable)")
+    v.set_defaults(func=cmd_visualize)
 
     g = sub.add_parser("repo", help="export or push a run's evolution history (git)")
     gsub = g.add_subparsers(dest="repo_cmd", required=True)

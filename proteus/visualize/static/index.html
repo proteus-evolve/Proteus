@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Proteus Visualize — an observatory for self-evolution</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='%232e5d43'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <svg class="svg-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="proteus-mark" viewBox="0 0 441 617">
+      <g fill="none" stroke="currentColor" stroke-width="6" opacity=".8">
+        <path d="M32 32L235 34L386 119L409 280L265 371L32 397V585M32 32V206L137 302L265 371M235 34L137 302L386 119M32 206V397L137 302"/>
+      </g>
+      <g fill="currentColor"><circle cx="32" cy="32" r="25"/><circle cx="386" cy="119" r="25"/><circle cx="32" cy="206" r="25"/><circle cx="137" cy="302" r="25"/><circle cx="32" cy="397" r="25"/><circle cx="32" cy="585" r="25"/></g>
+      <g fill="var(--green)"><circle cx="235" cy="34" r="25"/><circle cx="409" cy="280" r="25"/><circle cx="265" cy="371" r="25"/></g>
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 4v16h16M7 15l4-5 4 2 5-7"/></symbol>
+    <symbol id="i-measure" viewBox="0 0 24 24"><path d="M4 7h16v10H4zM8 7v4m4-4v6m4-6v4"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14m8-14v14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 5-6 7 6 7m8-14 6 7-6 7m-3-17-2 20"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <a class="brand" href="#evolution" aria-label="Proteus Visualize home">
+      <svg class="brand-mark"><use href="#proteus-mark"/></svg>
+      <span>PROTEUS <b>VISUALIZE</b></span>
+    </a>
+    <div class="topbar-center"><span class="micro">An observatory for</span> <i>self-evolution.</i></div>
+    <div class="top-actions">
+      <span class="preview-tag" id="connection-status">Connecting…</span>
+      <button class="icon-button" id="theme-toggle" aria-label="Switch to dark theme" title="Switch theme"><svg><use href="#i-moon"/></svg></button>
+      <a class="text-link" href="https://github.com/proteus-evolve/Proteus" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="workspace-label micro">Workspace</div>
+      <button class="workspace-name" id="workspace-button" aria-label="Refresh workspace">The evolving lab <span>↻</span></button>
+      <nav class="navigation" aria-label="Workspace pages">
+        <button data-page="evolution" class="nav-item active"><svg><use href="#i-chart"/></svg>Evolution <span>01</span></button>
+        <button data-page="measurements" class="nav-item"><svg><use href="#i-measure"/></svg>Measurements <span>02</span></button>
+        <button data-page="configuration" class="nav-item"><svg><use href="#i-sliders"/></svg>Configuration <span>03</span></button>
+        <button data-page="snapshots" class="nav-item"><svg><use href="#i-layers"/></svg>Snapshots <span>04</span></button>
+      </nav>
+      <div class="sidebar-runs">
+        <div class="micro sidebar-section-title">Runs <span id="run-count">0</span></div>
+        <div id="run-list"></div>
+        <button class="add-run" data-new-run><svg><use href="#i-plus"/></svg>Compose a run</button>
+      </div>
+      <div class="sidebar-footer">
+        <div class="tiny-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p>Choose your harness.<br><em>Start evolving.</em></p>
+        <span class="micro">Durable run evidence<br>No calls while viewing</span>
+      </div>
+    </aside>
+
+    <main id="main-content">
+      <div class="breadcrumb micro"><span>THE EVOLVING LAB</span><span>/</span><span id="breadcrumb-run">WORKSPACE</span><span class="demo-data">Real run data</span></div>
+      <p id="workspace-error" role="alert" hidden></p>
+      <label class="mobile-run-control">Specimen <select id="mobile-run" aria-label="Selected specimen"></select></label>
+      <section class="run-heading">
+        <div><div class="micro run-kicker" id="run-kicker">PROTEUS VISUALIZE</div><h1 id="run-title">An evolving <em>workspace.</em></h1><p id="run-description">Select an existing run or compose a new one.</p></div>
+        <div class="heading-actions"><span class="run-status" id="run-status">Awaiting run evidence</span><div><button class="button" id="export-run" disabled><svg><use href="#i-download"/></svg>Export</button><button class="button dark" data-new-run><svg><use href="#i-plus"/></svg>New run</button></div></div>
+      </section>
+
+      <section id="page-evolution" class="page-content">
+        <div class="stat-strip" id="overview-stats"></div>
+        <div class="evolution-layout">
+          <div class="evolution-main">
+            <section class="trajectory-panel">
+              <div class="panel-header"><div><div class="micro">The trajectory</div><h2>Every dot, a different self.</h2></div><label class="axis-control">Compare <select id="compare-run" aria-label="Comparison run"><option value="">None</option></select></label></div>
+              <div class="chart-controls">
+                <div class="segmented" role="group" aria-label="Chart measurement"><button class="active" data-metric="score">Capability</button><button data-metric="distance">Structure</button><button data-metric="behavior">Behaviour</button></div>
+                <label class="axis-control">Against <select id="x-axis" aria-label="Chart horizontal axis"><option value="episode">Episode</option><option value="calls">Tool actions</option><option value="cost">Recorded USD</option></select></label>
+              </div>
+              <label class="axis-control evaluator-control">Instrument <select id="evaluator-select" aria-label="External evaluator"></select></label>
+              <div class="chart-legend" id="chart-legend"></div>
+              <div class="chart-wrap" id="chart-wrap"><svg id="trajectory" viewBox="0 0 820 350" role="group" aria-label="Interactive evolution trajectory"></svg><div id="chart-tooltip" class="chart-tooltip" hidden></div></div>
+              <div class="chart-footnote"><span id="chart-measure-note">Missing evidence is not zero.</span><span><i class="rejected-dot"></i>Rejected candidate</span></div>
+              <div class="replay-controls"><button id="play-toggle" class="play-button" aria-label="Play evolution replay"><svg><use href="#i-play"/></svg></button><span class="micro">Replay</span><input type="range" id="replay-scrub" min="0" max="0" value="0" aria-label="Selected episode"><span class="mono" id="replay-position">H₀</span><select id="replay-speed" aria-label="Replay speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
+            </section>
+            <section class="surface-panel"><div class="surface-panel-heading"><span class="micro">The fabric of change</span><span class="micro">Click an episode to look inside ↗</span></div><div id="surface-fabric"></div><div class="surface-legend" id="surface-legend"></div></section>
+          </div>
+          <aside class="episode-inspector" id="episode-inspector" aria-live="polite"></aside>
+        </div>
+        <section class="below-trajectory"><div class="insight-strip"><span class="micro">Evidence & limitations</span><p id="featured-insight">Changes are not proof of improvement.</p><button id="insight-jump" aria-label="Open selected episode"><svg><use href="#i-arrow"/></svg></button></div><div class="measurement-preview" id="measurement-preview"></div></section>
+      </section>
+
+      <section id="page-measurements" class="page-content" hidden></section>
+      <section id="page-configuration" class="page-content" hidden></section>
+      <section id="page-snapshots" class="page-content" hidden></section>
+      <footer class="workspace-footer"><span>PROTEUS · AN OPEN INSTRUMENT</span><span>Local workspace · no raw reasoning or tool parameters</span></footer>
+    </main>
+  </div>
+
+  <dialog id="episode-dialog" class="episode-dialog" aria-labelledby="detail-title">
+    <button class="dialog-close icon-button" aria-label="Close episode detail"><svg><use href="#i-close"/></svg></button>
+    <div class="detail-layout"><div id="detail-specimen" class="detail-specimen"></div><div class="detail-right"><div class="detail-heading"><div class="micro" id="detail-kicker"></div><h2 id="detail-title"></h2><p id="detail-summary"></p></div><nav id="phase-tabs" class="phase-tabs" aria-label="Episode phases"></nav><div id="detail-content" class="detail-content"></div><div class="detail-navigation"><button id="previous-episode">← Previous episode</button><button id="next-episode">Next episode →</button></div></div></div>
+  </dialog>
+  <dialog id="config-dialog" class="config-dialog" aria-labelledby="compose-title">
+    <div class="compose-header"><div><span class="micro">A new beginning</span><h2 id="compose-title">Compose an evolution.</h2></div><button class="dialog-close icon-button" aria-label="Close run configuration"><svg><use href="#i-close"/></svg></button></div><p class="compose-note">Goals and evaluators are independent. Never enter credentials here. Paid execution requires an explicit launch and server-side opt-in.</p><form id="compose-form"></form>
+  </dialog>
+  <dialog id="export-dialog" class="config-dialog export-dialog" aria-labelledby="export-title">
+    <div class="compose-header"><div><span class="micro">An open record</span><h2 id="export-title">Take the trail with you.</h2></div><button class="dialog-close icon-button" aria-label="Close export"><svg><use href="#i-close"/></svg></button></div>
+    <p class="compose-note">Recorded metadata only, without raw reasoning, tool parameters, or evaluator details. Hidden scores are omitted by default. Review goals, file paths and identifiers before publishing.</p>
+    <label><input type="checkbox" id="export-hidden"> Explicitly include hidden evaluator scores (private analysis)</label>
+    <label class="micro" for="export-json">JSON preview</label><textarea id="export-json" readonly spellcheck="false"></textarea>
+    <div class="compose-footer"><span class="micro">If download is unavailable,<br>copy the JSON instead.</span><div class="export-actions"><button class="button" id="copy-export" type="button">Copy JSON</button><a id="download-export" class="button dark" download>Download ↓</a></div></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

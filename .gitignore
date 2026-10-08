@@ -8,3 +8,5 @@ runs/
 *.jsonl
 .DS_Store
 .scratch-*/
+build/
+dist/
