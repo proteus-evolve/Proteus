@@ -65,6 +65,17 @@ proteus run --harness codex \
 proteus measure --harness codex --travel --out runs/codex-smoke
 ```
 
-Note: `codex exec` currently does not expose a native max-tool-call flag. The adapter stops
-starting new phases after the Proteus episode budget is consumed, but one individual exec
-can overshoot the remaining budget. The recorded trace/counters make that visible.
+`codex exec` does not expose a native max-tool-call flag. Proteus polls the JSONL log to
+stop a phase at its budget and checks the remaining budget before starting another phase;
+calls completed between polls can overshoot the limit.
+
+Each completed native tool item counts once. A patch touching multiple files remains one
+`file_change` event; `params.changes` preserves each path, change kind, and surface. The
+event's `surface` is set when all paths target the same surface, otherwise it is `None`.
+Diagnostics are non-tool events and do not consume the budget. Re-reading archived native
+logs applies this normalization; previously saved progress counters are not rewritten.
+
+On a failed phase, Proteus prefers the JSONL `turn.failed` diagnostic, then a top-level
+`error`, then stderr. The bounded, redacted reason is saved with the failed candidate and
+carried through the controller notice and phase prompts on resume. An error followed by
+a successful native execution does not by itself fail the episode.
