@@ -15,14 +15,19 @@ codex_runtime_matches_checkpoint = _module.codex_runtime_matches_checkpoint
 
 
 @pytest.fixture
-def codex_evidence(tmp_path):
+def codex_evidence(tmp_path, request):
     root = tmp_path / "run"
     harness = root / "harness"
     source = harness / "src/codex-rs/cli/src/main.rs"
     source.parent.mkdir(parents=True)
     source.write_text("fn main() {}\n")
     snapshot.init(harness)
-    source.write_text("// PROTEUS-NOTE\nfn main() {}\n")
+    if getattr(request, "param", "source") == "cache":
+        artifact = harness / "src/target/PROTEUS-NOTE"
+        artifact.parent.mkdir()
+        artifact.write_text("This build artifact does not change the runtime source hash.\n")
+    else:
+        source.write_text("// PROTEUS-NOTE\nfn main() {}\n")
     snapshot.commit(harness, "episode 1: source edit")
     adapter = object.__new__(CodexHarness)
     sha = adapter._source_hash(harness / "src")
@@ -46,6 +51,12 @@ def codex_evidence(tmp_path):
 def test_codex_gate_compares_runtime_to_preceding_checkpoint(codex_evidence):
     adapter, root, _, _ = codex_evidence
     assert codex_runtime_matches_checkpoint(adapter, root, 2)
+
+
+@pytest.mark.parametrize("codex_evidence", ["cache"], indirect=True)
+def test_codex_gate_rejects_cache_only_edit_with_valid_seed_binaries(codex_evidence):
+    adapter, root, _, _ = codex_evidence
+    assert not codex_runtime_matches_checkpoint(adapter, root, 2)
 
 
 @pytest.mark.parametrize("corruption", ["hash", "publication", "episode", "missing", "binary"])

@@ -55,12 +55,13 @@ def episode_commits(run_root: Path, episodes: int) -> list[int]:
 
 
 def codex_runtime_matches_checkpoint(adapter, run_root: Path, episode: int) -> bool:
-    """Prove the final episode selected binaries for its preceding valid checkpoint."""
+    """Prove the final episode activated source changed from the initial checkpoint."""
     from proteus.core import snapshot
 
     harness = run_root / "harness"
     checkpoint = snapshot.commit_for_episode(harness, episode - 1)
-    if checkpoint is None:
+    initial = snapshot.commit_for_episode(harness, 0)
+    if checkpoint is None or initial is None:
         return False
     try:
         record = json.loads((run_root / "traces" / f"ep{episode:03d}-runtime.json").read_text())
@@ -68,6 +69,10 @@ def codex_runtime_matches_checkpoint(adapter, run_root: Path, episode: int) -> b
             active = Path(temporary) / "active"
             snapshot.materialize(harness, checkpoint, active)
             source_hash = adapter._source_hash(active / "src")
+            seeded = Path(temporary) / "seeded"
+            snapshot.materialize(harness, initial, seeded)
+            if source_hash == adapter._source_hash(seeded / "src"):
+                return False
         relative = f".codex-builds/{source_hash}"
         return (record == {"version": 1, "episode": episode,
                            "active_source_sha256": source_hash, "publication": relative}
