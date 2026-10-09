@@ -116,6 +116,11 @@ container settings. Evaluators use existing CLI syntax (`tool-calls`, `step`, `u
 are required. The CLI still supports one benchmark task workspace per run. Python API
 custom evaluators can be viewed but are not imported or authored through HTTP.
 
+The default offline configuration launches without additional setup. Its checkpoint
+reserve is zero because `minimal` and `llm` do not carry operational continuity. A nonzero
+checkpoint reserve for either harness is rejected during draft validation. Set a reserve
+explicitly when using a harness with native or framework continuity, such as DSH, Pi, or Codex.
+
 For a custom harness, explicitly trust its adapter for launching:
 
 ```bash

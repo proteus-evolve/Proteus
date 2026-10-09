@@ -6,9 +6,9 @@ COPY . /opt/src
 WORKDIR /opt/src
 COPY .proteus-boot.sh /usr/local/bin/pi-boot
 RUN chmod +x /usr/local/bin/pi-boot
-# bake dependencies, pinned model data (the one network fetch), and the pristine build
-# model data is hydrated in the build context beforehand (one network fetch, pinned by
-# the context checkout) — hydrating inside the build hits overlayfs EXDEV on rename
+# Bake dependencies and the pristine build. Model data is restored in the context
+# from the matching published pi-ai package; doing this before COPY also avoids
+# renaming a lower-layer data directory in Docker RUN (overlayfs EXDEV).
 RUN npm ci --no-audit --no-fund \
  && npm run build:offline \
  && rm -rf /opt/src/.git \

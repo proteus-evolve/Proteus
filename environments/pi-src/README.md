@@ -15,16 +15,21 @@ PI_BUILD_ROOT="$(mktemp -d)"
 PI_CONTEXT="$PI_BUILD_ROOT/pi-mono"
 git clone --depth 1 --branch v0.84.2 \
     https://github.com/badlogic/pi-mono "$PI_CONTEXT"
-# hydrate the model catalogs in the context — the one network fetch, pinned at bake time
-docker run --rm -v "$PI_CONTEXT:/opt/src" -w /opt/src --network host node:24-slim \
-    sh -c 'npm ci --no-audit --no-fund && npm run hydrate:model-data'
-docker run --rm -v "$PI_CONTEXT:/opt/src" --entrypoint sh node:24-slim \
-    -c 'rm -rf /opt/src/node_modules /opt/src/packages/*/dist /opt/src/packages/*/*/dist'
+# restore model data from the same-version official npm package, then validate it
+docker run --rm -v "$PI_CONTEXT:/opt/src" -w /opt/src \
+    -v "$PWD/environments/pi-src/hydrate-model-data.sh:/hydrate-model-data.sh:ro" \
+    node:24-slim sh /hydrate-model-data.sh
 cp environments/pi-src/boot.sh "$PI_CONTEXT/.proteus-boot.sh"
 docker build -f environments/pi-src/Dockerfile \
     -t proteus-env-pi-src:0.84.2 "$PI_CONTEXT"
 ```
 
 Attribution: pi-mono (github.com/badlogic/pi-mono), MIT.
+
+The model values are ignored in the upstream checkout. Pinned builds recover them
+from the matching published `pi-ai` package and run upstream's `check:model-data`
+before building. Package identity and archive integrity are checked; a missing or
+incompatible catalog fails the build. Fetching live catalogs with
+`hydrate:model-data` can break older pins when providers or models disappear.
 
 Boot semantics (exact tree): tracked files deleted or renamed by the agent are removed from the baked tree before the overlay (the image carries the `git archive` manifest); the source hash covers paths as well as contents, so renames and empty files always re-key the build; the overlay excludes an agent-installed `node_modules`; and a rebuild first removes every build output and `.tsbuildinfo`, so artifacts are derived from the current source and a deleted entry point cannot boot from a stale bundle. An untouched copy boots via the pristine fast path with no copying at all.

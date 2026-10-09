@@ -189,7 +189,7 @@ def test_recognizable_credentials_are_rejected_and_redacted(sweep):
 
 
 def test_cadence_and_custom_phases_roundtrip():
-    c = config.validate({"normal":10, "hard":12, "checkpoint":1,
+    c = config.validate({"harness":"dsh", "normal":10, "hard":12, "checkpoint":1,
         "phase_names":["explore","act"], "phase_turns":{"explore":3,"act":7},
         "phase_prompts":{"explore":"Inspect and preserve evidence."},
         "evaluators":[{"spec":"tool-calls","visibility":"hidden","at":[0,2,4],
@@ -286,6 +286,27 @@ def test_explicit_offline_launch_uses_existing_cli(tmp_path):
         assert data.load(data.summary()["runs"][0]["id"])["episodesComplete"] == 1
     finally:
         server.server_close()
+
+
+def test_default_configuration_launches_without_overrides(tmp_path):
+    server = ViewerServer(tmp_path, 0, allow_run_control=True)
+    try:
+        job = server.launches.start({})
+        process = server.launches.jobs[job["id"]]["process"]
+        output = tmp_path / job["output"]
+        assert process.wait(timeout=30) == 0, (output / "controller.log").read_text()
+        workspace = Workspace(tmp_path)
+        data = workspace.load(workspace.summary()["runs"][0]["id"])
+        assert data["episodesComplete"] == config.DEFAULT["episodes"]
+        assert data["status"] == "completed"
+    finally:
+        server.server_close()
+
+
+@pytest.mark.parametrize("harness", ["minimal", "llm"])
+def test_composer_rejects_checkpoint_for_harness_without_continuity(harness):
+    with pytest.raises(ValueError, match="continuity"):
+        config.validate({"harness": harness, "checkpoint": 2})
 
 
 def test_install_assets_and_cli_help():

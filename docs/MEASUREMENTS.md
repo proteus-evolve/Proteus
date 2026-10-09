@@ -301,7 +301,7 @@ def test_note_headings(tmp_path):
 Run the full offline suite before contributing:
 
 ```bash
-python3 -m pip install -e '.[dev]'
+python3 -m pip install -e '.[dev,dsh,pi]'
 ruff check .
 pytest tests/ -q
 python tests/run_offline.py

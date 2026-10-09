@@ -26,6 +26,10 @@ longer compile), then the release build of `codex-cli` + `codex-code-mode-host`.
 version probe succeeds, the controller checks the output and atomically caches it by source
 hash. Validation does not activate it: the next episode selects binaries from its frozen
 active snapshot, so an evaluator-rejected candidate cannot disturb the accepted runtime.
+The controller records the selected source hash and publication path in
+`traces/epNNN-runtime.json`. The release smoke compares this evidence to the preceding
+episode's committed source, so a later successful candidate build cannot stand in for
+proof that the edited binary pair actually ran in the next episode.
 The adapter allows up to 120 minutes for this boundary (`BOOT_TIMEOUT_S`); a high-fanout
 core edit may need to ThinLTO-link the large release binaries even with warm dependencies.
 The timeout only widens the wait, never the build-success condition. The image also records
@@ -65,6 +69,17 @@ proteus run --harness codex \
 proteus measure --harness codex --travel --out runs/codex-smoke
 ```
 
-Note: `codex exec` currently does not expose a native max-tool-call flag. The adapter stops
-starting new phases after the Proteus episode budget is consumed, but one individual exec
-can overshoot the remaining budget. The recorded trace/counters make that visible.
+`codex exec` does not expose a native max-tool-call flag. Proteus polls the JSONL log to
+stop a phase at its budget and checks the remaining budget before starting another phase;
+calls completed between polls can overshoot the limit.
+
+Each completed native tool item counts once. A patch touching multiple files remains one
+`file_change` event; `params.changes` preserves each path, change kind, and surface. The
+event's `surface` is set when all paths target the same surface, otherwise it is `None`.
+Diagnostics are non-tool events and do not consume the budget. Re-reading archived native
+logs applies this normalization; previously saved progress counters are not rewritten.
+
+On a failed phase, Proteus prefers the JSONL `turn.failed` diagnostic, then a top-level
+`error`, then stderr. The bounded, redacted reason is saved with the failed candidate and
+carried through the controller notice and phase prompts on resume. An error followed by
+a successful native execution does not by itself fail the episode.

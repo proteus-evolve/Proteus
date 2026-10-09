@@ -10,7 +10,7 @@ the path; see [`ROADMAP.md`](ROADMAP.md) for what's wanted.
 ## Dev setup
 
 ```bash
-python -m pip install -e '.[dev]'                # add ',dsh,pi' to work on those adapters
+python -m pip install -e '.[dev,dsh,pi]'         # full suite includes DSH log-decoding fixtures
 git config --global user.email you@example.com   # snapshot tests need a git identity
 git config --global user.name  "Your Name"
 ```
