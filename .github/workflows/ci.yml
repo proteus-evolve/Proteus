@@ -56,12 +56,15 @@ jobs:
           /tmp/proteus-wheel/bin/pip install --disable-pip-version-check --no-deps dist/*.whl
           mkdir /tmp/proteus-wheel-out
           cp recipes/examples/p01-contract.toml /tmp/proteus-wheel-out/recipe.toml
+          cp recipes/examples/self-evaluation.toml /tmp/proteus-wheel-out/self-evaluation.toml
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
           /tmp/proteus-wheel/bin/proteus visualize --help
           /tmp/proteus-wheel/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
+          /tmp/proteus-wheel/bin/proteus recipe lock self-evaluation.toml --plugin proteus.examples.self_evaluator_plugin:register --source "proteus=$GITHUB_WORKSPACE" --out self-evaluation.lock.json
+          /tmp/proteus-wheel/bin/proteus recipe run self-evaluation.toml --plugin proteus.examples.self_evaluator_plugin:register --lock self-evaluation.lock.json --out self-evaluation-run
           /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
       - name: Sdist scaffolder works outside the checkout
         run: |
@@ -69,9 +72,13 @@ jobs:
           /tmp/proteus-sdist/bin/pip install --disable-pip-version-check --no-deps dist/*.tar.gz
           mkdir /tmp/proteus-sdist-out
           cp recipes/examples/p01-contract.toml /tmp/proteus-sdist-out/recipe.toml
+          cp recipes/native/minimal.toml /tmp/proteus-sdist-out/native.toml
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
           /tmp/proteus-sdist/bin/proteus visualize --help
           /tmp/proteus-sdist/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
+          /tmp/proteus-sdist/bin/proteus recipe lock native.toml --source "proteus=$GITHUB_WORKSPACE" --out native.lock.json
+          /tmp/proteus-sdist/bin/proteus recipe run native.toml --lock native.lock.json --out native-run
+          /tmp/proteus-sdist/bin/proteus recipe resume native.toml --lock native.lock.json --out native-run
           /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'

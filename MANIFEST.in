@@ -1,1 +1,2 @@
 include recipes/examples/p01-contract.toml
+recursive-include recipes *.toml

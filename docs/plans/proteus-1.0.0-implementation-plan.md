@@ -11,7 +11,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 集成分支：`dev/1.0.0`，从已核实的 main `69f766e73460f67d96a3ce965a5c3f9adaab2f85` 建立。
 - 采用 feature branch → 面向 dev 的 PR → 测试和审查 → 合并 dev 的流程；每批汇报审查结果，全部发布验收通过后再向 main 提交集成 PR。
 - 第一批 P01：公共对象、严格序列化、JSON Schema、recipe 配置、依赖锁与不可变 RunManifest；实现说明见 [V1_CONTRACTS.md](../V1_CONTRACTS.md)。此批不声称已有新 method executor 或完成方法复现。
-- P02–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。已实现数据契约不代表相关基础设施的执行语义已经完成。
+- 第二批 P02：注册式 Method/Stage/ActorRuntime、typed ports、角色调用记录、顺序/条件/有限循环、自评 stage 示例与 native 兼容 recipe；说明见 [V1_PLUGINS.md](../V1_PLUGINS.md)。native 复用旧事务引擎，通用 stage 路径不隐式继承 native 提示。
+- P03–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。P02 只提供串行调用预留；通用持久账本、并发、候选重执行及真实 backend 验收仍需后续批次。
 
 ## 1 目标与范围
 
@@ -127,20 +128,20 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 
 ### I02 Method 和 Stage 插件
 
-- [ ] 建立方法与算子注册机制，支持方法私有命名空间。
-- [ ] Stage 声明输入、输出、角色、工具、读写范围、失败处理和预算。
-- [ ] 支持顺序执行、条件决策、有限循环、多候选输出及方法主动提交评估。
-- [ ] 把现有循环接成 native recipe，保留旧 CLI 的兼容入口。
-- [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本。
+- [x] 建立方法与算子注册机制，支持方法私有命名空间（P02 显式注册、options/data/state schema、运行时注册表快照）。
+- [x] Stage 声明输入、输出、角色、工具、读写范围、失败处理和预算（P02 校验数据端口、能力与调用预留；Python 插件的声明不等同于进程权限沙箱）。
+- [ ] 支持顺序执行、条件决策、有限循环、多候选输出及方法主动提交评估（P02 已有控制流和多输出；正式评估服务由 P03 接入）。
+- [x] 把现有循环接成 native recipe，保留旧 CLI 的兼容入口（P02 覆盖 minimal/llm/dsh/pi/codex 绑定；旧 CLI 继续覆盖原有高级参数和 adapter）。
+- [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本（P02 已隔离 native 协议并记录 core-rendered phase prompts；adapter 追加的最终消息仍需按 backend 补全记录）。
 
 **验收：** 新增一个 stage 插件和配置即可运行；方法能够改变阶段组织而不修改 engine；原有 native 事务与恢复检查继续通过。
 
 ### I03 角色与运行时
 
-- [ ] 定义 ActorSpec，分别配置角色的模型、runtime、提示、工具、session 策略与预算。
-- [ ] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留。
-- [ ] 将执行能力声明为可检查的 capability，如原生 resume、候选代码加载、归一化轨迹。
-- [ ] 明确 fresh、handoff、native session 三种上下文策略，不做隐式互换。
+- [x] 定义 ActorSpec，分别配置角色的模型、runtime、提示、工具、session 策略与预算（P01/P02；无法兑现的非默认配置提前拒绝）。
+- [ ] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留（P02 已有 chat HTTP transport 和 coding harness bridge；真实模型/容器验收随 M1 进行）。
+- [x] 将执行能力声明为可检查的 capability，如原生 resume、候选代码加载、归一化轨迹（P02 registry 和 lock；能力由后端实现声明并按配置检查）。
+- [ ] 明确 fresh、handoff、native session 三种上下文策略，不做隐式互换（P02 已区分请求类型及拒绝不匹配；通用内置 actor 当前为 fresh，native compatibility 按原 adapter 的策略执行；持久 session 在 I11 完成）。
 
 **验收：** 优化者与 subject 可以使用不同配置；同一 backend 可承接不同角色；缺少 recipe 所需能力时在正式调用前报错。
 
@@ -233,7 +234,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 
 - [x] 定义版本化配置，组合方法、阶段、角色、subject、任务、环境、搜索和预算（P01；插件专有 options 校验由 P02 注册）。
 - [x] 配置解析后生成不可变 RunManifest 和 dependency lock（P01 接受显式解析的版本锁；实际运行环境采集随后接入）。
-- [ ] 提供默认值与覆盖规则；解析后的配置可直接导出，未知字段和缺少 capability 提前报错。
+- [x] 提供默认值与覆盖规则；解析后的配置可直接导出，未知字段和缺少 capability 提前报错（P02 registry 解析插件 options 和端口；`recipe check` 导出完整配置）。
 - [ ] 将 paper reference、code reference、实现状态、偏差和结果证据纳入 recipe manifest。
 - [ ] 参考复现配置与研究扩展配置分别命名，更新公共模块不静默改变已锁定 recipe。
 
@@ -334,7 +335,7 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 
 ### R00 Native
 
-- [ ] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义。
+- [x] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义（P02 复用原 RunConfig 引擎，旧入口继续可用；live release gates 仍待后续验收）。
 - [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复。
 - [ ] 明确每个 adapter 的能力；没有 staged activation 的 adapter 不获得该保证。
 

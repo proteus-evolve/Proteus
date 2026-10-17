@@ -47,6 +47,7 @@ class StageSpec(Contract):
     role: str = field(metadata=TEXT)
     input_types: Mapping[str, str] = field(default_factory=dict)
     output_types: Mapping[str, str] = field(default_factory=dict)
+    tools: tuple[str, ...] = field(default=(), metadata=UNIQUE)
     read_scopes: tuple[str, ...] = field(default=(), metadata=UNIQUE)
     write_scopes: tuple[str, ...] = field(default=(), metadata=UNIQUE)
     failure_policy: Literal["stop", "record", "retry"] = "stop"
@@ -158,10 +159,10 @@ class RecipeConfig(Contract):
     name: str = field(metadata=TEXT)
     method: PluginSpec
     actors: Mapping[str, ActorSpec]
-    subject: SubjectSpec
-    tasks: TaskSuiteSpec
-    execution: ExecutionSpec
     reference: ReferenceSpec
+    subject: SubjectSpec | None = None
+    tasks: TaskSuiteSpec | None = None
+    execution: ExecutionSpec | None = None
     stages: tuple[StageSpec, ...] = ()
     evaluations: tuple[EvaluationSpec, ...] = ()
     search: Mapping[str, PluginSpec] = field(default_factory=dict)
@@ -170,7 +171,7 @@ class RecipeConfig(Contract):
 
     def _validate(self):
         require(all(role.strip() for role in self.actors), "actor roles must be nonempty")
-        require(self.subject.actor is None or self.subject.actor in self.actors,
+        require(self.subject is None or self.subject.actor is None or self.subject.actor in self.actors,
                 "subject references an unknown actor role")
         require(all(stage.role in self.actors for stage in self.stages),
                 "stage references an unknown actor role")
@@ -182,17 +183,24 @@ class RecipeConfig(Contract):
         return content_hash(self)
 
     def plugin_specs(self) -> tuple[PluginSpec, ...]:
-        return (self.method, self.subject.runner, self.tasks.suite,
-                self.execution.environment.backend, *(actor.runtime for actor in self.actors.values()),
+        optional = []
+        if self.subject is not None:
+            optional.append(self.subject.runner)
+        if self.tasks is not None:
+            optional.append(self.tasks.suite)
+        if self.execution is not None:
+            optional.append(self.execution.environment.backend)
+        return (self.method, *optional, *(actor.runtime for actor in self.actors.values()),
                 *(stage.operator for stage in self.stages), *self.search.values(),
                 *(spec.evaluator for spec in self.evaluations),
                 *(spec.tasks.suite for spec in self.evaluations))
 
     def plugin_refs(self) -> tuple[PluginRef, ...]:
         refs = [spec.plugin for spec in self.plugin_specs()]
-        refs.append(self.subject.initial_artifact.codec)
-        if self.subject.initial_artifact.runtime is not None:
-            refs.append(self.subject.initial_artifact.runtime)
+        if self.subject is not None:
+            refs.append(self.subject.initial_artifact.codec)
+            if self.subject.initial_artifact.runtime is not None:
+                refs.append(self.subject.initial_artifact.runtime)
         return tuple(refs)
 
     def check_capabilities(self, capabilities: Mapping[tuple[str, str], Sequence[str]]) -> None:
