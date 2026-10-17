@@ -515,3 +515,17 @@ def test_installed_package_duplicates_are_canonicalized_or_rejected(monkeypatch)
     two.version = "2.0"
     with pytest.raises(ContractError, match="conflicting"):
         installed_packages()
+
+
+def test_serial_services_reject_cross_thread_dispatch_before_actor_work(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    registry = builtin_registry()
+    services = RunServices(run_id="fixture", recipe=registry.resolve(stage_recipe()),
+                           registry=registry, root=tmp_path)
+    ref = services.values.publish("proteus.text@1", Text(text="prompt"))
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(services.stage, "propose", {"prompt": ref})
+        with pytest.raises(ContractError, match="cross-thread"):
+            future.result()
+    assert services.actor_calls == [] and services.requests == []

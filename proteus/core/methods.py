@@ -8,6 +8,7 @@ parallel dispatch are subsequent layers, not implicit behavior of this executor.
 from __future__ import annotations
 
 import time
+import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -127,6 +128,7 @@ class RunServices:
         self.values = Values(registry)
         self.requests, self.results, self.actor_calls = [], [], []
         self._operations, self._runtime = set(), {}
+        self._dispatch_thread = threading.get_ident()
         self._charged = {"run": 0}
         for actor in recipe.actors.values():
             if actor.prompt_hash is not None:
@@ -135,6 +137,8 @@ class RunServices:
                         "role prompt content differs from its hash")
 
     def _actor(self, stage, operation, prompt, session_id, handoff):
+        require(threading.get_ident() == self._dispatch_thread,
+                "P02 services are serial; cross-thread actor dispatch requires the parallel scheduler")
         spec = self.recipe.actors[stage.role]
         if spec.session.value == "fresh":
             require(session_id is None and handoff is None, "fresh actors cannot inherit session state")
@@ -188,6 +192,8 @@ class RunServices:
             record["wall_seconds"] = time.monotonic() - started
 
     def stage(self, stage_id: str, inputs: Mapping[str, DataRef], *, operation_id: str | None = None) -> StageResult:
+        require(threading.get_ident() == self._dispatch_thread,
+                "P02 services are serial; cross-thread stage dispatch requires the parallel scheduler")
         spec = next((item for item in self.recipe.stages if item.id == stage_id), None)
         require(spec is not None, f"unknown stage: {stage_id}")
         require(set(inputs) == set(spec.input_types), f"{stage_id}: input port mismatch")
