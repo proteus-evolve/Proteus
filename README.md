@@ -31,6 +31,7 @@ https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
   <a href="docs/EPISODE.md">The Episode Loop</a> •
   <a href="docs/ADAPTERS.md">Onboard Your Harness</a> •
   <a href="docs/RECIPES.md">Recipes</a> •
+  <a href="docs/plans/proteus-1.0.0-implementation-plan.md">1.0.0 Plan</a> •
   <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
   <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
   <a href="docs/VISUALIZE.md">Visualize Runs</a> •

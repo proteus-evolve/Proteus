@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev/1.0.0]
   pull_request:
 
 jobs:
@@ -55,19 +55,23 @@ jobs:
           python -m venv /tmp/proteus-wheel
           /tmp/proteus-wheel/bin/pip install --disable-pip-version-check --no-deps dist/*.whl
           mkdir /tmp/proteus-wheel-out
+          cp recipes/examples/p01-contract.toml /tmp/proteus-wheel-out/recipe.toml
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
           /tmp/proteus-wheel/bin/proteus visualize --help
+          /tmp/proteus-wheel/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
           /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
       - name: Sdist scaffolder works outside the checkout
         run: |
           python -m venv /tmp/proteus-sdist
           /tmp/proteus-sdist/bin/pip install --disable-pip-version-check --no-deps dist/*.tar.gz
           mkdir /tmp/proteus-sdist-out
+          cp recipes/examples/p01-contract.toml /tmp/proteus-sdist-out/recipe.toml
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
           /tmp/proteus-sdist/bin/proteus visualize --help
+          /tmp/proteus-sdist/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
           /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'

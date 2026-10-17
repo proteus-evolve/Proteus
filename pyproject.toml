@@ -36,7 +36,7 @@ llm = []  # the llm harness uses stdlib urllib; no SDK needed
 sandbox = []          # Docker is invoked via the CLI, no Python SDK required
 dsh = ["zstandard>=0.21; python_version < '3.14'"]  # dsh session logs are zstd
 pi = []  # named extra kept as an install-contract check for the built-in Pi adapter
-dev = ["pytest>=7.0", "ruff==0.14.14"]
+dev = ["pytest>=7.0", "ruff==0.14.14", "jsonschema>=4.18"]
 
 [project.scripts]
 proteus = "proteus.cli:main"
