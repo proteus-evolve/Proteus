@@ -16,8 +16,8 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from proteus.core.contracts import (
-    TEXT, BudgetLimits, DataRef, MethodState, OperationStatus, RuntimeIdentity,
-    StageRequest, StageResult, Usage, require,
+    TEXT, ArtifactRef, BudgetLimits, Candidate, DataRef, MethodState, OperationStatus, PluginRef,
+    RuntimeIdentity, StageRequest, StageResult, Usage, ValidationStatus, require,
 )
 from proteus.core.serialization import Contract, ContractError, content_hash
 from proteus.recipes.config import ActorSpec, RecipeConfig
@@ -50,6 +50,14 @@ class MethodResult(Contract):
     diagnostic: str = ""
 
 
+@dataclass(frozen=True, kw_only=True)
+class ArtifactProposal(Contract):
+    """Typed audit envelope; the selected codec validates its private delta schema."""
+
+    codec: PluginRef
+    delta: Mapping[str, Any]
+
+
 class Method(Protocol):
     def run(self, services: RunServices, restored_state: MethodState | None) -> MethodResult: ...
 
@@ -79,7 +87,7 @@ def supported_budget(budget: BudgetLimits) -> None:
 
 
 class Values:
-    """Typed content-addressed values for one run; durable artifact stores arrive in P03."""
+    """Typed values for one invocation. Artifact bytes have their own durable store."""
 
     def __init__(self, registry):
         self.registry = registry
@@ -126,6 +134,10 @@ class RunServices:
         self.root, self.resume = Path(root), resume
         self.prompts = dict(prompts or {})
         self.values = Values(registry)
+        from proteus.artifacts.store import ArtifactStore
+        codecs = (recipe.subject.initial_artifact.codec,) if recipe.subject is not None else ()
+        self.artifacts = ArtifactStore(self.root / "artifacts", registry, allowed_codecs=codecs)
+        self.candidates = []
         self.requests, self.results, self.actor_calls = [], [], []
         self._operations, self._runtime = set(), {}
         self._dispatch_thread = threading.get_ident()
@@ -247,6 +259,70 @@ class RunServices:
             values = [(call.get("result") or {}).get("usage", {}).get(key) for call in calls]
             totals[key] = None if any(value is None for value in values) else sum(values)
         return Usage(**totals, wall_seconds=sum(call["wall_seconds"] for call in calls))
+
+    def create_candidate(self, artifact: ArtifactRef, *, candidate_id: str | None = None,
+                         parents: tuple[Candidate, ...] = (), operation_id: str | None = None,
+                         validation: ValidationStatus = ValidationStatus.UNCHECKED,
+                         source_checkpoint: str | None = None) -> Candidate:
+        return self._candidate(artifact, None, parents, candidate_id, operation_id, validation,
+                               source_checkpoint)
+
+    def initial_candidate(self, *, candidate_id: str = "initial") -> Candidate:
+        require(self.recipe.subject is not None, "recipe has no subject")
+        return self.create_candidate(self.recipe.subject.initial_artifact, candidate_id=candidate_id)
+
+    def fork_candidate(self, parent: Candidate, *, delta: Contract | None = None,
+                       candidate_id: str | None = None, operation_id: str | None = None,
+                       validation: ValidationStatus = ValidationStatus.UNCHECKED) -> Candidate:
+        return self._candidate(parent.artifact, delta, (parent,), candidate_id, operation_id,
+                               validation, None)
+
+    def _candidate(self, artifact, delta, parents, candidate_id, operation_id, validation, checkpoint):
+        require(threading.get_ident() == self._dispatch_thread,
+                "candidate operations require serial service dispatch")
+        for parent in parents:
+            require(parent.run_id == self.run_id
+                    and parent in self.candidates
+                    and self.artifacts.candidate(self.run_id, parent.id) == parent,
+                    "candidate parent belongs to another run or differs from stored identity")
+        operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
+        require(operation_id not in self._operations, "operation already submitted")
+        inputs = {"artifact": self.values.publish("proteus.artifact_ref@1", artifact)}
+        inputs.update({f"parent-{i}": self.values.publish("proteus.candidate@1", parent)
+                       for i, parent in enumerate(parents)})
+        if delta is not None:
+            require(isinstance(delta, Contract), "artifact delta must be a versioned Contract")
+            inputs["delta"] = self.values.publish("proteus.artifact_proposal@1",
+                ArtifactProposal(codec=artifact.codec, delta=delta.to_dict()))
+        self._operations.add(operation_id)
+        request = StageRequest(run_id=self.run_id, operation_id=operation_id, attempt_id="attempt-1",
+            stage=PluginRef(name="proteus.artifact.candidate", version="1"), role="framework",
+            inputs=inputs, read_scopes=tuple(sorted({ref.kind for ref in inputs.values()})),
+            write_scopes=("proteus.candidate@1",), budget=BudgetLimits(max_model_calls=0))
+        self.requests.append(request)
+        started = time.monotonic()
+        try:
+            if delta is not None:
+                artifact = self.artifacts.apply_delta(artifact, delta)
+            candidate = Candidate(id=candidate_id or f"candidate-{len(self.candidates) + 1:06d}",
+                run_id=self.run_id, artifact=artifact, created_by=operation_id,
+                created_attempt_id=request.attempt_id, parent_ids=tuple(parent.id for parent in parents),
+                validation=validation)
+            self.artifacts.register_candidate(candidate, source_checkpoint=checkpoint)
+            self.candidates.append(candidate)
+            outputs = {"candidate": self.values.publish("proteus.candidate@1", candidate)}
+        except Exception as exc:
+            self.results.append(StageResult(run_id=self.run_id, operation_id=operation_id,
+                attempt_id=request.attempt_id, status=OperationStatus.FAILED,
+                usage=Usage(model_calls=0, input_tokens=0, output_tokens=0, cost_usd=0,
+                            wall_seconds=time.monotonic() - started),
+                diagnostic=f"{type(exc).__name__}: {exc}"))
+            raise
+        self.results.append(StageResult(run_id=self.run_id, operation_id=operation_id,
+            attempt_id=request.attempt_id, status=OperationStatus.COMPLETED, outputs=outputs,
+            usage=Usage(model_calls=0, input_tokens=0, output_tokens=0, cost_usd=0,
+                        wall_seconds=time.monotonic() - started)))
+        return candidate
 
     def evaluate(self, *args, **kwargs):
         raise ContractError("candidate evaluation requires the P03 SubjectRunner/EvaluationService")

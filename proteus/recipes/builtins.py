@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from proteus.core.contracts import OperationStatus, PluginRef, RuntimeIdentity, Usage, require
-from proteus.core.methods import ActorResult
+from proteus.artifacts.codecs import BUILTIN_CODECS
+from proteus.core.contracts import ArtifactRef, Candidate, OperationStatus, PluginRef, RuntimeIdentity, Usage, require
+from proteus.core.methods import ActorResult, ArtifactProposal
 from proteus.core.plugins import EmptyOptions, Plugin, Registry, implementation_hash
 from proteus.core.serialization import Contract
 from proteus.execution.actors import (
@@ -50,12 +51,18 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.text@1", Text)
     registry.register_data("proteus.actor_result@1", ActorResult)
     registry.register_data("proteus.native_summary@1", NativeSummary)
+    registry.register_data("proteus.artifact_ref@1", ArtifactRef)
+    registry.register_data("proteus.candidate@1", Candidate)
+    registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
 
     def add(name, kind, options, factory, *, capabilities=(), inputs=None, outputs=None, validate=None):
         registry.register(Plugin(ref=PluginRef(name=name, version="1"), kind=kind, options=options,
             factory=factory, implementation_hash=digest, source="proteus", capabilities=capabilities,
             inputs=inputs or {}, outputs=outputs or {}, validate=validate))
 
+    for name, codec in BUILTIN_CODECS.items():
+        add(name, "codec", EmptyOptions, lambda options, codec=codec: codec(),
+            capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
     add("proteus.sequence", "method", SequenceOptions, SequenceMethod,
         validate=lambda recipe, options: validate_sequence(recipe, options, registry),
         capabilities=("control.sequence", "control.bounded_loop", "control.condition"))

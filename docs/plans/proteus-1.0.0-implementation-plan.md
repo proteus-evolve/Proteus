@@ -12,7 +12,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 采用 feature branch → 面向 dev 的 PR → 测试和审查 → 合并 dev 的流程；每批汇报审查结果，全部发布验收通过后再向 main 提交集成 PR。
 - 第一批 P01：公共对象、严格序列化、JSON Schema、recipe 配置、依赖锁与不可变 RunManifest；实现说明见 [V1_CONTRACTS.md](../V1_CONTRACTS.md)。此批不声称已有新 method executor 或完成方法复现。
 - 第二批 P02：注册式 Method/Stage/ActorRuntime、typed ports、角色调用记录、顺序/条件/有限循环、自评 stage 示例与 native 兼容 recipe；说明见 [V1_PLUGINS.md](../V1_PLUGINS.md)。native 复用旧事务引擎，通用 stage 路径不隐式继承 native 提示。
-- P03–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。P02 只提供串行调用预留；通用持久账本、并发、候选重执行及真实 backend 验收仍需后续批次。
+- 第三批拆成可独立审查的 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 继续 TaskSuite、SubjectRunner、逐任务评估与反馈/状态协议。两部分共同完成原 P03，存储层通过不代表候选评估已完成。
+- P03b–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。当前只提供串行调用预留；通用持久账本、并发、候选重执行及真实 backend 验收仍需后续批次。
 
 ## 1 目标与范围
 
@@ -147,11 +148,11 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 
 ### I04 候选与产物存储
 
-- [ ] 提供 text components、structured records、file tree 三类基础 codec。
-- [ ] 实现 fork、apply_delta、validate、materialize，以及不可变 manifest 和内容 hash。
-- [ ] 产物更新由确定性算子执行；LLM 负责提出 delta 或 patch。
-- [ ] 保存被拒绝与失败候选；通过元数据区分原生 episode checkpoint 与通用 candidate 谱系。
-- [ ] 复用 source-mode 校验与精确树加载，检查删除、重命名及构建缓存失效。
+- [x] 提供 text components、structured records、file tree 三类基础 codec（P03a）。
+- [x] 实现 fork、apply_delta、validate、materialize，以及不可变 manifest 和内容 hash（P03a；validate 检查字节与 codec 完整性，runtime build/boot 属于下一项）。
+- [x] 产物更新由确定性算子执行；LLM 负责提出 delta 或 patch（P03a delta 以父 hash 为前置条件，服务保留提案与失败操作记录）。
+- [x] 保存被拒绝与失败候选；通过元数据区分原生 episode checkpoint 与通用 candidate 谱系（P03a 候选和决定分开持久化，checkpoint import 明确标记来源）。
+- [ ] 复用 source-mode 校验与精确树加载，检查删除、重命名及构建缓存失效（P03a 已验证全新目录物化、删除/重命名及 Python 缓存隔离；真实 source-mode/Harbor 加载与 build/boot 由 P04 接入）。
 
 **验收：** 指定版本可重新加载；更新不修改 parent；失败候选可检查和按方法规则恢复；实际运行的代码与记录的候选一致。
 
@@ -426,7 +427,7 @@ I09、I12 从 M1 开始随每个方法扩展，不能拖到所有方法完成后
 
 1. P01 公共 schema、序列化、配置与 RunManifest。
 2. P02 Method/Stage、角色接口和 native 兼容层。
-3. P03 ArtifactStore、TaskSuite、SubjectRunner 与逐任务评估。
+3. P03a ArtifactStore、codec 与候选操作；P03b TaskSuite、SubjectRunner 与逐任务评估（保留原 P03 完整范围）。
 4. P04 Harbor bridge、候选精确加载、事件账本与闭环恢复。
 5. P05 Archive/search policies 与 GEPA recipe。
 6. P06 Structured records、delta 算子与 ACE recipe。
