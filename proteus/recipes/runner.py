@@ -19,7 +19,8 @@ def _write(path, data):
     temporary.replace(path)
 
 
-def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resume=False):
+def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resume=False,
+               artifact_source=None):
     registry = registry.snapshot()
     recipe = registry.resolve(recipe)
     registry.check_lock(recipe, lock)
@@ -62,6 +63,11 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
             validate_state(restored)
         result = None
         try:
+            if artifact_source is not None:
+                from proteus.artifacts.store import ArtifactStore
+                require(recipe.subject is not None, "artifact import requires a subject")
+                services.artifacts.copy_from(ArtifactStore(artifact_source, registry),
+                                             recipe.subject.initial_artifact)
             result = method.run(services, restored)
             require(type(result) is MethodResult, "method must return MethodResult")
             for ref in result.outputs.values():
@@ -82,6 +88,7 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                 "requests": [item.to_dict() for item in services.requests],
                 "results": [item.to_dict() for item in services.results],
                 "actor_calls": services.actor_calls, "native_prompts": services.native_prompts,
+                "candidates": [item.to_dict() for item in services.candidates],
                 "values": services.values.export(), "values_hash": content_hash(services.values.export()),
             })
             if result is not None:

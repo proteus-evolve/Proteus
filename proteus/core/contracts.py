@@ -87,12 +87,17 @@ class ArtifactComponent(Contract):
     path: str = field(metadata=TEXT)
     content_hash: str = field(metadata=DIGEST)
     size_bytes: int = field(metadata=NONNEGATIVE)
+    executable: bool = False
 
     def _validate(self):
+        import re
         parts = self.path.split("/")
         require(not any(part in ("", ".", "..") for part in parts)
                 and "\\" not in self.path and "\x00" not in self.path
                 and ":" not in self.path, "component path must be a portable relative path")
+        require(not any(re.search(r'[\x00-\x1f<>"|?*]', part) or part.endswith((".", " "))
+                        or re.fullmatch(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?", part)
+                        for part in parts), "component path is not portable across filesystems")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -104,12 +109,23 @@ class ArtifactRef(Contract):
     environment_hash: str | None = field(default=None, metadata=DIGEST)
 
     def _validate(self):
+        import unicodedata
         paths = {item.path for item in self.components}
         unique((item.path for item in self.components), "artifact component path")
         for path in paths:
             parts = path.split("/")
             require(not any("/".join(parts[:i]) in paths for i in range(1, len(parts))),
                     "artifact component cannot also be a parent directory")
+        # Include directory prefixes: Foo/a and foo/b also alias on common hosts.
+        aliases = {}
+        for path in paths:
+            parts = path.split("/")
+            for i in range(1, len(parts) + 1):
+                prefix = "/".join(parts[:i])
+                key = unicodedata.normalize("NFC", prefix).casefold()
+                require(key not in aliases or aliases[key] == prefix,
+                        "artifact paths collide on a case-insensitive/normalizing filesystem")
+                aliases[key] = prefix
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -189,7 +189,78 @@ ones. `result.json` points to the latest outcome. The native private evaluator
 records stay outside its subject workspace.
 
 These execution files are finalized on return or handled failure. They do not yet
-provide per-operation crash durability, cross-process budget reservations, a general
-artifact store or candidate re-execution. Formal `services.evaluate` fails explicitly
-until P03 provides the candidate evaluation service. Those requirements remain open
-in the 1.0 plan.
+provide per-operation crash durability or cross-process budget reservations.
+P03a adds the artifact store described below. Formal `services.evaluate` still fails
+explicitly until P03b provides candidate task execution and evaluation. Those
+requirements remain open in the 1.0 plan.
+
+## Immutable artifacts and candidate operations (P03a)
+
+`ArtifactStore(root, registry)` stores content-addressed blobs, immutable manifests,
+candidate lineage and append-only acceptance/rejection/failure decisions. Built-in
+codecs are registered like other plugins:
+
+| Codec | In-process value | Deterministic delta |
+| --- | --- | --- |
+| `proteus.text_components@1` | `TextComponents(components={path: text})` | `TextDelta(base_hash=..., put={...}, delete=(...))` |
+| `proteus.structured_records@1` | `StructuredRecords(records={id: fields})` | `RecordsDelta(base_hash=..., put={...}, delete=(...))` |
+| `proteus.file_tree@1` | `{path: FileContent(bytes, executable=False)}` | `FileDelta` with base64 `FileWrite`, deletes and simultaneous `Rename` operations |
+
+All deltas name the exact parent content hash. They are data, never executable patch
+scripts. Updates return a new `ArtifactRef` and leave parent bytes untouched. Record
+updates replace complete records by stable ID; method-specific merges, counters and
+curation policies belong in method/stage plugins, not the generic records codec.
+
+```python
+from proteus.artifacts.codecs import TextComponents, TextDelta
+from proteus.artifacts.store import ArtifactStore
+from proteus.core.contracts import PluginRef
+from proteus.recipes.builtins import builtin_registry
+
+store = ArtifactStore("artifacts", builtin_registry())
+base = store.put(PluginRef(name="proteus.text_components", version="1"),
+                 TextComponents(components={"system.txt": "Solve the task."}))
+revised = store.apply_delta(base, TextDelta(base_hash=base.content_hash,
+    put={"system.txt": "Check the result before answering."}))
+store.materialize(revised, "trial-001/candidate")
+store.verify_tree(revised, "trial-001/candidate")
+```
+
+Manifests hash codec/runtime/environment identity, sorted paths, byte hashes, sizes
+and executable flags. Reads verify stored identity and content. Paths reject traversal,
+links, special files, conflicting prefixes and case/Unicode aliases. `capture_tree`
+captures every regular file without implicit ignore rules; empty directories are not
+artifacts. Callers must supply a clean source tree rather than a build/work directory.
+`validate` checks byte and codec integrity. Source build/boot validation remains a
+separate runtime responsibility and is not implied by a successful store validation.
+
+`materialize` requires a **fresh directory**, copies bytes (never writable hardlinks
+to the store), and verifies the resulting tree. It refuses to overlay existing task or
+build state. Deletions, renames and absent build caches therefore survive reloading.
+Fresh Python subprocess tests exercise two changed code candidates and a later reload
+of the original. Container/source-mode runtime integration remains in P04.
+
+Methods use the operation-recording services:
+
+```python
+initial = services.initial_candidate()
+child = services.fork_candidate(initial, candidate_id="proposal-1", delta=TextDelta(
+    base_hash=initial.artifact.content_hash, put={"system.txt": "A proposed update."}))
+# services.create_candidate(ref, parents=(...)) also supports multi-parent lineage.
+```
+
+`run_recipe(..., artifact_source="artifacts")` or `recipe run --artifact-store artifacts`
+copies and verifies the exact initial artifact declared by `SubjectSpec`. The run store
+only executes its declared initial codec, which is included in the dependency lock.
+Candidate operations record inputs, parent references, delta proposals, attempt results
+and zero model-call usage. Failed deltas remain in invocation evidence; a rejected or
+invalid candidate keeps its bytes and can be forked for repair. Reusing a candidate ID
+for different content fails. `CandidateDecision` records append without rewriting
+candidate validation or lineage. Native checkpoint imports require an explicit source
+checkpoint and are tagged separately from recipe candidates; native episode snapshots
+continue to use the original engine.
+
+Artifact publication is durable and idempotent for identical content. Full method
+recovery, replay of completed operations and budget recovery still require P04. This
+development API adds executable mode to `ArtifactComponent`; regenerate pre-P03 locks
+for a new experiment rather than presenting an old configuration as a compatible resume.

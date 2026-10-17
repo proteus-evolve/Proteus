@@ -91,7 +91,8 @@ def _command(args):
     lock = DependencyLock.from_json(Path(args.lock).read_text(encoding="utf-8"))
     prompts = read_json(Path(args.prompts).read_text(encoding="utf-8")) if args.prompts else {}
     result = run_recipe(recipe, registry=registry, lock=lock, root=args.out,
-                        run_id=args.run_id, prompts=prompts, resume=args.recipe_cmd == "resume")
+                        run_id=args.run_id, prompts=prompts, resume=args.recipe_cmd == "resume",
+                        artifact_source=args.artifact_store)
     print(result.to_json())
     return 0 if result.status == OperationStatus.COMPLETED else 1
 
@@ -113,4 +114,5 @@ def add_parser(subparsers):
             item.add_argument("--out", required=True)
             item.add_argument("--run-id")
             item.add_argument("--prompts", help="JSON mapping from content hash to role prompt text")
+            item.add_argument("--artifact-store", help="import the exact initial artifact from this store")
         item.set_defaults(func=command)
