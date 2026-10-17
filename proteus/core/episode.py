@@ -22,7 +22,7 @@ import json
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
 
 from proteus.core import snapshot
 from proteus.core.adapter import EpisodeSpec, HarnessAdapter
@@ -189,6 +189,12 @@ class RunConfig:
     """Overrides or explicit prompts for custom phases. Default phases remain unchanged."""
     resume_phase: str | None = None
     """DSH only: explicitly continue this interrupted phase on resume, under the same budget."""
+    on_episode_prompts: Callable[[int, Mapping[str, str]], None] | None = None
+    """Optional controller-side observer of the final core-rendered phase prompts.
+
+    Receives a read-only copy before execution; it cannot replace adapter prompts.
+    The observer is instrumentation, not an experimental input or actor tool.
+    """
 
 
 @dataclass
@@ -617,6 +623,9 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             phases=tuple(cfg.phases),
         )
         try:
+            if cfg.on_episode_prompts is not None:
+                from types import MappingProxyType
+                cfg.on_episode_prompts(ep, MappingProxyType(dict(spec.phase_prompts)))
             res = cfg.adapter.run_episode(spec)
         except Exception as exc:  # noqa: BLE001 - a failed episode is a record, not a crash
             error = f"{type(exc).__name__}: {exc}"

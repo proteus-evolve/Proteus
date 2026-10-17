@@ -1,0 +1,17 @@
+name = "native-minimal"
+seed = 0
+[reference]
+profile = "native"
+[method.plugin]
+name = "proteus.native"
+version = "1"
+[method.options]
+episodes = 2
+max_turns = 20
+arm = "review:notes"
+evaluators = ["units:notes@observe"]
+[actors.agent]
+session = "fresh"
+[actors.agent.runtime.plugin]
+name = "proteus.native.minimal"
+version = "1"

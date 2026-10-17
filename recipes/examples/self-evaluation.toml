@@ -1,0 +1,43 @@
+# Load with --plugin proteus.examples.self_evaluator_plugin:register.
+# This is an offline extension example, not a scientific evaluation result.
+name = "self-evaluator-extension"
+[reference]
+profile = "native"
+[method.plugin]
+name = "proteus.sequence"
+version = "1"
+[method.options.initial.question]
+kind = "proteus.text@1"
+value = {text = "Inspect this scoped candidate."}
+[[method.options.steps]]
+stage = "propose"
+inputs = {prompt = "question"}
+outputs = {response = "proposal"}
+[[method.options.steps]]
+stage = "self_evaluate"
+inputs = {answer = "proposal"}
+outputs = {assessment = "self_evidence"}
+[method.options.outputs]
+proposal = "proposal"
+self_evidence = "self_evidence"
+[[stages]]
+id = "propose"
+role = "optimizer"
+read_scopes = ["proteus.text@1"]
+write_scopes = ["proteus.actor_result@1"]
+[stages.operator.plugin]
+name = "proteus.prompt"
+version = "1"
+[[stages]]
+id = "self_evaluate"
+role = "optimizer"
+read_scopes = ["proteus.actor_result@1"]
+write_scopes = ["example.self_assessment@1"]
+[stages.operator.plugin]
+name = "example.self_evaluator"
+version = "1"
+[actors.optimizer.runtime.plugin]
+name = "proteus.echo"
+version = "1"
+[budget]
+max_model_calls = 0

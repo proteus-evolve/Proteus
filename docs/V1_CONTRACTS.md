@@ -23,6 +23,11 @@ budget and deliberately unregistered `example.*` plugin names. It validates the
 configuration API; it does not run an optimization method. P02 supplies the method,
 stage and runtime registry. P03/P04 supply candidate execution and persistence.
 
+P02 is now implemented: see [V1_PLUGINS.md](V1_PLUGINS.md) for runnable native and
+stage examples, plugin validation and current execution limits. Task/subject/environment
+declarations may be omitted when a method does not use those services, including
+native no-goal experiments; each method validates the components it requires.
+
 JSON and TOML are accepted. Unknown framework fields, duplicate JSON keys,
 nonfinite numbers, unsupported schema versions and incorrect primitive types are
 rejected. No model calls or plugin imports occur while loading. Strings are not
@@ -131,7 +136,7 @@ no-replace publication. The validator is a development-only dependency; producti
 contracts use the standard library.
 
 P02 integrates registered plugin option schemas and capability declarations with
-execution, then exposes the native compatibility recipe. P03/P04 enforce artifact
+execution and exposes the native compatibility recipe. P03/P04 enforce artifact
 identity and evaluation protocols against real task execution, introduce the event
 ledger and implement recovery. P05–P09 implement the five external method families.
 P10 completes researcher entry points and release validation. A valid configuration
