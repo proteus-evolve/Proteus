@@ -6,7 +6,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 本文中的新模块、接口、目录和命令均为 1.0.0 的实施目标。未勾选的任务尚未完成。实现状态以代码、契约测试和真实实验记录为准。
 
-### 实施进度（2026-10-17）
+### 实施进度（2026-10-18）
 
 - 集成分支：`dev/1.0.0`，从已核实的 main `69f766e73460f67d96a3ce965a5c3f9adaab2f85` 建立。
 - 采用 feature branch → 面向 dev 的 PR → 测试和审查 → 合并 dev 的流程；每批汇报审查结果，全部发布验收通过后再向 main 提交集成 PR。
@@ -28,6 +28,10 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - P06a：ACE 的版本化 playbook codec、精确文本与可验证索引、单调 ID、counter/ADD delta，复用候选谱系与操作恢复。实际 pinned 上游源码符合性、硬退出恢复和安装包检查见 [V1_ACE_PLAYBOOK.md](../V1_ACE_PLAYBOOK.md)。角色、提示、offline/online Method 和真实实验尚未完成，不能计作 R02 recipe 完成。
 
 - P06b：接入 ACE 三角色、原始提示/parser、完整 offline/online 循环和检查点恢复；公共 subject 输入接口把临时 reflection 纳入协议、缓存和恢复身份。八种场景逐次对照固定上游的实际控制流和完整 prompt，并验证 HTTP 角色用量与硬退出恢复。说明见 [V1_ACE_METHOD.md](../V1_ACE_METHOD.md)。当前为 adapted/experimental profile，领域 benchmark、真实模型实验及 baseline 尚未完成，不能将 R02 整体标为完成。
+
+- P06c：完成 ACE Formula 固定数据、评分、offline/online 实验入口、初始 baseline 和私有结果审计；机制检查不替代真实模型实验，R02 仍待真实结果验收。说明见 [V1_ACE_FORMULA.md](../V1_ACE_FORMULA.md)。
+- P07a–P07c：完成按权限披露的不可变历史文件视图、候选代码预测/记忆更新协议，以及 Harbor 隔离代码执行、显式 sequence 状态与清理；上游记忆类接口已核对。说明见 [V1_EVIDENCE.md](../V1_EVIDENCE.md)、[V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md) 和 [V1_HARBOR_CODE.md](../V1_HARBOR_CODE.md)。
+- P07d：接入通用 coding workspace stage 和 DSH/Pi/Codex 文件型 actor；显式 seed/history 输入、只读挂载、受限输出捕获和已结算结果恢复。示例从多个历史版本生成三个候选并评估。说明见 [V1_CODING_WORKSPACES.md](../V1_CODING_WORKSPACES.md)。这是 R03 的 proposer 接入基建；完整 Meta-Harness 控制流、领域 recipe 和真实模型实验仍待完成。
 
 ## 1 目标与范围
 
@@ -328,7 +332,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 **流程：** proposer 按需检索历史代码、分数和轨迹 → 提出一个或多个 harness → 接口验证 → 执行评估 → 保存历史 → 继续搜索。
 
-- [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a 已完成公共 evidence view 与跨候选离线示例；Meta-Harness proposer/隔离代码工作区仍待接入，见 [V1_EVIDENCE.md](../V1_EVIDENCE.md)）。
+- [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a 完成公共 evidence view；P07d 接入显式 coding workspace、DSH/Pi/Codex 只读输入挂载、不可变输出 artifact 和不重复生成恢复，示例从多个历史版本生成并评估三个候选。上游 Meta-Harness proposer 协议、完整方法和真实模型验收仍待完成，见 [V1_EVIDENCE.md](../V1_EVIDENCE.md) 和 [V1_CODING_WORKSPACES.md](../V1_CODING_WORKSPACES.md)）。
 - [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b 已接入受管理的候选代码预测/记忆更新协议、独立状态和模型调用账本，并用固定官方 NoMemory/FewShotAll 类核对接口；P07c 增加同协议的 Harbor 无网络/无挂载容器后端、独立清理 guard、源码构建与显式 sequence 状态；完整领域 recipe 与多候选 proposer 仍待完成，见 [V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md) 和 [V1_HARBOR_CODE.md](../V1_HARBOR_CODE.md)）。
 - [ ] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本。
 - [ ] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier。

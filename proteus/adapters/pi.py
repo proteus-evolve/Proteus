@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from proteus.adapters import instructions
-from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
@@ -144,11 +144,10 @@ class PiHarness:
                 f"could not extract pi source from {self.image}: {proc.stderr[-300:]}")
 
     @staticmethod
-    def _task_mount(run_root: Path) -> tuple:
+    def _task_mount(run_root: Path, readonly: tuple[str, ...] = ()) -> tuple:
         """Bind the run's task workspace (a snapshot-external sibling of the harness)
         into the agent's view, when the run is goal-conditioned."""
-        task = run_root / "task"
-        return ((str(task), "/workspace/task"),) if task.is_dir() else ()
+        return task_workspace_mounts(run_root, readonly)
 
     def check_boot(self, harness_root: Path) -> str:
         """Viability gate: sync + rebuild + `--version` through the image's boot wrapper.
@@ -291,7 +290,7 @@ class PiHarness:
                     timeout_s=self.phase_timeout_s,
                     mounts=workspace_mounts + ((str(state), "/state"),
                             (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root),
+                           + self._task_mount(run_root, spec.readonly_task_paths),
                     stop_check=stop_check if plan.enabled else None,
                 )
             except subprocess.TimeoutExpired:

@@ -23,6 +23,7 @@ from proteus.core.contracts import (
 from proteus.core.recovery import RecoveryRequired, tuples
 from proteus.core.serialization import Contract, content_hash
 from proteus.recipes.config import ActorSpec, RecipeConfig
+from proteus.execution.workspace_records import WorkspaceInput
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -32,6 +33,7 @@ class ActorRequest(Contract):
     session_id: str | None = field(default=None, metadata=TEXT)
     handoff: str | None = None
     timeout_seconds: float | None = field(default=None, metadata={"exclusiveMinimum": 0})
+    workspace: WorkspaceInput | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -43,6 +45,7 @@ class ActorResult(Contract):
     session_id: str | None = field(default=None, metadata=TEXT)
     trace: tuple[Mapping[str, Any], ...] = ()
     diagnostic: str = ""
+    workspace_artifact: ArtifactRef | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -133,8 +136,8 @@ class StageContext:
         self._services, self.spec, self.request = services, spec, request
 
     def actor(self, prompt: str, *, session_id: str | None = None,
-              handoff: str | None = None) -> ActorResult:
-        return self._services._actor(self.spec, self.request, prompt, session_id, handoff)
+              handoff: str | None = None, workspace: WorkspaceInput | None = None) -> ActorResult:
+        return self._services._actor(self.spec, self.request, prompt, session_id, handoff, workspace_input=workspace)
 
     def read_evidence(self, view, path: str) -> bytes:
         evidence, ref = self._evidence(view)
@@ -223,6 +226,12 @@ class RunServices:
             require(self.artifacts.candidate(self.run_id, candidate.id) == candidate, "restored candidate differs from store")
             self.artifacts.validate(candidate.artifact)
         self.actor_calls, self.native_prompts = snapshot["actor_calls"], snapshot["native_prompts"]
+        from proteus.execution.workspace import WorkspaceService
+        workspaces = WorkspaceService(self)
+        for call in self.actor_calls:
+            if call.get('result') is not None and not call.get('error'):
+                workspaces.verify_result(ActorRequest.from_dict(call['request']).workspace,
+                                         ActorResult.from_dict(call['result']))
         self._operations = set(snapshot["operations"])
         self._actor_ordinals = {tuple(key): value for key, value in snapshot["actor_ordinals"]}
         self.rng.setstate(tuples(snapshot["rng"]))
@@ -285,11 +294,19 @@ class RunServices:
         return builds
 
     def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False, trial_id=None,
-               timeout_seconds=None):
+               timeout_seconds=None, workspace_input=None):
         from proteus.core.ledger import Amounts
+        from proteus.execution.workspace import WorkspaceService
         require(threading.get_ident() == self._dispatch_thread,
                 "P02 services are serial; cross-thread actor dispatch requires the parallel scheduler")
         spec = self.recipe.actors[stage.role]
+        workspaces = WorkspaceService(self)
+        if workspace_input is not None:
+            require('actor.workspace' in self.registry.get(spec.runtime.plugin).capabilities,
+                    'actor does not support explicit coding workspaces')
+            require(spec.session.value == 'fresh' and session_id is None and handoff is None,
+                    'coding workspaces currently require fresh actor sessions')
+            workspaces.authorize(stage, operation, workspace_input)
         if timeout_seconds is not None:
             require("request.timeout" in self.registry.get(spec.runtime.plugin).capabilities,
                     "actor cannot honor a per-request transport timeout")
@@ -300,7 +317,8 @@ class RunServices:
         else:
             require(handoff is None, "native sessions cannot silently become handoffs")
         request = ActorRequest(prompt=prompt, system=self.prompts.get(spec.prompt_hash, ""),
-                               session_id=session_id, handoff=handoff, timeout_seconds=timeout_seconds)
+                               session_id=session_id, handoff=handoff, timeout_seconds=timeout_seconds,
+                               workspace=workspace_input)
         if isolate:
             runtime = self.registry.create(spec.runtime, "actor")
         elif stage.role not in self._runtime:
@@ -331,7 +349,9 @@ class RunServices:
             self.actor_calls.append(record)
             if record.get("error") or record["result"] is None:
                 raise RuntimeError(record.get("error") or "previous actor call failed")
-            return ActorResult.from_dict(record["result"])
+            result = ActorResult.from_dict(record["result"])
+            workspaces.verify_result(workspace_input, result)
+            return result
         workspace = self.root / "actors" / call_id
         record = {"id": call_id, "operation_id": operation.operation_id,
                   "attempt_id": operation.attempt_id, "role": stage.role,
@@ -343,6 +363,8 @@ class RunServices:
         error = None
         try:
             workspace.mkdir(parents=True, exist_ok=recovering)
+            if workspace_input is not None:
+                workspaces.prepare(workspace_input, workspace, reserved_recovery=recovering)
             self.ledger.start(call_id)
             result = runtime.execute(spec, request, workspace)
             require(type(result) is ActorResult, "actor must return ActorResult")
@@ -352,6 +374,10 @@ class RunServices:
             actual = result.usage.model_calls
             require(bound is None or actual is None or actual <= bound,
                     "actor exceeded its declared model-call bound")
+            if workspace_input is not None:
+                result = workspaces.finish(workspace_input, workspace, result)
+                record['result'] = result.to_dict()
+            workspaces.verify_result(workspace_input, result)
             return result
         except BaseException as exc:
             error = record["error"] = f"{type(exc).__name__}: {exc}"

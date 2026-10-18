@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from proteus.adapters import instructions
-from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore, _redact
 from proteus.core.disposition import Disposition
@@ -136,9 +136,8 @@ class CodexHarness:
             )
 
     @staticmethod
-    def _task_mount(run_root: Path) -> tuple:
-        task = run_root / "task"
-        return ((str(task), "/workspace/task"),) if task.is_dir() else ()
+    def _task_mount(run_root: Path, readonly: tuple[str, ...] = ()) -> tuple:
+        return task_workspace_mounts(run_root, readonly)
 
     def _prepare_auth(self, state: Path) -> bool:
         home = state / "codex-home"
@@ -560,7 +559,7 @@ class CodexHarness:
                     mounts=workspace_mounts + ((str(state), "/state"),
                             (str(publication), "/opt/proteus-bin", "ro"),
                             (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root),
+                           + self._task_mount(run_root, spec.readonly_task_paths),
                     stop_check=stop_check if plan.enabled else None,
                 )
             except subprocess.TimeoutExpired:

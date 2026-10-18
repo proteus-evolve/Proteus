@@ -107,6 +107,29 @@ class EpisodeSpec:
     """
     phases: tuple[str, ...] = PHASES
     """Execution order. Adapters opting into custom phases must honor this sequence."""
+    readonly_task_paths: tuple[str, ...] = ()
+    """Direct task children mounted read-only by supporting container adapters."""
+
+
+def task_workspace_mounts(run_root: Path, readonly: tuple[str, ...] = ()) -> tuple:
+    task = Path(run_root) / 'task'
+    if not task.is_dir():
+        if readonly:
+            raise ValueError('read-only task mounts require a task workspace')
+        return ()
+    if task.is_symlink():
+        raise ValueError('task workspace must not be a symlink')
+    mounts = [(str(task), '/workspace/task')]
+    if len(set(readonly)) != len(readonly):
+        raise ValueError('duplicate read-only task mount')
+    for name in readonly:
+        if not name or name in ('.', '..') or '/' in name or '\\' in name or ':' in name:
+            raise ValueError('read-only task mount must name one direct child')
+        path = task / name
+        if path.is_symlink() or not path.is_dir():
+            raise ValueError('read-only task mount requires a real directory')
+        mounts.append((str(path), '/workspace/task/' + name, 'ro'))
+    return tuple(mounts)
 
 
 @runtime_checkable
