@@ -65,6 +65,7 @@ class SubjectSpec(Contract):
     initial_artifact: ArtifactRef
     actor: str | None = field(default=None, metadata=TEXT)
     mutable_scopes: tuple[str, ...] = field(default=(), metadata=UNIQUE)
+    input_types: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True)

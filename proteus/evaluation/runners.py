@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -59,6 +60,7 @@ class SubjectContext:
     subject: Any
     lease: EnvironmentLease
     _actor: Any = None
+    inputs: Mapping[str, Contract] = field(default_factory=dict)
 
     def actor(self, prompt):
         require(self._actor is not None, "subject has no managed actor role")
@@ -82,6 +84,7 @@ class SubjectRecoveryContext:
     execution: Any
     subject: Any
     root: Path
+    inputs: Mapping[str, Contract] = field(default_factory=dict)
 
 
 class LocalJsonEnvironment:

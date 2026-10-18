@@ -31,7 +31,7 @@ jobs:
         run: pip install -e '.[dev,dsh,pi]'
       - name: Install exact optional GEPA reference for conformance tests
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
-      - name: Fetch pinned ACE source for playbook conformance (no upstream SDK imports)
+      - name: Fetch pinned ACE source for playbook and full-method conformance (no SDK imports)
         run: |
           git init /tmp/proteus-ace-reference
           git -C /tmp/proteus-ace-reference remote add origin https://github.com/ace-agent/ace.git

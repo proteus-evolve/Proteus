@@ -129,7 +129,7 @@ def test_domain_reflection_matches_actual_optimize_anything(tmp_path, endpoint, 
 
 
 @requires_gepa
-@pytest.mark.parametrize("damage", ["dataset", "config", "provenance", "test-batch", "test-score", "receipt"])
+@pytest.mark.parametrize("damage", ["dataset", "config", "provenance", "test-batch", "test-score", "receipt", "subject-inputs"])
 def test_report_refuses_drift_and_incomplete_test_evidence(tmp_path, endpoint, damage):
     root = tmp_path / "study"
     setup(root, endpoint)
@@ -148,13 +148,16 @@ def test_report_refuses_drift_and_incomplete_test_evidence(tmp_path, endpoint, d
     else:
         protocol = next(path for path in (root / "runs/seed-0-optimized/evaluations").glob("*/protocol.json")
                         if json.loads(path.read_text())["evaluation"]["id"] == "test")
-        target = protocol.parent / ("receipt.json" if damage == "receipt" else "private/batches/000000.json")
+        target = protocol if damage == "subject-inputs" else protocol.parent / (
+            "receipt.json" if damage == "receipt" else "private/batches/000000.json")
         if damage == "test-batch":
             target.unlink()
         else:
             data = json.loads(target.read_text())
             if damage == "receipt":
                 data["candidate_ids"][0] = "initial"
+            elif damage == "subject-inputs":
+                data["inputs"] = {"undeclared": "changed"}
             else:
                 data["rows"][0].update(score=0, status="task_failed")
             target.chmod(0o600)

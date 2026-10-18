@@ -1,6 +1,7 @@
 """Run from outside the repository against an installed wheel or sdist."""
 
 import importlib.resources
+import json
 import tempfile
 from pathlib import Path
 
@@ -29,6 +30,27 @@ def check():
         destination = store.materialize(changed, root / "candidate")
         assert (destination / "playbook.txt").read_text() == reloaded.text
     print("Installed ACE codec, reference functions, immutable deltas and licenses: passed")
+    from proteus.examples.ace_playbook import prepare, register as register_fixture
+    from proteus.methods.ace.method import register as register_method
+    from proteus.recipes import load_recipe
+    from proteus.recipes.manifest import SourcePin
+    from proteus.recipes.runner import run_recipe
+    for mode, calls, trials in (("offline", 22, 16), ("online", 19, 13)):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "study"
+            recipe = load_recipe(prepare(root, mode=mode))
+            registry = builtin_registry()
+            register_method(registry)
+            register_fixture(registry)
+            lock = registry.make_lock(recipe, [SourcePin(name="proteus", repository="https://example.invalid/fixture",
+                                                        revision="0" * 40)])
+            result = run_recipe(recipe, registry=registry, lock=lock, root=root / "run", artifact_source=root / "artifact-store")
+            assert result.status.value == "completed", result.diagnostic
+            assert run_recipe(recipe, registry=registry, lock=lock, root=root / "run", resume=True) == result
+            records = json.loads((root / "run/execution-0002.json").read_text())
+            assert len(records["actor_calls"]) == calls and len(records["rollouts"]) == trials
+            assert sum(len(path.read_text().splitlines()) for path in (root / "run").rglob("fixture-invocations.txt")) == calls
+        print(f"Installed ACE {mode} method, prompts, parsers, roles and repeated resume: passed")
 
 
 if __name__ == "__main__":
