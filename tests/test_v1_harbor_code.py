@@ -181,6 +181,26 @@ def test_code_source_build_failure_is_invalid_candidate_and_never_dispatches(tmp
     assert not services.actor_calls and not list((tmp_path/'run').rglob('code-private'))
 
 
+def test_code_source_build_keeps_unknown_usage_and_refuses_a_finite_global_call_cap(tmp_path, monkeypatch):
+    from proteus.execution import harbor
+    from proteus.execution.builds import SourceBuildSpec
+    registry, recipe = configured(tmp_path)
+    env = recipe.execution.environment
+    spec = SourceBuildSpec(commands=('true',))
+    env = replace(env, backend=plugin('proteus.harbor_code', **dict(env.backend.options), source_build=spec.to_dict()),
+                  build_hash=content_hash(spec))
+    recipe = registry.resolve(replace(recipe, execution=replace(recipe.execution, environment=env)))
+    services = RunServices(recipe=recipe, registry=registry, run_id='bounded-build', root=tmp_path/'run')
+    services.artifacts.copy_from(ArtifactStore(tmp_path/'study/artifact-store', registry), recipe.subject.initial_artifact)
+    monkeypatch.setattr(harbor, 'identify_runtime', lambda python: {'runtime_hash':env.backend.options['runtime_hash']})
+    candidate = services.initial_candidate()
+    result = services.invoke_candidate(candidate, CodeCall(method='predict',
+        state=CodeState(artifact_hash=candidate.artifact.content_hash), args=(2,)))
+    assert result.status == Outcome.INFRA_ERROR and 'finite model_calls reservation' in result.diagnostic
+    assert not services.actor_calls and not services.builds.records
+    assert not list((tmp_path/'run').rglob('code-private'))
+
+
 @pytest.mark.parametrize('change', [
     {'NetworkMode': 'bridge'}, {'Privileged': True}, {'CapDrop': []},
     {'SecurityOpt': []}, {'PidsLimit': -1}, {'PidMode': 'host'},
@@ -303,7 +323,11 @@ def test_live_harbor_code_source_build_executes_built_tree_and_reuses_receipts(t
                   build_hash=content_hash(spec))
     registry = builtin_registry()
     register(registry)
-    recipe = registry.resolve(replace(recipe, execution=replace(recipe.execution, environment=env)))
+    # Arbitrary builds retain unknown usage. Keep the model role's zero-call
+    # cap while explicitly choosing an uncapped global build accounting scope.
+    recipe = registry.resolve(replace(recipe, execution=replace(recipe.execution, environment=env),
+        budget=replace(recipe.budget, max_model_calls=None),
+        actors={'model':replace(recipe.actors['model'], budget=replace(recipe.actors['model'].budget, max_model_calls=0))}))
     store = ArtifactStore(root/'study/artifact-store', registry)
     services = RunServices(recipe=recipe, registry=registry, run_id='code-build', root=root/'run')
     services.artifacts.copy_from(store, recipe.subject.initial_artifact)
@@ -316,12 +340,16 @@ def test_live_harbor_code_source_build_executes_built_tree_and_reuses_receipts(t
     assert learned.status == Outcome.SUCCEEDED and learned.state.value == {'factor': 2}, learned.diagnostic
     assert len(services.builds.records) == 2
     assert [r.cache_hit for r in services.builds.records] == [False, True]
+    assert services.builds.records[0].usage.model_calls is None
+    assert services.builds.records[1].usage.model_calls == 0
+    assert cold.usage.model_calls is None and learned.usage.model_calls == 0
     paths = evidence(root/'run', 2)
     images = {json.loads((p.parent/'loaded.json').read_text())['image_id'] for p in paths}
     assert images == {services.builds.records[0].image_id}
     assert all(json.loads((p.parent/'loaded.json').read_text())['build_receipt_hash'] for p in paths)
     balance = services.ledger.balance()
-    assert balance['active_slots'] == 0 and balance['charged']['model_calls'] == 0
+    assert balance['active_slots'] == 0 and balance['charged']['model_calls'] is None
+    assert balance['unknown']['model_calls'] == 1 and balance['unknown']['cost_usd'] == 1
     assert math.isclose(balance['charged']['wall_seconds'], cold.usage.wall_seconds + learned.usage.wall_seconds)
 
 

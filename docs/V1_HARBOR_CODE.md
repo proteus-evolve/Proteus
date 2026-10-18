@@ -51,6 +51,15 @@ and accounts for build work separately. The source witness checks
 Without a build, both use the uploaded candidate. Builds follow their declared
 build network policy, independently of the always-offline runtime container.
 
+Build usage retains the existing conservative contract: an executed arbitrary
+build script has unknown model calls/cost, and a verified cache lookup has zero
+model usage. Consequently the build service refuses finite run-wide model-call,
+cost or wall-time reservations that it cannot bound. It does not silently relax
+them. A build profile must declare compatible global accounting limits; the
+model role can still have its own finite budget. Use a pinned prebuilt image
+when a study needs a finite total managed-call budget. Report unknown build
+usage separately instead of interpreting it as zero.
+
 `execution.timeout_seconds` bounds the full code invocation, including container
 startup and model calls. `setup_timeout_seconds` additionally caps setup. Budget
 for cold image provisioning accordingly. Cleanup can extend past the execution
