@@ -16,6 +16,7 @@ from proteus.core.contracts import ArtifactRef, Candidate, OperationStatus, Plug
 from proteus.core.methods import ActorResult, ArtifactProposal
 from proteus.core.plugins import EmptyOptions, Plugin, Registry, implementation_hash
 from proteus.core.serialization import Contract
+from proteus.evidence.records import EvidenceView
 from proteus.core.search import ArchiveSnapshot, KeepAll, ParetoFront, ScalarBest, SearchDecision, SelectionView, UniformParent
 from proteus.execution.actors import (
     AdapterOptions, ChatActor, ChatOptions, HarnessActor, HarnessOptions, validate_chat, validate_harness,
@@ -70,6 +71,7 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.candidate@1", Candidate)
     registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
     registry.register_data("proteus.archive@1", ArchiveSnapshot)
+    registry.register_data("proteus.evidence.view@1", EvidenceView)
     registry.register_data("proteus.search.view@1", SelectionView)
     registry.register_data("proteus.search.decision@1", SearchDecision)
     registry.register_data("proteus.eval.selection@1", TaskSelection)
