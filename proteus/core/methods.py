@@ -479,11 +479,34 @@ class RunServices:
                         wall_seconds=time.monotonic() - started)))
         return candidate
 
-    def open_evaluation(self, evaluation_id: str, *, operation_id: str | None = None):
-        return self._evaluation_service.open(evaluation_id, operation_id=operation_id)
+    def task_pool(self, evaluation_id: str):
+        return self._evaluation_service.task_pool(evaluation_id)
 
-    def evaluate(self, candidate: Candidate, evaluation_id: str, *, operation_id: str | None = None):
-        session = self.open_evaluation(evaluation_id, operation_id=operation_id)
+    def archive_snapshot(self):
+        from proteus.core.search import SearchService
+        return SearchService(self).snapshot()
+
+    def selection_view(self, archive, evaluation_id, *, protocol_hash=None, objectives=()):
+        from proteus.core.search import SearchService
+        return SearchService(self).view(archive, evaluation_id, protocol_hash=protocol_hash, objectives=objectives)
+
+    def select_parents(self, policy, view, *, operation_id=None):
+        from proteus.core.search import SearchService
+        return SearchService(self).choose("parent", policy, view, operation_id=operation_id)
+
+    def retain_candidates(self, policy, view, *, operation_id=None):
+        from proteus.core.search import SearchService
+        return SearchService(self).choose("archive", policy, view, operation_id=operation_id)
+
+    def select_final(self, policy, view, *, operation_id=None):
+        from proteus.core.search import SearchService
+        return SearchService(self).choose("final", policy, view, operation_id=operation_id)
+
+    def open_evaluation(self, evaluation_id: str, *, operation_id: str | None = None, selection=None):
+        return self._evaluation_service.open(evaluation_id, operation_id=operation_id, selection=selection)
+
+    def evaluate(self, candidate: Candidate, evaluation_id: str, *, operation_id: str | None = None, selection=None):
+        session = self.open_evaluation(evaluation_id, operation_id=operation_id, selection=selection)
         try:
             for _ in session.batch.tasks:
                 session.step(candidate)

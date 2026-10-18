@@ -5,6 +5,8 @@ reservations are documented below; [V1_HARBOR.md](V1_HARBOR.md) covers P04b's op
 Harbor backend and subject/verifier accounting. [V1_RECOVERY.md](V1_RECOVERY.md) covers
 P04d's operation journal and checkpoint recovery for compare/sequence and opt-in
 methods, plus P04e's `subject.reconcile` hook and Harbor worker completion receipts.
+[V1_SEARCH.md](V1_SEARCH.md) covers P05a's ordered task selection, public archive,
+and separate parent/retention/final policy interfaces.
 Earlier phase-specific limitations below describe their original scope.
 
 P02 makes the P01 configuration and data contracts executable. A registered `Method`

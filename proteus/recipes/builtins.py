@@ -16,6 +16,7 @@ from proteus.core.contracts import ArtifactRef, Candidate, OperationStatus, Plug
 from proteus.core.methods import ActorResult, ArtifactProposal
 from proteus.core.plugins import EmptyOptions, Plugin, Registry, implementation_hash
 from proteus.core.serialization import Contract
+from proteus.core.search import ArchiveSnapshot, KeepAll, ParetoFront, ScalarBest, SearchDecision, SelectionView, UniformParent
 from proteus.execution.actors import (
     AdapterOptions, ChatActor, ChatOptions, HarnessActor, HarnessOptions, validate_chat, validate_harness,
 )
@@ -24,7 +25,7 @@ from proteus.evaluation.runners import (
     ExactMatch, LocalJsonEnvironment, PromptSubject, PromptSubjectOptions, PythonSubject,
     PythonSubjectOptions, validate_local, validate_prompt, validate_python,
 )
-from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, TaskBatch
+from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, TaskBatch, TaskSelection
 from proteus.core.contracts import EvaluationBatch
 from proteus.methods.compare import CompareMethod, CompareOptions, CompareState, validate_compare
 from proteus.methods.native import NativeMethod, NativeOptions, NativeSummary, validate_native
@@ -68,6 +69,10 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.artifact_ref@1", ArtifactRef)
     registry.register_data("proteus.candidate@1", Candidate)
     registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
+    registry.register_data("proteus.archive@1", ArchiveSnapshot)
+    registry.register_data("proteus.search.view@1", SelectionView)
+    registry.register_data("proteus.search.decision@1", SearchDecision)
+    registry.register_data("proteus.eval.selection@1", TaskSelection)
     for kind, schema in (("task_batch", TaskBatch), ("state", StateValue), ("feedback", Feedback),
                          ("trace", Trace), ("batch", EvaluationBatch), ("receipt", EvaluationReceipt)):
         registry.register_data(f"proteus.eval.{kind}@1", schema)
@@ -80,6 +85,12 @@ def builtin_registry() -> Registry:
     for name, codec in BUILTIN_CODECS.items():
         add(name, "codec", EmptyOptions, lambda options, codec=codec: codec(),
             capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
+    for name, factory, roles in (("scalar_best", ScalarBest, ("parent", "final")),
+                                 ("uniform_parent", UniformParent, ("parent",)),
+                                 ("keep_all", KeepAll, ("archive",)),
+                                 ("pareto_front", ParetoFront, ("archive", "final"))):
+        add("proteus." + name, "policy", EmptyOptions, lambda options, factory=factory: factory(),
+            capabilities=tuple("search." + role for role in roles))
     add("proteus.compare", "method", CompareOptions, CompareMethod, validate=validate_compare,
         capabilities=("run.resume", "run.journal"), state_schema=CompareState)
     add("proteus.json_tasks", "task_suite", JsonSuiteOptions, JsonTaskSuite)
