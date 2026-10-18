@@ -35,6 +35,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P07e：实现固定上游版本的 Meta-Harness 文本分类 recipe：offline/online 内层学习、多文件 proposer、完整 seed/dataset 聚合、frontier 和隐藏测试冻结；接入三套原始 MCE 数据、NoMemory/FewShotAll baseline、私有结果审计与操作恢复。上游对照和 fixture 用于验证机制；真实模型实验仍待验收。使用说明与运行时偏差见 [V1_META_HARNESS.md](../V1_META_HARNESS.md)。
 
+- P08a：新增受 run/role 预算约束的独立 stage map、有序 join、分支回执和中断恢复；可复用现有 stage 组成多层聚合，保留实际用量和未确认调用。HTTP 并发、失败排空、多分支硬退出与安装包示例见 [V1_PARALLEL.md](../V1_PARALLEL.md)。Combee 的分组/聚合语义、并行任务评测与动态 controller 仍待实现，本批不计作 Combee recipe 完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -234,7 +236,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 - [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a 已持久化 actor/cohort 请求、转换事件和结算；真实 worker 与其他外部操作随后接入）。
 - [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 公共 actor，P04b subject/grader/integrated verifier，P04c source build 的独立记录与去重汇总；profiling 和 native 完整覆盖仍待实现）。
-- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 已实现并测试 SQLite 跨进程原子预留/结算、已知上界保留和实际超额记账；公共并发调度与 backend cost/time 限制仍待接入）。
+- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 原子预留/结算；P08a 接入并行 stage 的 run/role 并发调度、分支 actor 用量与恢复；并行评测、持久 worker 及 backend cost/time 限制仍待接入）。
 - [x] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作（P04d 保存服务快照、archive DataRef、方法 payload 与未完成评估请求；具体 archive 策略随 I07 接入）。
 - [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略（P04d 已实现有序恢复、结果复用和不确定操作停止/报告；P04e 接回独立完成且有绑定回执的 Harbor worker，活 worker 保持运行和预算；无回执调用、未确认构建及其他 backend 策略仍需补齐）。
 - [x] 保留 native 的运行锁、候选修复和配置一致性检查（native 继续使用原事务引擎，P04d journal 单独显式启用并保持回归）。
@@ -243,11 +245,11 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I10 并行执行与聚合
 
-- [ ] 提供受预算约束的 map、join 和分层聚合，避免两个调度层分别扩大并发。
+- [ ] 提供受预算约束的 map、join 和分层聚合，避免两个调度层分别扩大并发（P08a 完成独立 stage map、有序 join 和普通 stage reducer；Combee 的具体聚合层及并行评测仍待实现）。
 - [ ] 保存分组、shuffle seed、复制关系、聚合树和每次聚合的输入版本。
 - [ ] 聚合使用基础方法的更新语义，保留原始 reflection 的来源 ID；复制不增加真实任务样本计数。
 - [ ] 实现 profiling 与 BatchController，把 profiling 开销计入总预算。
-- [ ] 恢复时复用已完成分支；取消与失败处理有明确的传播规则。
+- [ ] 恢复时复用已完成分支；取消与失败处理有明确的传播规则（P08a stage 分支已验证 collect/fail_fast、已启动工作排空、分支回执/actor 结算复用及不确定停止；聚合树与动态控制器随 Combee 验收）。
 
 **验收：** 同一批 reflection 能按记录的分组与树结构重放；中断不丢分支；不以 LLM 聚合满足严格结合律或重新调用可得到完全相同文本为前提。
 
