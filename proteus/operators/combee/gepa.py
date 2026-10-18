@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 import random
+import json
 from typing import Any
 
 from proteus.core.contracts import DataRef, require
-from proteus.core.serialization import Contract, content_hash
+from proteus.core.serialization import Contract, content_hash, read_json
 from proteus.methods.gepa.reference import load_reference
 from proteus.methods.gepa.state import ReflectionBatch
 from proteus.operators.combee.grouping import Grouping, plan_groups
@@ -112,15 +113,25 @@ def aggregate_gepa(
     require(
         rng.getstate() == expected_rng, "upstream GEPA grouping consumed a different RNG sequence"
     )
+    # Upstream's parser may preserve the str subclass on salvaged responses.
+    # Normalize only AFTER parsing; finish_reason remains in recorded ActorResults.
+    payload = read_json(
+        json.dumps(
+            {
+                "new_texts": proposal.new_texts,
+                "prompts": proposal.prompts,
+                "raw_lm_outputs": proposal.raw_lm_outputs,
+                "metadata": proposal.metadata,
+            },
+            allow_nan=False,
+        )
+    )
     result = GepaAggregation(
         revision=REVISION,
         components=tuple(names),
         plans=tuple(plans),
         waves=tuple(lm.waves),
-        new_texts=proposal.new_texts,
-        prompts=proposal.prompts,
-        raw_lm_outputs=proposal.raw_lm_outputs,
-        metadata=proposal.metadata,
+        **payload,
     )
     identity = {
         "operation_id": operation_id,

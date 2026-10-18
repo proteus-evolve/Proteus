@@ -39,6 +39,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08b：接入可复用的 ACE ADD 聚合与 GEPA ComBEE 算子，保存原始 reflection 引用、逐副本来源、分组、RNG 与 map/reduce 调用记录；保留两者不同的 shuffle、小样本和单有效提案语义。实际上游对照、HTTP 并发、硬退出恢复与安装包示例见 [V1_COMBEE_AGGREGATION.md](../V1_COMBEE_AGGREGATION.md)。这是聚合层；完整 combee_ace/combee_gepa recipe、并行评测、动态 controller 与真实质量/成本/耗时实验仍待完成。
 
+- P08c：将固定 batch 的 Combee reflection 接入完整 GEPA 搜索循环，沿用正式候选评估、接纳、隐藏测试与 engine checkpoint；补齐 provider finish_reason 的持久记录和截断提案识别。说明见 [V1_COMBEE_GEPA.md](../V1_COMBEE_GEPA.md)。并行正式评估、combee_ace、动态 batch controller 与真实实验继续属于 P08，不能将 R04 整体标为完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
