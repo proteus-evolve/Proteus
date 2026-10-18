@@ -64,7 +64,7 @@ class WorkerController:
             existing = (self._directory(operation_id) / "request.json").exists()
             require(existing or current is None or current.operation_id == operation_id or current == previous,
                     "new worker generation must identify the current predecessor")
-            session_id, continuity = None, "fresh"
+            session_id, continuity, session_usage = None, "fresh", None
             if previous is not None:
                 require(previous.operation_id != operation_id, "worker generation cannot resume itself")
                 observation = self.poll(previous)
@@ -79,11 +79,12 @@ class WorkerController:
                     require(session_id is not None, "native session unavailable; explicit fresh fallback required")
                     require(fresh_orientation is None, "fresh orientation requires a fallback reason")
                     continuity = "native"
+                    session_usage = observation.completion.session_usage
             else:
                 require(fresh_orientation is None and fallback_reason is None, "initial worker has no session to downgrade")
             launch = WorkerLaunch(identity=self.identity, runtime=self.runtime_ref, options=self.options.to_dict(), operation_id=operation_id,
                 prompt=prompt, workspace=str(self.workspace), previous=previous, session_id=session_id,
-                continuity=continuity, fallback_reason=fallback_reason)
+                continuity=continuity, fallback_reason=fallback_reason, session_usage=session_usage)
             ref, directory = launch.ref(), self._directory(operation_id)
             _mkdir_durable(directory)
             immutable(directory / "request.json", launch)

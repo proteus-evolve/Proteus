@@ -46,20 +46,37 @@ def send(child, sig):
 
 
 def protocol_result(path):
-    result = None
+    result, session = None, None
     with path.open(encoding="utf-8", errors="replace") as stream:
         for line in stream:
             try:
                 record = json.loads(line)
             except ValueError:
                 continue  # ordinary progress text is retained in the log
-            if isinstance(record, dict) and record.get("event") == "result":
+            if not isinstance(record, dict):
+                continue
+            if record.get("event") == "protocol_error":
+                raise ValueError("runtime rejected its provider protocol")
+            if record.get("event") == "session":
+                if set(record) != {"event", "session_id", "resumed_from"}:
+                    raise ValueError("invalid worker session event")
+                if not isinstance(record["session_id"], str) or not record["session_id"].strip():
+                    raise ValueError("invalid worker session identity")
+                previous = record["resumed_from"]
+                if previous is not None and (not isinstance(previous, str) or not previous.strip()):
+                    raise ValueError("invalid worker preceding session")
+                if session is not None and session != record:
+                    raise ValueError("runtime changed its confirmed session")
+                if result is not None:
+                    raise ValueError("session confirmation follows a final result")
+                session = record
+            if record.get("event") == "result":
                 if result is not None:
                     raise ValueError("runtime produced multiple final result events")
                 result = record
     if result is None:
-        return None
-    if set(result) - {"event", "session_id", "resumed_from", "usage"}:
+        return None, session
+    if set(result) - {"event", "session_id", "resumed_from", "usage", "session_usage"}:
         raise ValueError("unknown worker result fields")
     for key in ("session_id", "resumed_from"):
         value = result.get(key)
@@ -74,7 +91,15 @@ def protocol_result(path):
         expected = (int, float) if key == "cost_usd" else (int,)
         if type(value) not in expected or not math.isfinite(value) or value < 0:
             raise ValueError("invalid worker usage value")
-    return result
+    if session is not None and any(result.get(key) != session[key] for key in ("session_id", "resumed_from")):
+        raise ValueError("final result differs from the confirmed worker session")
+    totals = result.get("session_usage")
+    if totals is not None:
+        if not result.get("session_id") or not isinstance(totals, dict) or set(totals) != {"input_tokens", "output_tokens"}:
+            raise ValueError("invalid cumulative session usage")
+        if any(value is not None and (type(value) is not int or value < 0) for value in totals.values()):
+            raise ValueError("invalid cumulative session token count")
+    return result, session
 
 
 def main():
@@ -99,7 +124,7 @@ def main():
                    for path, value in options["command_files"].items()):
                 raise ValueError("worker command file changed before dispatch")
             payload = {key: request[key] for key in ("identity", "operation_id", "prompt", "session_id",
-                                                    "continuity", "fallback_reason")}
+                                                    "continuity", "fallback_reason", "session_usage")}
             # A regular input file cannot block this supervisor if a bridge
             # stops reading a prompt larger than a pipe buffer. The deadline
             # still applies while that bridge is unresponsive.
@@ -146,9 +171,9 @@ def main():
             error.flush()
             os.fsync(output.fileno())
             os.fsync(error.fileno())
-    final = None
+    final, session = None, None
     try:
-        final = protocol_result(stdout)
+        final, session = protocol_result(stdout)
     except ValueError as exc:
         diagnostic = str(exc)
     if final is not None:
@@ -156,7 +181,8 @@ def main():
     usage["wall_seconds"] = time.monotonic() - started
     if timed_out:
         diagnostic = "worker generation exceeded its timeout"
-    if request["continuity"] == "native" and (final or {}).get("resumed_from") != request["session_id"]:
+    confirmation = final or session or {}
+    if request["continuity"] == "native" and confirmation.get("resumed_from") != request["session_id"]:
         diagnostic = "runtime did not confirm the requested native session"
     if diagnostic is not None:
         status = "failed"
@@ -168,9 +194,11 @@ def main():
         status = "failed"
         diagnostic = "worker exited without a successful final result"
     receipt = {"schema_version": 1, "request_hash": request_hash, "status": status,
-        "return_code": return_code, "session_id": (final or {}).get("session_id"),
-        "resumed_from": (final or {}).get("resumed_from"), "usage": usage,
+        "return_code": return_code, "session_id": confirmation.get("session_id"),
+        "resumed_from": confirmation.get("resumed_from"), "usage": usage,
         "diagnostic": diagnostic, "control": action,
+        "session_usage": {"schema_version": 1, **final["session_usage"]}
+            if final is not None and final.get("session_usage") is not None else None,
         "stdout_hash": "sha256:" + hashlib.sha256(stdout.read_bytes()).hexdigest(),
         "stderr_hash": "sha256:" + hashlib.sha256(stderr.read_bytes()).hexdigest()}
     write(root / "completion.json", receipt)

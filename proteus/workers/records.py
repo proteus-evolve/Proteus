@@ -56,6 +56,13 @@ class WorkerSeed(Contract):
 
 
 @dataclass(frozen=True, kw_only=True)
+class WorkerSessionUsage(Contract):
+    """Provider-reported cumulative tokens, separate from generation charges."""
+    input_tokens: int | None = field(default=None, metadata={"minimum": 0})
+    output_tokens: int | None = field(default=None, metadata={"minimum": 0})
+
+
+@dataclass(frozen=True, kw_only=True)
 class WorkerLaunch(Contract):
     identity: WorkerIdentity
     runtime: PluginRef
@@ -67,10 +74,13 @@ class WorkerLaunch(Contract):
     session_id: str | None = field(default=None, metadata=TEXT)
     continuity: Literal["fresh", "native", "fresh_fallback"] = "fresh"
     fallback_reason: str | None = field(default=None, metadata=TEXT)
+    session_usage: WorkerSessionUsage | None = None
 
     def _validate(self):
         require((self.continuity == "native") == (self.session_id is not None),
                 "native continuation requires an exact session identity")
+        require(self.session_usage is None or self.continuity == "native",
+                "session usage baseline requires native continuation")
         require((self.continuity == "fresh") == (self.previous is None),
                 "continuation must identify the preceding worker generation")
         require((self.continuity == "fresh_fallback") == (self.fallback_reason is not None),
@@ -95,6 +105,11 @@ class WorkerCompletion(Contract):
     usage: Usage = field(default_factory=Usage)
     diagnostic: str | None = None
     control: Literal["pause", "stop"] | None = None
+    session_usage: WorkerSessionUsage | None = None
+
+    def _validate(self):
+        require(self.session_usage is None or self.session_id is not None,
+                "cumulative usage requires a confirmed session")
 
 
 @dataclass(frozen=True, kw_only=True)

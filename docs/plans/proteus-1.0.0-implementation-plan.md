@@ -59,6 +59,8 @@ P09e 接入通用 EventPolicy 插件、正式评估驱动的决策链、计数/�
 
 P09f 将独立工作区初始化、共享知识、主动提交、正式反馈、heartbeat 干预、异常退出重启、关闭队列与最终选择组合为可检查点恢复的单共享空间方法。配置和参考偏差见 [V1_CORAL_METHOD.md](../V1_CORAL_METHOD.md)。当前实验使用确定性进程 fixture；生产 provider bridge、原论文非训练任务、单/多 worker 的真实模型结果与 I11/R05 完整验收仍待完成。
 
+P09g 接入 pinned Codex CLI 的持久 worker bridge，原生 UUID 续接、早期 session 确认、独立 CLI 状态及显式 Responses provider 配置。实际 CLI 对本地模拟 API 的检查发现并修复了续接累计 token 重复计费：累计值保存于独立回执，本次用量按已确认基线取差，中断后的未知基线不补算。实现和边界见 [V1_CODEX_WORKER.md](../V1_CODEX_WORKER.md)。容器 worker、完整 CORAL 原任务 recipe 和真实模型实验仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
