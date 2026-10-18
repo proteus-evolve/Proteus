@@ -31,6 +31,9 @@ jobs:
         run: pip install -e '.[dev,dsh,pi]'
       - name: Install exact optional GEPA reference for conformance tests
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+      - name: Install pinned numeric reference on the domain Python version
+        if: matrix.python-version == '3.12'
+        run: pip install --no-deps 'https://files.pythonhosted.org/packages/8c/3d/1e1db36cfd41f895d266b103df00ca5b3cbe965184df824dec5c08c6b803/numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249'
       - name: Fetch pinned ACE source for playbook, full-method and Formula conformance (no SDK imports)
         run: |
           git init /tmp/proteus-ace-reference
@@ -131,6 +134,7 @@ jobs:
           cp tests/check_worker_knowledge_package.py /tmp/proteus-wheel-out/check_worker_knowledge_package.py
           cp tests/check_event_package.py /tmp/proteus-wheel-out/check_event_package.py
           cp tests/check_coral_method_package.py /tmp/proteus-wheel-out/check_coral_method_package.py
+          cp tests/check_coral_circle_package.py /tmp/proteus-wheel-out/check_coral_circle_package.py
           cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
@@ -153,6 +157,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_worker_knowledge_package.py
           /tmp/proteus-wheel/bin/python check_event_package.py
           /tmp/proteus-wheel/bin/python check_coral_method_package.py
+          /tmp/proteus-wheel/bin/python check_coral_circle_package.py
           /tmp/proteus-wheel/bin/python check_code_memory_package.py
           /tmp/proteus-wheel/bin/python check_workspace_package.py
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
@@ -206,6 +211,7 @@ jobs:
           cp tests/check_worker_knowledge_package.py /tmp/proteus-sdist-out/check_worker_knowledge_package.py
           cp tests/check_event_package.py /tmp/proteus-sdist-out/check_event_package.py
           cp tests/check_coral_method_package.py /tmp/proteus-sdist-out/check_coral_method_package.py
+          cp tests/check_coral_circle_package.py /tmp/proteus-sdist-out/check_coral_circle_package.py
           cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
@@ -228,6 +234,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_worker_knowledge_package.py
           /tmp/proteus-sdist/bin/python check_event_package.py
           /tmp/proteus-sdist/bin/python check_coral_method_package.py
+          /tmp/proteus-sdist/bin/python check_coral_circle_package.py
           /tmp/proteus-sdist/bin/python check_code_memory_package.py
           /tmp/proteus-sdist/bin/python check_workspace_package.py
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py

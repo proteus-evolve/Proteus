@@ -32,13 +32,33 @@ jobs:
       - name: Persistent research workers, native sessions and shared knowledge
         env:
           PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
-          PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
+          PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-worker-study
         run: python -m pytest tests/test_v1_harbor_workers.py -k live_harbor -q
       - name: Real candidate loading, independent verifier and cleanup
         env:
           PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
           PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
         run: python -m pytest tests/test_v1_harbor.py tests/test_v1_source_build.py tests/test_v1_recovery.py tests/test_v1_harbor_code.py tests/test_v1_workspace.py tests/test_v1_meta_harness.py tests/test_v1_parallel_evaluation.py tests/test_v1_gateway_harbor.py -k 'live_harbor or live_workspace_docker' -q
+      - name: Original CORAL circle packing with independent geometry verification
+        env:
+          PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
+          PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
+        run: python -m pytest tests/test_v1_coral_circle_packing.py -k live_harbor -q
+      - name: Collect independent worker evidence without pre-populating the baseline study
+        if: always()
+        run: |
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          temporary = Path(os.environ['RUNNER_TEMP'])
+          source, destination = temporary/'proteus-worker-study', temporary/'proteus-harbor-study'
+          destination.mkdir(parents=True, exist_ok=True)
+          if source.exists():
+              for child in source.iterdir():
+                  target = destination/child.name
+                  assert not target.exists(), 'evidence directory collision'
+                  shutil.move(str(child), str(target))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
