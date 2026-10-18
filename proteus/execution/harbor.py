@@ -114,7 +114,10 @@ class HarborEnvironment:
 def _duration(value):
     if not value or not value.get("started_at") or not value.get("finished_at"):
         return None
-    return max(0, (datetime.fromisoformat(value["finished_at"]) - datetime.fromisoformat(value["started_at"])).total_seconds())
+    # Harbor emits UTC's Z suffix, which fromisoformat accepts only on Python 3.11+.
+    start = datetime.fromisoformat(value["started_at"].replace("Z", "+00:00"))
+    end = datetime.fromisoformat(value["finished_at"].replace("Z", "+00:00"))
+    return max(0, (end - start).total_seconds())
 
 
 def _usage(result):
@@ -259,7 +262,8 @@ class HarborSubject:
         backend = BackendEvaluation(producer=context.subject.runner.plugin,
             artifact_hash=context.candidate.artifact.content_hash, task_hash=content_hash(context.task),
             trial_id=raw["id"], payload={"raw": raw, "raw_hash": content_hash(raw),
-                "task_tree_hash": ref.content_hash, "cleanup": cleanup},
+                "task_tree_hash": ref.content_hash, "cleanup": cleanup,
+                "verifier_proof": response["verifier_proof"]},
             usage=_verifier_usage(raw))
         status, diagnostic = Outcome.SUCCEEDED, ""
         error = raw.get("exception_info") or {}
@@ -303,7 +307,7 @@ class HarborReward:
         require(content_hash(raw) == backend.payload["raw_hash"] and raw["id"] == backend.trial_id,
                 "private Harbor result identity changed")
         error = raw.get("exception_info")
-        if error or raw.get("verifier_environment_mode") != "separate":
+        if error or raw.get("verifier_environment_mode") != "separate" or not backend.payload["verifier_proof"]:
             return Grade(status=Outcome.INFRA_ERROR, score=None, usage=backend.usage,
                          diagnostic="Harbor verifier/trial did not complete under the declared protocol")
         rewards = (raw.get("verifier_result") or {}).get("rewards")

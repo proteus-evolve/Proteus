@@ -173,6 +173,11 @@ def test_live_harbor_candidates_private_verifier_timeout_and_cleanup(tmp_path):
         assert proof["image_id"].startswith("sha256:")
         assert proof["mount_destinations"] == ["/logs/agent", "/logs/artifacts"]
         assert proof["nano_cpus"] == 10**9 and proof["memory_bytes"] == 512 * 1024**2
+        if response["execution"] is not None:
+            verifier = response["verifier_proof"]
+            assert verifier["container_id"] != proof["container_id"]
+            assert verifier["image_id"] == proof["image_id"]
+            assert verifier["mount_destinations"] == ["/logs/verifier"]
         proofs.append(proof)
     assert len({p["container_id"] for p in proofs}) == 4
     assert len({p["loaded_artifact_hash"] for p in proofs}) == 3

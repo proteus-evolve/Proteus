@@ -20,6 +20,7 @@ import signal
 import subprocess
 import sys
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 
@@ -130,6 +131,20 @@ def inspect_environment(environment):
             "mount_destinations": sorted(m["Destination"] for m in row["Mounts"])}
 
 
+async def checked_environment(request, environment, mounts):
+    actual = await asyncio.to_thread(inspect_environment, environment)
+    expected_image = json.loads(await asyncio.to_thread(docker, "image", "inspect", request["image_digest"]))[0]["Id"]
+    if actual["image_id"] != expected_image:
+        raise ValueError("container image differs from the pinned image")
+    resources = request["resources"]
+    if (("cpus" in resources and actual["nano_cpus"] != resources["cpus"] * 10**9)
+            or ("memory_mb" in resources and actual["memory_bytes"] != resources["memory_mb"] * 1024**2)):
+        raise ValueError("Docker did not apply the requested resource limits")
+    if set(actual["mount_destinations"]) != mounts:
+        raise ValueError("unexpected container mounts, including possible verifier exposure")
+    return actual
+
+
 # Executed inside the container before any candidate code. The witness is read
 # into the host adapter's memory; a candidate cannot replace it by editing logs.
 VERIFY_TREE = r'''
@@ -180,18 +195,7 @@ def candidate_agent_class():
             if result.return_code:
                 raise ValueError("container candidate verification failed")
             proof = json.loads(result.stdout)
-            actual_environment = await asyncio.to_thread(inspect_environment, environment)
-            expected_image = json.loads(await asyncio.to_thread(docker, "image", "inspect",
-                                                               self.request["image_digest"]))[0]["Id"]
-            if actual_environment["image_id"] != expected_image:
-                raise ValueError("container image differs from the pinned image")
-            resources = self.request["resources"]
-            if (("cpus" in resources and actual_environment["nano_cpus"] != resources["cpus"] * 10**9)
-                    or ("memory_mb" in resources
-                        and actual_environment["memory_bytes"] != resources["memory_mb"] * 1024**2)):
-                raise ValueError("Docker did not apply the requested resource limits")
-            if set(actual_environment["mount_destinations"]) != {"/logs/agent", "/logs/artifacts"}:
-                raise ValueError("unexpected agent mounts, including possible verifier exposure")
+            actual_environment = await checked_environment(self.request, environment, {"/logs/agent", "/logs/artifacts"})
             self.loaded_proof = {**proof, **actual_environment,
                 "candidate_id": self.request["candidate_id"], "task_hash": self.request["task_hash"],
                 "requested_image": self.request["image_digest"]}
@@ -235,6 +239,15 @@ async def run(request, output):
             return [m for m in super()._agent_env_mounts
                     if m["target"] != str(self.agent_env_paths.verifier_dir)]
 
+        @asynccontextmanager
+        async def _separate_verifier_env(self, definition, **kwargs):
+            async with super()._separate_verifier_env(definition, **kwargs) as environment:
+                proof = await checked_environment(request, environment, {"/logs/verifier"})
+                if self.agent.loaded_proof and proof["container_id"] == self.agent.loaded_proof["container_id"]:
+                    raise ValueError("verifier reused the candidate container")
+                self.verifier_proof = proof
+                yield environment
+
     config = TrialConfig(task=TaskConfig(path=Path(request["task_dir"])),
         trial_name=request["trial_name"], trials_dir=Path(request["trials_dir"]),
         agent=AgentConfig(import_path="__main__:CandidateAgent", model_name=request["model"],
@@ -245,6 +258,7 @@ async def run(request, output):
     # single-step implementation explicitly so the private mount policy applies.
     task, download = await Trial._load_task(config)
     trial = PrivateVerifierTrial(config, _task=task, _task_download_result=download)
+    trial.verifier_proof = None
     # Persist the UUID before starting any container or external subject work.
     write_json(output.parent / "harbor-started.json", {"trial_id": str(trial.id),
         "trial_name": request["trial_name"], "candidate_id": request["candidate_id"],
@@ -254,7 +268,8 @@ async def run(request, output):
     finally:
         # Preserve phase usage and verifier evidence even on cooperative cancellation.
         write_json(output, {"runtime": identity, "result": trial.result.model_dump(mode="json"),
-            "loaded_proof": trial.agent.loaded_proof, "execution": trial.agent.execution})
+            "loaded_proof": trial.agent.loaded_proof, "verifier_proof": trial.verifier_proof,
+            "execution": trial.agent.execution})
 
 
 def main():
