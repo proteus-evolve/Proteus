@@ -49,6 +49,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08g：实现共享动态 batch controller，接入 Combee-ACE 与 GEPA 的正常学习迭代；持久计时区分连续测量、已提交结果与中断后的未知时长。采样保持 GEPA 未访问的 epoch 尾部，ACE 保持 online 窗口边界。上游曲线/采样对照、原始计时绑定及中断恢复检查通过，说明见 [V1_DYNAMIC_BATCHING.md](../V1_DYNAMIC_BATCHING.md)。真实领域实验包、模型实验、CORAL 和发布验收继续推进；不将 R04 整体标为完成。
 
+- P08h：接入 Formula 上顺序 ACE、naive parallel、固定/动态 Combee 四组 offline/online 实验配置，共用已锁定数据、角色和预算上限；增加私有重评分、样本/更新/调用完整性审计与可恢复的端到端计时。完整 HTTP fixture、500/300/200 数据准备、跨实验硬退出恢复及 wheel/sdist 安装验证通过。说明见 [V1_COMBEE_FORMULA.md](../V1_COMBEE_FORMULA.md)。该 common-condition 设置明确不同于论文中尚未确定精确子集的 250 个训练样本；真实模型质量/成本/耗时结果仍待完成。
+
 - P09c：加入 worker 主动提交候选的 EvaluationGateway，冻结提交字节、事务化入队、按原认领恢复、复用正式评分并返回授权证据；可自动发布共享 attempt。首个传输为可信本地 worker 的 loopback HTTP，候选执行可接 Harbor。恢复、安装包及容器验收见 [V1_EVALUATION_GATEWAY.md](../V1_EVALUATION_GATEWAY.md)。CORAL 事件策略、完整 recipe、真实模型实验与发布验收仍未完成。
 
 ## 1 目标与范围
