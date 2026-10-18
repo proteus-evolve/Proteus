@@ -24,7 +24,7 @@ from proteus.evaluation.records import (
     BackendEvaluation, EvaluationReceipt, Grade, Observation, StateUpdate, SubjectResult, TrialRecord,
     sum_usage, zero_usage,
 )
-from proteus.evaluation.runners import EnvironmentLease, InvalidCandidate, SubjectContext
+from proteus.evaluation.runners import EnvironmentLease, InvalidCandidate, SubjectContext, SubjectRecoveryContext
 from proteus.evaluation.tasks import StateValue, TaskBatch, make_batch
 from proteus.recipes.config import StageSpec
 
@@ -56,6 +56,8 @@ def validate_evaluation_config(recipe, registry):
                     "evaluators must be deterministic or a declared integrated backend")
     subject = recipe.subject
     subject_plugin = registry.get(subject.runner.plugin, "subject")
+    require("subject.reconcile" not in subject_plugin.capabilities or subject.actor is None,
+            "subject reconciliation currently requires a self-contained runner, not delegated actor calls")
     if recipe.budget.max_model_calls is not None:
         require("subject.managed_actor" in subject_plugin.capabilities
                 or "subject.model_free" in subject_plugin.capabilities,
@@ -306,14 +308,29 @@ class EvaluationSession:
                 services.ledger.settle(subject_entry, actual=Amounts.zero(), status="cancelled")
                 raise
         subject_record = services.ledger.entry(subject_entry)
-        replayed = None
+        replayed, reconciled = None, None
         if subject_record["state"] == "reserved":
             services.ledger.start(subject_entry)
         else:
             prior = subject_record["settlement"]
             if prior is None or not (prior["result"] or {}).get("subject_result"):
-                raise RecoveryRequired(f"subject {subject_entry} has no settled execution result; reconcile before continuing")
-            replayed = prior["result"]
+                definition = services.registry.get(recipe.subject.runner.plugin)
+                if subject_record["state"] != "started" or "subject.reconcile" not in definition.capabilities:
+                    raise RecoveryRequired(f"subject {subject_entry} has no settled execution result; reconcile before continuing")
+                context = SubjectRecoveryContext(candidate=candidate, task=task, state=state, history=history,
+                    seed=seed, execution=recipe.execution, subject=recipe.subject,
+                    root=self.root / "trials" / f"{index:06d}")
+                try:
+                    reconciled = services.registry.create(recipe.subject.runner, "subject").reconcile(context)
+                    self._validate_subject_result(reconciled, candidate, task, runtime)
+                    self._save(f"private/reconciled/{index:06d}.json", {"entry_id": subject_entry,
+                        "runner": recipe.subject.runner.plugin, "result_hash": content_hash(reconciled)})
+                except Exception as exc:
+                    # Invalid/missing evidence is uncertainty, not a failed trial
+                    # or permission to repeat a dispatch. Retain every reservation.
+                    raise RecoveryRequired(f"subject {subject_entry}: {type(exc).__name__}: {exc}") from exc
+            else:
+                replayed = prior["result"]
         if verifier_entry is not None:
             if services.ledger.entry(verifier_entry)["state"] == "reserved":
                 services.ledger.start(verifier_entry)
@@ -336,6 +353,9 @@ class EvaluationSession:
                 result = SubjectResult.from_dict(replayed["subject_result"])
                 subject_dispatched = replayed["subject_dispatched"]
                 rejected_result = SubjectResult.from_dict(replayed["rejected_result"]) if replayed["rejected_result"] else None
+                self._build_usage.extend(services.restore_trial_usage(f"{self.operation_id}:rollout-{index + 1}"))
+            elif reconciled is not None:
+                result, subject_dispatched = reconciled, True
                 self._build_usage.extend(services.restore_trial_usage(f"{self.operation_id}:rollout-{index + 1}"))
             elif self._sequence_failed:
                 result = SubjectResult(loaded_artifact_hash=candidate.artifact.content_hash, runtime=runtime,
@@ -371,27 +391,11 @@ class EvaluationSession:
                     # New runner instance per task prevents undeclared plugin-instance memory.
                     subject_dispatched = True
                     result = services.registry.create(recipe.subject.runner, "subject").run(context)
-                require(type(result) is SubjectResult, "subject must return SubjectResult")
-                require(result.loaded_artifact_hash == candidate.artifact.content_hash,
-                        "subject reported a different loaded candidate")
-                require(result.runtime.runtime == runtime_ref
-                        and result.runtime.environment_hash == runtime.environment_hash,
-                        "subject runtime/environment differs from configured execution")
-                if result.backend_evaluation is not None:
-                    backend = result.backend_evaluation
-                    require(backend.producer == recipe.subject.runner.plugin
-                            and backend.artifact_hash == candidate.artifact.content_hash
-                            and backend.task_hash == content_hash(task),
-                            "backend evidence belongs to a different producer/candidate/task")
-                    require(any(cap.startswith("evaluation.backend.") for cap in
-                                services.registry.get(self.spec.evaluator.plugin).capabilities),
-                            "backend evidence requires its declared evaluator")
+                self._validate_subject_result(result, candidate, task, runtime)
                 if recipe.subject.actor is not None:
                     usage = services._usage(first_actor)
                     require(result.usage.model_calls == usage.model_calls, "subject actor usage mismatch")
                     result = replace(result, usage=usage)
-                elif "subject.model_free" in services.registry.get(recipe.subject.runner.plugin).capabilities:
-                    require(result.usage.model_calls == 0, "model-free subject reported nonzero/unknown model calls")
         except RecoveryRequired:
             raise
         except Exception as exc:
@@ -404,7 +408,7 @@ class EvaluationSession:
                 state=state, usage=usage,
                 diagnostic=f"{type(exc).__name__}: {exc}")
         finally:
-            if replayed is None and type(result) is SubjectResult and result.backend_evaluation is None:
+            if replayed is None and reconciled is None and type(result) is SubjectResult and result.backend_evaluation is None:
                 result = replace(result, usage=replace(result.usage,
                     wall_seconds=max(0, time.monotonic() - started - build_elapsed)))
             fallback_usage = Usage() if subject_dispatched else zero_usage()
@@ -455,6 +459,24 @@ class EvaluationSession:
         services.rollouts.append(rollout)
         self._pending_usage = None
         return Observation(rollout=rollout)
+
+    def _validate_subject_result(self, result, candidate, task, runtime):
+        recipe = self.services.recipe
+        require(type(result) is SubjectResult, "subject must return SubjectResult")
+        require(result.loaded_artifact_hash == candidate.artifact.content_hash,
+                "subject reported a different loaded candidate")
+        require(result.runtime.runtime == runtime.runtime
+                and result.runtime.environment_hash == runtime.environment_hash,
+                "subject runtime/environment differs from configured execution")
+        if result.backend_evaluation is not None:
+            backend = result.backend_evaluation
+            require(backend.producer == recipe.subject.runner.plugin
+                    and backend.artifact_hash == candidate.artifact.content_hash
+                    and backend.task_hash == content_hash(task),
+                    "backend evidence belongs to a different producer/candidate/task")
+            require(self._backend(), "backend evidence requires its declared evaluator")
+        if "subject.model_free" in self.services.registry.get(recipe.subject.runner.plugin).capabilities:
+            require(result.usage.model_calls == 0, "model-free subject reported nonzero/unknown model calls")
 
     def _grade(self, index):
         observation = self._observations[index]

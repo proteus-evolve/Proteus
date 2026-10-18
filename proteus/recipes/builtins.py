@@ -94,7 +94,7 @@ def builtin_registry() -> Registry:
         validate=validate_harbor_environment,
         capabilities=("state.independent", "candidate.exact_tree", "environment.source_build"))
     add("proteus.harbor_subject", "subject", HarborSubjectOptions, HarborSubject,
-        validate=validate_harbor_subject, capabilities=(BACKEND_CAPABILITY,))
+        validate=validate_harbor_subject, capabilities=(BACKEND_CAPABILITY, "subject.reconcile"))
     add("proteus.harbor_reward", "evaluator", HarborRewardOptions, HarborReward,
         capabilities=(BACKEND_CAPABILITY,))
     add("proteus.sequence", "method", SequenceOptions, SequenceMethod,

@@ -14,9 +14,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from proteus.artifacts.store import ArtifactStore, publish_bytes
+from proteus.artifacts.store import ArtifactStore, _read, publish_bytes
 from proteus.core.contracts import DIGEST, TEXT, ArtifactComponent, Outcome, RuntimeIdentity, StatePolicy, Usage, require
 from proteus.core.serialization import Contract, canonical_json, content_hash, read_json
+from proteus.core.recovery import RecoveryRequired
 from proteus.evaluation.records import BackendEvaluation, Feedback, Grade, SubjectResult, Trace, zero_usage
 from proteus.evaluation.runners import EnvironmentLease, PythonReply
 from proteus.execution.builds import BuildReceipt, SourceBuildSpec, image_pin
@@ -203,6 +204,37 @@ def _stop_worker(process):
         break
 
 
+def completed_worker(private, request):
+    """Read a sealed receipt only after the worker has released its OS lease."""
+    import fcntl
+    descriptor = os.open(private / "worker.lock", os.O_RDWR | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "r+") as lease:
+        try:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RecoveryRequired("Harbor worker is still running; resume after it completes") from exc
+        def read(name):
+            return read_json(_read(private / name).decode())
+        receipt = read("worker-completed.json")
+        dispatch = read("worker-dispatch.json")
+        cleanup = read("worker-cleanup.json")
+        response = read("response.json") if (private / "response.json").exists() else None
+        require(type(receipt["version"]) is int and receipt["version"] == 1
+                and receipt["request_hash"] == content_hash(request) == dispatch["request_hash"],
+                "Harbor completion belongs to a different request")
+        require(receipt["response_hash"] == content_hash(response)
+                and receipt["cleanup_hash"] == content_hash(cleanup), "Harbor completion evidence changed")
+        require(response is None or response["request_hash"] == receipt["request_hash"],
+                "Harbor response belongs to a different request")
+        require(type(receipt["return_code"]) is int and receipt["return_code"] in (0, 1),
+                "invalid Harbor worker return code")
+        require(receipt["elapsed_seconds"] is not None and type(cleanup["verified"]) is bool,
+                "incomplete Harbor completion/cleanup record")
+        Usage(wall_seconds=receipt["elapsed_seconds"])
+        return response, cleanup, {"elapsed_seconds": receipt["elapsed_seconds"],
+            "return_code": receipt["return_code"], "deadline_exceeded": False}
+
+
 class HarborSubject:
     def __init__(self, options):
         self.options = options
@@ -254,32 +286,76 @@ class HarborSubject:
                 bridge_failure = True
             finally:
                 _stop_worker(process)
-                cleanup = cleanup_owned_resources(trial_name)
+                try:
+                    _, cleanup, bridge_usage = completed_worker(private, request)
+                except FileNotFoundError:
+                    cleanup = cleanup_owned_resources(trial_name)
+                    bridge_usage = {"elapsed_seconds": time.monotonic() - started,
+                                    "return_code": process.returncode, "deadline_exceeded": bridge_failure}
+                if bridge_failure:
+                    bridge_usage = {**bridge_usage, "deadline_exceeded": True}
                 publish_bytes(private / "cleanup.json", canonical_json(cleanup).encode())
-                publish_bytes(private / "bridge-usage.json", canonical_json(
-                    {"elapsed_seconds": time.monotonic() - started, "return_code": process.returncode,
-                     "deadline_exceeded": bridge_failure}).encode())
+                publish_bytes(private / "bridge-usage.json", canonical_json(bridge_usage).encode())
+        response = read_json(_read(response_path).decode()) if response_path.exists() else None
+        return self._result(context, request, response, cleanup, bridge_usage)
+
+    def reconcile(self, context):
+        private = context.root / "private"
+        request = read_json(_read(private / "request.json").decode())
+        options = HarborEnvironmentOptions.from_dict(context.execution.environment.backend.options)
+        expected = {"runtime_hash": options.runtime_hash, "task_dir": str(private / "task"),
+            "trials_dir": str(private / "trials"), "candidate_dir": str(context.root / "candidate"),
+            "candidate_id": context.candidate.id, "artifact": context.candidate.artifact,
+            "task_hash": content_hash(context.task), "task": context.task, "state": context.state,
+            "seed": context.seed, "entrypoint": self.options.entrypoint, "arguments": self.options.arguments,
+            "model": self.options.model, "credential_env": self.options.credential_env,
+            "timeout_seconds": context.execution.timeout_seconds, "setup_timeout_seconds": options.setup_timeout_seconds,
+            "image_digest": context.execution.environment.image_digest, "resources": context.execution.environment.resources}
+        require(all(canonical_json(request[key]) == canonical_json(value) for key, value in expected.items()),
+                "Harbor dispatch identity differs from the recovery context")
+        build = BuildReceipt.from_dict(request["build_receipt"]) if request["build_receipt"] else None
+        require((build is not None) == (options.source_build is not None), "Harbor build configuration changed")
+        if build is not None:
+            require(build.status == "completed" and build.artifact_hash == context.candidate.artifact.content_hash
+                    and build.build_hash == content_hash(options.source_build)
+                    and build.base_image == context.execution.environment.image_digest,
+                    "Harbor build receipt belongs to a different source/configuration")
+        require(request["agent_image"] == (build.image_id if build else request["image_digest"]),
+                "Harbor dispatch image differs from its build")
+        response, cleanup, usage = completed_worker(private, request)
+        # A controller may have durably recorded a bridge deadline before dying.
+        if (private / "bridge-usage.json").exists():
+            previous = read_json(_read(private / "bridge-usage.json").decode())
+            require(type(previous["deadline_exceeded"]) is bool
+                    and {**previous, "deadline_exceeded": False} == usage, "Harbor bridge usage changed")
+            usage = previous
+        publish_bytes(private / "cleanup.json", canonical_json(cleanup).encode())
+        publish_bytes(private / "bridge-usage.json", canonical_json(usage).encode())
+        return self._result(context, request, response, cleanup, usage)
+
+    def _result(self, context, request, response, cleanup, bridge_usage):
+        build = BuildReceipt.from_dict(request["build_receipt"]) if request["build_receipt"] else None
         runtime = RuntimeIdentity(runtime=context.subject.runner.plugin, model=self.options.model,
             environment_hash=content_hash(context.execution.environment),
-            settings={"harbor_runtime_hash": lease.options.runtime_hash})
-        if not response_path.exists():
+            settings={"harbor_runtime_hash": request["runtime_hash"]})
+        if response is None:
             return SubjectResult(loaded_artifact_hash=context.candidate.artifact.content_hash, runtime=runtime,
-                status=Outcome.INFRA_ERROR, state=context.state, usage=Usage(wall_seconds=time.monotonic() - started),
+                status=Outcome.INFRA_ERROR, state=context.state, usage=Usage(wall_seconds=bridge_usage["elapsed_seconds"]),
                 diagnostic="Harbor bridge failed; controller-private records contain diagnostics")
-        response = read_json(response_path.read_text())
-        require(response["runtime"]["runtime_hash"] == lease.options.runtime_hash, "worker runtime changed")
+        require(response["runtime"]["runtime_hash"] == request["runtime_hash"], "worker runtime changed")
+        require(response["request_hash"] == content_hash(request), "Harbor response request changed")
         raw, proof = response["result"], response["loaded_proof"]
-        require(raw["config"]["trial_name"] == trial_name and raw["verifier_environment_mode"] in (None, "separate"),
+        require(raw["config"]["trial_name"] == request["trial_name"] and raw["verifier_environment_mode"] in (None, "separate"),
                 "Harbor trial identity/verifier isolation mismatch")
         backend = BackendEvaluation(producer=context.subject.runner.plugin,
             artifact_hash=context.candidate.artifact.content_hash, task_hash=content_hash(context.task),
             trial_id=raw["id"], payload={"raw": raw, "raw_hash": content_hash(raw),
-                "task_tree_hash": ref.content_hash, "cleanup": cleanup,
+                "task_tree_hash": HarborTask.from_dict(context.task.input).tree_hash, "cleanup": cleanup,
                 "verifier_proof": response["verifier_proof"]},
             usage=_verifier_usage(raw))
         status, diagnostic = Outcome.SUCCEEDED, ""
         error = raw.get("exception_info") or {}
-        if bridge_failure or process.returncode or not cleanup["verified"]:
+        if bridge_usage["deadline_exceeded"] or bridge_usage["return_code"] or not cleanup["verified"]:
             status, diagnostic = Outcome.INFRA_ERROR, "Harbor bridge or resource cleanup did not complete"
         elif error.get("exception_type") == "AgentTimeoutError":
             status, diagnostic = Outcome.TIMED_OUT, "Harbor subject exceeded its execution deadline"
@@ -292,10 +368,10 @@ class HarborSubject:
                     and proof["candidate_id"] == context.candidate.id and proof["task_hash"] == content_hash(context.task),
                     "Harbor loaded a different candidate/task")
             require(proof["requested_image"] == request["agent_image"]
-                    and proof["build_receipt_hash"] == (content_hash(lease.build) if lease.build else None),
+                    and proof["build_receipt_hash"] == (content_hash(build) if build else None),
                     "Harbor build/image binding changed")
-            if lease.build:
-                require(proof["image_id"] == lease.build.image_id, "Harbor did not execute the built image")
+            if build:
+                require(proof["image_id"] == build.image_id, "Harbor did not execute the built image")
             resources = context.execution.environment.resources
             require(("cpus" not in resources or proof["nano_cpus"] == resources["cpus"] * 10**9)
                     and ("memory_mb" not in resources or proof["memory_bytes"] == resources["memory_mb"] * 1024**2),

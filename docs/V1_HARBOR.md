@@ -3,11 +3,12 @@
 P04b adds `proteus.harbor`, `proteus.harbor_subject` and `proteus.harbor_reward`.
 They execute pinned file-tree candidates in independent Docker trials with a
 separate verifier. This is the first Harbor backend in the 1.0 plan, not completion
-of all P04 work: sequence/worker environments, uncertain external-effect reconciliation and
-the five external method recipes remain outstanding.
+of all P04 work: sequence/worker environments, reconciliation without a durable
+backend receipt, and the five external method recipes remain outstanding.
 
 P04c adds candidate-bound source builds and verified, run-local image reuse. See
 [V1_SOURCE_BUILDS.md](V1_SOURCE_BUILDS.md) for the build contract and its acceptance gate.
+P04e adds independently completed worker reconciliation; see [V1_RECOVERY.md](V1_RECOVERY.md).
 
 ## Install the isolated runtime
 
@@ -85,8 +86,10 @@ on the controller remain trusted code; visibility contracts are not a host sandb
 
 Agent timeout, invalid candidate output, missing reward and infrastructure failure
 remain distinct outcomes. Infrastructure failures are not valid zero scores.
-The bridge terminates its process group and reconciles containers, networks and
-volumes using the two exact generated Compose project labels. It never prunes the
+The worker reconciles containers, networks and volumes using the two exact generated
+Compose project labels before publishing completion. On bridge interruption the
+controller terminates its owned process group and performs fallback cleanup if the
+worker could not complete it. It never prunes the
 daemon or touches unrelated projects. `cleanup.json` records verified removal or
 uncertainty; daemon errors do not count as successful cleanup. No host-execution
 fallback is used when Docker is unavailable.
@@ -106,6 +109,9 @@ finite model-call caps are rejected for this adapter. Harbor's agent/verifier ph
 times are recorded separately; total bridge elapsed time, including setup and
 cleanup, is a separate diagnostic in `bridge-usage.json` and is not added twice.
 This does not yet provide whole-system native/profiling accounting or generic
-remote-operation reconciliation. [P04d recovery](V1_RECOVERY.md) reuses a settled
+remote-operation reconciliation. [Recovery](V1_RECOVERY.md) reuses a settled
 trial result across a controller crash without relaunching its agent or verifier.
-A dispatched trial without a settled controller result remains uncertain.
+When the controller result is missing, P04e can instead reconcile the original
+worker's sealed completion receipt after its OS lease is released. An active worker
+is left running; missing or invalid completion evidence remains uncertain. This
+does not issue another trial or grant another budget.

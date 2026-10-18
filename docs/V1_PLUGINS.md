@@ -4,7 +4,8 @@ Later batches extend this API: P03 candidate/evaluation services and P04a persis
 reservations are documented below; [V1_HARBOR.md](V1_HARBOR.md) covers P04b's optional
 Harbor backend and subject/verifier accounting. [V1_RECOVERY.md](V1_RECOVERY.md) covers
 P04d's operation journal and checkpoint recovery for compare/sequence and opt-in
-methods. Earlier phase-specific limitations below describe their original scope.
+methods, plus P04e's `subject.reconcile` hook and Harbor worker completion receipts.
+Earlier phase-specific limitations below describe their original scope.
 
 P02 makes the P01 configuration and data contracts executable. A registered `Method`
 owns control flow; stages consume and return typed records; actors execute through a

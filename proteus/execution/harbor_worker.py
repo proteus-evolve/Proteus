@@ -61,6 +61,11 @@ def write_json(path, value):
         stream.flush()
         os.fsync(stream.fileno())
     temporary.replace(path)
+    descriptor = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def docker(*args, timeout=30):
@@ -283,7 +288,7 @@ async def run(request, output):
         await trial.run()
     finally:
         # Preserve phase usage and verifier evidence even on cooperative cancellation.
-        write_json(output, {"runtime": identity, "result": trial.result.model_dump(mode="json"),
+        write_json(output, {"request_hash": digest(request), "runtime": identity, "result": trial.result.model_dump(mode="json"),
             "loaded_proof": trial.agent.loaded_proof, "verifier_proof": trial.verifier_proof,
             "execution": trial.agent.execution})
 
@@ -295,11 +300,33 @@ def main():
     if len(sys.argv) != 4 or sys.argv[1] != "run":
         raise SystemExit("usage: harbor_worker.py identify | run REQUEST OUTPUT")
     request_path, output = Path(sys.argv[2]), Path(sys.argv[3])
-    try:
-        asyncio.run(run(json.loads(request_path.read_text()), output))
-    except BaseException as exc:
-        write_json(output.parent / "bridge-error.json", {"type": type(exc).__name__, "message": str(exc)})
-        raise
+    import fcntl
+    # An OS lease, not a PID file: a resumed controller cannot mistake a live
+    # worker (or a reused PID) for a finished dispatch. Never unlink this file.
+    descriptor = os.open(output.parent / "worker.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "a+") as lease:
+        fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if (output.parent / "worker-dispatch.json").exists():
+            raise ValueError("this worker dispatch already started; reconcile its original result")
+        request = json.loads(request_path.read_text())
+        write_json(output.parent / "worker-dispatch.json", {"request_hash": digest(request)})
+        started, return_code = time.monotonic(), 0
+        try:
+            asyncio.run(run(request, output))
+        except BaseException as exc:
+            return_code = 1
+            write_json(output.parent / "bridge-error.json", {"type": type(exc).__name__, "message": str(exc)})
+            raise
+        finally:
+            # Cleanup and completion survive a hard exit of the controller.
+            # SIGKILL/power loss may prevent a receipt; that remains uncertain.
+            cleanup = cleanup_owned_resources(request["trial_name"])
+            write_json(output.parent / "worker-cleanup.json", cleanup)
+            response = json.loads(output.read_text()) if output.exists() else None
+            write_json(output.parent / "worker-completed.json", {
+                "version": 1, "request_hash": digest(request), "response_hash": digest(response),
+                "cleanup_hash": digest(cleanup), "return_code": return_code,
+                "elapsed_seconds": time.monotonic() - started})
 
 
 if __name__ == "__main__":

@@ -65,6 +65,25 @@ class SubjectContext:
         return self._actor(prompt)
 
 
+@dataclass(frozen=True)
+class SubjectRecoveryContext:
+    """Identity and private records of one existing dispatch; no execution lease.
+
+    A subject.reconcile plugin must inspect that dispatch, never start a replacement.
+    Return its completed SubjectResult or raise RecoveryRequired when completion
+    cannot be established. Candidate/runtime validation still belongs to the service.
+    """
+
+    candidate: Any
+    task: Task
+    state: StateValue
+    history: tuple
+    seed: int
+    execution: Any
+    subject: Any
+    root: Path
+
+
 class LocalJsonEnvironment:
     @contextmanager
     def open(self, artifact, store, root, execution):
