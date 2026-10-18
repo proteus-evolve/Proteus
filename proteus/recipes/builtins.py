@@ -19,6 +19,7 @@ from proteus.core.serialization import Contract
 from proteus.evidence.records import EvidenceView
 from proteus.execution.code_records import CodeCall, CodeOptions, CodeResult, CodeState
 from proteus.execution.code_subject import CodeSubject, validate_code
+from proteus.execution.harbor_code import HarborCodeEnvironment, HarborCodeOptions, validate_harbor_code
 from proteus.core.search import ArchiveSnapshot, KeepAll, ParetoFront, ScalarBest, SearchDecision, SelectionView, UniformParent
 from proteus.execution.actors import (
     AdapterOptions, ChatActor, ChatOptions, HarnessActor, HarnessOptions, validate_chat, validate_harness,
@@ -103,7 +104,11 @@ def builtin_registry() -> Registry:
         capabilities=("run.resume", "run.journal"), state_schema=CompareState)
     add("proteus.json_tasks", "task_suite", JsonSuiteOptions, JsonTaskSuite)
     add("proteus.local_json", "environment", EmptyOptions, lambda options: LocalJsonEnvironment(),
-        validate=validate_local, capabilities=("state.independent", "state.sequence", "state.explicit_json", "candidate.exact_tree"))
+        validate=validate_local, capabilities=("state.independent", "state.sequence", "state.explicit_json", "candidate.exact_tree",
+                                             "environment.code_protocol"))
+    add("proteus.harbor_code", "environment", HarborCodeOptions, HarborCodeEnvironment,
+        validate=validate_harbor_code, capabilities=("state.independent", "state.sequence", "state.explicit_json",
+            "candidate.exact_tree", "environment.code_protocol", "environment.source_build"))
     add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python)
     add("proteus.code_subject", "subject", CodeOptions, CodeSubject, validate=validate_code,
         capabilities=("subject.managed_actor", "subject.actor_timeout", "subject.code_protocol"),

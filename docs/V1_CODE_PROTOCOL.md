@@ -7,7 +7,8 @@ allowed method without inventing an evaluation or a score. Both routes use the
 same managed model callback and the existing actor budget ledger.
 
 This is a public execution interface needed by Meta-Harness. It does not yet
-implement its proposer, domain experiment, full recipe or isolated code backend.
+implement its proposer, domain experiment or full recipe. P07c adds the
+[Harbor code provider](V1_HARBOR_CODE.md) through the same public interface.
 
 ## Candidate interface and state
 
@@ -124,7 +125,7 @@ uncertain candidate to guess what happened, nor does it reset its budget.
 
 ## Provider boundary
 
-The current provider explicitly requires `proteus.local_json`, POSIX, fresh
+The local provider explicitly uses `proteus.local_json`, POSIX, fresh
 materializations and unrestricted host networking. It runs **trusted candidate
 code**. The child receives a small environment without inherited credentials,
 HOME or Python configuration, but it can still access the host filesystem and
@@ -132,11 +133,10 @@ network. Candidate model use must follow the provided callback contract;
 malicious direct SDK/network calls cannot be accounted for or prevented by this
 host adapter. The declared call budget governs the managed callback.
 
-Do not treat this adapter as the sandbox for an autonomous proposer. An isolated
-backend with controlled network/model access and the P07a evidence-only workspace
-is still needed before the full Meta-Harness reproduction is complete. Harbor's
-existing integration gates continue to run, but do not prove this new local code
-protocol executes inside Docker.
+Do not treat this local adapter as the sandbox for an autonomous proposer.
+`proteus.harbor_code` supplies a separate offline container provider with managed
+model callbacks and its own real-Docker gate. A proposer using the P07a
+evidence-only workspace and the full Meta-Harness recipe are still needed.
 
 ## Reference checks and example
 

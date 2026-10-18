@@ -18,11 +18,36 @@ import traceback
 from pathlib import Path
 
 
+class PipeChannel:
+    """RPC over Docker exec's stdin/stdout; candidate diagnostics use stderr."""
+
+    def __init__(self):
+        self.input = os.dup(0)
+        self.output = os.dup(1)
+        os.dup2(2, 1)
+
+    def makefile(self, mode):
+        return os.fdopen(os.dup(self.input), mode)
+
+    def sendall(self, data):
+        view = memoryview(data)
+        while view:
+            view = view[os.write(self.output, view):]
+
+    def close(self):
+        os.close(self.input)
+        os.close(self.output)
+
+
 def main():
-    channel = socket.socket(fileno=int(sys.argv[1]))
+    pipes = sys.argv[1] == '--stdio'
+    if pipes and os.getpgrp() != os.getpid():
+        os.setsid()
+    channel = PipeChannel() if pipes else socket.socket(fileno=int(sys.argv[1]))
     stream = channel.makefile('rb')
     limit = int(sys.argv[2])
-    parent_pid, deadline = int(sys.argv[3]), float(sys.argv[4])
+    parent_pid, deadline = (os.getppid(), time.monotonic() + float(sys.argv[3])) if pipes else (
+        int(sys.argv[3]), float(sys.argv[4]))
     def watch_parent():
         while True:
             if os.getppid() != parent_pid or time.monotonic() >= deadline:

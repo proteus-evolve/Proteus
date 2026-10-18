@@ -1,6 +1,7 @@
 """Run the installed candidate-code protocol, memory update and resume without pytest."""
 
 import json
+import sys
 import tempfile
 from pathlib import Path
 
@@ -32,6 +33,13 @@ def check():
         resumed = run_recipe(recipe, registry=registry, lock=lock, root=root/'run', resume=True)
         assert resumed == result
         assert len(json.loads((root/'run/execution-0002.json').read_text())['actor_calls']) == 7
+        from proteus.examples.harbor_code_memory import prepare as prepare_harbor
+        from proteus.execution.harbor_code import WORKER
+        from proteus.core.serialization import content_hash
+        container_recipe = load_recipe(prepare_harbor(root/'harbor-study', sys.executable,
+            runtime={'runtime_hash': content_hash('package-inspection-only')}))
+        assert registry.resolve(container_recipe).execution.environment.network == 'none'
+        assert WORKER.is_file()  # The optional worker is present in both installed distributions.
     print('Installed code protocol: five evaluations, separate memory update, seven managed echo calls and no-repeat resume passed.')
 
 
