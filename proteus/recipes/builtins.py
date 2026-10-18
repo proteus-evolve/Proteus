@@ -99,6 +99,10 @@ def builtin_registry() -> Registry:
     from proteus.gateway.records import GatewayResult, GatewayTicket
     registry.register_data("proteus.gateway.ticket@1", GatewayTicket)
     registry.register_data("proteus.gateway.result@1", GatewayResult)
+    from proteus.events.records import EventDecision, InterventionPlan, InterventionDispatch
+    registry.register_data("proteus.event.decision@1", EventDecision)
+    registry.register_data("proteus.event.plan@1", InterventionPlan)
+    registry.register_data("proteus.event.dispatch@1", InterventionDispatch)
     registry.register_data("proteus.code.call@1", CodeCall)
     registry.register_data("proteus.code.state@1", CodeState)
     registry.register_data("proteus.code.result@1", CodeResult)
@@ -121,6 +125,9 @@ def builtin_registry() -> Registry:
         add(name, "codec", EmptyOptions, lambda options, codec=codec: codec(),
             capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
     from proteus.workers.runtime import CommandWorkerRuntime
+    from proteus.events.policies import CadenceOptions, CadencePolicy, CadenceState
+    add("proteus.event.cadence", "event_policy", CadenceOptions, CadencePolicy,
+        capabilities=("event.pure_transition",), state_schema=CadenceState)
     add("proteus.worker.command", "worker", CommandWorkerOptions, lambda options: CommandWorkerRuntime(),
         capabilities=("worker.lifecycle", "worker.reconcile", "worker.session_protocol", "worker.connection_environment"))
     for name, factory, roles in (("scalar_best", ScalarBest, ("parent", "final")),

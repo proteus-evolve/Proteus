@@ -271,6 +271,8 @@ class RunServices:
         validate_workers(self)
         from proteus.gateway.service import validate_restored as validate_gateways
         validate_gateways(self)
+        from proteus.events.service import validate_restored as validate_events
+        validate_events(self)
 
     def _record(self, kind, identity, function, *, decode, encode=lambda value: value.to_dict()):
         require(threading.get_ident() == self._dispatch_thread, "cross-thread dispatch requires serial service dispatch")
@@ -305,6 +307,10 @@ class RunServices:
     def gateway(self, gateway_id):
         from proteus.gateway.service import GatewayService
         return GatewayService(self, gateway_id)
+
+    def events(self, policy_id):
+        from proteus.events.service import EventService
+        return EventService(self, policy_id)
 
     def invoke_candidate(self, candidate: Candidate, call, *, operation_id: str | None = None):
         from proteus.execution.code_service import CodeService

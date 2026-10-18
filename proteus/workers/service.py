@@ -100,3 +100,5 @@ def require_terminal(services):
     for spec in services.recipe.gateways:
         if services.gateway(spec.id).store.pending():
             raise RecoveryRequired("method cannot complete with pending gateway evaluations")
+    from proteus.events.service import require_terminal as require_interventions
+    require_interventions(services)

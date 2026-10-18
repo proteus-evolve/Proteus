@@ -51,14 +51,14 @@ class Plugin:
 
     def __post_init__(self):
         require(self.kind in {"method", "stage", "workflow", "actor", "subject", "task_suite", "environment",
-                              "codec", "evaluator", "policy", "worker"}, "unknown plugin kind")
+                              "codec", "evaluator", "policy", "worker", "event_policy"}, "unknown plugin kind")
         require(isinstance(self.options, type) and issubclass(self.options, Contract),
                 "plugin options must be a Contract class")
         require(callable(self.factory), "plugin factory must be callable")
         require(type(self.state_version) is int and self.state_version > 0, "invalid plugin state version")
         if self.state_schema is not None:
-            require(self.kind == "method" and isinstance(self.state_schema, type)
-                    and issubclass(self.state_schema, Contract), "only methods declare a state schema")
+            require(self.kind in {"method", "event_policy"} and isinstance(self.state_schema, type)
+                    and issubclass(self.state_schema, Contract), "only methods and event policies declare a state schema")
         validated = PluginLock(plugin=self.ref, implementation_hash=self.implementation_hash, source=self.source,
                                capabilities=self.capabilities)
         object.__setattr__(self, "capabilities", validated.capabilities)
@@ -188,6 +188,8 @@ class Registry:
                 backend=resolve(execution.environment.backend, "environment")))
         resolved = replace(recipe, method=resolve(recipe.method, "method"), stages=tuple(stages),
             workflows=tuple(workflows),
+            event_policies=tuple(replace(policy, operator=resolve(policy.operator, "event_policy"))
+                                 for policy in recipe.event_policies),
             workers=tuple(replace(worker, runtime=resolve(worker.runtime, "worker")) for worker in recipe.workers),
             actors={name: replace(actor, runtime=resolve(actor.runtime, "actor"))
                     for name, actor in recipe.actors.items()}, subject=subject, tasks=tasks,
@@ -239,6 +241,12 @@ class Registry:
                     "persistent workers require a journal-enabled method")
             from proteus.workers.service import validate_workers
             validate_workers(resolved, self)
+        for policy in resolved.event_policies:
+            plugin = self.get(policy.operator.plugin, "event_policy")
+            require("event.pure_transition" in plugin.capabilities and plugin.state_schema is not None,
+                    "event policies require pure transitions and a typed state schema")
+            if plugin.validate is not None:
+                plugin.validate(resolved, plugin.options.from_dict(policy.operator.options))
         if workflows:
             require("run.journal" in self.get(resolved.method.plugin).capabilities,
                     "workflows require a journal-enabled method")

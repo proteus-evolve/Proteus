@@ -53,6 +53,7 @@ version = {attr = "proteus.__version__"}
 "proteus.methods.ace" = ["LICENSE-ACE.txt", "NOTICE.md"]
 "proteus.operators.combee" = ["LICENSE-GEPA.txt", "NOTICE.md", "reference.json"]
 "proteus.methods.meta_harness" = ["LICENSE-META-HARNESS.txt", "NOTICE.md", "PROPOSER.md"]
+"proteus.methods.coral" = ["LICENSE-CORAL.txt", "NOTICE.md", "*.reference.md"]
 
 [tool.ruff]
 line-length = 100

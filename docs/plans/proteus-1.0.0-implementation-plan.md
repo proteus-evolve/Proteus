@@ -57,6 +57,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 ## 1 目标与范围
 
+P09e 接入通用 EventPolicy 插件、正式评估驱动的决策链、计数/时间/停滞策略与可恢复的 worker 干预；固定 CORAL heartbeat 的 manager 生命周期和持久 cooldown 扩展分成独立 profile。机制、参考代码对照、双 worker 进程及硬退出恢复说明见 [V1_EVENT_POLICIES.md](../V1_EVENT_POLICIES.md)。完整 CORAL recipe、真实 provider bridge、共享知识驱动的实验及真实模型结果仍待完成，不能据此将 R05 或 M4 整体标为完成。
+
 ### 1.1 发布必须实现的能力
 
 - 通过版本化配置运行五个方法家族，并提供各自的参考实现、任务协议和结果。
