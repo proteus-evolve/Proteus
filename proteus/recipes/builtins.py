@@ -90,6 +90,9 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
     registry.register_data("proteus.archive@1", ArchiveSnapshot)
     registry.register_data("proteus.evidence.view@1", EvidenceView)
+    from proteus.knowledge.records import KnowledgeRevision, KnowledgeSnapshot
+    registry.register_data("proteus.knowledge.revision@1", KnowledgeRevision)
+    registry.register_data("proteus.knowledge.snapshot@1", KnowledgeSnapshot)
     registry.register_data("proteus.code.call@1", CodeCall)
     registry.register_data("proteus.code.state@1", CodeState)
     registry.register_data("proteus.code.result@1", CodeResult)

@@ -55,6 +55,7 @@ class StageSpec(Contract):
     max_attempts: int = field(default=1, metadata={"minimum": 1})
     budget: BudgetLimits = field(default_factory=BudgetLimits)
     evidence: EvidenceAccess | None = None
+    knowledge: tuple[str, ...] = field(default=(), metadata=UNIQUE)
 
     def _validate(self):
         require(self.failure_policy == "retry" or self.max_attempts == 1,
@@ -178,6 +179,13 @@ class WorkflowSpec(Contract):
 
 
 @dataclass(frozen=True, kw_only=True)
+class KnowledgeSpec(Contract):
+    id: str = field(metadata=TEXT)
+    roles: tuple[str, ...] = field(metadata={**UNIQUE, "minItems": 1})
+    evidence: EvidenceAccess | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
 class RecipeConfig(Contract):
     name: str = field(metadata=TEXT)
     method: PluginSpec
@@ -192,6 +200,7 @@ class RecipeConfig(Contract):
     search: Mapping[str, PluginSpec] = field(default_factory=dict)
     budget: BudgetLimits = field(default_factory=BudgetLimits)
     seed: int = 0
+    knowledge: tuple[KnowledgeSpec, ...] = ()
 
     def _validate(self):
         require(all(role.strip() for role in self.actors), "actor roles must be nonempty")
@@ -202,7 +211,20 @@ class RecipeConfig(Contract):
         unique((stage.id for stage in self.stages), "stage ID")
         unique((workflow.id for workflow in self.workflows), "workflow ID")
         unique((spec.id for spec in self.evaluations), "evaluation ID")
+        unique((spec.id for spec in self.knowledge), "knowledge space ID")
         evaluations = {spec.id: spec for spec in self.evaluations}
+        knowledge = {spec.id: spec for spec in self.knowledge}
+        for space in self.knowledge:
+            require(set(space.roles) <= set(self.actors), "knowledge space references an unknown role")
+            if space.evidence is not None:
+                for evaluation_id in space.evidence.evaluation_ids:
+                    require(evaluation_id in evaluations, "unknown evaluation in shared knowledge access")
+                    spec = evaluations[evaluation_id]
+                    require(spec.visibility == FeedbackVisibility.OBSERVED,
+                            "private evaluations cannot become shared knowledge")
+                    require(spec.tasks.split in space.evidence.splits, "shared knowledge excludes the evaluation split")
+                require(set(space.evidence.splits) <= {evaluations[key].tasks.split
+                        for key in space.evidence.evaluation_ids}, "unknown split in shared knowledge access")
         for workflow in self.workflows:
             require(set(workflow.stages) <= {stage.id for stage in self.stages},
                     "workflow references an unknown stage")
@@ -219,6 +241,12 @@ class RecipeConfig(Contract):
                 require(not same_pool or not set(training.tasks.task_ids).intersection(other.tasks.task_ids),
                         'supervised training cannot overlap validation or hidden evaluation tasks')
         for stage in self.stages:
+            require(set(stage.knowledge) <= set(knowledge), "stage references an unknown knowledge space")
+            require(all(stage.role in knowledge[key].roles for key in stage.knowledge),
+                    "stage role cannot access this knowledge space")
+            if stage.knowledge:
+                require("proteus.knowledge.snapshot@1" in stage.input_types.values(),
+                        "knowledge-enabled stages need an explicit snapshot input")
             if stage.evidence is None:
                 continue
             require("proteus.evidence.view@1" in stage.input_types.values(),
@@ -252,6 +280,8 @@ class RecipeConfig(Contract):
 
     def plugin_refs(self) -> tuple[PluginRef, ...]:
         refs = [spec.plugin for spec in self.plugin_specs()]
+        if self.knowledge:
+            refs.append(PluginRef(name="proteus.file_tree", version="1"))
         if self.subject is not None:
             refs.append(self.subject.initial_artifact.codec)
             if self.subject.initial_artifact.runtime is not None:
