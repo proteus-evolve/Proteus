@@ -81,6 +81,12 @@ HTTP requests, and incremental token accounting without paid inference:
 PYTHONPATH=. python tests/check_codex_cli.py --executable /absolute/path/to/codex
 ```
 
+The same check also makes two additional local requests through the native Codex
+adapter, verifies distinct fresh ephemeral sessions and immutable raw usage
+receipts, and confirms that cached-token subsets are not counted twice. Native
+reporting and its remaining coverage limits are documented in
+[V1_NATIVE_INPUTS.md](V1_NATIVE_INPUTS.md#reported-native-usage).
+
 Ordinary subprocess tests also cover cooperative and forced pause, partial output
 on interruption, protocol spoofing, missing terminal events, malformed usage,
 controller reconstruction and explicit fallback. The installed wheel/sdist gate

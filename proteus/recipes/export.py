@@ -289,6 +289,11 @@ class SavedRun:
             for suffix in ('input', 'outcome'):
                 if row[suffix] is not None:
                     self.read((directory/(row['input']['id']+'.'+suffix+'.json')).relative_to(self.root).as_posix())
+            usage = (row['outcome'] or {}).get('usage', {})
+            if usage.get('source') == 'codex_exec_jsonl' and usage['fields']['source_hash'] is not None:
+                # read_native_inputs already re-parsed and hashed this immutable raw stream.
+                relative = (directory/(row['input']['id']+'.usage-source')).relative_to(self.root).as_posix()
+                self.evidence[relative] = usage['fields']['source_hash']
         return summarize_native_inputs(records)
 
     def stages(self):

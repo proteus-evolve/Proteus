@@ -95,6 +95,8 @@ P10i 开发中：补齐完整 CORAL 控制器、Harbor 持久研究 worker 与�
 
 P10l 开发中：native 调用回执加入版本化用量证据，先接入 OpenAI-compatible chat 的返回 token 与内置 mock 的明确零用量；失败、缺失值和硬退出保持 unknown，跨 episode 和恢复不转零、不重复计数。通用导出新增独立 native usage 表，核对累计 snapshot 与原始回执。Pi/DSH/Codex/Aki 内部调用、完整 native evaluator 用量和有限成本约束仍待补齐，I09 两项保留未完成。详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#reported-native-usage)。
 
+P10m 开发中：将已验证的 Codex JSON stream parser 复用于 native fresh/ephemeral 调用；逐 attempt 保存原始流、摘要和 token 回执，重试覆盖普通 trace 后仍可核验。非零退出、超时、截断及缺失终结事件保持 unknown；模型调用数和费用不根据 CLI 启动次数推断。通过本地 Responses fixture 验证实际 Codex CLI，不调用付费模型。Pi/DSH/Aki、native evaluator 完整用量、有限成本约束与真实模型实验继续保持待验收。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

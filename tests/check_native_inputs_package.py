@@ -5,6 +5,9 @@ from pathlib import Path
 import tempfile
 
 from proteus.core.native_inputs import input_directory, read_native_inputs
+from proteus.core.native_inputs import native_input
+from proteus.core.native_usage import codex_usage, summarize_native_inputs
+from proteus.core.adapter import EpisodeSpec
 from proteus.recipes import load_recipe
 from proteus.recipes.builtins import builtin_registry
 from proteus.recipes.config import PluginSpec
@@ -44,6 +47,22 @@ def check():
         assert len((Path(directory)/'export/native-usage.csv').read_text().splitlines())==9
         assert before=={path.name:path.read_bytes() for path in input_directory(root/'workspace').glob('*.json')}
         print('installed native recipe: eight immutable inputs/usage receipts, zero mock inference, unchanged resume and CSV export passed')
+        native=Path(directory)/'codex'
+        source=('\n'.join(json.dumps(event) for event in [
+            {'type':'thread.started','thread_id':'12345678-1234-4234-8234-123456789abc'},
+            {'type':'turn.started'},
+            {'type':'turn.completed','usage':{'input_tokens':13,'cached_input_tokens':5,'output_tokens':7}},
+        ])+'\n').encode()
+        with native_input(EpisodeSpec(root=native,episode=1,model='fixture',phase_prompts={'act':'fixture'}),backend='codex',phase='act',scope='harness_cli',
+                          payload=['exec','--json','--ephemeral','fixture']) as receipt:
+            receipt['usage_source']=source
+            receipt['usage']=codex_usage(source,transport_complete=True)
+            receipt['returncode']=0
+        totals=summarize_native_inputs(read_native_inputs(native))
+        assert totals['reported']['input_tokens']==13 and totals['reported']['output_tokens']==7
+        assert totals['reported']['model_calls'] is None and totals['reported']['cost_usd'] is None
+        assert next(input_directory(native).glob('*.usage-source')).read_bytes()==source
+        print('installed native Codex: immutable raw JSON receipt, strict parser and unknown call/cost totals passed')
 
 
 if __name__=='__main__':

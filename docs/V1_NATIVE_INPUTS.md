@@ -42,9 +42,11 @@ is still failure. Boundary counts are not model-call or token accounting.
 
 Inputs and outcomes carry checked content hashes. Hashes detect changed evidence
 but are not signatures against a party able to rewrite all controller records.
-Environment variables, credentials, authentication headers and exception text
-are excluded. Recorded model input itself can contain task data, so these files
-remain controller records rather than automatically shared public reports.
+Input/outcome metadata excludes environment mappings, authentication headers and
+exception text. Recorded model input itself can contain task data, so these files
+remain controller records rather than automatically shared public reports. The
+separate Codex raw usage source retains CLI output, including model/tool text or
+provider errors; exports never copy those bytes.
 
 ## Recipe runs
 
@@ -73,7 +75,8 @@ recorded attempts. A completed resume adds neither calls nor zero-filled entries
 | --- | --- | --- |
 | Built-in minimal mock policy | Zero; only the exact bundled local policy qualifies | Zero inference cost |
 | OpenAI-compatible chat | One received response; provider `prompt_tokens` / `completion_tokens` when valid | Unknown |
-| Custom minimal policy, Pi, DSH, Codex, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
+| Codex native `exec --json --ephemeral` | Completed fresh-thread token receipt; model-call count remains unknown | Unknown |
+| Custom minimal policy, Pi, DSH, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
 
 Chat token counts must be nonnegative integers; missing, negative, Boolean,
 fractional or string values become unknown. Cache and reasoning subcounts are
@@ -83,6 +86,23 @@ without such evidence remain unknown. Arbitrary provider metadata and cost
 extensions are excluded. Episode counter aggregation also preserves explicit
 unknowns across episodes and resume, but durable receipts additionally retain
 attempts that never reached an episode checkpoint.
+
+For Codex, the adapter captures the phase JSONL stream (or transport stdout when
+the container did not tee it) before publishing its outcome. `ID.usage-source`
+retains those exact bytes privately, so a retry overwriting the ordinary phase
+log cannot erase earlier accounting evidence. The outcome binds its hash, size,
+confirmed thread ID, parse status and normalized counts. Readback hashes and
+re-parses this source with the same strict stream parser used by persistent
+Codex workers. Missing, modified or symlinked source files fail validation.
+
+The native adapter always requests a new ephemeral thread, so the completed
+thread's cumulative token totals have a zero baseline. Resume-shaped commands
+and duplicate thread IDs across distinct fresh attempts are rejected. Cached
+input tokens are already included and are not added again. Nonzero exits,
+timeouts, malformed/truncated streams and missing terminal events keep token
+totals unknown, even if a partial log contains a completed receipt. Model-call
+counts and monetary cost remain unknown. This reports the harness's recorded
+tokens, not independently audited billing or usage of unreported internal agents.
 
 `proteus recipe export` exposes `native_accounting` and `native-usage.csv` with
 counts, source and completion status, without copying prompts or provider output.
@@ -103,8 +123,12 @@ including state changed by an earlier phase. Sandbox fixtures check exact Pi,
 DSH and Codex argv, transport failures, and DSH's resumed live-budget header.
 Subprocess hard-exit tests prove input survival, unknown completion and separate
 retry identity. Installed wheel and sdist checks execute the native recipe and
-resume without new evidence. These checks use no paid inference.
+resume without new evidence, and read back a captured Codex protocol fixture.
+`tests/check_codex_cli.py` additionally exercises the real selected CLI against a
+local Responses stub: persistent-worker continuation plus two fresh native phases.
+It verifies actual token receipts and excludes previous-phase model history.
+These checks use no paid inference and do not validate container isolation.
 
 Actual live backend release-smoke gates remain required. Internal provider-message
-coverage for opaque harnesses, pinned CLI usage reconciliation and complete native
+coverage for opaque harnesses, Pi/DSH usage reconciliation and complete native
 aggregate cost coverage remain separate work.

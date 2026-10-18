@@ -24,9 +24,13 @@ def _publish(path, value):
     # a published input always precedes dispatch and is never rewritten on resume.
     value = dict(value)
     value.setdefault('hash', content_hash(value))
+    _publish_bytes(path, (canonical_json(value)+'\n').encode('utf-8'))
+
+
+def _publish_bytes(path, data):
     temporary = path.with_suffix(path.suffix+'.tmp')
-    with temporary.open('x', encoding='utf-8') as stream:
-        stream.write(canonical_json(value)+'\n')
+    with temporary.open('xb') as stream:
+        stream.write(data)
         stream.flush()
         os.fsync(stream.fileno())
     temporary.replace(path)
@@ -60,8 +64,15 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
     started = time.monotonic()
 
     def publish_outcome(**status):
-        # A fixed usage projection is the only additional receipt payload allowed.
+        # Usage metadata is a fixed projection. Codex additionally supplies a
+        # hash-bound raw stream, kept separately from the JSON outcome.
         evidence = validate_usage(receipt.get('usage', usage_evidence()), request)
+        if evidence['source'] == 'codex_exec_jsonl':
+            from proteus.core.native_codex_usage import verify_codex_source
+            source = receipt.get('usage_source')
+            verify_codex_source(evidence, source)
+            if source is not None:
+                _publish_bytes(root/(identity+'.usage-source'), source)
         evidence = usage_evidence(evidence['source'], evidence['fields'],
                                   wall_seconds=time.monotonic()-started)
         _publish(root/(identity+'.outcome.json'), {'version': 2, 'id': identity,
@@ -73,8 +84,8 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
         publish_outcome(status='raised', error_type=type(exc).__name__)
         raise
     else:
-        # Explicitly whitelist the optional transport exit code. No response,
-        # traceback, URL, authentication header or arbitrary receipt is persisted.
+        # Explicitly whitelist the optional transport exit code. The JSON outcome
+        # contains no arbitrary response, traceback or authentication fields.
         code = receipt.get('returncode')
         require(code is None or type(code) is int, 'native transport return code must be an integer')
         publish_outcome(status='returned', returncode=code)
@@ -109,6 +120,13 @@ def read_native_inputs(root):
                     and outcome.get('status') in ('returned', 'raised'), 'native outcome identity mismatch')
             if request['version'] == 2:
                 validate_usage(outcome.get('usage'), request)
+                if outcome['usage']['source'] == 'codex_exec_jsonl':
+                    from proteus.core.native_codex_usage import verify_codex_source
+                    source_path = directory/(identity+'.usage-source')
+                    require(not source_path.is_symlink(), 'invalid native usage source path')
+                    expected_source = outcome['usage']['fields']['source_hash'] is not None
+                    require(source_path.is_file() == expected_source, 'native usage source is missing or unexpected')
+                    verify_codex_source(outcome['usage'], source_path.read_bytes() if expected_source else None)
         result.append({'input': request, 'outcome': outcome,
                        'completion': outcome['status'] if outcome else 'unknown'})
     return sorted(result, key=lambda row: (row['input']['prepared_ns'], row['input']['id']))
