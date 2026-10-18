@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -129,7 +130,7 @@ def test_domain_reflection_matches_actual_optimize_anything(tmp_path, endpoint, 
 
 
 @requires_gepa
-@pytest.mark.parametrize("damage", ["dataset", "config", "provenance", "test-batch", "test-score", "receipt", "subject-inputs"])
+@pytest.mark.parametrize("damage", ["dataset", "config", "provenance", "test-batch", "test-score", "receipt", "subject-inputs", "extra-cohort"])
 def test_report_refuses_drift_and_incomplete_test_evidence(tmp_path, endpoint, damage):
     root = tmp_path / "study"
     setup(root, endpoint)
@@ -148,6 +149,11 @@ def test_report_refuses_drift_and_incomplete_test_evidence(tmp_path, endpoint, d
     else:
         protocol = next(path for path in (root / "runs/seed-0-optimized/evaluations").glob("*/protocol.json")
                         if json.loads(path.read_text())["evaluation"]["id"] == "test")
+        if damage == "extra-cohort":
+            shutil.copytree(protocol.parent, protocol.parent.parent / "unreported-cohort")
+            with pytest.raises(ContractError, match="unreported evaluation cohorts"):
+                report(root)
+            return
         target = protocol if damage == "subject-inputs" else protocol.parent / (
             "receipt.json" if damage == "receipt" else "private/batches/000000.json")
         if damage == "test-batch":

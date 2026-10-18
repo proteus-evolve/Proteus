@@ -1,5 +1,9 @@
 # ACE offline and online recipes (P06b)
 
+[P06c Formula study](V1_ACE_FORMULA.md) supplies the pinned 500/300/200 domain
+data, reference metric, multi-replicate controller and complete private report.
+Real-model benchmark results remain pending.
+
 This batch implements Generator, Reflector and Curator as separately configured
 managed roles, and the complete offline/online control flow from
 [`ace-agent/ace@82709de`](https://github.com/ace-agent/ace/tree/82709de050e1db6e6ef2f07bcb0393560b94992a).
