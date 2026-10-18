@@ -60,8 +60,10 @@ The worker owns only a generated Compose project. Normal completion, callback
 failure and timeout stop it and audit removal. A separate process watches a pipe
 from the worker, the controller PID and the deadline; it survives their process
 group, stops the worker group before cleanup, and records removal after a hard
-exit. Parent, worker and guard serialize cleanup through a lock and bind its
-receipt to the exact request. No global Docker prune is used.
+exit. The worker asks Harbor to stop the environment, but only the parent or
+guard seals the final cleanup receipt, after stopping the worker group and any
+cancelled setup commands it owns. They serialize the audit through a lock and
+bind its receipt to the exact request. No global Docker prune is used.
 
 Settled code calls and predictions use existing no-repeat recovery. A hard exit
 before a result is settled remains uncertain even if container cleanup succeeds:

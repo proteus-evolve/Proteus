@@ -156,6 +156,8 @@ def invoke(root, options, call, actor, *, timeout_seconds, launch=None, stop=Non
         status, diagnostic = Outcome.INVALID_CANDIDATE, str(exc)
     except GatewayFailure as exc:
         status, diagnostic = Outcome.INFRA_ERROR, str(exc)
+    except ConnectionError as exc:
+        status, diagnostic = Outcome.INVALID_CANDIDATE, f'candidate protocol connection closed: {exc}'
     finally:
         # Also kill descendants that outlive a successful parent or retain pipe FDs.
         try:

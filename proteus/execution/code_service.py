@@ -11,6 +11,7 @@ from proteus.core.methods import supported_budget
 from proteus.core.recovery import RecoveryRequired
 from proteus.core.serialization import content_hash
 from proteus.evaluation.records import sum_usage, zero_usage
+from proteus.evaluation.runners import InvalidCandidate
 from proteus.execution.code_records import CodeCall, CodeOptions, CodeResult, CodeState
 from proteus.recipes.config import StageSpec
 
@@ -96,6 +97,8 @@ class CodeService:
                             if reply.status == Outcome.SUCCEEDED else call.state, diagnostic=reply.diagnostic)
             except RecoveryRequired:
                 raise  # Keep the started reservation; an uncertain external call must not be repeated.
+            except InvalidCandidate as exc:
+                result = replace(result, status=Outcome.INVALID_CANDIDATE, diagnostic=str(exc))
             except Exception as exc:
                 result = replace(result, status=Outcome.INFRA_ERROR, diagnostic=f'{type(exc).__name__}: {exc}')
             # BaseException/hard exit deliberately leaves a started operation requiring reconciliation.

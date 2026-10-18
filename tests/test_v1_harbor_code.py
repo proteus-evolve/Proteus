@@ -63,6 +63,17 @@ def test_managed_code_cannot_silently_use_an_opaque_environment(tmp_path):
         registry.resolve(replace(recipe, execution=replace(recipe.execution, environment=env)))
 
 
+def test_standalone_worker_does_not_shadow_harbor_or_require_proteus(tmp_path):
+    from proteus.execution.harbor_code import WORKER
+    script = f'''import runpy, sys
+runpy.run_path({str(WORKER)!r}, run_name='standalone_import_check')
+assert 'proteus' not in sys.modules
+assert {str(WORKER.parent)!r} not in sys.path
+'''
+    result = subprocess.run([sys.executable, '-I', '-c', script], cwd=tmp_path, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+
+
 def test_stdio_protocol_keeps_candidate_output_out_of_model_frames(tmp_path):
     from proteus.execution import code_worker
     (tmp_path / 'candidate.py').write_text(SOURCE.replace('return int(self.model',
@@ -119,6 +130,55 @@ def test_independent_guard_stops_its_worker_group_before_cleanup(tmp_path, monke
         if process.poll() is None:
             process.kill()
         process.wait()
+
+
+def test_guard_stops_a_late_mutator_after_its_worker_has_exited(tmp_path, monkeypatch):
+    from proteus.execution import harbor_code_worker as worker
+    marker = tmp_path/'late-resource'
+    child = f'import time; from pathlib import Path; time.sleep(.7); Path({str(marker)!r}).write_text("late")'
+    command = f'import subprocess,sys; subprocess.Popen([sys.executable,"-c",{child!r}])'
+    process = subprocess.Popen([sys.executable, '-c', command], start_new_session=True)
+    process.wait(timeout=3)
+    request = {'deadline':time.monotonic()+5,'parent_pid':os.getpid()}
+    path = tmp_path/'request.json'
+    path.write_text(json.dumps(request))
+    (tmp_path/'worker-finished.json').write_text(json.dumps({'request_hash':content_hash(request)}))
+    calls = []
+    monkeypatch.setattr(worker, 'cleanup_record', lambda p,r: calls.append(not marker.exists()))
+    read_fd, write_fd = os.pipe()
+    os.close(write_fd)
+    try:
+        guard(path, read_fd, process.pid)
+        time.sleep(.8)
+        assert calls == [True] and not marker.exists()
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def test_code_source_build_failure_is_invalid_candidate_and_never_dispatches(tmp_path, monkeypatch):
+    from proteus.execution import harbor
+    from proteus.execution.builds import SourceBuildSpec
+    from proteus.evaluation.runners import InvalidCandidate
+    registry, recipe = configured(tmp_path)
+    env = recipe.execution.environment
+    spec = SourceBuildSpec(commands=('exit 1',))
+    env = replace(env, backend=plugin('proteus.harbor_code', **dict(env.backend.options), source_build=spec.to_dict()),
+                  build_hash=content_hash(spec))
+    recipe = registry.resolve(replace(recipe, execution=replace(recipe.execution, environment=env)))
+    services = RunServices(recipe=recipe, registry=registry, run_id='failed-build', root=tmp_path/'run')
+    services.artifacts.copy_from(ArtifactStore(tmp_path/'study/artifact-store', registry), recipe.subject.initial_artifact)
+    monkeypatch.setattr(harbor, 'identify_runtime', lambda python: {'runtime_hash':env.backend.options['runtime_hash']})
+    def fail(*args, **kwargs):
+        raise InvalidCandidate('candidate build command failed')
+    monkeypatch.setattr(services.builds, 'execute', fail)
+    candidate = services.initial_candidate()
+    state = CodeState(artifact_hash=candidate.artifact.content_hash)
+    result = services.invoke_candidate(candidate, CodeCall(method='predict',state=state,args=(2,)))
+    assert result.status == Outcome.INVALID_CANDIDATE and result.state == state
+    assert not services.actor_calls and not list((tmp_path/'run').rglob('code-private'))
 
 
 @pytest.mark.parametrize('change', [
@@ -209,7 +269,7 @@ def test_live_harbor_code_timeout_and_budget_preserve_memory_and_cleanup(tmp_pat
         capabilities=('session.fresh','actor.execute','calls.bounded','request.timeout')))
     recipe = registry.resolve(replace(recipe, actors={'model': replace(recipe.actors['model'],runtime=plugin('fixture.counted'))}))
     store = ArtifactStore(root/'study/artifact-store', registry)
-    services = RunServices(recipe, registry, run_id='code-failures', root=root/'run')
+    services = RunServices(recipe=recipe, registry=registry, run_id='code-failures', root=root/'run')
     services.artifacts.copy_from(store, recipe.subject.initial_artifact)
     candidate = services.initial_candidate()
     state = CodeState(artifact_hash=candidate.artifact.content_hash)
@@ -220,7 +280,7 @@ def test_live_harbor_code_timeout_and_budget_preserve_memory_and_cleanup(tmp_pat
         {'candidate.py': FileContent(SOURCE.replace('return int(self.model', 'while True: pass\n        return int(self.model').encode())})
     timed_recipe = registry.resolve(replace(recipe, subject=replace(recipe.subject, initial_artifact=endless),
         execution=replace(recipe.execution, timeout_seconds=12)))
-    services = RunServices(timed_recipe, registry, run_id='code-timeout', root=root/'run-timeout')
+    services = RunServices(recipe=timed_recipe, registry=registry, run_id='code-timeout', root=root/'run-timeout')
     services.artifacts.copy_from(store, endless)
     candidate = services.initial_candidate()
     state = CodeState(artifact_hash=endless.content_hash)
@@ -245,7 +305,7 @@ def test_live_harbor_code_source_build_executes_built_tree_and_reuses_receipts(t
     register(registry)
     recipe = registry.resolve(replace(recipe, execution=replace(recipe.execution, environment=env)))
     store = ArtifactStore(root/'study/artifact-store', registry)
-    services = RunServices(recipe, registry, run_id='code-build', root=root/'run')
+    services = RunServices(recipe=recipe, registry=registry, run_id='code-build', root=root/'run')
     services.artifacts.copy_from(store, recipe.subject.initial_artifact)
     candidate = services.initial_candidate()
     cold = services.invoke_candidate(candidate, CodeCall(method='predict',

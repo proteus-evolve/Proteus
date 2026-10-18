@@ -26,10 +26,16 @@ if __package__:
         VERIFY_TREE, canonical, checked_environment, cleanup_owned_resources, digest, docker, runtime_identity, write_json,
     )
 else:
-    sys.path.insert(0, str(Path(__file__).parent))
-    from harbor_worker import (
-        VERIFY_TREE, canonical, checked_environment, cleanup_owned_resources, digest, docker, runtime_identity, write_json,
-    )
+    # Adding this directory to sys.path would shadow the real Harbor package
+    # with Proteus's sibling harbor.py in the independent runtime.
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location('proteus_harbor_helper', Path(__file__).with_name('harbor_worker.py'))
+    _helper = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_helper)
+    VERIFY_TREE = _helper.VERIFY_TREE
+    canonical, checked_environment = _helper.canonical, _helper.checked_environment
+    cleanup_owned_resources, digest = _helper.cleanup_owned_resources, _helper.digest
+    docker, runtime_identity, write_json = _helper.docker, _helper.runtime_identity, _helper.write_json
 
 
 def cleanup_record(path, request):
@@ -60,10 +66,31 @@ def guard(path, fd, worker_pid):
         except ProcessLookupError:
             break
     os.close(fd)
+    def sealed():
+        completed = path.parent / 'cleanup.json'
+        if not completed.exists():
+            return False
+        receipt = json.loads(completed.read_text())
+        return receipt.get('request_hash') == digest(request) and receipt.get('cleanup', {}).get('verified', False)
+
+    # The worker closes its pipe immediately before interpreter exit. Let a
+    # normal exit finish; the controller can then reap it and audit cleanup.
+    # Only controller/guard receipts count: the worker must never seal one while
+    # a cancelled Harbor subprocess could still mutate the Docker project.
+    finishing = path.parent / 'worker-finished.json'
+    if finishing.exists() and json.loads(finishing.read_text()).get('request_hash') == digest(request):
+        until = min(time.monotonic() + 2, request['deadline'] + 5)
+        while time.monotonic() < until:
+            if sealed():
+                return
+            try:
+                os.kill(worker_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(.05)
     # Reap the complete worker process group BEFORE resource cleanup, so an
     # in-flight Compose command cannot create another container after the audit.
-    completed = path.parent / 'cleanup.json'
-    if completed.exists() and json.loads(completed.read_text()).get('cleanup', {}).get('verified'):
+    if sealed():
         return
     try:
         os.killpg(worker_pid, signal.SIGKILL)
@@ -124,7 +151,12 @@ def relay(process, channel):
     def incoming():
         try:
             while data := channel.recv(65536):
-                process.stdin.write(data)
+                view = memoryview(data)
+                while view:
+                    written = process.stdin.write(view)
+                    if not written:
+                        raise OSError('closed candidate protocol stream')
+                    view = view[written:]
                 process.stdin.flush()
         except (OSError, ValueError):
             pass
@@ -222,10 +254,7 @@ async def run(path, channel, request):
                 await asyncio.to_thread(thread.join, 2)
             for stream in (process.stdin, process.stdout, process.stderr):
                 stream.close()
-        try:
-            await asyncio.wait_for(environment.stop(delete=True), 30)
-        finally:
-            await asyncio.to_thread(cleanup_record, path, request)
+        await asyncio.wait_for(environment.stop(delete=True), 30)
 
 
 def main():
@@ -249,8 +278,11 @@ def main():
         return 1
     finally:
         channel.close()
+        write_json(path.parent / 'worker-finished.json', {'request_hash': digest(request)})
         os.close(write_fd)
-        watcher.wait(timeout=60)
+        # The guard must outlive this group. It or the controller kills remaining
+        # group members before sealing the final resource audit; never wait for
+        # it here, because a cancellation can leave a Harbor CLI in this group.
 
 
 if __name__ == '__main__':
