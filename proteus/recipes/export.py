@@ -269,7 +269,7 @@ class SavedRun:
 
     def native_accounting(self):
         from proteus.core.native_inputs import input_directory, read_native_inputs
-        from proteus.core.native_usage import summarize_native_inputs
+        from proteus.core.native_usage import RAW_SOURCES, summarize_native_inputs
         native_root = self.root/'workspace'
         records = read_native_inputs(native_root)
         require(records == self.records.get('native_inputs', []), 'native input snapshot differs from receipts')
@@ -290,7 +290,7 @@ class SavedRun:
                 if row[suffix] is not None:
                     self.read((directory/(row['input']['id']+'.'+suffix+'.json')).relative_to(self.root).as_posix())
             usage = (row['outcome'] or {}).get('usage', {})
-            if usage.get('source') == 'codex_exec_jsonl' and usage['fields']['source_hash'] is not None:
+            if usage.get('source') in RAW_SOURCES and usage['fields']['source_hash'] is not None:
                 # read_native_inputs already re-parsed and hashed this immutable raw stream.
                 relative = (directory/(row['input']['id']+'.usage-source')).relative_to(self.root).as_posix()
                 self.evidence[relative] = usage['fields']['source_hash']

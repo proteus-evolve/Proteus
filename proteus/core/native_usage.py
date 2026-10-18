@@ -4,6 +4,23 @@ from proteus.core.contracts import Usage, require
 
 
 DIMENSIONS = ('model_calls', 'input_tokens', 'output_tokens', 'cost_usd', 'wall_seconds')
+RAW_SOURCES = frozenset(('codex_exec_jsonl', 'pi_sessions_v3'))
+
+
+def verify_usage_source(evidence, source):
+    if evidence['source'] == 'codex_exec_jsonl':
+        from proteus.core.native_codex_usage import verify_codex_source
+        verify_codex_source(evidence, source)
+    elif evidence['source'] == 'pi_sessions_v3':
+        from proteus.core.native_pi_usage import verify_pi_source
+        verify_pi_source(evidence, source)
+    else:
+        require(False, 'unsupported raw usage source')
+
+
+def pi_usage(source, *, transport_complete):
+    from proteus.core.native_pi_usage import pi_fields
+    return usage_evidence('pi_sessions_v3', pi_fields(source, transport_complete=transport_complete))
 
 
 def codex_usage(source, *, transport_complete):
@@ -33,6 +50,9 @@ def usage_evidence(source='unreported', fields=None, *, wall_seconds=None):
     elif source == 'codex_exec_jsonl':
         from proteus.core.native_codex_usage import codex_reported
         usage = codex_reported(fields, wall_seconds=wall_seconds)
+    elif source == 'pi_sessions_v3':
+        from proteus.core.native_pi_usage import pi_reported
+        usage = pi_reported(fields, wall_seconds=wall_seconds)
     else:
         require(source in ('unreported', 'local_mock') and not fields, 'unsupported native usage source')
         zero = 0 if source == 'local_mock' else None
@@ -49,7 +69,7 @@ def validate_usage(value, request=None):
     require(value == expected, 'native usage normalization differs')
     if request is not None:
         permitted = {'openai_chat_response': 'chat_request', 'local_mock': 'policy_prompt',
-                     'codex_exec_jsonl': 'harness_cli'}
+                     'codex_exec_jsonl': 'harness_cli', 'pi_sessions_v3': 'harness_cli'}
         require(value['source'] not in permitted or
                 request['scope'] == permitted[value['source']],
                 'native usage source does not match adapter boundary')
@@ -60,6 +80,13 @@ def validate_usage(value, request=None):
             args = argv[argv.index('exec')+1:-1]
             require(args and args[0] == '--json' and '--ephemeral' in args,
                     'Codex native usage requires a fresh ephemeral JSON stream')
+        elif value['source'] == 'pi_sessions_v3':
+            argv = request['payload']
+            require(type(argv) is list and all(type(item) is str for item in argv), 'invalid Pi invocation')
+            args = argv[:-1]
+            require('-p' in args and '--session-dir' in args and not
+                    set(args).intersection(('--resume', '-r', '--continue', '-c', '--session', '--no-session')),
+                    'Pi usage requires new persisted sessions')
     return value
 
 
@@ -76,10 +103,15 @@ def summarize_native_inputs(records):
         require(request['id'] not in identities, 'duplicate native usage attempt')
         identities.add(request['id'])
         evidence = validate_usage(outcome['usage'], request) if outcome and 'usage' in outcome else usage_evidence()
+        current_sessions = []
         if evidence['source'] == 'codex_exec_jsonl' and evidence['fields']['session_id'] is not None:
-            session = evidence['fields']['session_id']
-            require(session not in sessions, 'fresh native Codex attempts reused a session')
-            sessions.add(session)
+            current_sessions = [evidence['fields']['session_id']]
+        elif evidence['source'] == 'pi_sessions_v3':
+            current_sessions = evidence['fields']['session_ids']
+        for session in current_sessions:
+            identity = (evidence['source'], session)
+            require(identity not in sessions, 'fresh native attempts reused a session')
+            sessions.add(identity)
         rows.append({'attempt_id': request['id'], 'backend': request['backend'],
             'episode': request['episode'], 'phase': request['phase'], 'scope': request['scope'],
             'completion': record['completion'], 'returncode': outcome.get('returncode') if outcome else None,
@@ -92,7 +124,8 @@ def summarize_native_inputs(records):
         'budget_enforced': False,
         'semantics': 'Cumulative recorded boundaries only; empty evidence is not zero usage. '
             'Reported model_calls counts chat responses, not harness launches or tool turns; '
-            'Codex tokens cover its completed fresh-thread JSON receipt. '
+            'Codex tokens cover its completed fresh-thread JSON receipt; '
+            'Pi tokens cover reported usage in newly created v3 session logs. '
             'wall_seconds sums boundary elapsed time, not total run time. '
             'Unknown components keep totals null; known_subtotal is incomplete. '
             'Native evaluators and uninstrumented internal calls may be outside this coverage.'}

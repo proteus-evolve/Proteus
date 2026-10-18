@@ -10,7 +10,7 @@ import uuid
 
 from proteus.core.contracts import require
 from proteus.core.episode_protocol import DEFAULT_EPISODE_PROTOCOL_VERSION
-from proteus.core.native_usage import usage_evidence, validate_usage
+from proteus.core.native_usage import RAW_SOURCES, usage_evidence, validate_usage, verify_usage_source
 from proteus.core.serialization import canonical_json, content_hash
 
 
@@ -64,13 +64,12 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
     started = time.monotonic()
 
     def publish_outcome(**status):
-        # Usage metadata is a fixed projection. Codex additionally supplies a
+        # Usage metadata is a fixed projection. CLI adapters additionally supply a
         # hash-bound raw stream, kept separately from the JSON outcome.
         evidence = validate_usage(receipt.get('usage', usage_evidence()), request)
-        if evidence['source'] == 'codex_exec_jsonl':
-            from proteus.core.native_codex_usage import verify_codex_source
+        if evidence['source'] in RAW_SOURCES:
             source = receipt.get('usage_source')
-            verify_codex_source(evidence, source)
+            verify_usage_source(evidence, source)
             if source is not None:
                 _publish_bytes(root/(identity+'.usage-source'), source)
         evidence = usage_evidence(evidence['source'], evidence['fields'],
@@ -120,13 +119,12 @@ def read_native_inputs(root):
                     and outcome.get('status') in ('returned', 'raised'), 'native outcome identity mismatch')
             if request['version'] == 2:
                 validate_usage(outcome.get('usage'), request)
-                if outcome['usage']['source'] == 'codex_exec_jsonl':
-                    from proteus.core.native_codex_usage import verify_codex_source
+                if outcome['usage']['source'] in RAW_SOURCES:
                     source_path = directory/(identity+'.usage-source')
                     require(not source_path.is_symlink(), 'invalid native usage source path')
                     expected_source = outcome['usage']['fields']['source_hash'] is not None
                     require(source_path.is_file() == expected_source, 'native usage source is missing or unexpected')
-                    verify_codex_source(outcome['usage'], source_path.read_bytes() if expected_source else None)
+                    verify_usage_source(outcome['usage'], source_path.read_bytes() if expected_source else None)
         result.append({'input': request, 'outcome': outcome,
                        'completion': outcome['status'] if outcome else 'unknown'})
     return sorted(result, key=lambda row: (row['input']['prepared_ns'], row['input']['id']))
