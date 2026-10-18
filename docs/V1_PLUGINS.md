@@ -1,5 +1,10 @@
 # 1.0 development: methods, stages and actor runtimes
 
+Later batches extend this API: P03 candidate/evaluation services and P04a persistent
+reservations are documented below; [V1_HARBOR.md](V1_HARBOR.md) covers P04b's optional
+Harbor backend and subject/verifier accounting. Earlier phase-specific limitations
+below describe their original scope; generic resume is still unavailable.
+
 P02 makes the P01 configuration and data contracts executable. A registered `Method`
 owns control flow; stages consume and return typed records; actors execute through a
 role-specific service boundary. `proteus.native` delegates to the existing episode

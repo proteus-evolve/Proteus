@@ -14,6 +14,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 第二批 P02：注册式 Method/Stage/ActorRuntime、typed ports、角色调用记录、顺序/条件/有限循环、自评 stage 示例与 native 兼容 recipe；说明见 [V1_PLUGINS.md](../V1_PLUGINS.md)。native 复用旧事务引擎，通用 stage 路径不隐式继承 native 提示。
 - 第三批拆成 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 为 pinned TaskSuite/TaskBatch、SubjectRunner、逐任务评估、整批/在线 session 与反馈/显式 JSON 状态协议。两部分共同完成原 P03 的公共服务；本地 Python/受管理 actor 示例不替代 Harbor 或真实方法验收。
 - P04a：SQLite 持久事件账本接入受管理 actor 调用和整批评估预留；请求、attempt、实际用量、未知用量和超额记录随事务保存，重新打开服务不补发预算、不重放既有调用。跨进程预留原语已验证；执行器仍串行。其余 P04、P05–P10、真实方法实验以及 1.0 发布验收继续推进。
+- P04b（开发中）：独立 Harbor 运行时、Docker 候选精确加载、独立 verifier 私有结果通道、清理凭据及 subject/grader/backend verifier 账本接入；真实 Docker A/B/A、超时与隔离验收由专门 CI 执行。说明见 [V1_HARBOR.md](../V1_HARBOR.md)。完成验收后更新状态；sequence/worker、source build 与通用恢复仍在 P04/I11 范围。
 
 ## 1 目标与范围
 

@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from proteus.execution.harbor import (
+    BACKEND_CAPABILITY, HarborEnvironment, HarborEnvironmentOptions, HarborReward, HarborRewardOptions,
+    HarborSubject, HarborSubjectOptions, validate_environment as validate_harbor_environment,
+    validate_subject as validate_harbor_subject,
+)
+
 from proteus.artifacts.codecs import BUILTIN_CODECS
 from proteus.core.contracts import ArtifactRef, Candidate, OperationStatus, PluginRef, RuntimeIdentity, Usage, require
 from proteus.core.methods import ActorResult, ArtifactProposal
@@ -83,6 +89,12 @@ def builtin_registry() -> Registry:
         capabilities=("subject.managed_actor",))
     add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
         capabilities=("evaluator.deterministic",))
+    add("proteus.harbor", "environment", HarborEnvironmentOptions, HarborEnvironment,
+        validate=validate_harbor_environment, capabilities=("state.independent", "candidate.exact_tree"))
+    add("proteus.harbor_subject", "subject", HarborSubjectOptions, HarborSubject,
+        validate=validate_harbor_subject, capabilities=(BACKEND_CAPABILITY,))
+    add("proteus.harbor_reward", "evaluator", HarborRewardOptions, HarborReward,
+        capabilities=(BACKEND_CAPABILITY,))
     add("proteus.sequence", "method", SequenceOptions, SequenceMethod,
         validate=lambda recipe, options: validate_sequence(recipe, options, registry),
         capabilities=("control.sequence", "control.bounded_loop", "control.condition"))

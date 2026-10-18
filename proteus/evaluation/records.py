@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from proteus.core.contracts import (
-    DIGEST, TEXT, DataRef, EvaluationBatch, EvaluationRow, Outcome, Rollout, RuntimeIdentity, Usage, require,
+    DIGEST, TEXT, DataRef, EvaluationBatch, EvaluationRow, Outcome, PluginRef, Rollout, RuntimeIdentity, Usage, require,
 )
 from proteus.core.serialization import Contract
 from proteus.evaluation.tasks import StateValue
@@ -24,6 +24,23 @@ class Feedback(Contract):
 
 
 @dataclass(frozen=True, kw_only=True)
+class BackendEvaluation(Contract):
+    """Private verifier evidence from an integrated backend, never an observation.
+
+    The trusted subject adapter supplies this channel; candidate-authored stdout
+    must not be interpreted as verifier evidence. The service checks the producer,
+    task and candidate binding before publishing a prediction or releasing feedback.
+    """
+
+    producer: PluginRef
+    artifact_hash: str = field(metadata=DIGEST)
+    task_hash: str = field(metadata=DIGEST)
+    trial_id: str = field(metadata=TEXT)
+    payload: Mapping[str, Any]
+    usage: Usage = field(default_factory=Usage)
+
+
+@dataclass(frozen=True, kw_only=True)
 class SubjectResult(Contract):
     loaded_artifact_hash: str = field(metadata=DIGEST)
     runtime: RuntimeIdentity
@@ -33,6 +50,7 @@ class SubjectResult(Contract):
     trace: Trace = field(default_factory=Trace)
     usage: Usage = field(default_factory=Usage)
     diagnostic: str = ""
+    backend_evaluation: BackendEvaluation | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
