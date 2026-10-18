@@ -141,6 +141,7 @@ jobs:
           cp tests/check_plugin_templates.py /tmp/proteus-wheel-out/check_plugin_templates.py
           cp tests/check_native_inputs_package.py /tmp/proteus-wheel-out/check_native_inputs_package.py
           cp tests/check_native_pi_package.py /tmp/proteus-wheel-out/check_native_pi_package.py
+          cp tests/check_native_evaluator_package.py /tmp/proteus-wheel-out/check_native_evaluator_package.py
           cp tests/check_recipe_catalog.py /tmp/proteus-wheel-out/check_recipe_catalog.py
           cp tests/check_result_export.py /tmp/proteus-wheel-out/check_result_export.py
           cp tests/check_study_comparison.py /tmp/proteus-wheel-out/check_study_comparison.py
@@ -171,6 +172,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_plugin_templates.py
           /tmp/proteus-wheel/bin/python check_native_inputs_package.py
           /tmp/proteus-wheel/bin/python check_native_pi_package.py
+          /tmp/proteus-wheel/bin/python check_native_evaluator_package.py
           /tmp/proteus-wheel/bin/python check_recipe_catalog.py
           /tmp/proteus-wheel/bin/python check_result_export.py
           /tmp/proteus-wheel/bin/python check_study_comparison.py
@@ -233,6 +235,7 @@ jobs:
           cp tests/check_plugin_templates.py /tmp/proteus-sdist-out/check_plugin_templates.py
           cp tests/check_native_inputs_package.py /tmp/proteus-sdist-out/check_native_inputs_package.py
           cp tests/check_native_pi_package.py /tmp/proteus-sdist-out/check_native_pi_package.py
+          cp tests/check_native_evaluator_package.py /tmp/proteus-sdist-out/check_native_evaluator_package.py
           cp tests/check_recipe_catalog.py /tmp/proteus-sdist-out/check_recipe_catalog.py
           cp tests/check_result_export.py /tmp/proteus-sdist-out/check_result_export.py
           cp tests/check_study_comparison.py /tmp/proteus-sdist-out/check_study_comparison.py
@@ -263,6 +266,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_plugin_templates.py
           /tmp/proteus-sdist/bin/python check_native_inputs_package.py
           /tmp/proteus-sdist/bin/python check_native_pi_package.py
+          /tmp/proteus-sdist/bin/python check_native_evaluator_package.py
           /tmp/proteus-sdist/bin/python check_recipe_catalog.py
           /tmp/proteus-sdist/bin/python check_result_export.py
           /tmp/proteus-sdist/bin/python check_study_comparison.py

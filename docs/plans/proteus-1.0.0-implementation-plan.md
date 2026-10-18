@@ -101,6 +101,8 @@ P10n 开发中：Pi native 调用按 attempt 固化新增 v3 session 的原始�
 
 P10o 开发中：DSH native 固化新增压缩 session，严格验证完整 zstd frame 与打包事件序列；按 turn/step 用最终回执替换流式样本，按 fork seed 边界排除继承历史，并纳入独立摘要用量。失败重试、缺少回执的标题/搜索请求及摘要用量缺口保留 unknown，不把主循环汇总当作完整 harness 消耗。固定上游纯函数核对、adapter 到私有证据/导出的验证正在完成；真实 DSH CLI/provider、Aki、native evaluator 和有限成本约束仍待验收。
 
+P10p 开发中：native evaluator 在实际调度时保存独立调用/用量回执，覆盖 H0、稀疏评估、legacy goal、失败与中断重试；完成后的恢复复用已有证据。内置纯测量确认零推理，自定义 evaluator 通过 `GoalContext.report_usage` 报告未被 adapter 回执覆盖的额外消耗，缺失值或异常保持 unknown。旧评分格式不变，隐藏 trace/结果不进入用量回执。自报告不等于独立计费验证，也不新增有限预算执行能力；Aki 内部覆盖、真实 provider 验收与 I09 剩余项继续保留。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

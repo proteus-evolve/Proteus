@@ -158,9 +158,49 @@ under `.proteus-records/` appear only with `--include-private`.
 
 `wall_seconds` measures elapsed time around each instrumented boundary, including
 failed boundaries. It is not end-to-end runtime or provider inference time. These
-totals cover recorded boundaries only: native evaluators, custom adapters and
-internal harness work can remain outside their coverage. Generic finite native
+totals cover recorded boundaries only: unreported custom evaluators, custom adapters
+and internal harness work can remain outside their coverage. Generic finite native
 cost/model-call caps remain rejected; reporting creates no new enforcement claim.
+
+### Native evaluator receipts
+
+The native episode engine records each due evaluator before dispatch, including
+initial H0 evaluations and legacy goals. Skipped evaluations create no receipt;
+completed episodes and saved initial evaluations are reused on resume. A killed
+process leaves an unknown attempt, and a retry receives a separate identity.
+Score records retain their existing format. Usage receipts contain evaluator
+identity, visibility, episode and a trace hash; they contain no trace text,
+returned score/detail or exception message. They are private run evidence.
+
+The four bundled pure evaluator closures (`surface_units`, `tool_calls`,
+`file_contains`, `structural_step`) report zero inference. A custom function's
+name or `kind="measurement"` label does not establish that it is model-free.
+Custom evaluators can report their usage through the supplied context:
+
+```python
+from proteus.core.contracts import Usage
+from proteus.core.goal import EvalResult
+
+def judge(trace, ctx):
+    response = call_judge(trace)  # your evaluator's client
+    ctx.report_usage(Usage(model_calls=1, input_tokens=response.input_tokens,
+                           output_tokens=response.output_tokens))
+    return EvalResult("judge", response.score)
+```
+
+Report every attempted call, including retries; use `None` for missing dimensions.
+Reports are **exclusive of usage already recorded by native adapter receipts**.
+If all work uses such adapters, explicitly report zero additional inference.
+No report means unknown, never zero. Reports are evaluator-supplied evidence,
+not independently observed provider billing. If the evaluator raises or returns
+an invalid result, reported fields remain inspectable but normalized totals stay
+unknown because additional work may be unreported. Late callbacks are rejected.
+Proteus measures boundary elapsed time; caller-supplied wall time is ignored.
+Nested boundary times may overlap and must not be interpreted as run duration.
+
+`GoalConfig.evaluate` without a `GoalContext.native_root` retains its standalone
+no-write behavior; usage reporting requires an active instrumented evaluation.
+This interface does not reserve budget or enforce finite call/cost caps.
 
 ## Validation and remaining acceptance
 

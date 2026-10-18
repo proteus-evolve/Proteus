@@ -210,14 +210,14 @@ def test_native_export_is_private_read_only_and_deduplicated_across_resume(tmp_p
     owner = report_run(root, include_private=True)
     usage = public['native_accounting']
     assert usage == owner['native_accounting']
-    assert usage['boundary_count'] == 8 and usage['reported']['model_calls'] == 0
+    assert usage['boundary_count'] == 10 and usage['reported']['model_calls'] == 0
     assert public['accounting']['coverage'] == 'unavailable'
     assert all('payload' not in row for row in usage['entries'])
     assert not any(path.startswith('.proteus-records/') for path in public['evidence'])
-    assert sum(path.startswith('.proteus-records/') for path in owner['evidence']) == 16
+    assert sum(path.startswith('.proteus-records/') for path in owner['evidence']) == 20
     assert before == {str(path.relative_to(root)): path.read_bytes() for path in root.rglob('*') if path.is_file()}
     export_run(root, tmp_path/'export')
-    assert len((tmp_path/'export/native-usage.csv').read_text().splitlines()) == 9
+    assert len((tmp_path/'export/native-usage.csv').read_text().splitlines()) == 11
 
 
 def test_deleted_native_receipts_cannot_silently_reduce_export_total(tmp_path):
