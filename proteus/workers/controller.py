@@ -15,7 +15,7 @@ from proteus.workers.runtime import CommandWorkerRuntime, immutable, lease, writ
 
 
 class WorkerController:
-    def __init__(self, root, *, identity, options, ledger, scopes, runtime=None, runtime_ref=None):
+    def __init__(self, root, *, identity, options, ledger, scopes, runtime=None, runtime_ref=None, environment=None):
         self.root = Path(root).resolve()
         self.identity, self.options, self.ledger = identity, options, ledger
         Ledger(ledger.path, run_id=identity.run_id, config_hash=identity.config_hash, lock_hash=identity.lock_hash)
@@ -23,6 +23,7 @@ class WorkerController:
         require(self.scopes and all(isinstance(limits, BudgetLimits) for limits in self.scopes.values()),
                 "worker requires declared budget scopes")
         self.runtime = runtime or CommandWorkerRuntime()
+        self.environment = environment
         self.runtime_ref = runtime_ref or PluginRef(name="proteus.worker.command", version="1")
         self.reservation = self.runtime.reservation(options)
         require(type(self.reservation) is Amounts, "worker runtime must declare typed budget bounds")
@@ -97,8 +98,14 @@ class WorkerController:
             if entry["state"] == "reserved":
                 self.ledger.start(self._entry(ref))
             if entry["state"] not in ("completed", "failed", "cancelled"):
-                self.runtime.start(launch, directory)
+                self._start(launch, directory)
             return ref
+
+    def _start(self, launch, directory):
+        if self.environment is None:
+            self.runtime.start(launch, directory)
+        else:
+            self.runtime.start(launch, directory, environment=self.environment() if callable(self.environment) else self.environment)
 
     def ensure_started(self, ref):
         """Reconcile a committed launch after journal replay, without a new request."""
@@ -108,7 +115,7 @@ class WorkerController:
             require(entry["state"] != "reserved", "recorded worker launch was not started")
             if entry["state"] == "started":
                 require(self.head() == ref, "superseded worker generation cannot be dispatched")
-                self.runtime.start(launch, directory)
+                self._start(launch, directory)
 
     def poll(self, ref):
         launch, directory = self._launch(ref)
