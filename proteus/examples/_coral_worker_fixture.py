@@ -64,10 +64,28 @@ def main():
         Path("initial-source.txt").write_text(candidate.read_text())
 
     done = len(list(Path(".").glob("result-*.json")))
+    if worker == "b" and done == 1 and launch["continuity"] != "fresh":
+        publish("notes", "b-resumed", [file("ready.txt", b"Native intervention generation is running.\n")])
     if done < (2 if worker == "a" else 1) and "--idle" not in sys.argv:
         sources = []
         if worker == "a":
             publish("notes", "strategy", [file("factor.txt", b"2")])
+            if done == 1 and "--cooperate" in sys.argv:
+                # Make the fixture's second proposal causally follow B's native
+                # continuation; no assumptions about OS scheduling or FIFO arrival.
+                deadline, index, ready = time.monotonic() + 35, 0, False
+                while not ready and time.monotonic() < deadline:
+                    snapshot = call("/v1/knowledge/snapshots", {"operation_id": "await-b-" + str(index)})
+                    index += 1
+                    for ref in snapshot["snapshot"]["revisions"]:
+                        record = call("/v1/knowledge/revisions/" + ref["content_hash"].split(":")[1])
+                        write = record["revision"]["write"]
+                        if (write["kind"], write["key"]) == ("notes", "b-resumed"):
+                            ready = True
+                            break
+                    if not ready:
+                        time.sleep(.025)
+                assert ready, "cooperating worker did not resume"
             factor = 1 if done == 0 else 2
         else:
             index, factor = 0, None

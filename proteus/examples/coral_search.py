@@ -27,9 +27,11 @@ def prepare(root, *, workers=2):
     path = prepare_gateway(root)
     recipe = load_recipe(path)
     command = (sys.executable, str(Path(__file__).with_name("_coral_worker_fixture.py").resolve()))
+    if workers == 2:
+        command += ("--cooperate",)
     runtime = replace(recipe.workers[0].runtime, options={**recipe.workers[0].runtime.options,
         "command": command, "timeout_seconds": 90, "shutdown_grace_seconds": 2,
-        "command_files": {name: "sha256:" + hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in command}})
+        "command_files": {name: "sha256:" + hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in command[:2]}})
     names = ("a", "b")[:workers]
     recipe = replace(recipe, name="offline-coral-search", method=plugin("coral.single_island",
         gateway="formal", event_policy="heartbeat", max_submissions=workers + 1, max_polls=300,
