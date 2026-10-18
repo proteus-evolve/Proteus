@@ -54,7 +54,9 @@ def prepare(root):
     path = prepare_gateway(root)
     recipe = load_recipe(path)
     command = (sys.executable, str(Path(__file__).with_name("_event_worker_fixture.py").resolve()))
-    options = {**recipe.workers[0].runtime.options, "command": command,
+    # A pending HTTP read can take one second to time out after SIGINT. Allow
+    # the fixture to stop retries and seal its native session before escalation.
+    options = {**recipe.workers[0].runtime.options, "command": command, "shutdown_grace_seconds": 2,
                "command_files": {name: "sha256:" + hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in command}}
     recipe = replace(recipe, name="offline-event-interventions", method=plugin("example.event_interventions"),
         workers=tuple(replace(worker, runtime=replace(worker.runtime, options=options)) for worker in recipe.workers),
