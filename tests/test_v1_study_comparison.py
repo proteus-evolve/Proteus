@@ -49,6 +49,8 @@ def test_controlled_final_policy_ablation_keeps_paired_seeds_and_unknown_costs(t
     summary = {row['condition']: row for row in report['summaries']}
     assert summary['mean']['metrics']['quality'] == {'n':2,'known':2,'mean':.8,'sample_sd':0.0}
     assert summary['worst']['metrics']['quality'] == {'n':2,'known':2,'mean':.4,'sample_sd':0.0}
+    assert summary['mean']['metrics']['continuous_run_seconds']['known'] == 2
+    assert summary['mean']['metrics']['controller_seconds']['mean'] > 0
     assert summary['mean']['metrics']['cost_usd']['mean'] is None
     assert summary['mean']['metrics']['cost_usd']['known'] == 0
     assert report['paired_deltas'][0]['quality_delta']['mean'] == pytest.approx(-.4)
@@ -63,6 +65,15 @@ def test_unmentioned_budget_change_is_rejected_but_can_be_declared(tmp_path):
     report = compare_runs(replace(spec, varied_fields=(*spec.varied_fields, '/budget/max_evaluations')),
                           base=tmp_path, include_private=True)
     assert len(report['rows']) == 4
+
+
+def test_missing_elapsed_interval_keeps_whole_seed_mean_unknown(tmp_path):
+    spec = study(tmp_path)
+    (tmp_path/'mean/0/run/private/controller-timing/00000001.finish.json').unlink()
+    report = compare_runs(spec, base=tmp_path, include_private=True)
+    summary = next(row for row in report['summaries'] if row['condition'] == 'mean')
+    for field in ('continuous_run_seconds', 'controller_seconds'):
+        assert summary['metrics'][field] == {'n': 2, 'known': 1, 'mean': None, 'sample_sd': None}
 
 
 def test_different_metric_is_not_made_comparable_by_masking_configuration(tmp_path):
