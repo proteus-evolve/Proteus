@@ -887,7 +887,9 @@ class WorkflowMap:
 
     def join(self, records, baseline):
         services = self.services
-        session_snapshots = services._evaluation_service.snapshot()
+        # Existing owner sessions contain typed contracts in memory. Restore
+        # consumes JSON records, just like the already serialized branch deltas.
+        session_snapshots = read_json(canonical_json(services._evaluation_service.snapshot()))
         for record in records:
             snapshot, checked = record["snapshot"], record["services"]
             for ref, value in checked.values._values.values():

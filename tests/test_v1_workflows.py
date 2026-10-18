@@ -1087,3 +1087,63 @@ def configure_harbor_workflows(registry, recipe):
             budget=BudgetLimits(max_evaluations=4, max_concurrency=2),
         )
     )
+
+
+def test_workflows_after_owner_evaluation_and_previous_join_restore_sessions(tmp_path):
+    registry, store, recipe = managed_adaptive(tmp_path / "study")
+
+    class Study:
+        def run(self, services, restored_state):
+            initial = services.initial_candidate()
+            services.evaluate(initial, "score", selection=TaskSelection(task_ids=("0",)))
+            maps = []
+            for round_number in range(2):
+                jobs = tuple(
+                    WorkflowJob(
+                        key=str(i),
+                        workflow="sample",
+                        inputs={
+                            "sample": services.values.publish(
+                                "fixture.sample_input@1",
+                                SampleInput(candidate=initial, task_id=str(i)),
+                            )
+                        },
+                    )
+                    for i in range(3)
+                )
+                mapped = services.map_workflows(
+                    jobs, operation_id=f"round-{round_number}", max_workers=3
+                )
+                assert mapped.succeeded
+                maps.append(services.values.publish("proteus.workflow_map@1", mapped))
+            services.evaluate(initial, "score", selection=TaskSelection(task_ids=("0",)))
+            return MethodResult(outputs={str(i): ref for i, ref in enumerate(maps)})
+
+    ref = recipe.method.plugin
+    registry._plugins[(ref.name, ref.version)] = replace(
+        registry.get(ref), factory=lambda options: Study()
+    )
+    recipe = replace(
+        recipe,
+        budget=BudgetLimits(max_evaluations=20, max_model_calls=32, max_concurrency=3),
+        actors={
+            **recipe.actors,
+            "generator": replace(
+                recipe.actors["generator"],
+                budget=BudgetLimits(max_model_calls=20, max_concurrency=2),
+            ),
+        },
+    )
+    root = tmp_path / "run"
+    lock = registry.make_lock(recipe, [SOURCE])
+    result = run_recipe(recipe, registry=registry, lock=lock, root=root, artifact_source=store.root)
+    assert result.status == OperationStatus.COMPLETED, result.diagnostic
+    records = json.loads((root / "execution-0001.json").read_text())
+    assert len(records["rollouts"]) == 20 and len(records["actor_calls"]) == 32
+    assert len(records["candidates"]) == 13
+    ledger = run_ledger(root)
+    before = ledger.events()
+    assert ledger.balance()["active_slots"] == 0
+    assert run_recipe(recipe, registry=registry, lock=lock, root=root, resume=True) == result
+    assert ledger.events() == before
+    assert len((root / "external-calls").read_text().splitlines()) == 32
