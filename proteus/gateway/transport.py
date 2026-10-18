@@ -123,4 +123,3 @@ class GatewayHost:
                 self.thread.join()
         finally:
             self.resources.close()
-
