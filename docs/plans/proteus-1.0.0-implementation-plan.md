@@ -61,6 +61,8 @@ P09f 将独立工作区初始化、共享知识、主动提交、正式反馈、
 
 P09g 接入 pinned Codex CLI 的持久 worker bridge，原生 UUID 续接、早期 session 确认、独立 CLI 状态及显式 Responses provider 配置。实际 CLI 对本地模拟 API 的检查发现并修复了续接累计 token 重复计费：累计值保存于独立回执，本次用量按已确认基线取差，中断后的未知基线不补算。实现和边界见 [V1_CODEX_WORKER.md](../V1_CODEX_WORKER.md)。容器 worker、完整 CORAL 原任务 recipe 和真实模型实验仍待完成。
 
+P09h 开始接入 Harbor 持久研究 worker：每代使用独立容器，仅挂载自己的持久工作区，使用独立清理 guard 并在清理确认后结算；网关增加显式 Docker 可达绑定。配置、边界及待通过的真实 Docker 验收见 [V1_HARBOR_WORKERS.md](../V1_HARBOR_WORKERS.md)。当前仍须完成容器验收、原任务 recipe 与真实模型实验，不将 I11/R05 标记为完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

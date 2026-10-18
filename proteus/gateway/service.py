@@ -159,7 +159,7 @@ class GatewayService:
     def connection(self, worker_id):
         token = self.store.credential(worker_id)
         endpoint = read_json((self.root / "endpoint.json").read_text())
-        require(endpoint["identity_hash"] == content_hash(self.identity) and endpoint["host"] == "127.0.0.1"
+        require(endpoint["identity_hash"] == content_hash(self.identity) and endpoint["host"] == self.spec.bind_host
                 and type(endpoint["port"]) is int and 0 < endpoint["port"] < 65536,
                 "gateway endpoint belongs to another run or transport")
         return {"PROTEUS_EVALUATION_URL": f"http://127.0.0.1:{endpoint['port']}", "PROTEUS_EVALUATION_TOKEN": token}

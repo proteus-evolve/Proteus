@@ -132,6 +132,10 @@ def builtin_registry() -> Registry:
         capabilities=("event.pure_transition",), state_schema=CadenceState)
     add("proteus.worker.command", "worker", CommandWorkerOptions, lambda options: CommandWorkerRuntime(),
         capabilities=("worker.lifecycle", "worker.reconcile", "worker.session_protocol", "worker.connection_environment"))
+    from proteus.workers.harbor import HarborWorkerOptions, HarborWorkerRuntime, validate_harbor_workers
+    add("proteus.worker.harbor", "worker", HarborWorkerOptions, lambda options: HarborWorkerRuntime(),
+        capabilities=("worker.lifecycle", "worker.reconcile", "worker.session_protocol", "worker.connection_environment",
+                      "worker.container_isolation"), validate=validate_harbor_workers)
     for name, factory, roles in (("scalar_best", ScalarBest, ("parent", "final")),
                                  ("uniform_parent", UniformParent, ("parent",)),
                                  ("keep_all", KeepAll, ("archive",)),

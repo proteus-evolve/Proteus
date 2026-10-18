@@ -69,8 +69,11 @@ class CommandWorkerRuntime:
         from proteus.core.ledger import Amounts
         return Amounts()
 
+    def command_options(self, launch, directory):
+        return CommandWorkerOptions.from_dict(launch.options)
+
     def start(self, launch, directory, *, environment=None):
-        options = CommandWorkerOptions.from_dict(launch.options)
+        options = self.command_options(launch, directory)
         with lease(directory / "supervisor.lock", blocking=False) as ownership:
             if ownership is None or (directory / "dispatch.json").exists():
                 return  # already running, completed or uncertain; never resubmit
@@ -84,6 +87,7 @@ class CommandWorkerRuntime:
             process_environment = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL", "TMPDIR") if key in os.environ}
             process_environment.update({key: os.environ[key] for key in options.credential_env})
             process_environment.update(environment or {})
+            immutable(directory / "execution.json", {"request_hash": content_hash(launch), "options": options})
             # The supervisor is a standalone stdlib script. Installed packages
             # work outside the source checkout without PYTHONPATH injection.
             with (directory / "supervisor.log").open("ab") as log:

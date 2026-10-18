@@ -203,6 +203,7 @@ class GatewaySpec(Contract):
     knowledge_access: Literal["none", "read", "read_write"] = "none"
     max_pending_per_worker: int = field(default=1, metadata={"minimum": 1})
     max_evaluations_per_worker: int | None = field(default=None, metadata={"minimum": 0})
+    bind_host: Literal["127.0.0.1", "0.0.0.0"] = "127.0.0.1"
     max_request_bytes: int = field(default=8 * 1024 * 1024, metadata={"minimum": 1})
     max_files: int = field(default=1024, metadata={"minimum": 1})
 

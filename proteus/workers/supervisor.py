@@ -112,7 +112,10 @@ def main():
     if (root / "dispatch.json").exists():
         raise ValueError("worker generation was already dispatched")
     write(root / "dispatch.json", {"request_hash": request_hash})
-    options = request["options"]
+    execution = json.loads((root / "execution.json").read_text())
+    if execution["request_hash"] != request_hash:
+        raise ValueError("worker executor belongs to another launch")
+    options = execution["options"]
     started, child, action, stopped_at, escalation = time.monotonic(), None, None, None, 0
     diagnostic, return_code, timed_out = None, None, False
     usage = {"schema_version": 1, "model_calls": None, "input_tokens": None,
