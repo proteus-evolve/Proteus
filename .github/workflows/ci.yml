@@ -126,6 +126,7 @@ jobs:
           cp tests/check_knowledge_package.py /tmp/proteus-wheel-out/check_knowledge_package.py
           cp tests/check_worker_package.py /tmp/proteus-wheel-out/check_worker_package.py
           cp tests/check_codex_worker_package.py /tmp/proteus-wheel-out/check_codex_worker_package.py
+          cp tests/check_harbor_worker_package.py /tmp/proteus-wheel-out/check_harbor_worker_package.py
           cp tests/check_gateway_package.py /tmp/proteus-wheel-out/check_gateway_package.py
           cp tests/check_worker_knowledge_package.py /tmp/proteus-wheel-out/check_worker_knowledge_package.py
           cp tests/check_event_package.py /tmp/proteus-wheel-out/check_event_package.py
@@ -147,6 +148,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_knowledge_package.py
           /tmp/proteus-wheel/bin/python check_worker_package.py
           /tmp/proteus-wheel/bin/python check_codex_worker_package.py
+          /tmp/proteus-wheel/bin/python check_harbor_worker_package.py
           /tmp/proteus-wheel/bin/python check_gateway_package.py
           /tmp/proteus-wheel/bin/python check_worker_knowledge_package.py
           /tmp/proteus-wheel/bin/python check_event_package.py
@@ -199,6 +201,7 @@ jobs:
           cp tests/check_knowledge_package.py /tmp/proteus-sdist-out/check_knowledge_package.py
           cp tests/check_worker_package.py /tmp/proteus-sdist-out/check_worker_package.py
           cp tests/check_codex_worker_package.py /tmp/proteus-sdist-out/check_codex_worker_package.py
+          cp tests/check_harbor_worker_package.py /tmp/proteus-sdist-out/check_harbor_worker_package.py
           cp tests/check_gateway_package.py /tmp/proteus-sdist-out/check_gateway_package.py
           cp tests/check_worker_knowledge_package.py /tmp/proteus-sdist-out/check_worker_knowledge_package.py
           cp tests/check_event_package.py /tmp/proteus-sdist-out/check_event_package.py
@@ -220,6 +223,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_knowledge_package.py
           /tmp/proteus-sdist/bin/python check_worker_package.py
           /tmp/proteus-sdist/bin/python check_codex_worker_package.py
+          /tmp/proteus-sdist/bin/python check_harbor_worker_package.py
           /tmp/proteus-sdist/bin/python check_gateway_package.py
           /tmp/proteus-sdist/bin/python check_worker_knowledge_package.py
           /tmp/proteus-sdist/bin/python check_event_package.py

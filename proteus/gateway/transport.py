@@ -31,7 +31,7 @@ class GatewayHost:
             if endpoint_path.exists():
                 endpoint = read_json(endpoint_path.read_text())
                 require(endpoint["identity_hash"] == content_hash(gateway.identity)
-                        and endpoint["host"] == "127.0.0.1" and type(endpoint["port"]) is int
+                        and endpoint["host"] == gateway.spec.bind_host and type(endpoint["port"]) is int
                         and 0 < endpoint["port"] < 65536, "gateway endpoint identity differs")
                 port = endpoint["port"]
             else:
@@ -109,9 +109,9 @@ class GatewayHost:
                 daemon_threads = False
                 block_on_close = True
 
-            self.server = Server(("127.0.0.1", port), Handler)
+            self.server = Server((gateway.spec.bind_host, port), Handler)
             write_json(endpoint_path, {"identity_hash": content_hash(gateway.identity),
-                "host": "127.0.0.1", "port": self.server.server_address[1]})
+                "host": gateway.spec.bind_host, "port": self.server.server_address[1]})
             self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.025}, daemon=True)
             self.thread.start()
             return self
