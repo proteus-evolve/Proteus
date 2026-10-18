@@ -1,6 +1,7 @@
 """Worker-side submission client. Credentials are read from the worker environment."""
 
 import argparse
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -40,7 +41,7 @@ class GatewayClient:
                 result = self.poll(ticket_id)
             except urllib.error.HTTPError:
                 raise
-            except (urllib.error.URLError, TimeoutError):
+            except (urllib.error.URLError, TimeoutError, ConnectionError, IncompleteRead):
                 # A controller restart can temporarily close the fixed endpoint.
                 time.sleep(0.1)
                 continue

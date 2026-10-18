@@ -1,6 +1,7 @@
 """A model-free worker fixture that learns a factor from another worker's note."""
 
 import base64
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -23,7 +24,7 @@ def request(path, body=None):
         except urllib.error.HTTPError as exc:
             if exc.code != 503:
                 raise
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
+        except (urllib.error.URLError, TimeoutError, ConnectionError, IncompleteRead):
             pass
         time.sleep(.05)
     raise TimeoutError('worker transport did not recover')
