@@ -86,6 +86,15 @@ class StageFailed(RuntimeError):
         super().__init__(result.diagnostic)
 
 
+class ActorFailed(RuntimeError):
+    """A failed runtime can preserve observed usage while still raising an error."""
+    def __init__(self, result: ActorResult):
+        require(type(result) is ActorResult and result.status == OperationStatus.FAILED,
+                'ActorFailed requires a failed ActorResult')
+        self.result = result
+        super().__init__(result.diagnostic)
+
+
 def supported_budget(budget: BudgetLimits, *, allow_evaluations: bool = False) -> None:
     require(budget.max_cost_usd is None and budget.max_wall_seconds is None
             and (allow_evaluations or budget.max_evaluations is None),
@@ -250,6 +259,8 @@ class RunServices:
         from proteus.execution.workspace import WorkspaceService
         workspaces = WorkspaceService(self)
         for call in self.actor_calls:
+            from proteus.execution.harness_usage import verify
+            verify(self.root, call)
             if call.get('result') is not None and not call.get('error'):
                 workspaces.verify_result(ActorRequest.from_dict(call['request']).workspace,
                                          ActorResult.from_dict(call['result']))
@@ -335,6 +346,8 @@ class RunServices:
                 continue
             metadata, record = entry["identity"]["metadata"], entry["settlement"]["result"]
             if metadata["kind"] == "actor" and record is not None:
+                from proteus.execution.harness_usage import verify
+                verify(self.root, record)
                 if not any(call["id"] == entry["id"] for call in self.actor_calls):
                     self.actor_calls.append(record)
                 key = (metadata["operation_id"], metadata["attempt_id"], metadata["role"])
@@ -403,6 +416,8 @@ class RunServices:
                 raise RecoveryRequired(f"actor {call_id} was dispatched without a settled result; reconcile before continuing")
             record = entry["settlement"]["result"]
             require(record is not None and record["id"] == call_id, "actor recovery record is unavailable")
+            from proteus.execution.harness_usage import verify
+            verify(self.root, record)
             self.actor_calls.append(record)
             if record.get("error") or record["result"] is None:
                 raise RuntimeError(record.get("error") or "previous actor call failed")
@@ -437,6 +452,9 @@ class RunServices:
             workspaces.verify_result(workspace_input, result)
             return result
         except BaseException as exc:
+            if isinstance(exc, ActorFailed) and type(exc.result) is ActorResult:
+                result = exc.result
+                record['result'] = result.to_dict()
             error = record["error"] = f"{type(exc).__name__}: {exc}"
             raise
         finally:

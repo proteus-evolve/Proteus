@@ -7,13 +7,13 @@ import os
 import shutil
 import time
 import urllib.request
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from proteus.core.adapter import EpisodeSpec
 from proteus.core.contracts import TEXT, OperationStatus, RuntimeIdentity, Usage, require
-from proteus.core.methods import ActorResult
+from proteus.core.methods import ActorFailed, ActorResult
 from proteus.core.serialization import Contract, json_value, read_json
 
 
@@ -146,6 +146,8 @@ class HarnessActor:
                 "generic harness actor calls require fresh workspaces; native method owns continuity")
         require((request.workspace is not None) == self.supports_workspace,
                 'coding workspace requests require a workspace-capable actor')
+        from proteus.core.native_inputs import read_native_inputs
+        require(not read_native_inputs(workspace), 'generic harness actor requires fresh receipt identity')
         adapter = self.adapter(spec)
         require(getattr(adapter, "supports_custom_phases", False), "harness needs custom-phase support")
         workspace.mkdir(parents=True, exist_ok=True)
@@ -164,21 +166,33 @@ class HarnessActor:
             shutil.copytree(harness, active)
         prompt = (request.system + "\n\n" if request.system else "") + request.prompt
         started = time.monotonic()
-        result = adapter.run_episode(EpisodeSpec(root=workspace, episode=1, model=spec.model or "",
-            phase_prompts={"act": prompt}, phases=("act",), max_turns=self.options.max_turns,
-            seed=self.options.seed, active_root=active,
-            readonly_task_paths=('input', 'history') if self.supports_workspace else (),
-            continuity_mode=getattr(adapter, "continuity_mode", "native")))
-        trace = tuple(asdict(event) for event in adapter.read_trace(workspace, 1))
+        result, trace, failure = None, (), None
+        try:
+            result = adapter.run_episode(EpisodeSpec(root=workspace, episode=1, model=spec.model or "",
+                phase_prompts={"act": prompt}, phases=("act",), max_turns=self.options.max_turns,
+                seed=self.options.seed, active_root=active,
+                readonly_task_paths=('input', 'history') if self.supports_workspace else (),
+                continuity_mode=getattr(adapter, "continuity_mode", "native")))
+            trace = tuple(asdict(event) for event in adapter.read_trace(workspace, 1))
+        except Exception as exc:
+            failure = exc
+        from proteus.execution.harness_usage import collect
+        usage, marker, _ = collect(workspace, self.name)
+        if usage is None:
+            counters = result.counters if result is not None else {}
+            usage = Usage(input_tokens=counters.get('tokens_in'), output_tokens=counters.get('tokens_out'))
+        settings = {"requested_model": spec.model, "harness": self.name}
+        if marker is not None:
+            settings['native_usage'] = marker
         text = "\n".join(event["text"] for event in trace if event.get("text"))
-        return ActorResult(text=text, trace=trace,
-            runtime=RuntimeIdentity(runtime=spec.runtime.plugin,
-                                    settings={"requested_model": spec.model, "harness": self.name}),
-            usage=Usage(input_tokens=result.counters.get("tokens_in"),
-                        output_tokens=result.counters.get("tokens_out"),
-                        wall_seconds=time.monotonic() - started),
-            status=OperationStatus.COMPLETED if result.ok else OperationStatus.FAILED,
-            diagnostic=result.error)
+        from proteus.core.continuity import _redact
+        outcome = ActorResult(text=text, trace=trace, runtime=RuntimeIdentity(runtime=spec.runtime.plugin, settings=settings),
+            usage=replace(usage, wall_seconds=time.monotonic() - started),
+            status=OperationStatus.COMPLETED if failure is None and result.ok else OperationStatus.FAILED,
+            diagnostic=_redact(f'{type(failure).__name__}: {failure}') if failure is not None else result.error)
+        if failure is not None:
+            raise ActorFailed(outcome) from failure
+        return outcome
 
 
 WORKSPACE_INSTRUCTIONS = '''You are a coding research actor working on the supplied task.

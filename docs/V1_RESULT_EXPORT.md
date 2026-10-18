@@ -29,6 +29,10 @@ run. Unsettled external operations require reconciliation before export.
   They do not sum overlapping stage summaries or budget-scope memberships. Actual
   unknown usage stays `null`, even if budget accounting retained a reservation.
   `budget_charged` is therefore separate from `actual`.
+  Actor entries also expose `input_tokens` and `output_tokens` in both cost CSVs.
+  `accounting.actor_tokens` aggregates managed actor entries only, including
+  failed attempts; non-actor token coverage is not inferred from those totals.
+  An empty actor set is unavailable, and one unknown actor keeps its total null.
 - Stage attempts show the recorded statuses and actual repeated attempts of the
   same operation. Resuming a completed run does not count as a retry or another
   set of trials. Worker generations remain individually identifiable cost entries.
@@ -38,6 +42,26 @@ run. Unsettled external operations require reconciliation before export.
   explicitly shows only the measured portion. Its cumulative scope survives
   native resume even though other native results cover the latest invocation.
   See [native usage evidence](V1_NATIVE_INPUTS.md#reported-native-usage).
+
+Generic `proteus.harness.*` and `proteus.workspace.*` actors use the native
+adapter's verified usage receipts when available. Those values enter their
+existing actor ledger entry once, rather than the separate native-recipe table.
+`accounting.native_receipts` binds each actor to the cumulative receipt hash,
+boundary count and inference fields. Export and settled-result recovery re-read
+the private evidence; missing or changed receipts fail validation. Captured
+fresh sessions cannot be counted again by a second actor dispatch. Inputs and
+provider/session bytes remain under `actors/.proteus-records/`, outside the
+disposable actor workspace; only owner exports include their source hashes.
+Deleting the disposable workspace or relocating the whole run does not require
+another model call. Legacy/custom adapters without receipts retain their
+reported counters, without gaining receipt-backed coverage.
+
+Known token receipts do not establish complete internal-call coverage, prices,
+or a safe call bound. Generic finite cost/call limits for these harnesses remain
+rejected. Actor wall time covers the wrapper invocation, not the sum of nested
+native boundary times. Runtime exceptions may preserve a failed `ActorResult`
+through `ActorFailed`; the stage still fails and the ledger retains observed
+usage rather than replacing it with unknown merely because an exception occurred.
 
 The latest execution snapshot is used. A journal method restores its cumulative
 history; a non-journal method's report covers its latest invocation only. This

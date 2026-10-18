@@ -16,7 +16,7 @@ import tempfile
 from proteus.artifacts.codecs import bytes_hash
 from proteus.artifacts.store import ArtifactStore, CandidateEntry, _read
 from proteus.core.contracts import (
-    Candidate, DataRef, EvaluationBatch, OperationStatus, Rollout, StageRequest, StageResult, require,
+    Candidate, DataRef, EvaluationBatch, OperationStatus, Rollout, StageRequest, StageResult, Usage, require,
 )
 from proteus.core.ledger import Amounts, DIMENSIONS, Ledger, TERMINAL
 from proteus.core.methods import MethodResult
@@ -246,10 +246,16 @@ class SavedRun:
                         and history[-1]['payload_json'] == entry['settlement']
                         and entry['settlement']['status'] == entry['state'], 'ledger event/settlement differs')
                 metadata = entry['identity']['metadata']
+                tokens = {'input_tokens': None, 'output_tokens': None}
+                if metadata.get('kind') == 'actor':
+                    record = entry['settlement']['result']
+                    require(type(record) is dict and record.get('id') == entry['id'], 'actor ledger record differs')
+                    usage = Usage.from_dict(record['usage'])
+                    tokens = {key: getattr(usage, key) for key in tokens}
                 rows.append({'entry_id': entry['id'], 'kind': metadata.get('kind'), 'role': metadata.get('role'),
                     'stage': metadata.get('stage'), 'operation_id': metadata.get('operation_id'),
                     'attempt_id': metadata.get('attempt_id'), 'worker_id': metadata.get('worker_id'),
-                    'status': entry['state'], **{key: actual[key] for key in DIMENSIONS},
+                    'status': entry['state'], **{key: actual[key] for key in DIMENSIONS}, **tokens,
                     'violations': entry['settlement']['violations']})
             ledger_hash = content_hash({'entries': entries, 'events': events})
         self.evidence['private/ledger.sqlite3#logical-snapshot'] = ledger_hash
@@ -257,19 +263,67 @@ class SavedRun:
         for row in rows:
             groups[(row['role'], row['stage'], row['kind'])].append(row)
         aggregates = [{'role': key[0], 'stage': key[1], 'kind': key[2], 'entries': len(values),
-                       **{dimension: _total(values, dimension) for dimension in DIMENSIONS}}
+                       **{dimension: _total(values, dimension) for dimension in (*DIMENSIONS, 'input_tokens', 'output_tokens')}}
                       for key, values in sorted(groups.items(), key=lambda pair: str(pair[0]))]
         return {'coverage': 'managed ledger operations; opaque native calls may be outside this ledger',
             'actual': {key: _total(rows, key) for key in DIMENSIONS},
             'budget_charged': {key: None if value is None else float(value) for key, value in charged.items()},
             'unknown_actual_entries': unknown, 'entries': rows, 'by_role_stage': aggregates,
+            'actor_tokens': {'coverage': 'managed_actor_entries_only',
+                'entries': sum(row['kind'] == 'actor' for row in rows),
+                'reported': {key: _total([row for row in rows if row['kind'] == 'actor'], key)
+                    if any(row['kind'] == 'actor' for row in rows) else None for key in ('input_tokens', 'output_tokens')}},
             'ledger_span_seconds': (max(event['time_ns'] for event in events)-min(event['time_ns'] for event in events))/1e9
                 if events else None,
             'time_semantics': 'wall_seconds is summed operation time; ledger_span_seconds includes gaps/recovery downtime and is not an active-runtime measurement'}
 
-    def native_accounting(self):
+    def actor_native_receipts(self):
+        from proteus.execution.harness_usage import INFERENCE, verify
+        from proteus.core.native_usage import summarize_native_inputs
+        bindings, seen, all_records = [], set(), []
+        for record in self.records['actor_calls']:
+            require(record['id'] not in seen, 'duplicate actor accounting identity')
+            seen.add(record['id'])
+            records = verify(self.root, record)
+            if not records:
+                continue
+            all_records.extend(records)
+            entry = self.ledger_entries.get(record['id'])
+            require(entry is not None and entry['identity']['metadata']['kind'] == 'actor'
+                    and entry['settlement']['result'] == record,
+                    'native actor differs from settled ledger evidence')
+            usage = record['result']['usage']
+            require(all(entry['settlement']['actual'][key] == usage[key] for key in INFERENCE if key in DIMENSIONS),
+                    'native actor ledger usage differs from its receipts')
+            self._native_evidence(self.root/'actors'/record['id'], records)
+            marker = record['result']['runtime']['settings']['native_usage']
+            bindings.append({'entry_id': record['id'], **marker})
+        bound = {row['entry_id'] for row in bindings}
+        for entry in self.ledger_entries.values():
+            if entry['identity']['metadata'].get('kind') == 'actor':
+                result = (entry['settlement'].get('result') or {}).get('result')
+                if result and result['runtime']['settings'].get('native_usage') is not None:
+                    require(entry['id'] in bound, 'native actor binding is missing from snapshot')
+        summarize_native_inputs(all_records)  # Fresh sessions cannot be billed again by another actor dispatch.
+        return bindings
+
+    def _native_evidence(self, native_root, records):
         from proteus.core.native_inputs import input_directory, read_native_inputs
-        from proteus.core.native_usage import RAW_SOURCES, summarize_native_inputs
+        from proteus.core.native_usage import RAW_SOURCES
+        require(read_native_inputs(native_root) == records, 'native usage receipts changed during export')
+        directory = input_directory(native_root)
+        for row in records:
+            for suffix in ('input', 'outcome'):
+                if row[suffix] is not None:
+                    self.read((directory/(row['input']['id']+'.'+suffix+'.json')).relative_to(self.root).as_posix())
+            usage = (row['outcome'] or {}).get('usage', {})
+            if usage.get('source') in RAW_SOURCES and usage['fields']['source_hash'] is not None:
+                relative = (directory/(row['input']['id']+'.usage-source')).relative_to(self.root).as_posix()
+                self.evidence[relative] = usage['fields']['source_hash']
+
+    def native_accounting(self):
+        from proteus.core.native_inputs import read_native_inputs
+        from proteus.core.native_usage import summarize_native_inputs
         native_root = self.root/'workspace'
         records = read_native_inputs(native_root)
         require(records == self.records.get('native_inputs', []), 'native input snapshot differs from receipts')
@@ -284,16 +338,7 @@ class SavedRun:
                 require(saved is not None and saved['input'] == row['input']
                         and (row['outcome'] is None or saved['outcome'] == row['outcome']),
                         'native input history is missing or changed')
-        directory = input_directory(native_root)
-        for row in records:
-            for suffix in ('input', 'outcome'):
-                if row[suffix] is not None:
-                    self.read((directory/(row['input']['id']+'.'+suffix+'.json')).relative_to(self.root).as_posix())
-            usage = (row['outcome'] or {}).get('usage', {})
-            if usage.get('source') in RAW_SOURCES and usage['fields']['source_hash'] is not None:
-                # read_native_inputs already re-parsed and hashed this immutable raw stream.
-                relative = (directory/(row['input']['id']+'.usage-source')).relative_to(self.root).as_posix()
-                self.evidence[relative] = usage['fields']['source_hash']
+        self._native_evidence(native_root, records)
         return summarize_native_inputs(records)
 
     def stages(self):
@@ -326,6 +371,7 @@ def report_run(root, *, include_private=False):
     with run_lock(root):
         run = SavedRun(root)
         accounting = run.accounting()
+        accounting['native_receipts'] = run.actor_native_receipts()
         native_accounting = run.native_accounting()
         timing = report_timing(run)
         tasks, cohorts, unreported = run.evaluations(include_private)
@@ -347,7 +393,8 @@ def report_run(root, *, include_private=False):
             'native_accounting': native_accounting,
             'stages': stages, 'attempts': attempts, 'unreported_rollout_ids': unreported,
             'evidence': {path: digest for path, digest in run.evidence.items()
-                         if include_private or not (path.startswith(('private/', '.proteus-records/')) or '/private/' in path)},
+                         if include_private or not (path.startswith(('private/', '.proteus-records/'))
+                             or '/private/' in path or '/.proteus-records/' in path)},
             'notes': ['Only the latest execution snapshot is used; journal methods restore cumulative history, while other methods cover the latest invocation. Resume snapshots are not additional trials.',
                       'Unknown actual usage stays null even when the budget ledger charged a reservation.',
                       'Native boundary usage is reported separately, without ledger enforcement or complete internal-call coverage.',
