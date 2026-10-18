@@ -15,6 +15,8 @@ from proteus.core.serialization import Contract, content_hash, json_value
 from proteus.evaluation.tasks import TaskSelection
 from proteus.methods.gepa.reference import REPOSITORY, REVISION, load_reference
 from proteus.methods.gepa.sampling import EpochSampler
+from proteus.methods.gepa.dynamic_sampling import DynamicEpochSampler
+from proteus.operators.combee.batching import DynamicBatchOptions, validate_measurements
 from proteus.methods.gepa.state import (
     BatchData, BridgeState, GepaState, GepaSummary, ProposalDecision, ReflectionBatch,
     register_reflection_data, restore_engine, seal,
@@ -38,13 +40,15 @@ class GepaOptions(Contract):
     test_evaluations: tuple[str, ...] = field(default=(), metadata={"uniqueItems": True})
     dataset_stage: str | None = field(default=None, metadata=TEXT)
     reflection_prompt_template: str | None = field(default=None, metadata=TEXT)
+    dynamic_batch: DynamicBatchOptions | None = None
 
 
 def evaluation_bound(options, validation_size):
     # Upstream checks its metric-call threshold BETWEEN iterations. A final
     # single-mutation iteration can use parent + child minibatches + validation.
+    maximum_batch = options.dynamic_batch.max_batch_size if options.dynamic_batch else options.minibatch_size
     return validation_size if options.max_metric_calls <= validation_size else (
-        options.max_metric_calls - 1 + 2 * options.minibatch_size + validation_size)
+        options.max_metric_calls - 1 + 2 * maximum_batch + validation_size)
 
 
 def validate_gepa(recipe, options, registry):
@@ -101,6 +105,9 @@ def validate_gepa(recipe, options, registry):
     require(recipe.reference.code == REPOSITORY and recipe.reference.revision == REVISION,
             "GEPA method requires its pinned reference identity")
     require(recipe.reference.profile != "native", "GEPA requires a reference, adapted or extended profile")
+    if options.dynamic_batch is not None:
+        require(recipe.reference.profile in ("adapted", "extended") and bool(recipe.reference.deviations),
+                "dynamic GEPA requires an explicit adapted/extended profile")
     if recipe.reference.profile == "reference":
         require(options.dataset_stage is None and options.reflection_prompt_template is None,
                 "changed GEPA reflective data/template require an adapted or extended profile")
@@ -155,7 +162,9 @@ class Bridge:
         self.accepted = [initial.id]
         self.decisions = []
         self.seed_data, self.validation_protocol = None, None
-        self.sampler = EpochSampler(train, options.minibatch_size, services.rng)
+        self.sampler = DynamicEpochSampler(train, options.dynamic_batch, services.rng) if options.dynamic_batch else (
+            EpochSampler(train, options.minibatch_size, services.rng))
+        self.iteration_timing = None
         self.evaluations = self.reflection_calls = 0
         self.phase, self.bootstrap = "idle", True
         self.pending = self.pending_object = self.parent = None
@@ -184,6 +193,8 @@ class Bridge:
         self.seed_data, self.validation_protocol = state.seed, state.validation_protocol
         self.evaluations, self.reflection_calls = state.evaluations, state.reflection_calls
         self.sampler.restore(state.sampler)
+        if self.options.dynamic_batch is not None:
+            validate_measurements(self.sampler.controller, self.services.values.get)
 
     def _bind(self, state):
         require(len(state.program_candidates) == len(self.accepted), "accepted GEPA program mapping differs")
@@ -318,6 +329,9 @@ class Bridge:
     @authoritative
     def next_minibatch_ids(self, loader, state):
         require(loader is self.train, "GEPA changed its training loader")
+        if self.options.dynamic_batch is not None:
+            require(self.iteration_timing is None, "GEPA iteration timing is already active")
+            self.iteration_timing = self.services.begin_timing(f"gepa-iteration-{state.i}")
         self.train_ids = self.sampler.select(state.i).task_ids
         return list(self.train_ids)
 
@@ -361,6 +375,10 @@ class Bridge:
         require(self.pending is None, "GEPA iteration lost an unresolved proposal")
         self._bind(event["state"])
         self.phase = "idle"  # includes skip-perfect-score/no-proposal iterations
+        if self.options.dynamic_batch is not None and self.iteration_timing is not None:
+            measured = self.services.finish_timing(self.iteration_timing)
+            self.sampler.finish(measured, self.services.values.get(measured))
+            self.iteration_timing = None
 
     @authoritative
     def on_optimization_end(self, event):
@@ -441,7 +459,8 @@ class GepaMethod:
                 summary = GepaSummary(revision=REVISION, accepted_ids=tuple(bridge.accepted), upstream_best_id=best,
                     selected_ids=selection, decisions=tuple(bridge.decisions), metric_calls=bridge.evaluations,
                     reflection_calls=bridge.reflection_calls, iterations=bridge.state.i + 1,
-                    stop_threshold=self.options.max_metric_calls, evaluation_upper_bound=evaluation_bound(self.options, len(validation.tasks)))
+                    stop_threshold=self.options.max_metric_calls, evaluation_upper_bound=evaluation_bound(self.options, len(validation.tasks)),
+                    batch_controller=bridge.sampler.controller if self.options.dynamic_batch else None)
                 selected = bridge.candidate(selection[0])
                 outputs = {"summary": services.values.publish("proteus.gepa.summary@1", summary),
                     "candidate": services.values.publish("proteus.candidate@1", selected)}

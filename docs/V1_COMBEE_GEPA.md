@@ -21,9 +21,11 @@ The current engine profile is single mutation, full validation, instance
 frontier, no merge and no evaluation cache. The supplied example uses serial formal task evaluation;
 the reflection map is concurrent when `batch_reflection=true`. The subsequent
 [parallel evaluation service](V1_PARALLEL_EVALUATION.md) can also be enabled with
-`execution.max_workers`; the supplied example defaults to serial evaluation. This does not
-implement the paper's complete parallel evaluation path, dynamic batch sizing,
-profiling or Combee ACE training. It does not establish quality or speedup.
+`execution.max_workers`; the supplied example defaults to serial evaluation.
+The subsequent [dynamic controller](V1_DYNAMIC_BATCHING.md) profiles ordinary
+iterations when `dynamic_batch` is configured; [Combee ACE](V1_COMBEE_ACE.md)
+uses the same controller with its own sample order and update rules. These
+mechanism checks do not establish published quality or speedup.
 
 ## Configuration and extension
 
@@ -35,6 +37,7 @@ options are:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `minibatch_size` | 9 | Fixed original task occurrences per reflection minibatch |
+| `dynamic_batch` | null | Optional profiling controller; overrides fixed minibatch size |
 | `duplication_factor` | 2 | Reflection copies before grouping; does not increase task counts |
 | `max_workers` | 4 | Map worker ceiling, also bounded by run and role limits |
 | `batch_reflection` | true | Concurrent managed map calls; false uses ordered serial calls |

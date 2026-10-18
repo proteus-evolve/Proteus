@@ -43,6 +43,10 @@ jobs:
           git -C /tmp/proteus-combee-gepa-reference remote add origin https://github.com/gepa-ai/gepa.git
           git -C /tmp/proteus-combee-gepa-reference fetch --depth=1 origin f1cfdee2856e9dc4b5b4dc5cc2e391d0aa20d819
           git -C /tmp/proteus-combee-gepa-reference checkout --detach FETCH_HEAD
+      - name: Fetch pinned dynamic-sampler proposal source for conformance (not a released dependency)
+        run: |
+          git -C /tmp/proteus-combee-gepa-reference fetch --depth=1 origin f9e2d430815e5a0b36d58d1dab2f36f8082759e4
+          git -C /tmp/proteus-combee-gepa-reference show f9e2d430815e5a0b36d58d1dab2f36f8082759e4:src/gepa/strategies/batch_sampler.py > /tmp/proteus-combee-dynamic-source.py
       - name: configure git identity (snapshot tests)
         run: |
           git config --global user.email ci@proteus
@@ -61,6 +65,7 @@ jobs:
           PROTEUS_ACE_SOURCE: /tmp/proteus-ace-reference
           PROTEUS_META_HARNESS_SOURCE: /tmp/proteus-meta-harness-reference
           PROTEUS_COMBEE_GEPA_SOURCE: /tmp/proteus-combee-gepa-reference
+          PROTEUS_COMBEE_DYNAMIC_SOURCE: /tmp/proteus-combee-dynamic-source.py
         run: pytest tests/ -q
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py
@@ -119,6 +124,7 @@ jobs:
           cp tests/check_combee_package.py /tmp/proteus-wheel-out/check_combee_package.py
           cp tests/check_combee_gepa_package.py /tmp/proteus-wheel-out/check_combee_gepa_package.py
           cp tests/check_combee_ace_package.py /tmp/proteus-wheel-out/check_combee_ace_package.py
+          cp tests/check_dynamic_batch_package.py /tmp/proteus-wheel-out/check_dynamic_batch_package.py
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python check_ace_package.py
           /tmp/proteus-wheel/bin/python check_ace_formula_package.py
@@ -129,6 +135,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_parallel_package.py
           /tmp/proteus-wheel/bin/python check_workflow_package.py
           /tmp/proteus-wheel/bin/python check_combee_ace_package.py
+          /tmp/proteus-wheel/bin/python check_dynamic_batch_package.py ace
           /tmp/proteus-wheel/bin/python check_combee_package.py ace
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
@@ -150,6 +157,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_combee_package.py gepa
           /tmp/proteus-wheel/bin/python check_combee_gepa_package.py
           /tmp/proteus-wheel/bin/python check_combee_gepa_package.py --workers 3
+          /tmp/proteus-wheel/bin/python check_dynamic_batch_package.py gepa
           /tmp/proteus-wheel/bin/python -m proteus.examples.gepa_prompt --out gepa-study
           /tmp/proteus-wheel/bin/proteus recipe lock gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --source "proteus=$GITHUB_WORKSPACE" --out gepa-study/lock.json
           /tmp/proteus-wheel/bin/proteus recipe run gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --artifact-store gepa-study/artifact-store --out gepa-study/run
@@ -173,6 +181,7 @@ jobs:
           cp tests/check_combee_package.py /tmp/proteus-sdist-out/check_combee_package.py
           cp tests/check_combee_gepa_package.py /tmp/proteus-sdist-out/check_combee_gepa_package.py
           cp tests/check_combee_ace_package.py /tmp/proteus-sdist-out/check_combee_ace_package.py
+          cp tests/check_dynamic_batch_package.py /tmp/proteus-sdist-out/check_dynamic_batch_package.py
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python check_ace_package.py
           /tmp/proteus-sdist/bin/python check_ace_formula_package.py
@@ -183,6 +192,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_parallel_package.py
           /tmp/proteus-sdist/bin/python check_workflow_package.py
           /tmp/proteus-sdist/bin/python check_combee_ace_package.py
+          /tmp/proteus-sdist/bin/python check_dynamic_batch_package.py ace
           /tmp/proteus-sdist/bin/python check_combee_package.py ace
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
@@ -204,3 +214,4 @@ jobs:
           /tmp/proteus-sdist/bin/python check_combee_package.py gepa
           /tmp/proteus-sdist/bin/python check_combee_gepa_package.py
           /tmp/proteus-sdist/bin/python check_combee_gepa_package.py --workers 3
+          /tmp/proteus-sdist/bin/python check_dynamic_batch_package.py gepa

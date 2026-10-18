@@ -26,7 +26,7 @@ from proteus.core.contracts import (
 from proteus.core.plugins import Plugin, implementation_hash
 from proteus.core.methods import MethodResult
 from proteus.core.recovery import RecoveryRequired
-from proteus.core.serialization import Contract, json_value
+from proteus.core.serialization import Contract, content_hash, json_value
 from proteus.core.workflows import WorkflowJob
 from proteus.evaluation.tasks import Task, TaskSelection
 from proteus.methods.ace.playbook import CODEC, PlaybookDelta
@@ -39,6 +39,14 @@ from proteus.methods.ace.method import (
 )
 from proteus.operators.combee.ace import AceRecord, aggregate_ace
 from proteus.operators.combee.grouping import Grouping
+from proteus.operators.combee.batching import (
+    BatchControllerState,
+    DynamicBatchOptions,
+    initialize as initialize_batching,
+    observe as observe_batch,
+    validate_state as validate_batching,
+    validate_measurements,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -249,6 +257,7 @@ class CombeeOptions(LearningOptions):
     batch_size: int = field(default=4, metadata={"minimum": 1})
     max_workers: int = field(default=4, metadata={"minimum": 1})
     grouping: Grouping = field(default_factory=lambda: Grouping(profile="ace"))
+    dynamic_batch: DynamicBatchOptions | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -266,6 +275,7 @@ class BatchLearning(Contract):
     post_evaluation: DataRef | None
     rolled_back: bool = False
     diagnostic: str = ""
+    timing: DataRef | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -273,12 +283,14 @@ class CombeeState(AceState):
     batches: tuple[DataRef, ...] = ()
     status: OperationStatus = OperationStatus.COMPLETED
     diagnostic: str = ""
+    batch_controller: BatchControllerState | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
 class CombeeSummary(AceSummary):
     batches: tuple[DataRef, ...]
     batch_size: int
+    batch_controller: BatchControllerState | None = None
 
 
 def validate_combee(recipe, options):
@@ -361,6 +373,7 @@ class CombeeAceMethod:
         options = self.options
         operation = f"combee-epoch-{epoch}-batch-{start}"
         publish = services.values.publish
+        timing = services.begin_timing(operation) if options.dynamic_batch else None
         jobs = tuple(
             WorkflowJob(
                 key=task.id,
@@ -474,6 +487,7 @@ class CombeeAceMethod:
             post_evaluation=post,
             rolled_back=bool(diagnostic),
             diagnostic=diagnostic,
+            timing=services.finish_timing(timing) if timing is not None else None,
         )
         return current, batch
 
@@ -515,13 +529,25 @@ class CombeeAceMethod:
                 current_id=initial.id,
                 best_id=initial.id,
                 initial_tests=initial_tests,
+                batch_controller=initialize_batching(options.dynamic_batch,
+                    pool_hash=content_hash(train), dataset_size=len(train.tasks),
+                    bound=options.online_eval_frequency if options.mode == "online" else None)
+                    if options.dynamic_batch else None,
             )
             services.checkpoint(state)
         count = len(state.train.tasks)
+        require((state.batch_controller is not None) == (options.dynamic_batch is not None),
+                "Combee batching policy differs from the checkpoint")
+        if state.batch_controller is not None:
+            validate_batching(options.dynamic_batch, state.batch_controller,
+                pool_hash=content_hash(state.train), dataset_size=count,
+                bound=options.online_eval_frequency if options.mode == "online" else None)
+            validate_measurements(state.batch_controller, services.values.get)
         while state.cursor < count * options.num_epochs:
             current = candidate(state.current_id)
             epoch, offset = divmod(state.cursor, count)
-            end = min(count, offset + options.batch_size)
+            size = state.batch_controller.size if state.batch_controller else options.batch_size
+            end = min(count, offset + size)
             if options.mode == "online":
                 window = state.cursor // options.online_eval_frequency
                 window_end = min(count, (window + 1) * options.online_eval_frequency)
@@ -566,6 +592,10 @@ class CombeeAceMethod:
                     outputs=outputs,
                     state=checkpoint,
                 )
+            if state.batch_controller is not None:
+                state = replace(state, batch_controller=observe_batch(options.dynamic_batch,
+                    state.batch_controller, actual_size=len(tasks), measurement=batch.timing,
+                    elapsed=services.values.get(batch.timing)))
             if options.mode == "offline" and end % options.eval_steps == 0:
                 receipt = evaluate(current, options.validation)
                 rows = [row for evaluated in receipt.batches for row in evaluated.rows]
@@ -605,6 +635,7 @@ class CombeeAceMethod:
             final_tests=final_tests,
             batches=state.batches,
             batch_size=options.batch_size,
+            batch_controller=state.batch_controller,
         )
         outputs = {
             "summary": publish("proteus.combee.ace_summary@1", summary),

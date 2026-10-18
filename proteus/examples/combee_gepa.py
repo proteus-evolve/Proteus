@@ -1,4 +1,4 @@
-"""Prepare a model-free, fixed-batch Combee GEPA recipe and recovery fixture."""
+"""Prepare a model-free Combee GEPA recipe with fixed or dynamic batches."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from proteus.examples.gepa_prompt import OfflineActor, OfflineOptions, validate_
 from proteus.examples.gepa_prompt import prepare as prepare_gepa
 from proteus.methods.combee_gepa import CombeeGepaOptions, register as register_method
 from proteus.methods.gepa.method import evaluation_bound
+from proteus.operators.combee.batching import DynamicBatchOptions
 from proteus.recipes.config import load_recipe
 
 
@@ -36,7 +37,7 @@ def register(registry):
     )
 
 
-def prepare(root):
+def prepare(root, *, dynamic_batch=None):
     path = prepare_gepa(root)
     root = path.parent
     recipe = load_recipe(path)
@@ -72,6 +73,7 @@ def prepare(root):
         reflection_stage="reflect",
         max_metric_calls=22,
         test_evaluations=("test",),
+        dynamic_batch=dynamic_batch,
     )
     recipe = replace(
         recipe,
@@ -83,8 +85,10 @@ def prepare(root):
             profile="adapted",
             paper="https://arxiv.org/abs/2604.04247",
             deviations=(
-                "Fixed-batch ComBEE operator f1cfdee on GEPA engine 8b0ce6c; engine pin is the code reference.",
-                "Serial formal task evaluation; parallel fresh reflection calls. No dynamic batch controller.",
+                "ComBEE operator f1cfdee on GEPA engine 8b0ce6c; engine pin is the code reference.",
+                "Serial formal task evaluation; parallel fresh reflection calls. "
+                + ("Dynamic batches profile ordinary learning iterations, excluding interrupted intervals."
+                   if dynamic_batch else "Fixed batch size."),
                 "Single mutation, full validation, instance frontier, no merge/cache, text components.",
                 "Deterministic offline actors and synthetic tasks; no model or benchmark result.",
             ),
@@ -108,7 +112,10 @@ def prepare(root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
-    print(prepare(parser.parse_args().out))
+    parser.add_argument("--dynamic-max-batch-size", type=int)
+    args = parser.parse_args()
+    dynamic = DynamicBatchOptions(max_batch_size=args.dynamic_max_batch_size) if args.dynamic_max_batch_size is not None else None
+    print(prepare(args.out, dynamic_batch=dynamic))
 
 
 if __name__ == "__main__":

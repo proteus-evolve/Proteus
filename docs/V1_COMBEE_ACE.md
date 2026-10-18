@@ -4,8 +4,9 @@
 [workflow maps](V1_WORKFLOWS.md), [Combee aggregation](V1_COMBEE_AGGREGATION.md)
 and formal evaluation services. Its reference is `ACEBatch` in
 [`ace-agent/ace@82709de`](https://github.com/ace-agent/ace/tree/82709de050e1db6e6ef2f07bcb0393560b94992a).
-The supported profile is adapted/experimental. The fixed-batch method is distinct
-from the future dynamic batch controller and from real-model benchmark validation.
+The supported profile is adapted/experimental. Fixed batching remains the default;
+the optional [dynamic controller](V1_DYNAMIC_BATCHING.md) profiles ordinary training
+batches. Real-model benchmark validation remains pending.
 
 ## Three phases
 
@@ -87,7 +88,7 @@ and call limits, hard exits after post-curation evaluation and batch checkpoints
 and restoration of failed batches. The wheel and sdist gate runs both modes with
 one and three workers outside the source checkout, through the Python API and CLI.
 
-Remaining Combee work includes dynamic batch profiling, the declared real-domain
-experiment package, and same-budget quality/cost/wall-clock comparisons with ACE,
+Remaining Combee work includes the declared real-domain experiment package
+and same-budget quality/cost/wall-clock comparisons with ACE,
 GEPA and naive parallel variants. Optional embedding-based deduplication and
 upstream unbounded provider retries are outside this profile.

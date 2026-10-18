@@ -256,6 +256,14 @@ class RunServices:
         require(self._journal is not None, "checkpoints require a journal-enabled method")
         return self._journal.checkpoint(payload, **kwargs)
 
+    def begin_timing(self, operation_id: str) -> DataRef:
+        from proteus.core.timing import TimingService
+        return TimingService(self).begin(operation_id)
+
+    def finish_timing(self, start: DataRef) -> DataRef:
+        from proteus.core.timing import TimingService
+        return TimingService(self).finish(start)
+
     def evidence_view(self, stage_id: str, *, candidate_ids: tuple[str, ...] | None = None) -> DataRef:
         from proteus.evidence.service import EvidenceService
         return EvidenceService(self).view(stage_id, candidate_ids=candidate_ids)
