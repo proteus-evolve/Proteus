@@ -188,6 +188,14 @@ class Registry:
                 plugin.validate(actor, plugin.options.from_dict(actor.runtime.options))
         components = []
         if resolved.subject is not None:
+            subject = resolved.subject
+            if "subject.actor_timeout" in self.get(subject.runner.plugin).capabilities:
+                require(subject.actor is not None, "subject requires a managed actor role")
+                actor_plugin = self.get(resolved.actors[subject.actor].runtime.plugin, "actor")
+                require({"actor.execute", "request.timeout"} <= set(actor_plugin.capabilities),
+                        "candidate-code actor must support managed execution and per-request transport timeouts")
+                if resolved.budget.max_model_calls is not None or resolved.actors[subject.actor].budget.max_model_calls is not None:
+                    require("calls.bounded" in actor_plugin.capabilities, "candidate-code actor needs bounded model calls")
             components.append((resolved.subject.runner, resolved))
         if resolved.execution is not None:
             components.append((resolved.execution.environment.backend, resolved.execution))

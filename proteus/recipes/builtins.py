@@ -17,6 +17,8 @@ from proteus.core.methods import ActorResult, ArtifactProposal
 from proteus.core.plugins import EmptyOptions, Plugin, Registry, implementation_hash
 from proteus.core.serialization import Contract
 from proteus.evidence.records import EvidenceView
+from proteus.execution.code_records import CodeCall, CodeOptions, CodeResult, CodeState
+from proteus.execution.code_subject import CodeSubject, validate_code
 from proteus.core.search import ArchiveSnapshot, KeepAll, ParetoFront, ScalarBest, SearchDecision, SelectionView, UniformParent
 from proteus.execution.actors import (
     AdapterOptions, ChatActor, ChatOptions, HarnessActor, HarnessOptions, validate_chat, validate_harness,
@@ -72,6 +74,9 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
     registry.register_data("proteus.archive@1", ArchiveSnapshot)
     registry.register_data("proteus.evidence.view@1", EvidenceView)
+    registry.register_data("proteus.code.call@1", CodeCall)
+    registry.register_data("proteus.code.state@1", CodeState)
+    registry.register_data("proteus.code.result@1", CodeResult)
     registry.register_data("proteus.search.view@1", SelectionView)
     registry.register_data("proteus.search.decision@1", SearchDecision)
     registry.register_data("proteus.eval.selection@1", TaskSelection)
@@ -100,6 +105,9 @@ def builtin_registry() -> Registry:
     add("proteus.local_json", "environment", EmptyOptions, lambda options: LocalJsonEnvironment(),
         validate=validate_local, capabilities=("state.independent", "state.sequence", "state.explicit_json", "candidate.exact_tree"))
     add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python)
+    add("proteus.code_subject", "subject", CodeOptions, CodeSubject, validate=validate_code,
+        capabilities=("subject.managed_actor", "subject.actor_timeout", "subject.code_protocol"),
+        inputs={"memory": "proteus.code.state@1"})
     add("proteus.prompt_subject", "subject", PromptSubjectOptions, PromptSubject, validate=validate_prompt,
         capabilities=("subject.managed_actor",))
     add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
@@ -121,9 +129,9 @@ def builtin_registry() -> Registry:
         capabilities=("stage.replay",),
         inputs={"prompt": "proteus.text@1"}, outputs={"response": "proteus.actor_result@1"})
     add("proteus.echo", "actor", EmptyOptions, lambda options: EchoActor(), validate=validate_echo,
-        capabilities=("session.fresh", "actor.execute", "calls.bounded"))
+        capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout"))
     add("proteus.chat", "actor", ChatOptions, ChatActor, validate=validate_chat,
-        capabilities=("session.fresh", "actor.execute", "calls.bounded"))
+        capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout"))
     for name in ("minimal", "llm", "dsh", "pi", "codex"):
         def validate(spec, options, name=name):
             return validate_harness(name, spec, options)

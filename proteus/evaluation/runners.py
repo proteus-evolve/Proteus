@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from proteus.core.contracts import (
-    TEXT, OperationStatus, Outcome, RuntimeIdentity, SessionPolicy, StatePolicy, Usage, require,
+    TEXT, OperationStatus, Outcome, PluginRef, RuntimeIdentity, SessionPolicy, StatePolicy, Usage, require,
 )
 from proteus.core.serialization import Contract, canonical_json, content_hash
 from proteus.evaluation.records import Feedback, Grade, SubjectResult, Trace, zero_usage
@@ -61,10 +61,11 @@ class SubjectContext:
     lease: EnvironmentLease
     _actor: Any = None
     inputs: Mapping[str, Contract] = field(default_factory=dict)
+    actor_runtime: PluginRef | None = None
 
-    def actor(self, prompt):
+    def actor(self, prompt, *, timeout_seconds=None):
         require(self._actor is not None, "subject has no managed actor role")
-        return self._actor(prompt)
+        return self._actor(prompt, timeout_seconds=timeout_seconds) if timeout_seconds is not None else self._actor(prompt)
 
 
 @dataclass(frozen=True)

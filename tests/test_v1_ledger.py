@@ -239,7 +239,8 @@ def test_retry_reservations_survive_reopen_and_keep_attempt_identity(tmp_path):
     assert book.balance()["unknown"]["model_calls"] == 1
     assert sorted(e["state"] for e in entries) == ["completed", "failed"]
     assert execution(root)["ledger"]["coverage"] == ["managed_actor_calls", "evaluation_cohort_reservations",
-                                                   "subject_calls", "grader_calls", "backend_verifiers", "source_builds"]
+                                                   "subject_calls", "grader_calls", "backend_verifiers", "source_builds",
+                                                   "candidate_code_calls"]
 
 
 def test_reopened_services_do_not_refill_budget_or_replay_an_actor(tmp_path):

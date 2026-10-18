@@ -41,12 +41,19 @@ jobs:
         run: |
           git config --global user.email ci@proteus
           git config --global user.name proteus-ci
+      - name: Fetch pinned Meta-Harness memory classes for protocol conformance
+        run: |
+          git init /tmp/proteus-meta-harness-reference
+          git -C /tmp/proteus-meta-harness-reference remote add origin https://github.com/stanford-iris-lab/meta-harness.git
+          git -C /tmp/proteus-meta-harness-reference fetch --depth=1 origin 8123ccabe2b19fa1123090b2e5f1bacc20963ce8
+          git -C /tmp/proteus-meta-harness-reference checkout --detach FETCH_HEAD
       - name: lint
         run: ruff check .
       - name: tests
         env:
           PROTEUS_REQUIRE_GEPA: "1"
           PROTEUS_ACE_SOURCE: /tmp/proteus-ace-reference
+          PROTEUS_META_HARNESS_SOURCE: /tmp/proteus-meta-harness-reference
         run: pytest tests/ -q
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py
@@ -97,10 +104,12 @@ jobs:
           cp tests/check_ace_package.py /tmp/proteus-wheel-out/check_ace_package.py
           cp tests/check_ace_formula_package.py /tmp/proteus-wheel-out/check_ace_formula_package.py
           cp tests/check_evidence_package.py /tmp/proteus-wheel-out/check_evidence_package.py
+          cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python check_ace_package.py
           /tmp/proteus-wheel/bin/python check_ace_formula_package.py
           /tmp/proteus-wheel/bin/python check_evidence_package.py
+          /tmp/proteus-wheel/bin/python check_code_memory_package.py
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
@@ -133,10 +142,12 @@ jobs:
           cp tests/check_ace_package.py /tmp/proteus-sdist-out/check_ace_package.py
           cp tests/check_ace_formula_package.py /tmp/proteus-sdist-out/check_ace_formula_package.py
           cp tests/check_evidence_package.py /tmp/proteus-sdist-out/check_evidence_package.py
+          cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python check_ace_package.py
           /tmp/proteus-sdist/bin/python check_ace_formula_package.py
           /tmp/proteus-sdist/bin/python check_evidence_package.py
+          /tmp/proteus-sdist/bin/python check_code_memory_package.py
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
           /tmp/proteus-sdist/bin/proteus visualize --help

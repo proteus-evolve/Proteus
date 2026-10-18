@@ -60,7 +60,8 @@ class ChatActor:
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
         started = time.monotonic()
         # A single request: retries, if requested, belong to the stage/attempt service.
-        with urllib.request.urlopen(wire, timeout=self.options.timeout_seconds) as response:
+        timeout = min(self.options.timeout_seconds, request.timeout_seconds or self.options.timeout_seconds)
+        with urllib.request.urlopen(wire, timeout=timeout) as response:
             body = read_json(response.read().decode("utf-8"))
         message = body["choices"][0]["message"]
         require(not message.get("tool_calls"), "chat response requested unsupported tools")
