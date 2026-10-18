@@ -13,6 +13,7 @@ from proteus.core.serialization import ContractError, canonical_json, content_ha
 from proteus.evaluation.runners import SubjectRecoveryContext
 from proteus.evaluation.tasks import StateValue, TaskDataset
 from proteus.execution.harbor import HarborSubject, HarborSubjectOptions, completed_worker
+from proteus.execution import harbor_worker
 from proteus.recipes.builtins import builtin_registry
 from test_v1_harbor import fixture_recipe
 from test_v1_ledger import run_ledger
@@ -71,6 +72,36 @@ def test_worker_receipt_cannot_adopt_another_request(tmp_path):
         with pytest.raises(ContractError, match="different request"):
             completed_worker(private, request)
         path.write_text(original)
+
+
+def test_worker_dispatch_guard_prevents_restart_even_without_completion(tmp_path):
+    request = {"trial_name": "proteus-" + "a" * 32}
+    source, output = tmp_path / "request.json", tmp_path / "response.json"
+    source.write_text(canonical_json(request))
+    script = r'''
+import importlib.util,sys
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('worker',sys.argv[1])
+worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(worker)
+async def run(request,output):
+    marker=output.parent/'calls'
+    with marker.open('a') as f: f.write('call\n')
+    worker.write_json(output,{'request_hash':worker.digest(request)})
+worker.run=run
+worker.cleanup_owned_resources=lambda trial: {'verified':True,'resources':[],'errors':[]}
+sys.argv=['worker','run',sys.argv[2],sys.argv[3]]
+worker.main()
+'''
+    def launch():
+        return subprocess.run([sys.executable, "-c", script, str(harbor_worker.__file__), str(source), str(output)],
+                              capture_output=True, text=True, timeout=10)
+    first = launch()
+    assert first.returncode == 0, first.stderr
+    assert completed_worker(tmp_path, request)[2]["return_code"] == 0
+    assert launch().returncode != 0
+    (tmp_path / "worker-completed.json").unlink()
+    assert launch().returncode != 0
+    assert (tmp_path / "calls").read_text().splitlines() == ["call"]
 
 
 def test_completed_worker_result_reuses_original_usage_and_private_evidence(tmp_path):
