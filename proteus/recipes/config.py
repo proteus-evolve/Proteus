@@ -212,6 +212,20 @@ class GatewaySpec(Contract):
 
 
 @dataclass(frozen=True, kw_only=True)
+class EventPolicySpec(Contract):
+    id: str = field(metadata=TEXT)
+    operator: PluginSpec
+    gateway: str = field(metadata=TEXT)
+    resume_policy: Literal["native", "fresh"] = "native"
+    fresh_orientation: str | None = field(default=None, metadata=TEXT)
+    pause_timeout_seconds: float = field(default=10, metadata={"exclusiveMinimum": 0})
+
+    def _validate(self):
+        require((self.resume_policy == "fresh") == (self.fresh_orientation is not None),
+                "fresh event continuation requires explicit orientation")
+
+
+@dataclass(frozen=True, kw_only=True)
 class RecipeConfig(Contract):
     name: str = field(metadata=TEXT)
     method: PluginSpec
@@ -229,6 +243,7 @@ class RecipeConfig(Contract):
     knowledge: tuple[KnowledgeSpec, ...] = ()
     workers: tuple[WorkerSpec, ...] = ()
     gateways: tuple[GatewaySpec, ...] = ()
+    event_policies: tuple[EventPolicySpec, ...] = ()
 
     def _validate(self):
         require(all(role.strip() for role in self.actors), "actor roles must be nonempty")
@@ -248,6 +263,13 @@ class RecipeConfig(Contract):
         stages = {spec.id: spec for spec in self.stages}
         evaluations = {spec.id: spec for spec in self.evaluations}
         knowledge = {spec.id: spec for spec in self.knowledge}
+        unique((spec.id for spec in self.event_policies), "event policy ID")
+        for policy in self.event_policies:
+            require(policy.gateway in gateways, "event policy references an unknown gateway")
+            for stage_id in gateways[policy.gateway].members.values():
+                require(stage_id in stages and stages[stage_id].evidence is not None
+                        and "evaluation" in stages[stage_id].evidence.kinds,
+                        "event policies require released evaluation evidence")
         for worker in self.workers:
             if worker.gateway is not None:
                 require(worker.gateway in gateways and worker.id in gateways[worker.gateway].members,
@@ -335,6 +357,7 @@ class RecipeConfig(Contract):
             optional.append(self.execution.environment.backend)
         return (self.method, *optional, *(actor.runtime for actor in self.actors.values()),
                 *(worker.runtime for worker in self.workers),
+                *(policy.operator for policy in self.event_policies),
                 *(stage.operator for stage in self.stages), *(workflow.operator for workflow in self.workflows),
                 *self.search.values(),
                 *(spec.evaluator for spec in self.evaluations),

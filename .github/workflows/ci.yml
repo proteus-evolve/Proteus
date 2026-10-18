@@ -57,6 +57,12 @@ jobs:
           git -C /tmp/proteus-meta-harness-reference remote add origin https://github.com/stanford-iris-lab/meta-harness.git
           git -C /tmp/proteus-meta-harness-reference fetch --depth=1 origin 8123ccabe2b19fa1123090b2e5f1bacc20963ce8
           git -C /tmp/proteus-meta-harness-reference checkout --detach FETCH_HEAD
+      - name: Fetch pinned CORAL heartbeat and manager source for policy conformance
+        run: |
+          git init /tmp/proteus-coral-reference
+          git -C /tmp/proteus-coral-reference remote add origin https://github.com/Human-Agent-Society/CORAL.git
+          git -C /tmp/proteus-coral-reference fetch --depth=1 origin 0123dfb939b35228cf2c1fde224cd0561e727408
+          git -C /tmp/proteus-coral-reference checkout --detach FETCH_HEAD
       - name: lint
         run: ruff check .
       - name: tests
@@ -66,6 +72,7 @@ jobs:
           PROTEUS_META_HARNESS_SOURCE: /tmp/proteus-meta-harness-reference
           PROTEUS_COMBEE_GEPA_SOURCE: /tmp/proteus-combee-gepa-reference
           PROTEUS_COMBEE_DYNAMIC_SOURCE: /tmp/proteus-combee-dynamic-source.py
+          PROTEUS_CORAL_SOURCE: /tmp/proteus-coral-reference
         run: pytest tests/ -q
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py
@@ -120,6 +127,7 @@ jobs:
           cp tests/check_worker_package.py /tmp/proteus-wheel-out/check_worker_package.py
           cp tests/check_gateway_package.py /tmp/proteus-wheel-out/check_gateway_package.py
           cp tests/check_worker_knowledge_package.py /tmp/proteus-wheel-out/check_worker_knowledge_package.py
+          cp tests/check_event_package.py /tmp/proteus-wheel-out/check_event_package.py
           cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
@@ -138,6 +146,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_worker_package.py
           /tmp/proteus-wheel/bin/python check_gateway_package.py
           /tmp/proteus-wheel/bin/python check_worker_knowledge_package.py
+          /tmp/proteus-wheel/bin/python check_event_package.py
           /tmp/proteus-wheel/bin/python check_code_memory_package.py
           /tmp/proteus-wheel/bin/python check_workspace_package.py
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
@@ -187,6 +196,7 @@ jobs:
           cp tests/check_worker_package.py /tmp/proteus-sdist-out/check_worker_package.py
           cp tests/check_gateway_package.py /tmp/proteus-sdist-out/check_gateway_package.py
           cp tests/check_worker_knowledge_package.py /tmp/proteus-sdist-out/check_worker_knowledge_package.py
+          cp tests/check_event_package.py /tmp/proteus-sdist-out/check_event_package.py
           cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
@@ -205,6 +215,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_worker_package.py
           /tmp/proteus-sdist/bin/python check_gateway_package.py
           /tmp/proteus-sdist/bin/python check_worker_knowledge_package.py
+          /tmp/proteus-sdist/bin/python check_event_package.py
           /tmp/proteus-sdist/bin/python check_code_memory_package.py
           /tmp/proteus-sdist/bin/python check_workspace_package.py
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py
