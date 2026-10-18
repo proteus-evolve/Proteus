@@ -50,6 +50,7 @@ version = {attr = "proteus.__version__"}
 
 [tool.setuptools.package-data]
 "proteus.visualize.static" = ["*.html", "*.css", "*.js", "package.json"]
+"proteus.methods.ace" = ["LICENSE-ACE.txt", "NOTICE.md"]
 
 [tool.ruff]
 line-length = 100

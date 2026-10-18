@@ -25,6 +25,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P05d：GEPA AIME 领域适配、固定 45/45/30 数据、DSPy 格式与原始数学评分对照、baseline/optimized 独立实验及多 seed 报告；报告核验完整隐藏测试和实际用量，恢复保持反思字段顺序。说明见 [V1_GEPA_AIME.md](../V1_GEPA_AIME.md)。准备数据、HTTP fixture 和机制检查不等于真实模型实验，R01/M2 仍未完成。
 
+- P06a：ACE 的版本化 playbook codec、精确文本与可验证索引、单调 ID、counter/ADD delta，复用候选谱系与操作恢复。实际 pinned 上游源码符合性、硬退出恢复和安装包检查见 [V1_ACE_PLAYBOOK.md](../V1_ACE_PLAYBOOK.md)。角色、提示、offline/online Method 和真实实验尚未完成，不能计作 R02 recipe 完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -310,11 +312,11 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 **流程：** 当前 playbook 执行任务 → 获得允许的反馈 → reflector 提取经验 → curator 提出 delta → 确定性更新 → 按规则 refine。
 
-- [ ] 定义版本化 playbook codec、条目 ID、helpful/harmful 计数与操作 schema。
+- [x] 定义版本化 playbook codec、条目 ID、helpful/harmful 计数与操作 schema（P06a，保留 pinned 上游 counter/ADD 语义；未实现的操作保留记录并跳过）。
 - [ ] 分别配置 generator、reflector、curator；保留参考提示和调用顺序。
 - [ ] 实现 offline 与 online 协议，锁定顺序、epoch、反馈来源和更新时点。
 - [ ] 核对官方代码实际支持的操作；论文描述与代码差异进入偏差清单，额外 UPDATE/MERGE 等能力单独作为扩展 profile。
-- [ ] 验证固定 delta 的确定性、条目保留及在线预测前后时序。
+- [ ] 验证固定 delta 的确定性、条目保留及在线预测前后时序（P06a 已验证 delta、条目保留和候选更新恢复；在线时序随完整 Method 验收）。
 
 **依赖：** I01–I06、I08、I09、I12。**完成定义：** playbook 与每次更新可追溯；有完整声明协议下的真实结果及 baseline。
 
