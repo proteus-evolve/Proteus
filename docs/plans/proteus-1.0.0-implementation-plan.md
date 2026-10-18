@@ -45,6 +45,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08e：增加 typed workflow 插件和有序 map，让各样本独立组合正式评估、反思 stage 与候选修改，共享全局/角色预算。分支按操作恢复，先核验和接回旧工作再派发新工作；候选、调用、评分与回执交叉核验。说明见 [V1_WORKFLOWS.md](../V1_WORKFLOWS.md)。这是 Combee-ACE 自适应循环的通用基建；完整 combee_ace、动态 batch controller、CORAL 和真实实验仍未完成。
 
+- P08f：实现固定 batch 的完整 Combee-ACE offline/online 方法，复用 ACE 角色、playbook、样本 workflow 和 Combee 聚合；记录共享计数更新、局部 regeneration、聚合更新及更新后评估。保留在线窗口、验证选择和失败回滚语义，机制对照执行固定上游的实际控制流。说明见 [V1_COMBEE_ACE.md](../V1_COMBEE_ACE.md)。动态 batch controller、Combee 领域实验包及真实质量/成本/耗时结果仍待完成，R04 整体尚未完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

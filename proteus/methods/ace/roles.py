@@ -161,7 +161,7 @@ def register(registry):
     registry.register(Plugin(ref=PluginRef(name="proteus.ace_subject", version="1"), kind="subject",
         options=EmptyOptions, factory=lambda options: AceSubject(), source="proteus", implementation_hash=digest,
         inputs={"generation": "proteus.ace.generation_input@1"}, validate=validate_subject,
-        capabilities=("subject.managed_actor",)))
+        capabilities=("subject.managed_actor", "subject.parallel")))
     for name, factory, input_kind, output in (
         ("reflect", ReflectStage, "reflection_input", "reflection"),
         ("curate", CurateStage, "curation_input", "curation"),
@@ -169,4 +169,4 @@ def register(registry):
         registry.register(Plugin(ref=PluginRef(name=f"proteus.ace_{name}", version="1"), kind="stage",
             options=EmptyOptions, factory=lambda options, factory=factory: factory(), source="proteus",
             implementation_hash=digest, inputs={"request": f"proteus.ace.{input_kind}@1"},
-            outputs={output: f"proteus.ace.{output}@1"}, capabilities=("stage.replay",)))
+            outputs={output: f"proteus.ace.{output}@1"}, capabilities=("stage.replay", "stage.parallel")))
