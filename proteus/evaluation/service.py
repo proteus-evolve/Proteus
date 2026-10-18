@@ -58,6 +58,16 @@ def validate_evaluation_config(recipe, registry):
                     "evaluators must be deterministic or a declared integrated backend")
     subject = recipe.subject
     subject_plugin = registry.get(subject.runner.plugin, "subject")
+    if recipe.execution.max_workers > 1:
+        require("run.journal" in registry.get(recipe.method.plugin).capabilities,
+                "parallel evaluation requires a journal-enabled method")
+        require("subject.parallel" in subject_plugin.capabilities
+                and "environment.parallel" in environment.capabilities,
+                "subject and environment must declare parallel trial capability")
+        if subject.actor:
+            actor = recipe.actors[subject.actor]
+            require(actor.session.value == "fresh" and "actor.parallel" in registry.get(actor.runtime.plugin).capabilities,
+                    "parallel evaluation requires a fresh parallel actor")
     require("subject.reconcile" not in subject_plugin.capabilities or subject.actor is None,
             "subject reconciliation currently requires a self-contained runner, not delegated actor calls")
     if recipe.budget.max_model_calls is not None:
@@ -300,6 +310,12 @@ class EvaluationSession:
         return self.services._record("evaluation.step", {"operation_id": self.operation_id,
             "position": self.position, "candidate": candidate}, lambda: self._step(candidate), decode=Observation.from_dict)
 
+    def predict_all(self, candidate, max_workers):
+        from proteus.evaluation.parallel import EvaluationMap, TrialMap
+        return self.services._record("evaluation.map", {"operation_id": self.operation_id,
+            "candidate": candidate, "max_workers": max_workers},
+            lambda: TrialMap(self).run(candidate, max_workers), decode=EvaluationMap.from_dict)
+
     def _step(self, candidate):
         self._check()
         index = len(self._observations)
@@ -532,8 +548,8 @@ class EvaluationSession:
         if "subject.model_free" in self.services.registry.get(recipe.subject.runner.plugin).capabilities:
             require(result.usage.model_calls == 0, "model-free subject reported nonzero/unknown model calls")
 
-    def _grade(self, index):
-        observation = self._observations[index]
+    def _grade(self, index, observation=None):
+        observation = self._observations[index] if observation is None else observation
         rollout = observation.rollout
         if index in self._grades:
             return observation

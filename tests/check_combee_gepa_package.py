@@ -1,6 +1,7 @@
 """Installed Combee GEPA search, evaluation accounting and no-repeat recovery."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -12,10 +13,11 @@ from proteus.recipes.manifest import SourcePin
 from proteus.recipes.runner import run_recipe
 
 
-def check():
+def check(workers=1):
     with TemporaryDirectory(prefix="proteus-combee-gepa-package-") as directory:
         root = Path(directory) / "study"
         recipe = load_recipe(prepare(root))
+        recipe = replace(recipe, execution=replace(recipe.execution, max_workers=workers))
         registry = builtin_registry()
         register(registry)
         lock = registry.make_lock(
@@ -43,6 +45,14 @@ def check():
         assert summary["metric_calls"] == 22 and summary["reflection_calls"] == 4
         assert len(first["actor_calls"]) == 28 and len(first["rollouts"]) == 24
         assert len(first["candidates"]) == 2 and len(summary["accepted_ids"]) == 2
+        if workers > 1:
+            waves = [
+                row["value"]
+                for row in first["values"]
+                if row["ref"]["kind"] == "proteus.eval.map@1"
+            ]
+            assert len(waves) == 5 and sum(len(wave["rollout_ids"]) for wave in waves) == 24
+            assert all(wave["max_workers"] == workers for wave in waves)
         assert all(call["usage"]["model_calls"] == 0 for call in first["actor_calls"])
         plans = [
             row["value"] for row in first["values"] if row["ref"]["kind"] == "proteus.combee.plan@1"
@@ -68,4 +78,8 @@ def check():
 
 
 if __name__ == "__main__":
-    check()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--workers", type=int, default=1)
+    check(parser.parse_args().workers)
