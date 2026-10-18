@@ -55,9 +55,11 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P09d：补齐 worker 通过认证接口自主读取共享快照、按版本修改 notes/skills，并引用正式 attempt 的闭环；读写权限需显式开启，保持历史读、成功与冲突回执。两个真实子进程的知识传递与控制器硬退出恢复已验证，说明见 [V1_WORKER_KNOWLEDGE.md](../V1_WORKER_KNOWLEDGE.md)。CORAL 事件干预、完整方法与真实模型实验仍待完成。
 
-## 1 目标与范围
-
 P09e 接入通用 EventPolicy 插件、正式评估驱动的决策链、计数/时间/停滞策略与可恢复的 worker 干预；固定 CORAL heartbeat 的 manager 生命周期和持久 cooldown 扩展分成独立 profile。机制、参考代码对照、双 worker 进程及硬退出恢复说明见 [V1_EVENT_POLICIES.md](../V1_EVENT_POLICIES.md)。完整 CORAL recipe、真实 provider bridge、共享知识驱动的实验及真实模型结果仍待完成，不能据此将 R05 或 M4 整体标为完成。
+
+P09f 将独立工作区初始化、共享知识、主动提交、正式反馈、heartbeat 干预、异常退出重启、关闭队列与最终选择组合为可检查点恢复的单共享空间方法。配置和参考偏差见 [V1_CORAL_METHOD.md](../V1_CORAL_METHOD.md)。当前实验使用确定性进程 fixture；生产 provider bridge、原论文非训练任务、单/多 worker 的真实模型结果与 I11/R05 完整验收仍待完成。
+
+## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
 

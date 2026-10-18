@@ -17,6 +17,11 @@ PLAN = "proteus.event.plan@1"
 DISPATCH = "proteus.event.dispatch@1"
 
 
+def intervention_prompt(plan):
+    actions = "\n\n".join(f"[{action.name}]\n{action.prompt}" for action in plan.actions)
+    return plan.context + "\n\n" + actions if plan.context else actions
+
+
 class EventService:
     def __init__(self, services, policy_id):
         self.services = services
@@ -126,7 +131,8 @@ class EventService:
                 "event decision belongs to another policy")
         return value
 
-    def apply(self, decision_ref):
+    def apply(self, decision_ref, *, context=""):
+        require(type(context) is str, "intervention context must be text")
         decision = self._decision(decision_ref)
         outputs = []
         for worker_id in dict.fromkeys(item.worker_id for item in decision.actions):
@@ -137,12 +143,13 @@ class EventService:
                     if ref.kind == DISPATCH:
                         plan = self.services.values.get(value.plan)
                         if plan.decision == decision_ref and plan.worker_id == worker_id:
+                            require(plan.context == context, "intervention context changed after dispatch")
                             return ref
                 return None
 
             # This read is journaled too: replay must not skip the original inner
             # plan/control/start operations because a later dispatch file exists.
-            prior = self.services._record("event.applied", {"key": key}, existing,
+            prior = self.services._record("event.applied", {"key": key, "context": context}, existing,
                 decode=lambda value: DataRef.from_dict(value) if value is not None else None,
                 encode=lambda value: value.to_dict() if value is not None else None)
             if prior is not None:
@@ -159,15 +166,16 @@ class EventService:
                     previous = worker.controller.head()
                     require(previous is not None, "intervention requires an existing worker generation")
                     plan = InterventionPlan(decision=decision_ref, worker_id=worker_id, previous=previous,
-                        actions=actions, resume_policy=self.spec.resume_policy, fresh_orientation=self.spec.fresh_orientation)
+                        actions=actions, resume_policy=self.spec.resume_policy, fresh_orientation=self.spec.fresh_orientation,
+                        context=context)
                     _write(path, plan)
-                require((plan.decision, plan.worker_id, plan.actions, plan.resume_policy, plan.fresh_orientation)
-                        == (decision_ref, worker_id, actions, self.spec.resume_policy, self.spec.fresh_orientation),
+                require((plan.decision, plan.worker_id, plan.actions, plan.resume_policy, plan.fresh_orientation, plan.context)
+                        == (decision_ref, worker_id, actions, self.spec.resume_policy, self.spec.fresh_orientation, context),
                         "saved intervention plan differs")
                 worker.controller._launch(plan.previous)
                 return self.services.values.publish(PLAN, plan)
 
-            plan_ref = self.services._record("event.plan", {"key": key}, make_plan, decode=DataRef.from_dict)
+            plan_ref = self.services._record("event.plan", {"key": key, "context": context}, make_plan, decode=DataRef.from_dict)
             plan = self.services.values.get(plan_ref)
             worker.control(plan.previous, "pause")
             deadline = time.monotonic() + self.spec.pause_timeout_seconds
@@ -175,7 +183,7 @@ class EventService:
                 if time.monotonic() >= deadline:
                     raise RecoveryRequired("event intervention awaits a confirmed terminal worker receipt")
                 time.sleep(0.025)
-            prompt = "\n\n".join(f"[{action.name}]\n{action.prompt}" for action in plan.actions)
+            prompt = intervention_prompt(plan)
             fresh = plan.resume_policy == "fresh"
             resumed = worker.start("event:" + plan_ref.content_hash, prompt, previous=plan.previous,
                 fresh_orientation=plan.fresh_orientation,
@@ -234,7 +242,7 @@ def validate_restored(services):
             require(InterventionDispatch.from_dict(_load(service._path("dispatches", value.plan))) == value,
                     "restored event dispatch differs from its receipt")
             launch, _ = services.worker(plan.worker_id).controller._launch(value.worker)
-            prompt = "\n\n".join(f"[{item.name}]\n{item.prompt}" for item in plan.actions)
+            prompt = intervention_prompt(plan)
             if plan.fresh_orientation is not None:
                 prompt = plan.fresh_orientation + "\n\n" + prompt
             require(launch.previous == plan.previous and launch.operation_id == "event:" + value.plan.content_hash

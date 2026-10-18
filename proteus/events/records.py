@@ -79,6 +79,7 @@ class InterventionPlan(Contract):
     actions: tuple[EventAction, ...] = field(metadata={"minItems": 1})
     resume_policy: Literal["native", "fresh"]
     fresh_orientation: str | None = field(default=None, metadata=TEXT)
+    context: str = ""
 
     def _validate(self):
         require(self.decision.kind == "proteus.event.decision@1", "intervention needs an event decision")
