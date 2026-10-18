@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -283,7 +284,7 @@ def test_cli_recovery_reports_uncertainty_without_private_inputs(tmp_path, capsy
 
 
 LIVE_WORKER = r'''
-import os, subprocess, sys
+import os, subprocess, sys, time
 from pathlib import Path
 from proteus.core.ledger import Ledger
 from proteus.recipes import load_recipe
@@ -291,10 +292,26 @@ from proteus.recipes.builtins import builtin_registry
 from proteus.recipes.manifest import SourcePin
 from proteus.recipes.runner import run_recipe
 root=Path(sys.argv[1]); resume=sys.argv[2]=='resume'
+boundary=sys.argv[3]
 recipe,registry=load_recipe(root/'recipe.json'),builtin_registry()
 revision=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
 lock=registry.make_lock(recipe,[SourcePin(name='proteus',repository='https://github.com/proteus-evolve/Proteus.git',revision=revision)])
-if not resume:
+if not resume and boundary=='worker.running':
+    from proteus.execution import harbor
+    harbor.WORKER=root/'barrier-worker.py'
+    original_popen=subprocess.Popen
+    def launch(args,*pos,**kw):
+        process=original_popen(args,*pos,**kw)
+        if len(args)>3 and args[2]==str(harbor.WORKER) and args[3]=='run':
+            deadline=time.monotonic()+30
+            while not (root/'worker-ready').exists():
+                if process.poll() is not None: raise RuntimeError('worker exited before barrier')
+                if time.monotonic()>deadline: raise TimeoutError('worker barrier')
+                time.sleep(.05)
+            os._exit(86)
+        return process
+    subprocess.Popen=launch
+elif not resume:
     original=Ledger.settle
     def settle(self, entry_id, **kwargs):
         result=original(self,entry_id,**kwargs)
@@ -306,19 +323,62 @@ print(result.to_json())
 '''
 
 
+LIVE_BARRIER_WORKER = r'''
+import asyncio,importlib.util,os,sys
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('harbor_test_worker', WORKER_PATH)
+worker=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(worker)
+sys.modules['__main__']=worker
+run=worker.run
+root=Path(__file__).resolve().parent
+async def barrier(request,output):
+    (root/'worker-ready').write_text(str(os.getpid()))
+    deadline=asyncio.get_running_loop().time()+60
+    while not (root/'worker-release').exists():
+        if asyncio.get_running_loop().time()>deadline: raise TimeoutError('test release barrier')
+        await asyncio.sleep(.05)
+    await run(request,output)
+worker.run=barrier
+worker.main()
+'''
+
+
 @pytest.mark.skipif(not os.environ.get("PROTEUS_HARBOR_PYTHON"), reason="requires pinned Harbor runtime and live Docker")
-def test_live_harbor_recovery_preserves_build_and_verifier_without_new_trial(tmp_path):
+@pytest.mark.parametrize("boundary", ["subject.settled", "worker.running"])
+def test_live_harbor_recovery_preserves_build_and_verifier_without_new_trial(tmp_path, boundary):
     from proteus.examples.harbor_source_build import prepare
-    root = Path(os.environ.get("PROTEUS_HARBOR_STUDY", str(tmp_path))) / "recovery-build"
+    from proteus.execution.harbor import WORKER as HARBOR_WORKER
+    root = Path(os.environ.get("PROTEUS_HARBOR_STUDY", str(tmp_path))) / ("recovery-build-" + boundary)
     prepare(root, os.environ["PROTEUS_HARBOR_PYTHON"])
-    first = subprocess.run([sys.executable, "-c", LIVE_WORKER, str(root), "run"], capture_output=True, text=True, timeout=600)
+    (root / "barrier-worker.py").write_text("WORKER_PATH=" + repr(str(HARBOR_WORKER)) + "\n" + LIVE_BARRIER_WORKER)
+    def invoke(mode):
+        return subprocess.run([sys.executable, "-c", LIVE_WORKER, str(root), mode, boundary],
+                              capture_output=True, text=True, timeout=600)
+    first = invoke("run")
     assert first.returncode == 86, first.stderr
+    book = run_ledger(root / "run")
+    if boundary == "worker.running":
+        before = book.events()
+        try:
+            pending = invoke("resume")
+            assert pending.returncode == 0, pending.stderr
+            result = MethodResult.from_json(pending.stdout)
+            assert result.status == OperationStatus.FAILED and "still running" in result.diagnostic
+            assert before == book.events() and book.balance()["active_slots"] == 1
+            os.kill(int((root / "worker-ready").read_text()), 0)
+        finally:
+            (root / "worker-release").touch()
+        deadline = time.monotonic() + 300
+        while not list((root / "run/evaluations").glob("*/trials/*/private/worker-completed.json")):
+            assert time.monotonic() < deadline, "orphan worker did not complete its original dispatch"
+            time.sleep(.1)
     assert len(list((root / "run/evaluations").glob("*/trials/*/private/response.json"))) == 1
-    second = subprocess.run([sys.executable, "-c", LIVE_WORKER, str(root), "resume"], capture_output=True, text=True, timeout=600)
+    second = invoke("resume")
     assert second.returncode == 0, second.stderr
     result = MethodResult.from_json(second.stdout)
     assert result.status == OperationStatus.COMPLETED, result.diagnostic
-    records = json.loads((root / "run/execution-0001.json").read_text())
+    records = json.loads(sorted((root / "run").glob("execution-*.json"))[-1].read_text())
     assert [row["rows"][0]["score"] for row in records["evaluations"]] == [0, 1, 0, None]
     responses = list((root / "run/evaluations").glob("*/trials/*/private/response.json"))
     assert len(responses) == 3
@@ -337,3 +397,7 @@ def test_live_harbor_recovery_preserves_build_and_verifier_without_new_trial(tmp
                if result["operation_id"] in evaluation_ops)
     assert wall == pytest.approx(book.balance()["charged"]["wall_seconds"])
     assert "PROTEUS_PRIVATE_VERIFIER_23" not in json.dumps(records)
+    before = book.events()
+    again = invoke("resume")
+    assert again.returncode == 0 and MethodResult.from_json(again.stdout) == result
+    assert book.events() == before

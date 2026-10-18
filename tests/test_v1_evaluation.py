@@ -527,13 +527,26 @@ def test_evaluation_rejects_cross_thread_dispatch(tmp_path):
     assert len(records["rollouts"]) == 2
 
 
-def test_timeout_cleans_up_child_processes_holding_output_pipes(tmp_path):
+def test_timeout_cleans_up_child_processes_holding_output_pipes(tmp_path, monkeypatch):
     import time
-    code = "import subprocess,sys,time\nsubprocess.Popen([sys.executable, '-c', 'import time; time.sleep(5)'])\ntime.sleep(5)"
+    from proteus.evaluation.runners import PythonSubject
+    marker = tmp_path / "child-ready"
+    child = f"from pathlib import Path; import time; Path({str(marker)!r}).write_text('ready'); time.sleep(5)"
+    code = f"import subprocess,sys,time\nsubprocess.Popen([sys.executable, '-c', {child!r}])\ntime.sleep(5)"
     registry, store, _, recipe = setup(tmp_path, code=code, sequence=True)
-    recipe = replace(recipe, execution=replace(recipe.execution, timeout_seconds=0.2))
-    started = time.monotonic()
+    recipe = replace(recipe, execution=replace(recipe.execution, timeout_seconds=0.5))
+    elapsed, execute = [], PythonSubject.run
+    def timed(self, context):
+        started = time.monotonic()
+        try:
+            return execute(self, context)
+        finally:
+            elapsed.append(time.monotonic() - started)
+    monkeypatch.setattr(PythonSubject, "run", timed)
     result, records, _ = run(tmp_path, registry, store, recipe)
-    assert time.monotonic() - started < 3  # killing only the parent leaves its child's pipe open for five seconds
+    assert marker.read_text() == "ready"  # The child actually held an inherited output pipe.
+    # Measure execution/cleanup, excluding manifest, ledger and journal fsync.
+    # Killing only the parent would keep communicate() blocked for five seconds.
+    assert len(elapsed) == 1 and elapsed[0] < 3
     assert result.status == OperationStatus.COMPLETED
     assert [item["status"] for item in records["rollouts"]] == ["timed_out", "cancelled"]

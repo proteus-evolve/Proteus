@@ -88,9 +88,11 @@ proteus recipe resume recipe.json --lock lock.json --out RUN
 ```
 
 The inspector reports checkpoint/operation cursors and unsettled ledger IDs, without
-printing prompts, task references or grades. Backend-specific reconciliation of lost
-responses and uncertain builds/trials is still pending; this batch deliberately has
-no blanket command that refunds budget or assumes the old process has stopped.
+printing prompts, task references or grades. Harbor subjects can now reconcile a
+completed worker as described below. Other backends without a reconciliation
+capability, uncertain builds, and model responses lost before any durable receipt
+remain pending. There is no blanket command that refunds budget or assumes the old
+process has stopped.
 Known operation failures retain their existing failure policy and are replayed as
 failures; resume does not grant additional retries beyond the configured policy.
 
@@ -98,6 +100,40 @@ Public `execution-*.json` files for journal-enabled methods are cumulative snaps
 do not sum them as separate attempts. The ledger is authoritative for charged usage.
 The journal stores full snapshots and favors auditability over storage efficiency;
 compaction and parallel operation scheduling are later work.
+
+## Reconcile an independently completed Harbor worker
+
+P04e adds `subject.reconcile` and a `SubjectRecoveryContext`. When the ledger has a
+started subject without a settled result, the evaluation service may call the
+runner's `reconcile(context)` instead of `run(context)`. The context names the exact
+candidate, task, state, seed, execution and private trial directory; it supplies no
+execution lease. A reconciler must return the original completed `SubjectResult`
+or raise `RecoveryRequired`. It must not submit another build, model call or trial.
+This capability currently supports self-contained subjects; managed actor recovery
+continues to use settled actor results rather than this hook.
+
+The Harbor worker holds an OS file lock for its lifetime and writes a durable
+completion receipt after its trial and exact-label Docker cleanup. That receipt
+binds the original request, response and cleanup by content hash. It survives a
+hard exit of the controller. Resume reads it only after obtaining the worker lock:
+an active worker is left running, with its original budget reservation intact.
+Missing, corrupt or mismatched receipts also leave the operation uncertain. A PID
+or a response file alone does not establish completion.
+
+Reconciliation checks the candidate, task, seed, state, pinned runtime, source-build
+receipt, image and execution parameters against the resumed experiment. It uses the
+same result decoder as a normal dispatch, then the evaluation service validates the
+result's runtime, candidate and private verifier binding. An audit record under
+`evaluations/*/private/reconciled/` identifies the ledger entry and result hash.
+Original subject, verifier and build usage are restored and settled once. A worker
+that completed with an error yields an infrastructure failure, not a zero score or
+an implicit retry. An interrupted reconciliation can itself be resumed.
+
+If the worker was killed before publishing completion, resume still stops. Automatic
+adoption of arbitrary Docker state, cleanup of an unconfirmed live worker and
+resubmission of an uncertain build are outside this implementation. The generic
+inspector remains read-only. These development receipt changes require a new run
+under the matching dependency lock; old runs retain their original implementation.
 
 ## Acceptance
 
@@ -107,3 +143,8 @@ budget, repeated resume, checkpoint schema/integrity checks, RNG/state restorati
 hidden-feedback privacy. The real Docker CI gate also exits after a source-built
 Harbor subject settles, then resumes A/B/A: exactly three trials, original verifier
 isolation, no repeated initial build, and one copy of each role's usage.
+It additionally hard-exits the controller while a Harbor worker holds its lease:
+resume first reports the live worker without changing the ledger; the original
+worker then finishes independently and a later resume consumes its receipt without
+another trial. Offline cases reject changed evidence/identities and exercise a
+second hard exit between reconciliation and settlement.
