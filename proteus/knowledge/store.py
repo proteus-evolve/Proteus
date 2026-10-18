@@ -34,6 +34,8 @@ class SharedKnowledgeStore:
         _mkdir_durable(self.root)
         self.path = self.root / "knowledge.sqlite3"
         require(not self.path.is_symlink(), "knowledge database cannot be a symlink")
+        marker = self.root / "store.json"
+        require(self.path.exists() or not marker.exists(), "knowledge database is missing; refusing to replace shared history")
         self.identity, self.evidence = identity, evidence
         self.artifacts = ArtifactStore(self.root / "artifacts", registry, allowed_codecs=(FILE_TREE,))
         with self._transaction(write=True) as db:
@@ -41,7 +43,7 @@ class SharedKnowledgeStore:
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             require(version in (0, 1), "unsupported knowledge schema")
             if version == 0:
-                require(not tables, "refusing to initialize an unrecognized knowledge database")
+                require(not tables and not marker.exists(), "refusing to initialize an unrecognized knowledge database")
                 for sql in (
                     "CREATE TABLE identity (value TEXT NOT NULL)",
                     "CREATE TABLE revisions (digest TEXT PRIMARY KEY, kind TEXT NOT NULL, key TEXT NOT NULL, "
@@ -62,6 +64,8 @@ class SharedKnowledgeStore:
                 rows = db.execute("SELECT value FROM identity").fetchall()
                 require(len(rows) == 1 and rows[0][0] == canonical_json(identity), "knowledge run/configuration/lock differs")
         _sync_directory(self.root)
+        from proteus.workers.runtime import immutable
+        immutable(marker, {"schema_version": 1, "identity_hash": content_hash(identity)})
 
     @contextmanager
     def _transaction(self, *, write=False):

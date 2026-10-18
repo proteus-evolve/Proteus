@@ -135,6 +135,10 @@ class GatewayService:
         from proteus.gateway.transport import GatewayHost
         return GatewayHost(self)
 
+    def knowledge(self):
+        from proteus.gateway.knowledge import WorkerKnowledge
+        return WorkerKnowledge(self)
+
     def connection(self, worker_id):
         token = self.store.credential(worker_id)
         endpoint = read_json((self.root / "endpoint.json").read_text())
