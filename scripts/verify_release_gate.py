@@ -1,14 +1,21 @@
-"""Require successful live smoke jobs for the exact release tag and commit before upload."""
+"""Require live, recipe/package and Harbor gates for the exact release tag and commit."""
 from __future__ import annotations
 
 import argparse
 import json
 import os
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-REQUIRED_JOBS = {"offline", "minimal", "llm", "container (pi)", "container (dsh)", "codex"}
+REQUIRED_JOBS = frozenset({"offline", "minimal", "llm", "container (pi)", "container (dsh)", "codex"})
+REQUIRED_WORKFLOWS = {
+    "release-smoke.yml": REQUIRED_JOBS,
+    "ci.yml": frozenset({"Visualize presentation helpers", "Pinned AIME data and DSPy contract",
+                         "Installed wheel and sdist", *(f"test ({version})" for version in
+                         ("3.10", "3.11", "3.12", "3.13", "3.14"))}),
+    "harbor.yml": frozenset({"Pinned Harbor and real Docker trials"}),
+}
 
 
 def matching_runs(runs, *, tag, sha):
@@ -17,11 +24,34 @@ def matching_runs(runs, *, tag, sha):
             and run.get("status") == "completed" and run.get("conclusion") == "success"]
 
 
-def verify_jobs(jobs):
-    successful = {job.get("name") for job in jobs if job.get("conclusion") == "success"}
-    missing = REQUIRED_JOBS - successful
+def verify_jobs(jobs, *, required=REQUIRED_JOBS, sha=None, run_id=None):
+    successful = {job.get("name") for job in jobs
+                  if job.get("status") == "completed" and job.get("conclusion") == "success"
+                  and (sha is None or job.get("head_sha") == sha)
+                  and (run_id is None or job.get("run_id") == run_id)}
+    missing = required - successful
     if missing:
-        raise ValueError("release smoke jobs missing or unsuccessful: " + ", ".join(sorted(missing)))
+        raise ValueError("release jobs missing or unsuccessful: " + ", ".join(sorted(missing)))
+
+
+def verify_workflows(fetch, *, tag, sha):
+    """Require all gates independently; never combine jobs from different runs."""
+    verified = {}
+    query = urlencode({"branch": tag, "event": "push", "status": "success", "per_page": 100})
+    for workflow, required in REQUIRED_WORKFLOWS.items():
+        runs = fetch(f"actions/workflows/{workflow}/runs?{query}")["workflow_runs"]
+        for run in matching_runs(runs, tag=tag, sha=sha):
+            jobs = fetch(f"actions/runs/{run['id']}/jobs?per_page=100&filter=latest")["jobs"]
+            try:
+                verify_jobs(jobs, required=required, sha=sha, run_id=run['id'])
+            except ValueError:
+                continue
+            verified[workflow] = run["html_url"]
+            break
+        else:
+            raise ValueError(f"No successful {workflow} with every required job for {tag} at {sha}. "
+                             "Wait for this exact tag/commit's checks before publishing.")
+    return verified
 
 
 def main():
@@ -43,21 +73,16 @@ def main():
             return json.load(response)
 
     try:
-        query = urlencode({"branch": args.tag, "event": "push", "status": "success", "per_page": 100})
-        runs = fetch(f"actions/workflows/release-smoke.yml/runs?{query}")["workflow_runs"]
-        candidates = matching_runs(runs, tag=args.tag, sha=args.sha)
-        for run in candidates:
-            jobs = fetch(f"actions/runs/{run['id']}/jobs?per_page=100")["jobs"]
-            try:
-                verify_jobs(jobs)
-            except ValueError:
-                continue
-            print(f"Release smoke verified for {args.tag} at {args.sha}: {run['html_url']}")
-            return 0
-        parser.exit(1, "No successful release-smoke with every required job for this exact tag/commit. "
-                       "Wait for its smoke run to pass before publishing.\n")
+        verified = verify_workflows(fetch, tag=args.tag, sha=args.sha)
     except HTTPError as exc:
         parser.exit(1, f"GitHub release gate lookup failed (HTTP {exc.code}); upload is blocked.\n")
+    except (URLError, TimeoutError, OSError, KeyError, TypeError):
+        parser.exit(1, "GitHub release gate evidence is unavailable or invalid; upload is blocked.\n")
+    except ValueError as exc:
+        parser.exit(1, str(exc) + "\n")
+    for workflow, url in verified.items():
+        print(f"Release gate {workflow} verified for {args.tag} at {args.sha}: {url}")
+    return 0
 
 
 if __name__ == "__main__":

@@ -74,3 +74,55 @@ def test_codex_gate_rejects_missing_or_mismatched_activation(codex_evidence, cor
         data[key] = value
         record.write_text(json.dumps(data))
     assert not codex_runtime_matches_checkpoint(adapter, root, 2)
+
+
+@pytest.fixture
+def native_inputs(tmp_path):
+    from proteus.adapters.minimal import MinimalHarness
+    from proteus.core.adapter import EpisodeSpec
+    from proteus.core.native_inputs import input_directory
+    root = tmp_path/'native'
+    (root/'harness').mkdir(parents=True)
+    adapter = MinimalHarness()
+    for episode in (1,2):
+        result = adapter.run_episode(EpisodeSpec(root=root,episode=episode,model='mock',
+            phase_prompts={'act':'final input'}, phases=('act',)))
+        assert result.ok
+    return root, input_directory(root)
+
+
+def test_live_gate_requires_hashed_inputs_for_every_episode(native_inputs):
+    root, _ = native_inputs
+    assert _module.native_inputs_cover_run(root,'minimal',2)
+    assert not _module.native_inputs_cover_run(root,'minimal',3)
+    assert not _module.native_inputs_cover_run(root,'codex',2)
+    assert not _module.native_inputs_cover_run(root,'aki',2)
+
+
+@pytest.mark.parametrize('corruption', ['input','outcome','unknown','opaque','backend','episode'])
+def test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence(native_inputs, corruption):
+    from proteus.core.serialization import content_hash
+    root, directory = native_inputs
+    path = next(directory.glob('*.input.json'))
+    if corruption in ('outcome','unknown'):
+        path = path.with_name(path.name.replace('.input.json','.outcome.json'))
+    if corruption=='unknown':
+        path.unlink()
+    else:
+        data = json.loads(path.read_text())
+        if corruption=='input':
+            data['payload']='changed'
+        elif corruption=='outcome':
+            data['status']='raised'
+        else:
+            key,value={'opaque':('scope','opaque_supervisor'),
+                       'backend':('backend','codex'),'episode':('episode',999)}[corruption]
+            data[key]=value
+            data['hash']=content_hash({key:value for key,value in data.items() if key!='hash'})
+            outcome_path=path.with_name(path.name.replace('.input.json','.outcome.json'))
+            outcome=json.loads(outcome_path.read_text())
+            outcome['input_hash']=data['hash']
+            outcome['hash']=content_hash({key:value for key,value in outcome.items() if key!='hash'})
+            outcome_path.write_text(json.dumps(outcome))
+        path.write_text(json.dumps(data))
+    assert not _module.native_inputs_cover_run(root,'minimal',2)

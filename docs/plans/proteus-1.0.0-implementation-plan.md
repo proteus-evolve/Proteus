@@ -77,6 +77,8 @@ P10e 开发中：整理 `proteus.api.v1` 公共导入与兼容边界，将四类
 
 P10f 开发中：在 minimal/LLM/Pi/DSH/Codex 实际调用前持久记录 adapter 最终输入、协议与内容哈希，区分返回、异常和硬退出后未知完成状态；native recipe 保留累计输入证据。Aki 仅可记录 supervisor 边界，内部提示不可观测，未将其计为完整消息覆盖。详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md)。真实 backend release gates 与 native 全量用量验收继续推进。
 
+P10g 开发中：将既有 live release-smoke、新 recipe/安装包 CI 与真实 Harbor 三套 workflow 共同纳入发布门禁，要求同一 tag、同一提交及各自完整成功的 jobs；live smoke 增加逐 episode 最终 adapter 输入证据核验。说明见 [RELEASING.md](../RELEASING.md)。本批不触发付费模型、打 tag 或发布；五类真实实验和完整发布清单仍待验收。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
