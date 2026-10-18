@@ -65,6 +65,14 @@ def command(args):
 
 
 def _command(args):
+    if args.recipe_cmd == 'catalog':
+        from proteus.recipes.catalog import describe
+        print(json.dumps(describe(args.name, family=args.family, kind=args.kind), indent=2))
+        return 0
+    if args.recipe_cmd == 'example':
+        from proteus.recipes.catalog import prepare_example
+        print(json.dumps(prepare_example(args.name, args.out), indent=2))
+        return 0
     if args.recipe_cmd == 'scaffold':
         from proteus.recipes.scaffolding import scaffold
         print(scaffold(args.kind, args.name, args.out))
@@ -112,6 +120,15 @@ def _command(args):
 def add_parser(subparsers):
     parser = subparsers.add_parser("recipe", help="check and execute versioned 1.0 recipes")
     commands = parser.add_subparsers(dest="recipe_cmd", required=True)
+    catalog = commands.add_parser('catalog', help='discover offline examples and benchmark preparation entry points')
+    catalog.add_argument('name', nargs='?')
+    catalog.add_argument('--family', choices=('framework', 'gepa', 'ace', 'meta-harness', 'combee', 'coral'))
+    catalog.add_argument('--kind', choices=('example', 'benchmark'))
+    catalog.set_defaults(func=command)
+    example = commands.add_parser('example', help='prepare a bundled offline mechanism example')
+    example.add_argument('name')
+    example.add_argument('--out', required=True)
+    example.set_defaults(func=command)
     create = commands.add_parser('scaffold', help='create an editable offline plugin project')
     create.add_argument('kind', choices=('method', 'stage', 'evaluator', 'subject'))
     create.add_argument('--name', required=True, help='Python module and plugin namespace')

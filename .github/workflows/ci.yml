@@ -136,6 +136,7 @@ jobs:
           cp tests/check_coral_method_package.py /tmp/proteus-wheel-out/check_coral_method_package.py
           cp tests/check_coral_circle_package.py /tmp/proteus-wheel-out/check_coral_circle_package.py
           cp tests/check_plugin_templates.py /tmp/proteus-wheel-out/check_plugin_templates.py
+          cp tests/check_recipe_catalog.py /tmp/proteus-wheel-out/check_recipe_catalog.py
           cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
@@ -160,6 +161,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_coral_method_package.py
           /tmp/proteus-wheel/bin/python check_coral_circle_package.py
           /tmp/proteus-wheel/bin/python check_plugin_templates.py
+          /tmp/proteus-wheel/bin/python check_recipe_catalog.py
           /tmp/proteus-wheel/bin/python check_code_memory_package.py
           /tmp/proteus-wheel/bin/python check_workspace_package.py
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
@@ -190,6 +192,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_combee_gepa_package.py
           /tmp/proteus-wheel/bin/python check_combee_gepa_package.py --workers 3
           /tmp/proteus-wheel/bin/python check_dynamic_batch_package.py gepa
+          /tmp/proteus-wheel/bin/python check_recipe_catalog.py --gepa
           /tmp/proteus-wheel/bin/python -m proteus.examples.gepa_prompt --out gepa-study
           /tmp/proteus-wheel/bin/proteus recipe lock gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --source "proteus=$GITHUB_WORKSPACE" --out gepa-study/lock.json
           /tmp/proteus-wheel/bin/proteus recipe run gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --artifact-store gepa-study/artifact-store --out gepa-study/run
@@ -215,6 +218,7 @@ jobs:
           cp tests/check_coral_method_package.py /tmp/proteus-sdist-out/check_coral_method_package.py
           cp tests/check_coral_circle_package.py /tmp/proteus-sdist-out/check_coral_circle_package.py
           cp tests/check_plugin_templates.py /tmp/proteus-sdist-out/check_plugin_templates.py
+          cp tests/check_recipe_catalog.py /tmp/proteus-sdist-out/check_recipe_catalog.py
           cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
@@ -239,6 +243,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_coral_method_package.py
           /tmp/proteus-sdist/bin/python check_coral_circle_package.py
           /tmp/proteus-sdist/bin/python check_plugin_templates.py
+          /tmp/proteus-sdist/bin/python check_recipe_catalog.py
           /tmp/proteus-sdist/bin/python check_code_memory_package.py
           /tmp/proteus-sdist/bin/python check_workspace_package.py
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py
@@ -269,3 +274,4 @@ jobs:
           /tmp/proteus-sdist/bin/python check_combee_gepa_package.py
           /tmp/proteus-sdist/bin/python check_combee_gepa_package.py --workers 3
           /tmp/proteus-sdist/bin/python check_dynamic_batch_package.py gepa
+          /tmp/proteus-sdist/bin/python check_recipe_catalog.py --gepa

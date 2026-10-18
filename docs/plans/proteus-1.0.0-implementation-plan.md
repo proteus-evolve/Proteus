@@ -67,6 +67,8 @@ P09h 开始接入 Harbor 持久研究 worker：每代使用独立容器，仅挂
 
 P10a 开发中：增加 `recipe scaffold`，生成独立的 method、stage、evaluator、subject 插件项目及可执行契约检查，提供 self-evaluator 配置消融示例。已验证生成项目运行、隐藏测试隔离、无重复恢复和 method 检查点后的强制退出恢复；安装包与完整发布验收仍需通过。详见 [V1_PLUGIN_SCAFFOLDS.md](../V1_PLUGIN_SCAFFOLDS.md)。recipe catalog、search-policy 教程和统一结果导出继续属于 I13–I15。
 
+P10b 开发中：增加不导入可选优化器的 recipe catalog，区分八个离线机制示例与五个真实领域准备入口，提供各自依赖、插件、准备命令和结果验收状态。加入可执行的搜索策略教程：同一候选和评分仅替换 final selector，核对选择变化、私有测试与三处强制退出恢复。详见 [V1_RECIPE_CATALOG.md](../V1_RECIPE_CATALOG.md)。统一结果导出、真实模型结果及完整发布验收仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
