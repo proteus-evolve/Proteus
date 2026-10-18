@@ -139,6 +139,9 @@ class Registry:
             actor_plugin = self.get(recipe.actors[stage.role].runtime.plugin, "actor")
             require("actor.execute" in actor_plugin.capabilities,
                     "stage actors must support generic execution, not only legacy episodes")
+            if 'stage.workspace' in plugin.capabilities:
+                require('actor.workspace' in actor_plugin.capabilities,
+                        'workspace stage requires a workspace-capable actor')
             if any(budget.max_model_calls is not None for budget in
                    (recipe.budget, recipe.actors[stage.role].budget, stage.budget)):
                 require("calls.bounded" in actor_plugin.capabilities,

@@ -18,6 +18,9 @@ from proteus.core.plugins import EmptyOptions, Plugin, Registry, implementation_
 from proteus.core.serialization import Contract
 from proteus.evidence.records import EvidenceView
 from proteus.execution.code_records import CodeCall, CodeOptions, CodeResult, CodeState
+from proteus.execution.workspace import WorkspaceStage
+from proteus.execution.workspace_records import WorkspaceInput, WorkspaceOptions
+from proteus.execution.actors import WorkspaceHarnessActor, validate_workspace_harness
 from proteus.execution.code_subject import CodeSubject, validate_code
 from proteus.execution.harbor_code import HarborCodeEnvironment, HarborCodeOptions, validate_harbor_code
 from proteus.core.search import ArchiveSnapshot, KeepAll, ParetoFront, ScalarBest, SearchDecision, SelectionView, UniformParent
@@ -78,6 +81,7 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.code.call@1", CodeCall)
     registry.register_data("proteus.code.state@1", CodeState)
     registry.register_data("proteus.code.result@1", CodeResult)
+    registry.register_data("proteus.workspace.input@1", WorkspaceInput)
     registry.register_data("proteus.search.view@1", SelectionView)
     registry.register_data("proteus.search.decision@1", SearchDecision)
     registry.register_data("proteus.eval.selection@1", TaskSelection)
@@ -133,11 +137,20 @@ def builtin_registry() -> Registry:
     add("proteus.prompt", "stage", EmptyOptions, lambda options: PromptStage(),
         capabilities=("stage.replay",),
         inputs={"prompt": "proteus.text@1"}, outputs={"response": "proteus.actor_result@1"})
+    add('proteus.workspace', 'stage', WorkspaceOptions, WorkspaceStage,
+        capabilities=('stage.replay', 'stage.workspace'),
+        inputs={'prompt': 'proteus.text@1', 'seed': 'proteus.artifact_ref@1', 'history': 'proteus.evidence.view@1'},
+        outputs={'response': 'proteus.actor_result@1'})
     add("proteus.echo", "actor", EmptyOptions, lambda options: EchoActor(), validate=validate_echo,
         capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout"))
     add("proteus.chat", "actor", ChatOptions, ChatActor, validate=validate_chat,
         capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout"))
     for name in ("minimal", "llm", "dsh", "pi", "codex"):
+        if name in ('dsh', 'pi', 'codex'):
+            add(f'proteus.workspace.{name}', 'actor', HarnessOptions,
+                lambda options, name=name: WorkspaceHarnessActor(name, options),
+                validate=lambda spec, options, name=name: validate_workspace_harness(name, spec, options),
+                capabilities=('session.fresh', 'actor.execute', 'actor.workspace', 'trace.normalized'))
         def validate(spec, options, name=name):
             return validate_harness(name, spec, options)
 

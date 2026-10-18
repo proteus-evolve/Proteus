@@ -25,14 +25,16 @@ from proteus.core.serialization import Contract, canonical_json, content_hash
 from proteus.recipes.config import PluginSpec
 
 
-def _read(path: Path) -> bytes:
+def _read(path: Path, *, max_bytes: int | None = None) -> bytes:
     # A symlink/special file must never masquerade as immutable content.
     require(stat.S_ISREG(path.lstat().st_mode), f"not a regular stored file: {path}")
     descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     with os.fdopen(descriptor, "rb") as stream:
         before = os.fstat(stream.fileno())
         require(stat.S_ISREG(before.st_mode), f"not a regular file: {path}")
-        data = stream.read()
+        require(max_bytes is None or before.st_size <= max_bytes, 'file exceeds the declared byte limit')
+        data = stream.read() if max_bytes is None else stream.read(max_bytes + 1)
+        require(max_bytes is None or len(data) <= max_bytes, 'file exceeds the declared byte limit')
         after = os.fstat(stream.fileno())
     # ctime also changes when a publisher removes its temporary hardlink; that
     # metadata-only change is compatible with concurrent immutable readers.
@@ -192,15 +194,19 @@ class ArtifactStore:
         return self.put(base.codec, value, runtime=base.runtime, environment_hash=base.environment_hash)
 
     @staticmethod
-    def read_tree(root: str | Path) -> Mapping[str, FileContent]:
+    def read_tree(root: str | Path, *, max_bytes: int | None = None,
+                  max_files: int | None = None) -> Mapping[str, FileContent]:
         """Capture regular files and executable bits, rejecting links and special files.
 
         Empty directories are not artifacts. There are no implicit ignore rules: callers
         must select a clean source tree explicitly, including their declared source files.
         """
         root = Path(root)
+        require(max_bytes is None or (type(max_bytes) is int and max_bytes >= 0), 'invalid tree byte limit')
+        require(max_files is None or (type(max_files) is int and max_files >= 0), 'invalid tree file limit')
         require(root.is_dir() and not root.is_symlink(), "tree root must be a real directory")
         files = {}
+        remaining = max_bytes
         def fail_walk(error):
             raise error
         for current, directories, names in os.walk(root, followlinks=False, onerror=fail_walk):
@@ -208,10 +214,14 @@ class ArtifactStore:
                 path = Path(current) / name
                 require(stat.S_ISDIR(path.lstat().st_mode), "artifact tree cannot contain symlinks")
             for name in names:
+                require(max_files is None or len(files) < max_files, 'tree exceeds the declared file limit')
                 path = Path(current) / name
                 mode = path.lstat().st_mode
                 require(stat.S_ISREG(mode), "artifact tree supports only regular files")
-                files[path.relative_to(root).as_posix()] = FileContent(_read(path), bool(mode & 0o111))
+                data = _read(path, max_bytes=remaining)
+                if remaining is not None:
+                    remaining -= len(data)
+                files[path.relative_to(root).as_posix()] = FileContent(data, bool(mode & 0o111))
         components(files)
         return files
 

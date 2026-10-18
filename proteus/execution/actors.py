@@ -113,6 +113,7 @@ def validate_harness(name, spec, options):
 
 class HarnessActor:
     model_call_bound = None
+    supports_workspace = False
 
     def __init__(self, name, options):
         self.name, self.options = name, options
@@ -129,6 +130,8 @@ class HarnessActor:
                 args["image"] = options.image
             if self.name == "codex" and options.auth_file is not None:
                 args["auth_file"] = options.auth_file
+            if self.name == "dsh" and self.supports_workspace:
+                args["model"] = spec.model
         elif self.name == "llm":
             if options.base_url is not None:
                 args["base_url"] = options.base_url
@@ -140,12 +143,20 @@ class HarnessActor:
     def execute(self, spec, request, workspace: Path) -> ActorResult:
         require(spec.session.value == "fresh" and request.session_id is None and request.handoff is None,
                 "generic harness actor calls require fresh workspaces; native method owns continuity")
+        require((request.workspace is not None) == self.supports_workspace,
+                'coding workspace requests require a workspace-capable actor')
         adapter = self.adapter(spec)
         require(getattr(adapter, "supports_custom_phases", False), "harness needs custom-phase support")
         workspace.mkdir(parents=True, exist_ok=True)
         harness = workspace / "harness"
         harness.mkdir(exist_ok=True)
         adapter.seed(harness, self.options.seed)
+        if self.supports_workspace:
+            require(all((workspace / 'task' / name).is_dir() for name in ('input', 'history', 'output', 'scratch')),
+                    'coding workspace was not prepared by the service')
+            # This actor optimizes a supplied system, not its own runtime. Do not
+            # inherit the native self-evolution protocol from the adapter seed.
+            (harness / 'AGENTS.md').write_text(WORKSPACE_INSTRUCTIONS, encoding='utf-8')
         active = None
         if getattr(adapter, "staged_activation", False):
             active = workspace / "active"
@@ -155,6 +166,7 @@ class HarnessActor:
         result = adapter.run_episode(EpisodeSpec(root=workspace, episode=1, model=spec.model or "",
             phase_prompts={"act": prompt}, phases=("act",), max_turns=self.options.max_turns,
             seed=self.options.seed, active_root=active,
+            readonly_task_paths=('input', 'history') if self.supports_workspace else (),
             continuity_mode=getattr(adapter, "continuity_mode", "native")))
         trace = tuple(asdict(event) for event in adapter.read_trace(workspace, 1))
         text = "\n".join(event["text"] for event in trace if event.get("text"))
@@ -166,3 +178,35 @@ class HarnessActor:
                         wall_seconds=time.monotonic() - started),
             status=OperationStatus.COMPLETED if result.ok else OperationStatus.FAILED,
             diagnostic=result.error)
+
+
+WORKSPACE_INSTRUCTIONS = '''You are a coding research actor working on the supplied task.
+Read the current request for the method, output format and experimental protocol.
+Your task directory is /workspace/task:
+- input/: the supplied immutable starting files.
+- history/: the explicitly disclosed historical files and view.json provenance.
+- output/: write every deliverable here; this tree is captured after you finish.
+- scratch/: disposable work and local checks, excluded from the returned artifact.
+Input and history are read-only. Inspect as much of the supplied history as useful.
+The controlling harness is infrastructure. Keep its source and configuration unchanged.
+Your session is fresh; only the declared input/history files carry previous work.
+'''
+
+
+def validate_workspace_harness(name, spec, options):
+    from proteus.execution.builds import image_pin
+    validate_harness(name, spec, options)
+    require(name in ('dsh', 'pi', 'codex'), 'coding workspaces require a container coding harness')
+    require(spec.session.value == 'fresh', 'coding workspaces use fresh sessions')
+    require(options.image is not None, 'coding workspace runtime needs an explicit immutable image')
+    image_pin(options.image)
+    require(options.network in ('none', 'bridge'), 'coding workspace runtime uses none or bridge networking')
+    require(options.phase_timeout_seconds is not None, 'coding workspace runtime needs an explicit phase timeout')
+
+
+class WorkspaceHarnessActor(HarnessActor):
+    supports_workspace = True
+
+    def adapter(self, spec):
+        validate_workspace_harness(self.name, spec, self.options)
+        return super().adapter(spec)

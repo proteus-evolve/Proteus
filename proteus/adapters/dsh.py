@@ -33,7 +33,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Sequence
 
-from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.adapters.dsh_resume import DshPhaseResume
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
@@ -188,7 +188,8 @@ class DshHarness:
                  key: str | None = None, sandbox=None,
                  phase_timeout_s: int = PHASE_TIMEOUT_S,
                  permission_mode: str = "workspace-write",
-                 phase_resume: DshPhaseResume | None = None) -> None:
+                 phase_resume: DshPhaseResume | None = None,
+                 model: str | None = None) -> None:
         if permission_mode not in {"workspace-write", "danger-full-access"}:
             raise ValueError(
                 "DSH permission_mode must be 'workspace-write' or 'danger-full-access'"
@@ -198,6 +199,11 @@ class DshHarness:
         self.phase_timeout_s = phase_timeout_s
         self.phase_resume = phase_resume
         self.permission_mode = permission_mode
+        # Opt-in binding for fresh coding actors. Legacy native runs continue
+        # to own their DSH settings and use their profile's model selection.
+        if model is not None and (not isinstance(model, str) or not model.strip()):
+            raise ValueError("DSH model must be a non-empty model id")
+        self.model = model
         # per-instance key injection first (multi-tenant runs must not share env)
         self.key = key or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_KEY", "")
         from proteus.sandbox import DockerSandbox, SandboxConfig
@@ -248,11 +254,10 @@ class DshHarness:
                 f"could not extract dsh source from {self.image}: {proc.stderr[-300:]}")
 
     @staticmethod
-    def _task_mount(run_root: Path) -> tuple:
+    def _task_mount(run_root: Path, readonly: tuple[str, ...] = ()) -> tuple:
         """Bind the run's task workspace (a snapshot-external sibling of the harness)
         into the agent's view, when the run is goal-conditioned."""
-        task = run_root / "task"
-        return ((str(task), "/workspace/task"),) if task.is_dir() else ()
+        return task_workspace_mounts(run_root, readonly)
 
     def check_boot(self, harness_root: Path) -> str:
         """Build once, then cold-start the exact headless runtime in a fresh container.
@@ -354,6 +359,17 @@ class DshHarness:
         harness = run_root / "harness"
         state = run_root / ".dsh-state"
         state.mkdir(exist_ok=True)
+        model_mounts = ()
+        if self.model is not None:
+            # dsh-v0.1.0-rc.7 headless reads agentDefaultModel.currentSelection(),
+            # whose settings-file layer overrides the bundle's default model.
+            # JSON is valid YAML. A read-only nested mount keeps this requested
+            # selection fixed without adding an unsupported CLI --model flag.
+            settings = state / "settings.yaml"
+            HandoffStore._atomic_text(settings, json.dumps({"agent-default-model": {
+                "provider": "deepseek-official", "model": self.model,
+            }}, ensure_ascii=False))
+            model_mounts = ((str(settings), "/state/settings.yaml", "ro"),)
         handoffs = HandoffStore(run_root, phases=spec.phases)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, list[str]] = {}
@@ -434,7 +450,7 @@ class DshHarness:
                     timeout_s=phase_timeout,
                     mounts=workspace_mounts + ((str(state), "/state"),
                             (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root),
+                           + model_mounts + self._task_mount(run_root, spec.readonly_task_paths),
                     stop_check=stop_check if plan.enabled else None,
                 )
             except subprocess.TimeoutExpired:
