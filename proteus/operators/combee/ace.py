@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
-from typing import Any
+from typing import Any, Literal
 
 from proteus.core.contracts import ArtifactRef, DataRef, require
 from proteus.core.serialization import Contract, freeze_json, json_value
@@ -13,6 +13,9 @@ from proteus.methods.ace.playbook import CODEC, PlaybookDelta
 from proteus.methods.ace.roles import CurationInput
 from proteus.operators.combee.grouping import Grouping, plan_groups
 from proteus.operators.combee.managed import ManagedLM
+
+
+AggregationMode = Literal["combee", "single_pass"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -37,6 +40,7 @@ class AceAggregation(Contract):
     proposals: tuple[AddProposal, ...]
     reducer: AddProposal | None
     delta: PlaybookDelta
+    mode: AggregationMode = "combee"
 
 
 def parse_adds(response):
@@ -66,6 +70,7 @@ def aggregate_ace(
     grouping=None,
     token_budget=80000,
     use_ground_truth=True,
+    mode="combee",
 ):
     """Return one delta; caller owns counters, final application and batch rollback.
 
@@ -84,6 +89,9 @@ def aggregate_ace(
     values = [services.values.get(ref) for ref in records]
     grouping = grouping or Grouping(profile="ace")
     require(grouping.profile == "ace", "ACE aggregation requires ACE grouping")
+    require(mode in ("combee", "single_pass"), "unknown ACE aggregation mode")
+    require(mode != "single_pass" or (grouping.duplication_factor == 1 and grouping.num_groups == 1),
+            "single-pass aggregation requires one group with no duplication")
     # Validate all context fields before consuming RNG or issuing any calls.
     item = CurationInput(
         playbook=playbook,
@@ -137,14 +145,14 @@ def aggregate_ace(
         if proposal.operations
     ]
     reducer = None
-    if groups:
+    if groups and mode == "combee":
         prompt = prompts.CURATOR_OPERATIONS_AGGREGATION_PROMPT.format(
             **common, proposed_operations=json.dumps(groups, indent=2, ensure_ascii=False)
         )
         reducer = parse_adds(lm(prompt))
-    delta = PlaybookDelta(
-        base_hash=base.content_hash, kind="curate", records=reducer.operations if reducer else ()
-    )
+    final = proposals[0] if mode == "single_pass" and proposals else reducer
+    delta = PlaybookDelta(base_hash=base.content_hash, kind="curate",
+                         records=final.operations if final else ())
     result = AceAggregation(
         base=base,
         plan=plan_ref,
@@ -152,6 +160,7 @@ def aggregate_ace(
         proposals=proposals,
         reducer=reducer,
         delta=delta,
+        mode=mode,
     )
     result = services._record(
         "aggregation.result",
