@@ -100,12 +100,14 @@ def check_project(root, kind):
     run(['-m', 'proteus.cli', 'recipe', 'scaffold', kind, '--name', 'sample_'+kind, '--out', str(project)])
     run(['prepare.py'], project)
     run(['-m', 'proteus.cli', 'recipe', 'check', 'study/recipe.json', '--plugin', 'sample_'+kind+':register'], project)
-    run(['check.py'], project)
+    checked = run(['check.py'], project)
+    if kind == 'policy':
+        return checked
     (project/'verify_project.py').write_text(CHECK)
     return run(['verify_project.py', kind], project)
 
 
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='proteus-plugin-projects-') as directory:
-        for kind in ('method', 'stage', 'evaluator', 'subject'):
+        for kind in ('method', 'stage', 'evaluator', 'subject', 'policy'):
             print(check_project(directory, kind), end='')

@@ -1,0 +1,53 @@
+"""Run parent-selection, actual-child, resume and export checks in temporary runs."""
+
+from dataclasses import replace
+import json
+from pathlib import Path
+import tempfile
+
+from proteus.api.v1 import PluginRef, PluginSpec, SourcePin, builtin_registry, load_recipe, run_recipe
+from proteus.recipes.export import export_run
+from prepare import prepare
+from {{NAME}} import register
+
+
+def check(root):
+    path = prepare(root/'study')
+    registry = builtin_registry()
+    register(registry)
+    base = load_recipe(path)
+    pins = [SourcePin(name=name, repository='https://example.invalid/parent-fixture', revision='0'*40)
+            for name in ('proteus', '{{NAME}}')]
+    history = []
+    for condition, policy, parent, score in [('worst', '{{NAME}}.parent', 'balanced', .45),
+                                            ('mean', 'proteus.scalar_best', 'spiky', .85)]:
+        recipe = registry.resolve(replace(base, search={'parent': PluginSpec(plugin=PluginRef(name=policy, version='1'))}))
+        lock = registry.make_lock(recipe, pins)
+        run = root/condition
+        result = run_recipe(recipe, registry=registry, lock=lock, root=run, artifact_source=root/'study/artifact-store')
+        assert result.status.value == 'completed', result.diagnostic
+        assert result.state.state.payload['parent_id'] == parent
+        first = json.loads((run/'execution-0001.json').read_text())
+        child = next(row for row in first['candidates'] if row['id'] == 'child')
+        assert child['parent_ids'] == [parent]
+        assert run_recipe(recipe, registry=registry, lock=lock, root=run, resume=True) == result
+        second = json.loads((run/'execution-0002.json').read_text())
+        for key in ('candidates','rollouts','evaluations','actor_calls'):
+            assert first[key] == second[key]
+        public = json.loads(export_run(run, root/(condition+'-public')).read_text())
+        private = json.loads(export_run(run, root/(condition+'-private'), include_private=True).read_text())
+        assert len(private['tasks']) == 9 and private['accounting']['actual']['evaluations'] == 9
+        assert abs(next(row['score'] for row in private['tasks'] if row['purpose']=='test')-score) < 1e-9
+        assert all(row['score'] is None for row in public['tasks'] if row['purpose']=='test')
+        decision = next(row['value'] for row in first['values'] if row['ref']==result.outputs['parent'].to_dict())
+        assert decision['role']=='parent' and decision['result']['selected']==[parent]
+        view = next(row['value'] for row in first['values'] if row['ref']==decision['view'])
+        assert view['evaluation_id']=='validation'
+        history.append(([row['artifact'] for row in first['candidates'] if row['id']!='child'], view['vectors']))
+    assert history[0]==history[1]
+    print('policy: external parent selector, identical parent evidence, changed child lineage/predictions, resume and private export passed')
+
+
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory(prefix='proteus-parent-project-') as directory:
+        check(Path(directory))

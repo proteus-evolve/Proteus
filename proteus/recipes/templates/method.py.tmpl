@@ -4,10 +4,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Mapping
 
-from proteus.core.contracts import DataRef, PluginRef, require
-from proteus.core.methods import MethodResult
-from proteus.core.plugins import Plugin, implementation_hash
-from proteus.core.serialization import Contract
+
+from proteus.api.v1 import DataRef, PluginRef, require, MethodResult, Plugin, implementation_hash, Contract
 
 
 @dataclass(frozen=True, kw_only=True)

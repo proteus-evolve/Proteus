@@ -3,9 +3,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from proteus.core.contracts import PluginRef
-from proteus.core.plugins import Plugin, implementation_hash
-from proteus.core.serialization import Contract
+
+from proteus.api.v1 import PluginRef, Plugin, implementation_hash, Contract
 
 
 @dataclass(frozen=True, kw_only=True)

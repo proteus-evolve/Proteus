@@ -13,7 +13,7 @@ from proteus.recipes.scaffolding import scaffold
 from check_plugin_templates import check_project
 
 
-@pytest.mark.parametrize('kind', ['method', 'stage', 'evaluator', 'subject'])
+@pytest.mark.parametrize('kind', ['method', 'stage', 'evaluator', 'subject', 'policy'])
 def test_generated_plugin_runs_with_original_services_and_recovers(tmp_path, kind, monkeypatch):
     monkeypatch.setenv('PYTHONPATH', str(Path(__file__).resolve().parents[1]))
     assert 'passed' in check_project(tmp_path, kind)

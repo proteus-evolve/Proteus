@@ -1,7 +1,7 @@
 """Versioned experiment configuration (1.0 development API).
 
-The current API validates and freezes experiments. Method execution is introduced
-in subsequent implementation batches; existing ``proteus run`` keeps its semantics.
+Recipes validate, lock, execute and recover registered research methods.
+Research plugins can use ``proteus.api.v1``; existing ``proteus run`` keeps its semantics.
 """
 
 from proteus.recipes.config import RecipeConfig, load_recipe

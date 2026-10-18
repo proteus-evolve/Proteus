@@ -148,7 +148,7 @@ def add_parser(subparsers):
     example.add_argument('--out', required=True)
     example.set_defaults(func=command)
     create = commands.add_parser('scaffold', help='create an editable offline plugin project')
-    create.add_argument('kind', choices=('method', 'stage', 'evaluator', 'subject'))
+    create.add_argument('kind', choices=('method', 'stage', 'evaluator', 'subject', 'policy'))
     create.add_argument('--name', required=True, help='Python module and plugin namespace')
     create.add_argument('--out', required=True, help='new project directory')
     create.set_defaults(func=command)

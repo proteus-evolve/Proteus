@@ -5,10 +5,8 @@ import json
 import math
 from pathlib import Path
 
-from proteus.core.contracts import ArtifactComponent, Outcome, PluginRef, RuntimeIdentity, require
-from proteus.core.plugins import Plugin, implementation_hash
-from proteus.core.serialization import Contract, content_hash
-from proteus.evaluation.records import SubjectResult, zero_usage
+
+from proteus.api.v1 import ArtifactComponent, Outcome, PluginRef, RuntimeIdentity, require, Plugin, implementation_hash, Contract, content_hash, SubjectResult, zero_usage
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -1,7 +1,7 @@
 # Editable researcher plugins
 
 `proteus recipe scaffold` creates an independent Python plugin project. A method,
-stage, evaluator or subject adapter can be edited and registered without changing
+stage, evaluator, subject adapter or search policy can be edited and registered without changing
 Proteus core code. The project includes preparation code, a runnable offline
 recipe, a contract-check script and instructions for locking real source versions.
 
@@ -15,13 +15,16 @@ python check.py
 
 The output directory must be new. Existing projects and names that shadow Python,
 Proteus or the generated scripts are rejected before files are written. The same
-command accepts `method`, `evaluator` and `subject` in place of `stage`.
+command accepts `method`, `evaluator`, `subject` and `policy` in place of `stage`.
+Generated plugin code imports `proteus.api.v1`; its exact compatibility rules are
+documented in [V1_COMPATIBILITY.md](V1_COMPATIBILITY.md).
 
 | Template | Editable mechanism | Checks shipped with the project |
 | --- | --- | --- |
 | `method` | Evaluate the initial candidate through managed services; checkpoint after each cohort | Formal evaluation count, private test receipt, recovery without repeated work |
 | `stage` | Return typed self-evaluation evidence from a proposal | Ports, output semantics, zero model usage, changed configuration and recovery |
 | `evaluator` | Score numeric outputs against private references with a configured tolerance | Baseline/changed-candidate scores, private test visibility and recovery |
+| `policy` | Select a parent from the same candidate/validation archive | Changed child lineage and predictions, recovery, public/private export |
 | `subject` | Read a factor from the exact materialized candidate and execute each numeric task | Candidate-dependent outputs, changed artifact, formal scoring and recovery |
 
 `check.py` creates temporary outputs and uses explicitly labelled fixture source
@@ -50,10 +53,14 @@ arbitrary new method can be expressed only by changing configuration.
 Repository checks run the generated projects through their real command-line
 entry, registry and execution services. A separate method check terminates the
 controller after a committed evaluation cohort and resumes it without duplicating
-the candidate, trials or evaluation charges. Wheel and sdist gates run all four
+the candidate, trials or evaluation charges. Wheel and sdist gates run all five
 projects outside the checkout.
 
 The examples execute trusted local code. New backend, concurrency or session
 capabilities require corresponding tests. Recipe catalog discovery, a search-policy
 extension tutorial, unified result export and complete 1.0 release acceptance
 remain separate work; this increment does not complete I13–I15.
+
+The external ParentSelector experiment and versioned import surface are described
+in [V1_PUBLIC_API.md](V1_PUBLIC_API.md). Its selection/child/test checkpoint checks
+complement the final-selector tutorial and fulfill a distinct extension scenario.
