@@ -189,6 +189,10 @@ class Registry:
         components = []
         if resolved.subject is not None:
             subject = resolved.subject
+            if "subject.code_protocol" in self.get(subject.runner.plugin).capabilities:
+                require(resolved.execution is not None and "environment.code_protocol" in self.get(
+                    resolved.execution.environment.backend.plugin).capabilities,
+                    "candidate-code subject requires a code-capable environment")
             if "subject.actor_timeout" in self.get(subject.runner.plugin).capabilities:
                 require(subject.actor is not None, "subject requires a managed actor role")
                 actor_plugin = self.get(resolved.actors[subject.actor].runtime.plugin, "actor")

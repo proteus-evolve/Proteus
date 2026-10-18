@@ -36,7 +36,7 @@ class GatewayFailure(RuntimeError):
     pass
 
 
-def invoke(root, options, call, actor, *, timeout_seconds):
+def invoke(root, options, call, actor, *, timeout_seconds, launch=None, stop=None):
     """Run one method and serialize state; model calls execute on the dispatch thread.
 
     Candidate CPU/I/O has a wall-clock deadline. Each managed model transport gets
@@ -73,7 +73,7 @@ def invoke(root, options, call, actor, *, timeout_seconds):
     try:
         # No inherited credentials, Python configuration, HOME or writable shared cwd.
         # Python -I still imports installed packages; this is not a host-access sandbox.
-        process = subprocess.Popen([sys.executable, '-I', str(Path(__file__).with_name('code_worker.py')),
+        process = launch(child.fileno(), deadline) if launch is not None else subprocess.Popen([sys.executable, '-I', str(Path(__file__).with_name('code_worker.py')),
             str(child.fileno()), str(options.max_frame_bytes), str(os.getpid()), repr(deadline)], cwd=root,
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             env={'PATH': os.defpath},
@@ -156,19 +156,27 @@ def invoke(root, options, call, actor, *, timeout_seconds):
         status, diagnostic = Outcome.INVALID_CANDIDATE, str(exc)
     except GatewayFailure as exc:
         status, diagnostic = Outcome.INFRA_ERROR, str(exc)
+    except ConnectionError as exc:
+        status, diagnostic = Outcome.INVALID_CANDIDATE, f'candidate protocol connection closed: {exc}'
     finally:
         # Also kill descendants that outlive a successful parent or retain pipe FDs.
-        if process is not None:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            process.wait()
-            process.stdout.close()
-            process.stderr.close()
-        selector.close()
-        parent.close()
-        child.close()
+        try:
+            if process is not None:
+                if stop is not None:
+                    stop(process)
+                else:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait()
+        finally:
+            if process is not None:
+                process.stdout.close()
+                process.stderr.close()
+            selector.close()
+            parent.close()
+            child.close()
     events.append({'kind': 'process', 'stdout': outputs['stdout'].decode('utf-8', errors='replace'),
                    'stderr': outputs['stderr'].decode('utf-8', errors='replace'),
                    'pid': process.pid if process else None,

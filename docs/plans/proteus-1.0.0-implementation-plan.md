@@ -197,7 +197,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 - [x] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本（P04b 独立运行时、版本/源码字节/依赖环境 fingerprint）。
 - [x] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果（P04b 容器内检查完整文件树）。
 - [x] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用（P04b 私有 BackendEvaluation；未报告的用量保持 unknown）。
-- [ ] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力（P04b 完成独立 trial，其他策略显式拒绝）。
+- [ ] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力（P04b 完成独立 trial；P07c 的代码后端可在全新容器间携带显式 sequence 记忆，持久 worker 尚未实现）。
 - [x] 需要独立 grader 的 recipe 显式使用 separate verifier，并声明传递的产物；不假设默认 verifier 已独立（P04b 进一步移除 agent 的 verifier 日志挂载，检查独立容器及实际镜像）。
 - [x] 镜像记录实际 digest，构建状态与方法产物分开；镜像和缓存不携带其他候选的学习状态（P04b 预构建镜像；P04c 候选源码绑定的 build receipt/image ID、run 内缓存及全新 trial，verifier 保持独立原始镜像）。
 - [x] Harbor 作为可选依赖或独立受控运行时接入，处理其 Python 要求与 Proteus 核心支持版本的差异（P04b 核心仍支持 Python 3.10+，Harbor 使用独立 3.12+ 环境）。
@@ -329,7 +329,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 **流程：** proposer 按需检索历史代码、分数和轨迹 → 提出一个或多个 harness → 接口验证 → 执行评估 → 保存历史 → 继续搜索。
 
 - [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a 已完成公共 evidence view 与跨候选离线示例；Meta-Harness proposer/隔离代码工作区仍待接入，见 [V1_EVIDENCE.md](../V1_EVIDENCE.md)）。
-- [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b 已接入受管理的候选代码预测/记忆更新协议、独立状态和模型调用账本，并用固定官方 NoMemory/FewShotAll 类核对接口；完整领域 recipe、多候选 proposer 与隔离执行后端仍待完成，见 [V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md)）。
+- [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b 已接入受管理的候选代码预测/记忆更新协议、独立状态和模型调用账本，并用固定官方 NoMemory/FewShotAll 类核对接口；P07c 增加同协议的 Harbor 无网络/无挂载容器后端、独立清理 guard、源码构建与显式 sequence 状态；完整领域 recipe 与多候选 proposer 仍待完成，见 [V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md) 和 [V1_HARBOR_CODE.md](../V1_HARBOR_CODE.md)）。
 - [ ] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本。
 - [ ] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier。
 - [ ] 锁定并运行一个原方法领域的真实任务设置。

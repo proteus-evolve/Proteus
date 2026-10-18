@@ -31,6 +31,7 @@ class EnvironmentLease:
     loaded_artifact_hash: str
     local_root: Path | None = None
     handle: Any = None
+    code_executor: Any = None
 
 
 class Environment(Protocol):
@@ -91,8 +92,12 @@ class SubjectRecoveryContext:
 class LocalJsonEnvironment:
     @contextmanager
     def open(self, artifact, store, root, execution):
+        from proteus.execution.code_rpc import invoke
         materialized = store.materialize(artifact, root / "candidate")
-        yield EnvironmentLease(loaded_artifact_hash=artifact.content_hash, local_root=materialized)
+        def execute(options, call, actor):
+            return invoke(materialized, options, call, actor, timeout_seconds=execution.timeout_seconds)
+        yield EnvironmentLease(loaded_artifact_hash=artifact.content_hash, local_root=materialized,
+                               code_executor=execute)
 
 
 def validate_local(execution, options):
