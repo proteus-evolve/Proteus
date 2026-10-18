@@ -8,10 +8,11 @@ from proteus.core.contracts import BudgetLimits
 from proteus.examples.ace_playbook import prepare as prepare_ace
 from proteus.examples.candidate_evaluation import plugin
 from proteus.methods.ace.batch import CombeeOptions, SampleOptions
+from proteus.operators.combee.batching import DynamicBatchOptions
 from proteus.recipes.config import StageSpec, WorkflowSpec, load_recipe
 
 
-def prepare(root, *, mode="offline", workers=3, batch_size=2):
+def prepare(root, *, mode="offline", workers=3, batch_size=2, dynamic_batch=None):
     path = prepare_ace(root, mode=mode)
     recipe = load_recipe(path)
     common = {
@@ -26,6 +27,7 @@ def prepare(root, *, mode="offline", workers=3, batch_size=2):
             "aggregation_stage": "aggregate",
             "batch_size": batch_size,
             "max_workers": workers,
+            "dynamic_batch": dynamic_batch.to_dict() if dynamic_batch is not None else None,
         }
     )
     sample = SampleOptions(
@@ -67,7 +69,9 @@ def prepare(root, *, mode="offline", workers=3, batch_size=2):
             recipe.reference,
             deviations=(
                 "Synthetic tasks and deterministic actors: no model or benchmark result.",
-                "Fixed-batch ACEBatch control flow with bounded shared run/role concurrency.",
+                "ACEBatch control flow with bounded shared run/role concurrency; "
+                + ("dynamic batches profile ordinary learning iterations, excluding interrupted/short intervals."
+                   if dynamic_batch else "fixed batches."),
                 "Managed transport stops on failures; no API-error sentinel scores or unbounded retries.",
                 "Immutable validated playbooks and explicit phase-3 rollback; no optional embedding analyzer.",
             ),
@@ -83,8 +87,10 @@ def main():
     parser.add_argument("--mode", choices=("offline", "online"), default="offline")
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--dynamic-max-batch-size", type=int)
     args = parser.parse_args()
-    print(prepare(args.out, mode=args.mode, workers=args.workers, batch_size=args.batch_size))
+    dynamic = DynamicBatchOptions(max_batch_size=args.dynamic_max_batch_size) if args.dynamic_max_batch_size is not None else None
+    print(prepare(args.out, mode=args.mode, workers=args.workers, batch_size=args.batch_size, dynamic_batch=dynamic))
 
 
 if __name__ == "__main__":

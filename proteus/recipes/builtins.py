@@ -81,6 +81,9 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.workflow_job@1", WorkflowJob)
     registry.register_data("proteus.workflow_result@1", WorkflowResult)
     registry.register_data("proteus.workflow_map@1", WorkflowMapResult)
+    from proteus.core.timing import TimingStart, TimingMeasurement
+    registry.register_data("proteus.timing.start@1", TimingStart)
+    registry.register_data("proteus.timing.measurement@1", TimingMeasurement)
     registry.register_data("proteus.native_summary@1", NativeSummary)
     registry.register_data("proteus.artifact_ref@1", ArtifactRef)
     registry.register_data("proteus.candidate@1", Candidate)

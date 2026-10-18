@@ -47,6 +47,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08f：实现固定 batch 的完整 Combee-ACE offline/online 方法，复用 ACE 角色、playbook、样本 workflow 和 Combee 聚合；记录共享计数更新、局部 regeneration、聚合更新及更新后评估。保留在线窗口、验证选择和失败回滚语义，机制对照执行固定上游的实际控制流。说明见 [V1_COMBEE_ACE.md](../V1_COMBEE_ACE.md)。动态 batch controller、Combee 领域实验包及真实质量/成本/耗时结果仍待完成，R04 整体尚未完成。
 
+- P08g：实现共享动态 batch controller，接入 Combee-ACE 与 GEPA 的正常学习迭代；持久计时区分连续测量、已提交结果与中断后的未知时长。采样保持 GEPA 未访问的 epoch 尾部，ACE 保持 online 窗口边界。上游曲线/采样对照、原始计时绑定及中断恢复检查通过，说明见 [V1_DYNAMIC_BATCHING.md](../V1_DYNAMIC_BATCHING.md)。真实领域实验包、模型实验、CORAL 和发布验收继续推进；不将 R04 整体标为完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -255,11 +257,11 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I10 并行执行与聚合
 
-- [ ] 提供受预算约束的 map、join 和分层聚合，避免两个调度层分别扩大并发（P08a 完成独立 stage map、有序 join 和普通 stage reducer；Combee 的具体聚合层及并行评测仍待实现）。
+- [x] 提供受预算约束的 map、join 和分层聚合，避免两个调度层分别扩大并发（P08a–P08f：stage/workflow map、有序 join、Combee 分组与 reducer、并行正式评估均接入共享 run/role 预算）。
 - [x] 保存分组、shuffle seed、复制关系、聚合树和每次聚合的输入版本（P08b：manifest seed、完整 RNG 前后状态、逐副本 occurrence、源 DataRef 和有序 map/reduce wave）。
-- [ ] 聚合使用基础方法的更新语义，保留原始 reflection 的来源 ID；复制不增加真实任务样本计数。
-- [ ] 实现 profiling 与 BatchController，把 profiling 开销计入总预算。
-- [ ] 恢复时复用已完成分支；取消与失败处理有明确的传播规则（P08a stage 分支已验证 collect/fail_fast、已启动工作排空、分支回执/actor 结算复用及不确定停止；聚合树与动态控制器随 Combee 验收）。
+- [x] 聚合使用基础方法的更新语义，保留原始 reflection 的来源 ID；复制不增加真实任务样本计数（P08b/P08c/P08f；实际参考源码对照与调用账本检查）。
+- [x] 实现 profiling 与 BatchController，把 profiling 开销计入总预算（P08g：正常学习迭代 profiling，共享计时与曲线控制器；未知/短批次保留诊断并排除拟合）。
+- [x] 恢复时复用已完成分支；取消与失败处理有明确的传播规则（P08a–P08g：collect/fail_fast、已启动工作排空、分支回执/actor 结算复用、不确定停止、聚合树与动态采样状态恢复；真实模型表现仍须实验验收）。
 
 **验收：** 同一批 reflection 能按记录的分组与树结构重放；中断不丢分支；不以 LLM 聚合满足严格结合律或重新调用可得到完全相同文本为前提。
 
@@ -359,8 +361,8 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 两个配置，不复制两份基础方法。
 
 - [x] 定义 reflection 到 update 的聚合接口，复用基础方法的产物与更新语义（P08b：ACE 返回 PlaybookDelta，GEPA 返回组件提案；方法仍负责正式评估与接纳）。
-- [ ] 实现 augmented shuffle、parallel scan aggregation 和动态 batch controller。
-- [ ] 保存复制、分组、层次与提示顺序，统计所有聚合及 profiling 调用。
+- [x] 实现 augmented shuffle、parallel scan aggregation 和动态 batch controller（P08b/P08c/P08f/P08g 的已声明参考 profile 与适配范围）。
+- [x] 保存复制、分组、层次与提示顺序，统计所有聚合及 profiling 调用（P08b–P08g：来源、RNG、wave、计时与正式调用账本）。
 - [ ] 用固定 trace 集比较顺序基础方法、naive parallel 和 Combee；包含固定 batch 与动态 batch 条件。
 - [ ] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开。
 

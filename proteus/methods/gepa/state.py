@@ -17,6 +17,8 @@ from proteus.core.serialization import Contract, ContractError, canonical_json, 
 from proteus.evaluation.tasks import TaskBatch
 from proteus.methods.gepa.reference import REVISION, SOURCE_HASH
 from proteus.methods.gepa.sampling import SamplerState
+from proteus.methods.gepa.dynamic_sampling import DynamicSamplerState
+from proteus.operators.combee.batching import BatchControllerState
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -70,7 +72,7 @@ class BridgeState(Contract):
     accepted_ids: tuple[str, ...] = field(metadata={"minItems": 1, "uniqueItems": True})
     seed: BatchData
     validation_protocol: str = field(metadata=DIGEST)
-    sampler: SamplerState
+    sampler: SamplerState | DynamicSamplerState
     decisions: tuple[ProposalDecision, ...] = ()
     evaluations: int = field(default=0, metadata={"minimum": 0})
     reflection_calls: int = field(default=0, metadata={"minimum": 0})
@@ -101,6 +103,7 @@ class GepaSummary(Contract):
     iterations: int
     stop_threshold: int
     evaluation_upper_bound: int
+    batch_controller: BatchControllerState | None = None
 
 
 def pack(value):
