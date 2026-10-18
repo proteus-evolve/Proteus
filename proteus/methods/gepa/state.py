@@ -13,10 +13,39 @@ from typing import Any, Literal
 
 from proteus.artifacts.store import _read, publish_bytes
 from proteus.core.contracts import DIGEST, TEXT, DataRef, require
-from proteus.core.serialization import Contract, canonical_json, content_hash, read_json
+from proteus.core.serialization import Contract, ContractError, canonical_json, content_hash, json_value, read_json
 from proteus.evaluation.tasks import TaskBatch
 from proteus.methods.gepa.reference import REVISION, SOURCE_HASH
 from proteus.methods.gepa.sampling import SamplerState
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReflectionBatch(Contract):
+    # GEPA's recursive renderer consumes dictionary insertion order. Canonical
+    # JSON checkpoints sort keys, so encode ordered maps as the same data-only
+    # tree used by engine checkpoints rather than silently changing the prompt.
+    ordered_examples: tuple[Any, ...]
+
+    @classmethod
+    def from_examples(cls, examples):
+        return cls(ordered_examples=tuple(pack(json_value(item)) for item in examples))
+
+    @property
+    def examples(self):
+        return tuple(unpack(json_value(item)) for item in self.ordered_examples)
+
+    def _validate(self):
+        require(all(type(item) is dict for item in self.examples), "reflective examples must be ordered mappings")
+
+
+def register_reflection_data(registry):
+    kind = "proteus.gepa.reflection_batch@1"
+    try:
+        schema = registry.data_schema(kind)
+    except ContractError:
+        registry.register_data(kind, ReflectionBatch)
+    else:
+        require(schema is ReflectionBatch, "GEPA reflective data schema differs")
 
 
 @dataclass(frozen=True, kw_only=True)

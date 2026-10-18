@@ -1,0 +1,20 @@
+{
+  "seeds": [0, 1, 2],
+  "max_metric_calls": 500,
+  "minibatch_size": 3,
+  "solver": {
+    "runtime": {
+      "plugin": {"name": "proteus.aime_solver", "version": "1"},
+      "options": {"base_url": "https://api.openai.com/v1", "key_env": "OPENAI_API_KEY", "timeout_seconds": 600}
+    },
+    "model": "gpt-4.1-mini",
+    "model_settings": {"temperature": 1.0, "max_tokens": 32000}
+  },
+  "reflection": {
+    "runtime": {
+      "plugin": {"name": "proteus.chat", "version": "1"},
+      "options": {"base_url": "https://api.openai.com/v1", "key_env": "OPENAI_API_KEY", "timeout_seconds": 600}
+    },
+    "model": "gpt-5.1"
+  }
+}

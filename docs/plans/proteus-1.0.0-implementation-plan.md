@@ -23,6 +23,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P05c：已接入 pinned GEPA 的完整 single-mutation/no-merge 方法循环，反思经过受管理 Stage/ActorRuntime，保留上游 renderer/parser、接纳与 round-robin 组件选择。候选索引、seed 复用、规范化 engine 检查点、最终隐藏测试及预算阈值边界见 [V1_GEPA_METHOD.md](../V1_GEPA_METHOD.md)。机制与中断恢复检查使用显式离线 fixture；真实 benchmark 和 R01/M2 的完整结果验收仍待完成，不能计作论文结果复现。
 
+- P05d：GEPA AIME 领域适配、固定 45/45/30 数据、DSPy 格式与原始数学评分对照、baseline/optimized 独立实验及多 seed 报告；报告核验完整隐藏测试和实际用量，恢复保持反思字段顺序。说明见 [V1_GEPA_AIME.md](../V1_GEPA_AIME.md)。准备数据、HTTP fixture 和机制检查不等于真实模型实验，R01/M2 仍未完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

@@ -15,6 +15,11 @@ establishes mechanism/transport/recovery behavior; it is not a model experiment 
 a reproduction of the paper's reported scores. Merge-enabled and other upstream
 profiles need separate adapters and conformance evidence before support claims.
 
+P05d adds the [AIME domain study](V1_GEPA_AIME.md), with a fixed complete dataset,
+DSPy-format conformance, the reference mathematical metric/side information,
+independent baseline/test arms and audited multi-seed reports. Its preparation
+and HTTP fixtures do not satisfy the outstanding real benchmark requirement.
+
 ## Run the explicit offline fixture
 
 Use the exact optional installation documented in [GEPA search](V1_GEPA_SEARCH.md).
@@ -59,6 +64,13 @@ be distinct observed, after-batch evaluation pools; the execution state is reset
 for each task. Held-out test specifications remain hidden and selection-ineligible.
 Declared task identities may not overlap across these pools. This check cannot
 detect semantically duplicated examples assigned different dataset/split identities.
+
+An adapted/extended profile can additionally set `dataset_stage` (typed
+`proteus.gepa.reflection_batch@1` input `batch`, output `dataset`) and
+`reflection_prompt_template` (with `<curr_param>` and `<side_info>` placeholders).
+The stage receives only the already released training trajectory evidence. It
+runs through the ordinary journal and preserves ordered records on replay. These
+options are rejected by the unchanged generic reference profile.
 
 - The subject loads the exact candidate artifact. Text components are the mutation
   surface. The builtin prompt subject supports one consumed component; custom

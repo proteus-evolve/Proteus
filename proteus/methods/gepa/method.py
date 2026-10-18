@@ -16,7 +16,8 @@ from proteus.evaluation.tasks import TaskSelection
 from proteus.methods.gepa.reference import REPOSITORY, REVISION, load_reference
 from proteus.methods.gepa.sampling import EpochSampler
 from proteus.methods.gepa.state import (
-    BatchData, BridgeState, GepaState, GepaSummary, ProposalDecision, restore_engine, seal,
+    BatchData, BridgeState, GepaState, GepaSummary, ProposalDecision, ReflectionBatch,
+    register_reflection_data, restore_engine, seal,
 )
 from proteus.recipes.builtins import Text
 
@@ -35,6 +36,8 @@ class GepaOptions(Contract):
     perfect_score: float = 1.0
     acceptance: Literal["strict_improvement", "improvement_or_equal"] = "strict_improvement"
     test_evaluations: tuple[str, ...] = field(default=(), metadata={"uniqueItems": True})
+    dataset_stage: str | None = field(default=None, metadata=TEXT)
+    reflection_prompt_template: str | None = field(default=None, metadata=TEXT)
 
 
 def evaluation_bound(options, validation_size):
@@ -71,11 +74,21 @@ def validate_gepa(recipe, options, registry):
         len(evaluations[key].tasks.task_ids) for key in options.test_evaluations)
     require(recipe.budget.max_evaluations is None or recipe.budget.max_evaluations >= bound,
             f"GEPA threshold is checked between iterations; evaluation hard cap must be at least {bound}")
-    require(len(recipe.stages) == 1 and recipe.stages[0].id == options.reflection_stage,
-            "GEPA consumes one declared reflection stage")
-    stage = recipe.stages[0]
+    stage_ids = (options.reflection_stage,) + ((options.dataset_stage,) if options.dataset_stage else ())
+    require(len(set(stage_ids)) == len(stage_ids) and set(stage_ids) == {item.id for item in recipe.stages},
+            "GEPA stages must be distinct and consumed")
+    stages = {item.id: item for item in recipe.stages}
+    stage = stages[options.reflection_stage]
     require(dict(stage.input_types) == {"prompt": "proteus.text@1"}
             and dict(stage.output_types) == {"response": "proteus.actor_result@1"}, "GEPA reflection stage port mismatch")
+    if options.dataset_stage:
+        dataset = stages[options.dataset_stage]
+        require(dict(dataset.input_types) == {"batch": "proteus.gepa.reflection_batch@1"}
+                and dict(dataset.output_types) == {"dataset": "proteus.gepa.reflection_batch@1"},
+                "GEPA reflective dataset stage port mismatch")
+    if options.reflection_prompt_template:
+        require(all(key in options.reflection_prompt_template for key in ("<curr_param>", "<side_info>")),
+                "GEPA reflection template lacks required placeholders")
     slots = {options.parent_policy: "parent", options.archive_policy: "archive", options.final_policy: "final"}
     require(len(slots) == 3 and set(recipe.search) == set(slots), "GEPA search slots must be distinct and consumed")
     for key, role in slots.items():
@@ -89,6 +102,8 @@ def validate_gepa(recipe, options, registry):
             "GEPA method requires its pinned reference identity")
     require(recipe.reference.profile != "native", "GEPA requires a reference, adapted or extended profile")
     if recipe.reference.profile == "reference":
+        require(options.dataset_stage is None and options.reflection_prompt_template is None,
+                "changed GEPA reflective data/template require an adapted or extended profile")
         expected = {options.parent_policy: "proteus.gepa_parent", options.archive_policy: "proteus.gepa_frontier",
                     options.final_policy: "proteus.gepa_best"}
         require(all(recipe.search[key].plugin == PluginRef(name=name, version="1") for key, name in expected.items())
@@ -249,7 +264,18 @@ class Bridge:
     def make_reflective_dataset(self, candidate, eval_batch, components_to_update):
         require(self.phase == "reflection" and candidate is self.state.program_candidates[self.accepted.index(self.parent.id)],
                 "GEPA reflection parent differs")
-        return {name: eval_batch.trajectories for name in components_to_update}
+        examples = eval_batch.trajectories
+        if self.options.dataset_stage:
+            # Evaluation evidence is canonical data; normalize its mapping order
+            # before forming an order-sensitive stage input. The domain stage
+            # explicitly chooses the output order used by GEPA's renderer.
+            from proteus.core.serialization import canonical_json, read_json
+            normalized = read_json(canonical_json(examples))
+            ref = self.services.values.publish("proteus.gepa.reflection_batch@1", ReflectionBatch.from_examples(normalized))
+            result = self.services.stage(self.options.dataset_stage, {"batch": ref})
+            require(result.status == OperationStatus.COMPLETED, "GEPA reflective dataset stage failed")
+            examples = json_value(self.services.values.get(result.outputs["dataset"]).examples)
+        return {name: examples for name in components_to_update}
 
     @authoritative
     def reflect(self, prompt):
@@ -398,6 +424,7 @@ class GepaMethod:
                     candidate_selection_strategy=bridge, batch_sampler=bridge, reflection_minibatch_size=None,
                     max_metric_calls=self.options.max_metric_calls, skip_perfect_score=self.options.skip_perfect_score,
                     perfect_score=self.options.perfect_score, acceptance_criterion=self.options.acceptance,
+                    reflection_prompt_template=self.options.reflection_prompt_template,
                     use_merge=False, cache_evaluation=False, track_best_outputs=False, seed=services.recipe.seed,
                     display_progress_bar=False, raise_on_exception=True, run_dir=str(work), callbacks=[bridge], logger=bridge)
                 require(tuple(result.candidates) == tuple(bridge.texts(key) for key in bridge.accepted),
@@ -431,6 +458,7 @@ def register(registry):
     from proteus.core.plugins import Plugin, implementation_hash
     from proteus.methods.gepa.search import register as register_search
     register_search(registry)
+    register_reflection_data(registry)
     registry.register_data("proteus.gepa.proposal@1", ProposalDecision)
     registry.register_data("proteus.gepa.summary@1", GepaSummary)
     root = Path(__file__).resolve().parent
