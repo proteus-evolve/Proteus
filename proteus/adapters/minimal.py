@@ -21,6 +21,7 @@ from typing import Callable, Optional, Sequence, Tuple
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.native_inputs import native_input
+from proteus.core.native_usage import usage_evidence
 from proteus.core.disposition import Disposition
 
 # A policy maps (phase, prompt, episode, rng) -> list of (tool, surface, text) actions.
@@ -108,7 +109,9 @@ class MinimalHarness:
                 stop_at = plan.stop_at(phase, turn)
                 prompt = phase_prompt(spec, phase, turn)
                 with native_input(spec, backend=self.name, phase=phase, scope='policy_prompt',
-                                  payload=prompt, model=spec.model):
+                                  payload=prompt, model=spec.model) as receipt:
+                    if self.policy is mock_policy:
+                        receipt['usage'] = usage_evidence('local_mock')
                     for tool, surface, text in self.policy(phase, prompt, spec.episode, rng):
                         if plan.enabled and turn >= stop_at:
                             capped = turn >= plan.hard_limit

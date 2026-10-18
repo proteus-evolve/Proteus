@@ -10,6 +10,7 @@ from proteus.recipes.builtins import builtin_registry
 from proteus.recipes.config import PluginSpec
 from proteus.recipes.manifest import SourcePin
 from proteus.recipes.runner import run_recipe
+from proteus.recipes.export import export_run, report_run
 
 
 def check():
@@ -34,7 +35,15 @@ def check():
         assert resumed.status.value=='completed'
         assert json.loads((root/'execution-0002.json').read_text())['native_inputs']==records
         assert before=={path.name:path.read_bytes() for path in input_directory(root/'workspace').glob('*.json')}
-        print('installed native recipe: exact budget-rendered inputs, eight completed boundaries and unchanged resume evidence passed')
+        usage=report_run(root)['native_accounting']
+        assert usage['boundary_count']==8 and usage['reported']['model_calls']==0
+        assert usage['reported']['input_tokens']==usage['reported']['output_tokens']==0
+        assert usage['reported']['cost_usd']==0 and usage['reported']['wall_seconds']>=0
+        assert usage['unknown_entries']['model_calls']==0 and not usage['budget_enforced']
+        export_run(root,Path(directory)/'export')
+        assert len((Path(directory)/'export/native-usage.csv').read_text().splitlines())==9
+        assert before=={path.name:path.read_bytes() for path in input_directory(root/'workspace').glob('*.json')}
+        print('installed native recipe: eight immutable inputs/usage receipts, zero mock inference, unchanged resume and CSV export passed')
 
 
 if __name__=='__main__':

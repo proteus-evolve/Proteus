@@ -205,8 +205,20 @@ class RunResult:
     error: str = ""
     eval_history: list[dict] = field(default_factory=list)
     counters: dict = field(default_factory=dict)
-    """Numeric adapter counters summed across episodes (tokens_in/tokens_out where the
-    adapter reports them) — what a cost estimate is built from."""
+    """Numeric adapter counters summed across episodes; explicit unknowns stay None.
+
+    These episode counters can omit interrupted attempts. Durable native usage
+    receipts are the source for cumulative recorded-boundary accounting.
+    """
+
+
+def _sum_counters(totals, counters):
+    """Preserve explicitly unknown numeric counters across episodes and resume."""
+    for key, value in (counters or {}).items():
+        if value is None:
+            totals[key] = None
+        elif isinstance(value, (int, float)) and not isinstance(value, bool):
+            totals[key] = None if totals.get(key, 0) is None else totals.get(key, 0) + value
 
 
 def _phase_prompts(cfg: RunConfig, prior_feedback: str,
@@ -554,9 +566,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             if score is not None:
                 if row.get("accepted") and (best_score is None or score >= best_score):
                     best_score = score
-            for key, value in (row.get("counters") or {}).items():
-                if isinstance(value, (int, float)) and not isinstance(value, bool):
-                    totals[key] = totals.get(key, 0) + value
+            _sum_counters(totals, row.get('counters'))
         if eval_history:
             last = eval_history[-1]
             if last.get("failure_kind") == "viability":
@@ -746,9 +756,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                 handoffs.clear_controller_notice()
         checkpoint_fingerprint = cfg.adapter.disposition_fingerprint(harness)
         done = ep
-        for key, value in (res.counters or {}).items():
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                totals[key] = totals.get(key, 0) + value
+        _sum_counters(totals, res.counters)
 
         eval_history.append({"episode": ep, "accepted": accepted,
                              "results": [r.__dict__ for r in results],

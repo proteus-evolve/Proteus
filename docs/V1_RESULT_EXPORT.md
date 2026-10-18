@@ -5,9 +5,10 @@ proteus recipe export /path/to/run --out /path/to/new-export
 proteus recipe export /path/to/run --out /path/to/private-export --include-private
 ```
 
-The exporter reads a settled recipe run and writes `report.json` plus seven CSV
+The exporter reads a settled recipe run and writes `report.json` plus eight CSV
 files: `tasks.csv`, `cohorts.csv`, `candidates.csv`, `costs.csv`,
-`role-stage-costs.csv`, `stage-attempts.csv`, and `controller-intervals.csv`. No model, method plugin or grader
+`role-stage-costs.csv`, `stage-attempts.csv`, `controller-intervals.csv`, and
+`native-usage.csv`. No model, method plugin or grader
 is imported or executed. It works with the standard records produced by the five
 method families, including third-party value schemas and optional GEPA recipes.
 The destination must be new and outside the run; existing experiment files are
@@ -31,6 +32,12 @@ run. Unsettled external operations require reconciliation before export.
 - Stage attempts show the recorded statuses and actual repeated attempts of the
   same operation. Resuming a completed run does not count as a retry or another
   set of trials. Worker generations remain individually identifiable cost entries.
+- Native usage uses distinct adapter-boundary receipts, including incomplete or
+  failed attempts. `native_accounting.reported` is separate from the managed
+  ledger: an unknown component keeps its total `null`, while `known_subtotal`
+  explicitly shows only the measured portion. Its cumulative scope survives
+  native resume even though other native results cover the latest invocation.
+  See [native usage evidence](V1_NATIVE_INPUTS.md#reported-native-usage).
 
 The latest execution snapshot is used. A journal method restores its cumulative
 history; a non-journal method's report covers its latest invocation only. This

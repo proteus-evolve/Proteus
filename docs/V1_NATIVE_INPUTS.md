@@ -28,7 +28,8 @@ separate JSON files:
 
 - `ID.input.json`: version, adapter, episode/phase, scope, requested model where
   known, protocol version, preparation timestamp, exact input value and hashes.
-- `ID.outcome.json`: the input hash, completion timestamp and transport outcome.
+- `ID.outcome.json`: the input hash, completion timestamp, transport outcome and
+  versioned usage evidence for records written with format version 2.
 
 Files are atomically published and fsynced before dispatch. Inputs are never
 replaced by a retry. Ordinary exceptions write a `raised` outcome containing the
@@ -56,9 +57,44 @@ recipe execution file.
 
 Use `proteus.core.native_inputs.read_native_inputs(native_root)` for checked
 inspection. The helper and raw storage layout are implementation interfaces,
-not additions to `proteus.api.v1`. Generic result exports continue to declare
-unavailable native managed-cost coverage; the new input records do not invent a
-ledger or retrospectively establish exact native budgets.
+not additions to `proteus.api.v1`. Generic result exports keep native usage
+separate from managed ledger accounting and its budget enforcement.
+
+## Reported native usage
+
+New input/outcome pairs use format version 2. Version 1 pairs remain readable with
+unknown usage; they are not rewritten on resume. Each version 2 outcome binds a
+whitelisted usage projection to its input hash, including on ordinary failure.
+Missing outcomes retain unknown usage. Export verifies receipts against the
+latest cumulative snapshot and checks that earlier snapshots have not lost their
+recorded attempts. A completed resume adds neither calls nor zero-filled entries.
+
+| Boundary | Reported model/token usage | Monetary cost |
+| --- | --- | --- |
+| Built-in minimal mock policy | Zero; only the exact bundled local policy qualifies | Zero inference cost |
+| OpenAI-compatible chat | One received response; provider `prompt_tokens` / `completion_tokens` when valid | Unknown |
+| Custom minimal policy, Pi, DSH, Codex, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
+
+Chat token counts must be nonnegative integers; missing, negative, Boolean,
+fractional or string values become unknown. Cache and reasoning subcounts are
+already included in the provider's totals and are not added again. A response
+with invalid assistant content can still report valid usage; transport errors
+without such evidence remain unknown. Arbitrary provider metadata and cost
+extensions are excluded. Episode counter aggregation also preserves explicit
+unknowns across episodes and resume, but durable receipts additionally retain
+attempts that never reached an episode checkpoint.
+
+`proteus recipe export` exposes `native_accounting` and `native-usage.csv` with
+counts, source and completion status, without copying prompts or provider output.
+Unknown components keep `reported` totals `null`; `known_subtotal` is explicitly
+incomplete. An empty record list means unavailable coverage. Receipt source hashes
+under `.proteus-records/` appear only with `--include-private`.
+
+`wall_seconds` measures elapsed time around each instrumented boundary, including
+failed boundaries. It is not end-to-end runtime or provider inference time. These
+totals cover recorded boundaries only: native evaluators, custom adapters and
+internal harness work can remain outside their coverage. Generic finite native
+cost/model-call caps remain rejected; reporting creates no new enforcement claim.
 
 ## Validation and remaining acceptance
 
@@ -70,5 +106,5 @@ retry identity. Installed wheel and sdist checks execute the native recipe and
 resume without new evidence. These checks use no paid inference.
 
 Actual live backend release-smoke gates remain required. Internal provider-message
-coverage for opaque harnesses and native aggregate cost coverage remain separate
-work; this change closes the final input boundary owned by the bundled adapters.
+coverage for opaque harnesses, pinned CLI usage reconciliation and complete native
+aggregate cost coverage remain separate work.

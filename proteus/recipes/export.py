@@ -267,6 +267,30 @@ class SavedRun:
                 if events else None,
             'time_semantics': 'wall_seconds is summed operation time; ledger_span_seconds includes gaps/recovery downtime and is not an active-runtime measurement'}
 
+    def native_accounting(self):
+        from proteus.core.native_inputs import input_directory, read_native_inputs
+        from proteus.core.native_usage import summarize_native_inputs
+        native_root = self.root/'workspace'
+        records = read_native_inputs(native_root)
+        require(records == self.records.get('native_inputs', []), 'native input snapshot differs from receipts')
+        current = {row['input']['id']: row for row in records}
+        # Cumulative snapshots must not erase completed receipts or interrupted
+        # inputs from earlier invocations. A repeated snapshot is not a new call.
+        for path in sorted(self.root.glob('execution-*.json')):
+            prior = self.read(path.name)
+            require(prior['manifest_hash'] == self.manifest.manifest_hash, 'native history manifest differs')
+            for row in prior.get('native_inputs', []):
+                saved = current.get(row['input']['id'])
+                require(saved is not None and saved['input'] == row['input']
+                        and (row['outcome'] is None or saved['outcome'] == row['outcome']),
+                        'native input history is missing or changed')
+        directory = input_directory(native_root)
+        for row in records:
+            for suffix in ('input', 'outcome'):
+                if row[suffix] is not None:
+                    self.read((directory/(row['input']['id']+'.'+suffix+'.json')).relative_to(self.root).as_posix())
+        return summarize_native_inputs(records)
+
     def stages(self):
         requests, rows = {}, []
         for raw in self.records['requests']:
@@ -297,6 +321,7 @@ def report_run(root, *, include_private=False):
     with run_lock(root):
         run = SavedRun(root)
         accounting = run.accounting()
+        native_accounting = run.native_accounting()
         timing = report_timing(run)
         tasks, cohorts, unreported = run.evaluations(include_private)
         stages, attempts = run.stages()
@@ -314,11 +339,13 @@ def report_run(root, *, include_private=False):
             'verification': 'saved evidence identities and aggregation; evaluator semantics are not re-executed',
             'source_run': str(root),
             'candidates': candidates, 'tasks': tasks, 'cohorts': cohorts, 'accounting': accounting, 'timing': timing,
+            'native_accounting': native_accounting,
             'stages': stages, 'attempts': attempts, 'unreported_rollout_ids': unreported,
             'evidence': {path: digest for path, digest in run.evidence.items()
-                         if include_private or not (path.startswith('private/') or '/private/' in path)},
+                         if include_private or not (path.startswith(('private/', '.proteus-records/')) or '/private/' in path)},
             'notes': ['Only the latest execution snapshot is used; journal methods restore cumulative history, while other methods cover the latest invocation. Resume snapshots are not additional trials.',
                       'Unknown actual usage stays null even when the budget ledger charged a reservation.',
+                      'Native boundary usage is reported separately, without ledger enforcement or complete internal-call coverage.',
                       'Private grades require include_private; raw prompts, predictions and task references are not copied.']}
         return {**report, 'report_hash': content_hash(report)}
 
@@ -335,7 +362,8 @@ def export_run(root, destination, *, include_private=False):
         (temporary/'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False)+'\n')
         tables = {'tasks': report['tasks'], 'cohorts': report['cohorts'], 'candidates': report['candidates'],
                   'costs': report['accounting']['entries'], 'role-stage-costs': report['accounting']['by_role_stage'],
-                  'stage-attempts': report['stages'], 'controller-intervals': report['timing']['intervals']}
+                  'stage-attempts': report['stages'], 'controller-intervals': report['timing']['intervals'],
+                  'native-usage': report['native_accounting']['entries']}
         for name, rows in tables.items():
             with (temporary/(name+'.csv')).open('w', encoding='utf-8', newline='') as stream:
                 if not rows:

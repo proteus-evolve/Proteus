@@ -54,7 +54,7 @@ def test_export_cli_writes_reusable_tables_and_refuses_overwrite(tmp_path):
     assert next(row['score'] for row in public['tasks'] if row['visibility'] == 'hidden') is None
     assert 'null' in (tmp_path/'public/tasks.csv').read_text()
     assert {path.name for path in (tmp_path/'owner').iterdir()} == {
-        'report.json', 'tasks.csv', 'cohorts.csv', 'candidates.csv', 'costs.csv', 'role-stage-costs.csv', 'stage-attempts.csv', 'controller-intervals.csv'}
+        'report.json', 'tasks.csv', 'cohorts.csv', 'candidates.csv', 'costs.csv', 'role-stage-costs.csv', 'stage-attempts.csv', 'controller-intervals.csv', 'native-usage.csv'}
     assert subprocess.run([*command, '--out', str(tmp_path/'owner')], capture_output=True).returncode == 2
     with pytest.raises(ContractError, match='outside'):
         export_run(root, root/'export')

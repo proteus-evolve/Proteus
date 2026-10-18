@@ -29,6 +29,7 @@ from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.native_inputs import native_input
+from proteus.core.native_usage import chat_usage, sum_known, usage_evidence
 
 SYSTEM = """\
 You are an agent that can inspect and change its own harness — the set of files it wakes up
@@ -63,7 +64,15 @@ def _chat_body(model, messages):
     return {"model": model, "messages": messages, "temperature": 0.7, "max_tokens": 1200}
 
 
-def _chat(base_url: str, key: str, model: str, messages: list[dict]) -> str:
+class ChatResponseError(ValueError):
+    """Retain sanitized provider accounting even when its answer is malformed."""
+
+    def __init__(self, usage):
+        super().__init__('chat response has no textual assistant content')
+        self.usage = chat_usage(usage)
+
+
+def _chat(base_url: str, key: str, model: str, messages: list[dict]) -> tuple[str, dict]:
     req = urllib.request.Request(
         f"{base_url.rstrip('/')}/chat/completions",
         data=json.dumps(_chat_body(model, messages)).encode(),
@@ -72,8 +81,14 @@ def _chat(base_url: str, key: str, model: str, messages: list[dict]) -> str:
     )
     with urllib.request.urlopen(req, timeout=180) as resp:
         body = json.loads(resp.read().decode())
-    usage = body.get("usage") or {}
-    return body["choices"][0]["message"]["content"], usage
+    usage = body.get('usage') if isinstance(body, dict) else None
+    try:
+        reply = body['choices'][0]['message']['content']
+        if not isinstance(reply, str):
+            raise TypeError('non-text content')
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ChatResponseError(usage) from exc
+    return reply, usage
 
 
 def _parse_actions(reply: str) -> list[dict]:
@@ -122,7 +137,7 @@ class LLMHarness(MinimalHarness):
         trace_path.parent.mkdir(parents=True, exist_ok=True)
         turn = 0
         writes = {"notes": 0, "tools": 0}
-        tokens_in = tokens_out = 0
+        usages = []
         phase_counts = {phase: 0 for phase in spec.phases}
         error = ""
         capped = False
@@ -139,16 +154,22 @@ class LLMHarness(MinimalHarness):
                 prompt = phase_prompt(spec, phase, turn)
                 user = (f"Episode {spec.episode}, phase: {phase}.\n\n"
                         f"{prompt}\n\nCurrent harness state:\n{_render_state(harness)}")
+                evidence = usage_evidence()
                 try:
                     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
                     with native_input(spec, backend=self.name, phase=phase, scope='chat_request',
-                                      payload=_chat_body(model, messages), model=model):
-                        reply, usage = _chat(self.base_url, self.key, model, messages)
+                                      payload=_chat_body(model, messages), model=model) as receipt:
+                        try:
+                            reply, usage = _chat(self.base_url, self.key, model, messages)
+                        except ChatResponseError as exc:
+                            evidence = receipt['usage'] = exc.usage
+                            raise
+                        evidence = receipt['usage'] = chat_usage(usage)
                 except Exception as exc:  # noqa: BLE001 - recorded, episode marked failed
                     error = f"{type(exc).__name__}: {exc}"
                     break
-                tokens_in += int(usage.get("prompt_tokens") or 0)
-                tokens_out += int(usage.get("completion_tokens") or 0)
+                finally:
+                    usages.append(evidence['reported'])
                 turn += 1
                 phase_counts[phase] += 1
                 sink.write(json.dumps({"turn": turn, "phase": phase, "tool": None,
@@ -176,7 +197,9 @@ class LLMHarness(MinimalHarness):
                     sink.write(json.dumps({"turn": turn, "phase": phase, "tool": tool,
                                            "surface": surface, "text": name}) + "\n")
         counters = {"writes": writes, "turn_capped": capped,
-                    "tokens_in": tokens_in, "tokens_out": tokens_out}
+                    "tokens_in": sum_known(row['input_tokens'] for row in usages),
+                    "tokens_out": sum_known(row['output_tokens'] for row in usages),
+                    "model_calls": sum_known(row['model_calls'] for row in usages)}
         counters.update({f"phase_{phase}_turns": count
                          for phase, count in phase_counts.items()})
         return EpisodeResult(episode=spec.episode, ok=not error, turns=turn, error=error,
