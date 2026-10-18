@@ -90,7 +90,8 @@ def builtin_registry() -> Registry:
     add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
         capabilities=("evaluator.deterministic",))
     add("proteus.harbor", "environment", HarborEnvironmentOptions, HarborEnvironment,
-        validate=validate_harbor_environment, capabilities=("state.independent", "candidate.exact_tree"))
+        validate=validate_harbor_environment,
+        capabilities=("state.independent", "candidate.exact_tree", "environment.source_build"))
     add("proteus.harbor_subject", "subject", HarborSubjectOptions, HarborSubject,
         validate=validate_harbor_subject, capabilities=(BACKEND_CAPABILITY,))
     add("proteus.harbor_reward", "evaluator", HarborRewardOptions, HarborReward,

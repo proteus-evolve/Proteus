@@ -15,6 +15,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 第三批拆成 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 为 pinned TaskSuite/TaskBatch、SubjectRunner、逐任务评估、整批/在线 session 与反馈/显式 JSON 状态协议。两部分共同完成原 P03 的公共服务；本地 Python/受管理 actor 示例不替代 Harbor 或真实方法验收。
 - P04a：SQLite 持久事件账本接入受管理 actor 调用和整批评估预留；请求、attempt、实际用量、未知用量和超额记录随事务保存，重新打开服务不补发预算、不重放既有调用。跨进程预留原语已验证；执行器仍串行。其余 P04、P05–P10、真实方法实验以及 1.0 发布验收继续推进。
 - P04b：独立 Harbor 运行时、Docker 候选精确加载、独立 verifier 私有结果通道、清理记录及 subject/grader/backend verifier 账本接入；加入真实 Docker A/B/A、超时、伪造 reward 与隔离验收，CI 上传逐 trial 证据。说明见 [V1_HARBOR.md](../V1_HARBOR.md)。sequence/worker、source build 与通用恢复仍在 P04/I11 范围。
+- P04c：候选源码构建契约、构建账本与不可变 receipt、run 内镜像缓存，以及构建镜像和独立 verifier 原始镜像的分离；真实 Docker 门禁覆盖源码修改/删除/重命名、A/B/A 复用与构建失败。说明见 [V1_SOURCE_BUILDS.md](../V1_SOURCE_BUILDS.md)。持久 sequence/worker、通用恢复和五种方法的真实实验继续推进。
 
 ## 1 目标与范围
 
@@ -35,6 +36,14 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 以下项目放到后续版本：模型训练、多云调度平台、CORAL 多 island 与迁移、任意工作流语言、全量 benchmark 迁移、独立的新仪表盘。现有报告能力随结果 schema 扩展即可。DGM 等其他方法在首批 recipe 完成后接入。
 
 方法覆盖、机制复现和实验结果分别记录。某个方法能在 Proteus 中运行，不代表复现了其全部论文结果；收录多种自进化方法，也不直接构成递归增益或持续复利的实验证据。
+
+### 1.3 与 PenguinHarness 的重合及验收重点
+
+截至 2026-10-17，PenguinHarness 0.2.15 已发布 Default、OPRO、APE、ACE、AWM 方法插件、Harbor/Docker benchmark 和 Agent State 快照；0.2.16 加入 Agent Workbench。因此“支持多个 RSI 方法”“可扩展插件”“Harbor 集成”“候选版本管理”均不是 Proteus 的独有能力。依据为其[发布记录](https://github.com/Prism-Shadow/penguin-harness/releases/tag/v0.2.15)及固定提交 `ace1bca260e7879fedb34316786b377c00b9f380` 的[方法插件设计](https://github.com/Prism-Shadow/penguin-harness/blob/ace1bca260e7879fedb34316786b377c00b9f380/changelog/0.2.15/2026-10-10-rsi-toolkits.md)。
+
+所核对的方法插件通过详细 Skill 协议驱动 agent，并复用真实的评测、快照和运行时；不能将其概括为“只有 prompt”。例如 ACE 明确给出参考版本、角色、状态更新、预算与适配偏差，且注明 Harbor 路径跳过 regeneration。它已经是相关系统和方法复现对比对象。
+
+Proteus 1.0 的重点是可执行、可测试的研究模块与 recipe：替换 ParentSelector、加入 self-evaluator、切换 SubjectRunner 或反馈时机后，仍可复用同一套任务、预算和证据协议进行消融。通用接口与账本已有基础，五种经典方法的机制和实验验收仍需完成。发布时应展示配置/模块替换、原方法符合性检查以及同预算跨方法结果，不能仅凭架构图声称比 Penguin 更通用、更可复现或方法效果更好。
 
 ## 2 代码基线与迁移原则
 
@@ -153,7 +162,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 - [x] 实现 fork、apply_delta、validate、materialize，以及不可变 manifest 和内容 hash（P03a；validate 检查字节与 codec 完整性，runtime build/boot 属于下一项）。
 - [x] 产物更新由确定性算子执行；LLM 负责提出 delta 或 patch（P03a delta 以父 hash 为前置条件，服务保留提案与失败操作记录）。
 - [x] 保存被拒绝与失败候选；通过元数据区分原生 episode checkpoint 与通用 candidate 谱系（P03a 候选和决定分开持久化，checkpoint import 明确标记来源）。
-- [ ] 复用 source-mode 校验与精确树加载，检查删除、重命名及构建缓存失效（P03a 已验证全新目录物化、删除/重命名及 Python 缓存隔离；真实 source-mode/Harbor 加载与 build/boot 由 P04 接入）。
+- [x] 复用 source-mode 校验与精确树加载，检查删除、重命名及构建缓存失效（P03a 物化/delta；P04b Docker 精确加载；P04c 构建 source witness、实际 image ID 与 A/B/A 缓存门禁）。
 
 **验收：** 指定版本可重新加载；更新不修改 parent；失败候选可检查和按方法规则恢复；实际运行的代码与记录的候选一致。
 
@@ -172,13 +181,13 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I06 环境与 Harbor
 
-- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b 已接入固定镜像、CPU/内存、任务网络策略与独立 trial；source build、其他资源/访问范围仍需补齐）。
+- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b 固定镜像、CPU/内存、任务网络与独立 trial；P04c pinned builder、source build 与独立构建网络；其他资源/访问范围仍需补齐）。
 - [x] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本（P04b 独立运行时、版本/源码字节/依赖环境 fingerprint）。
 - [x] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果（P04b 容器内检查完整文件树）。
 - [x] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用（P04b 私有 BackendEvaluation；未报告的用量保持 unknown）。
 - [ ] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力（P04b 完成独立 trial，其他策略显式拒绝）。
 - [x] 需要独立 grader 的 recipe 显式使用 separate verifier，并声明传递的产物；不假设默认 verifier 已独立（P04b 进一步移除 agent 的 verifier 日志挂载，检查独立容器及实际镜像）。
-- [ ] 镜像记录实际 digest，构建状态与方法产物分开；镜像和缓存不携带其他候选的学习状态（P04b 完成预构建镜像与全新候选目录；source build/cache 验收待完成）。
+- [x] 镜像记录实际 digest，构建状态与方法产物分开；镜像和缓存不携带其他候选的学习状态（P04b 预构建镜像；P04c 候选源码绑定的 build receipt/image ID、run 内缓存及全新 trial，verifier 保持独立原始镜像）。
 - [x] Harbor 作为可选依赖或独立受控运行时接入，处理其 Python 要求与 Proteus 核心支持版本的差异（P04b 核心仍支持 Python 3.10+，Harbor 使用独立 3.12+ 环境）。
 
 **验收：** 在 Docker 中运行两个不同候选并确认实际执行版本；结果与状态隔离、超时、清理和资源用量有记录；不把缺少 Docker 的运行静默替换成宿主机执行。
@@ -206,7 +215,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 ### I09 预算事件与恢复
 
 - [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a 已持久化 actor/cohort 请求、转换事件和结算；真实 worker 与其他外部操作随后接入）。
-- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 覆盖公共 actor 服务，P04b 接入 unmanaged subject、grader 和 integrated verifier，避免重复计费并保留被拒结果的实际用量；profiling 和 native 完整覆盖仍待实现）。
+- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 公共 actor，P04b subject/grader/integrated verifier，P04c source build 的独立记录与去重汇总；profiling 和 native 完整覆盖仍待实现）。
 - [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 已实现并测试 SQLite 跨进程原子预留/结算、已知上界保留和实际超额记账；公共并发调度与 backend cost/time 限制仍待接入）。
 - [ ] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作。
 - [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略。

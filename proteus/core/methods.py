@@ -146,6 +146,7 @@ class RunServices:
         self._operations, self._runtime = set(), {}
         self._dispatch_thread = threading.get_ident()
         self._ledger = None
+        self._builds = None
         self._actor_ordinals = {}
         for actor in recipe.actors.values():
             if actor.prompt_hash is not None:
@@ -161,6 +162,13 @@ class RunServices:
             self._ledger = Ledger(self.root / "private" / "ledger.sqlite3", run_id=self.run_id,
                                   config_hash=self.recipe.config_hash, lock_hash=self.lock_hash)
         return self._ledger
+
+    @property
+    def builds(self):
+        if self._builds is None:
+            from proteus.execution.builds import BuildService
+            self._builds = BuildService(self)
+        return self._builds
 
     def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False, trial_id=None):
         from proteus.core.ledger import Amounts

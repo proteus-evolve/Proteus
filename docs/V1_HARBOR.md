@@ -3,8 +3,11 @@
 P04b adds `proteus.harbor`, `proteus.harbor_subject` and `proteus.harbor_reward`.
 They execute pinned file-tree candidates in independent Docker trials with a
 separate verifier. This is the first Harbor backend in the 1.0 plan, not completion
-of all P04 work: sequence/worker environments, source builds, generic recovery and
+of all P04 work: sequence/worker environments, generic recovery and
 the five external method recipes remain outstanding.
+
+P04c adds candidate-bound source builds and verified, run-local image reuse. See
+[V1_SOURCE_BUILDS.md](V1_SOURCE_BUILDS.md) for the build contract and its acceptance gate.
 
 ## Install the isolated runtime
 
@@ -59,7 +62,7 @@ uploads its raw trial records. A skipped local test does not count as this gate.
   candidate. This evidence stays in the private backend record.
 - Image digests, network policy/allowlist and CPU/memory declarations must agree
   with `task.toml`. Phase overrides cannot silently change networking. Unsupported
-  custom Compose mounts/services, source builds, injected skills/MCP tools, legacy
+  custom Compose mounts/services, arbitrary task Dockerfiles, injected skills/MCP tools, legacy
   configuration fields and non-independent state policies fail explicitly.
 - Optional `credential_env` lists names of host environment variables passed only
   to candidate execution. Requests and manifests contain their names, not values.
