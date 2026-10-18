@@ -44,6 +44,32 @@ jobs:
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py
 
+  aime-reference:
+    name: Pinned AIME data and DSPy contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install isolated domain reference (DSPy owns a different GEPA dependency)
+        run: |
+          pip install -e . 'pyarrow==21.0.0'
+          pip install 'https://files.pythonhosted.org/packages/ad/2f/656f16206c9ba4e359b639e2605cf196a4e5c678c6d9aed0fae537701ec2/dspy-3.4.1-py3-none-any.whl#sha256=afda9e7f8b3d46be0829af19ac1153a6feaa6db5923f2b1011eef547fb15ce2d'
+      - name: Check actual reference formatting and metric without inference
+        run: |
+          git init /tmp/aime-gepa-reference
+          git -C /tmp/aime-gepa-reference remote add origin https://github.com/gepa-ai/gepa.git
+          git -C /tmp/aime-gepa-reference fetch --depth=1 origin 8b0ce6cd99a234f6b74daf37558a2ac0ce18f975
+          git -C /tmp/aime-gepa-reference checkout --detach FETCH_HEAD
+          python tests/check_aime_reference.py --gepa-source /tmp/aime-gepa-reference
+      - name: Verify all pinned public dataset bytes and the full 45/45/30 split
+        run: python -m proteus.benchmarks.aime_data --cache /tmp/aime-source-cache --out /tmp/aime-pinned-data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aime-data-provenance
+          path: /tmp/aime-pinned-data/provenance.json
+
   distribution:
     name: Installed wheel and sdist
     runs-on: ubuntu-latest
