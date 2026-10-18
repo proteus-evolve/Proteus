@@ -38,7 +38,7 @@ def source_url(source):
 
 
 def fetch(source, cache):
-    path = Path(cache) / source["file"]
+    path = Path(cache).resolve() / source["file"]
     if path.exists():
         data = path.read_bytes()
     else:

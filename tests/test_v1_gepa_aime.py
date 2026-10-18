@@ -1,6 +1,8 @@
 """Domain semantics, real HTTP transport, full-cohort reporting and recovery."""
 
 import importlib.util
+import hashlib
+import io
 import json
 import os
 import shutil
@@ -229,6 +231,19 @@ def test_data_source_hash_and_split_rules(tmp_path):
     with pytest.raises(ContractError, match="checksum"):
         aime_data.fetch(aime_data.SOURCES[0], tmp_path)
     assert path.read_bytes() == b"corrupt"
+
+
+def test_aime_cache_resolves_symlink_ancestors_before_durable_publication(tmp_path, monkeypatch):
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(actual, target_is_directory=True)
+    raw = b"fixture source bytes"
+    monkeypatch.setattr(aime_data.urllib.request, "urlopen", lambda *args, **kwargs: io.BytesIO(raw))
+    source = {"file": "fixture.parquet", "repository": "fixture/source", "revision": "0" * 40,
+              "sha256": hashlib.sha256(raw).hexdigest()}
+    path = aime_data.fetch(source, linked / "new-cache")
+    assert path == actual / "new-cache/fixture.parquet" and path.read_bytes() == raw
 
 
 @requires_gepa
