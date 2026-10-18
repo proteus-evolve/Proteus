@@ -329,7 +329,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 **流程：** proposer 按需检索历史代码、分数和轨迹 → 提出一个或多个 harness → 接口验证 → 执行评估 → 保存历史 → 继续搜索。
 
 - [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a 已完成公共 evidence view 与跨候选离线示例；Meta-Harness proposer/隔离代码工作区仍待接入，见 [V1_EVIDENCE.md](../V1_EVIDENCE.md)）。
-- [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选。
+- [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b 已接入受管理的候选代码预测/记忆更新协议、独立状态和模型调用账本，并用固定官方 NoMemory/FewShotAll 类核对接口；完整领域 recipe、多候选 proposer 与隔离执行后端仍待完成，见 [V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md)）。
 - [ ] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本。
 - [ ] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier。
 - [ ] 锁定并运行一个原方法领域的真实任务设置。

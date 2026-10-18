@@ -31,6 +31,7 @@ class ActorRequest(Contract):
     system: str = ""
     session_id: str | None = field(default=None, metadata=TEXT)
     handoff: str | None = None
+    timeout_seconds: float | None = field(default=None, metadata={"exclusiveMinimum": 0})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -249,6 +250,10 @@ class RunServices:
         from proteus.evidence.service import EvidenceService
         return EvidenceService(self).view(stage_id, candidate_ids=candidate_ids)
 
+    def invoke_candidate(self, candidate: Candidate, call, *, operation_id: str | None = None):
+        from proteus.execution.code_service import CodeService
+        return CodeService(self).call(candidate, call, operation_id=operation_id)
+
     def evaluation_session(self, operation_id):
         session = next((item for item in self._evaluation_service.sessions if item.operation_id == operation_id), None)
         require(session is not None, "unknown evaluation session")
@@ -279,11 +284,15 @@ class RunServices:
                 builds.append(receipt.usage)
         return builds
 
-    def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False, trial_id=None):
+    def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False, trial_id=None,
+               timeout_seconds=None):
         from proteus.core.ledger import Amounts
         require(threading.get_ident() == self._dispatch_thread,
                 "P02 services are serial; cross-thread actor dispatch requires the parallel scheduler")
         spec = self.recipe.actors[stage.role]
+        if timeout_seconds is not None:
+            require("request.timeout" in self.registry.get(spec.runtime.plugin).capabilities,
+                    "actor cannot honor a per-request transport timeout")
         if spec.session.value == "fresh":
             require(session_id is None and handoff is None, "fresh actors cannot inherit session state")
         elif spec.session.value == "handoff":
@@ -291,7 +300,7 @@ class RunServices:
         else:
             require(handoff is None, "native sessions cannot silently become handoffs")
         request = ActorRequest(prompt=prompt, system=self.prompts.get(spec.prompt_hash, ""),
-                               session_id=session_id, handoff=handoff)
+                               session_id=session_id, handoff=handoff, timeout_seconds=timeout_seconds)
         if isolate:
             runtime = self.registry.create(spec.runtime, "actor")
         elif stage.role not in self._runtime:

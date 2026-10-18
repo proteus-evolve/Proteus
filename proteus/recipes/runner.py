@@ -112,7 +112,8 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                 # Native opaque episodes still do not claim coverage by this service ledger.
                 "ledger": {"path": "private/ledger.sqlite3",
                            "coverage": ["managed_actor_calls", "evaluation_cohort_reservations",
-                                        "subject_calls", "grader_calls", "backend_verifiers", "source_builds"]}
+                                        "subject_calls", "grader_calls", "backend_verifiers", "source_builds",
+                                        "candidate_code_calls"]}
                           if services._ledger is not None else None,
                 "values": services.values.export(), "values_hash": content_hash(services.values.export()),
             })

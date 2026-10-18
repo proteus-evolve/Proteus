@@ -421,19 +421,21 @@ class EvaluationSession:
                     actor = None
                     if recipe.subject.actor is not None:
                         stage = StageSpec(id="subject", operator=recipe.subject.runner, role=recipe.subject.actor)
-                        def actor(prompt):
+                        def actor(prompt, *, timeout_seconds=None):
                             return services._actor(stage, self.request, prompt, None, None, isolate=True,
-                                trial_id=f"{self.operation_id}:rollout-{index + 1}")
+                                trial_id=f"{self.operation_id}:rollout-{index + 1}", timeout_seconds=timeout_seconds)
                     context = SubjectContext(candidate=candidate, task=task, state=state, history=history,
                         seed=seed, execution=recipe.execution, subject=recipe.subject, lease=lease, _actor=actor,
-                        inputs=invocation_inputs)
+                        inputs=invocation_inputs, actor_runtime=runtime_ref if managed else None)
                     # New runner instance per task prevents undeclared plugin-instance memory.
                     subject_dispatched = True
                     result = services.registry.create(recipe.subject.runner, "subject").run(context)
                 self._validate_subject_result(result, candidate, task, runtime)
                 if recipe.subject.actor is not None:
                     usage = services._usage(first_actor)
-                    require(result.usage.model_calls == usage.model_calls, "subject actor usage mismatch")
+                    require(result.usage.model_calls == usage.model_calls
+                            or (result.status not in VALID and result.usage.model_calls is None),
+                            "subject actor usage mismatch")
                     result = replace(result, usage=usage)
         except RecoveryRequired:
             raise
