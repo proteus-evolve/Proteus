@@ -37,7 +37,7 @@ from proteus.methods.ace.method import (
     LearningOptions,
     validate_learning_protocol,
 )
-from proteus.operators.combee.ace import AceRecord, aggregate_ace
+from proteus.operators.combee.ace import AceRecord, AggregationMode, aggregate_ace
 from proteus.operators.combee.grouping import Grouping
 from proteus.operators.combee.batching import (
     BatchControllerState,
@@ -258,6 +258,7 @@ class CombeeOptions(LearningOptions):
     max_workers: int = field(default=4, metadata={"minimum": 1})
     grouping: Grouping = field(default_factory=lambda: Grouping(profile="ace"))
     dynamic_batch: DynamicBatchOptions | None = None
+    aggregation_mode: AggregationMode = "combee"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -296,6 +297,9 @@ class CombeeSummary(AceSummary):
 def validate_combee(recipe, options):
     validate_learning_protocol(recipe, options)
     require(options.grouping.profile == "ace", "Combee ACE requires ACE grouping")
+    require(options.aggregation_mode != "single_pass"
+            or (options.grouping.duplication_factor == 1 and options.grouping.num_groups == 1),
+            "single-pass aggregation requires one group with no duplication")
     require(
         {item.id for item in recipe.stages} == {options.reflection_stage, options.aggregation_stage}
         and options.reflection_stage != options.aggregation_stage,
@@ -443,6 +447,7 @@ class CombeeAceMethod:
             grouping=options.grouping,
             token_budget=options.token_budget,
             use_ground_truth=not options.no_ground_truth,
+            mode=options.aggregation_mode,
         )
         delta = services.values.get(aggregation).delta
         proposed = services.fork_candidate(counter, delta=delta) if delta.records else counter
