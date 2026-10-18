@@ -59,5 +59,7 @@ missing Docker is not a request to execute an untrusted candidate on the host.
 The existing runtime release-smoke gates remain required. Public API examples and
 installed-package checks supplement them; they do not replace five-family real
 model results, real backend checks, or the final tag/commit's release acceptance.
-Native adapter-final prompt coverage and remaining release integration are still
-tracked in the implementation plan, rather than waived by this document.
+The [native adapter input records](V1_NATIVE_INPUTS.md) cover the owned submission
+boundary; opaque internal provider messages and aggregate native costs can remain
+unavailable. [Release gates](RELEASING.md) bind the exact release tag/commit. Their
+implementation does not imply that the actual release has passed.

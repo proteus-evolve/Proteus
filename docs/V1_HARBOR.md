@@ -2,9 +2,11 @@
 
 P04b adds `proteus.harbor`, `proteus.harbor_subject` and `proteus.harbor_reward`.
 They execute pinned file-tree candidates in independent Docker trials with a
-separate verifier. This is the first Harbor backend in the 1.0 plan, not completion
-of all P04 work: sequence/worker environments, reconciliation without a durable
-backend receipt, and the five external method recipes remain outstanding.
+separate verifier. This page describes the independent-trial backend. The development line also
+provides [explicit sequence memory](V1_HARBOR_CODE.md) and
+[persistent Harbor workers](V1_HARBOR_WORKERS.md). See the
+[current architecture and method matrix](V1_OVERVIEW.md) for their composition;
+unknown external work without a durable receipt is not automatically replayed.
 
 P04c adds candidate-bound source builds and verified, run-local image reuse. See
 [V1_SOURCE_BUILDS.md](V1_SOURCE_BUILDS.md) for the build contract and its acceptance gate.

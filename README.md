@@ -2,10 +2,10 @@
   <img src="docs/assets/proteus-logo.png" alt="Proteus logo" width="340">
 </p>
 
-<h3 align="center">Self-evolution for any agent harness.</h3>
+<h3 align="center">A modular framework for agent self-improvement.</h3>
 
 <p align="center">
-  <b>Plug in. Evolve. Measure.</b>
+  <b>Reusable methods. Explicit experiments. Inspectable results.</b>
 </p>
 
 <p align="center">
@@ -25,9 +25,12 @@
 https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
 
 <p align="center">
-  <a href="#-60-second-demo-no-api-key-no-docker">Quick Start</a> •
+  <a href="#recipe-quick-start">Recipe Quick Start</a> •
+  <a href="docs/V1_OVERVIEW.md">1.0 Architecture</a> •
+  <a href="#method-families">Methods</a> •
+  <a href="#-60-second-demo-no-api-key-no-docker">Native Demo</a> •
   <a href="#-harnesses-in-the-box">Harnesses</a> •
-  <a href="#%EF%B8%8F-how-it-works">How It Works</a> •
+  <a href="docs/V1_OVERVIEW.md#architecture">How It Works</a> •
   <a href="docs/EPISODE.md">The Episode Loop</a> •
   <a href="docs/ADAPTERS.md">Onboard Your Harness</a> •
   <a href="docs/RECIPES.md">Recipes</a> •
@@ -42,38 +45,88 @@ https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
 
 ---
 
-Plug in *any* agent harness × *any* model, let it rewrite its own harness over many
-context-fresh episodes, and measure **how the harness changes** — under a goal, many goals,
-or no goal at all.
+Proteus is developing a general framework for agent self-improvement research:
+reproducible method recipes, reusable components, and shared execution, evaluation,
+recovery and reporting infrastructure. The goal is an **ESPnet-style toolkit for
+RSI research** where methods can be implemented, compared and extended in one place.
 
-> Named for the sea-god who changes shape at will: Proteus watches a harness reshape
-> itself, and gives you the ruler to measure the change.
+**1.0 is in development.** This source tree includes GEPA, ACE, Meta-Harness,
+Combee and CORAL integrations with explicit profiles and deviations. Their
+original-domain catalog entries still report `model_results_pending`. Runnable
+mechanisms do not establish reproduced paper scores or recursive improvement.
+The published `0.4.0` package and the native workflow remain available; the new
+recipe commands below require the corresponding development checkout.
 
-## 🔭 Why Proteus is different
+## Method families
 
-Agent self-improvement is moving from the weights to the **harness** — the prompts, memory,
-skills, tools, and control loop the model runs on. Recent systems evolve a harness to raise
-a benchmark score. Proteus asks a different, complementary question: **what does a
-self-evolving harness actually *do*, and does an initial condition leave a permanent mark?**
+| Family | Included profile | Study entry |
+| --- | --- | --- |
+| GEPA | Pinned single-mutation search, text components, instance frontier; no merge/cache | AIME baseline and optimized study |
+| ACE | Playbook, three roles, offline/online update loops | Formula baseline and ACE |
+| Meta-Harness | Historical code/evidence retrieval, multiple proposals, memory learning and final selection | Three pinned MCE datasets |
+| Combee | Reusable parallel aggregation in ACE and GEPA; fixed/dynamic batches | Formula sequential/naive-parallel/Combee comparison |
+| CORAL | One shared space, persistent workers, formal submissions and event interventions | Original 26-circle packing; one/two workers |
+| Native | Existing harness evolution, goals/no-goal, feedback and surface measurements | Existing native CLI and compatibility recipe |
 
-Three things set it apart from every existing harness-evolution system:
+See the [support matrix and architecture](docs/V1_OVERVIEW.md) for exact boundaries,
+reference links, shared modules and outstanding real-model acceptance.
 
-1. **Harness-agnostic.** Others evolve harnesses built from their *own* primitives. Proteus
-   evolves *yours*: implement one small `HarnessAdapter` and your agent — the bundled
-   offline `minimal` harness (the CLI default), DeepSeek Harness, Pi, Aki, or your own —
-   plugs into the same framework, sandbox, and measurement.
-2. **Goal *and* no-goal, with visible or hidden evaluators.** Others hard-code a single
-   regime: one benchmark verifier, agent blind to the score, goal mandatory. Proteus spans
-   the space — `no-goal | one goal | many goals`, and evaluators the agent either **sees**
-   (in context-fresh phases) or **never sees**. No-goal, unpressured evolution is a
-   first-class mode.
-3. **A measurement instrument, not just a score.** Others report task pass-rates. Proteus
-   ships the ruler for the harness itself: **structural distance** between harness states
-   (per surface, path length), a **crystallization / swap** test (remove the disposition,
-   read the harness back), and **behavioural distance** with a permutation test (the
-   action-preference statistic). Every condition is read with the same ruler.
+Methods own their control flow. Typed stages and role-specific actors, immutable
+candidates, task/subject/evaluator interfaces, search policies, parallel workflows
+and persistent workers can be reused across them. Supported choices are configured
+in a recipe; new mechanisms are added through plugins. Adding a self-evaluator is
+an explicit method/stage composition, not an automatic change to every algorithm.
+
+## Recipe quick start
+
+Use a checkout containing the 1.0 development work. Keep the source and installed
+package aligned, and put generated runs outside the checkout:
+
+```bash
+git clone --branch dev/1.0.0 https://github.com/proteus-evolve/Proteus.git
+cd Proteus
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+proteus recipe catalog
+```
+
+The following example needs no model key, Docker or optional optimizer. It prepares
+exact candidates, evaluates them and retains private final scores separately:
+
+```bash
+PROTEUS_EXAMPLE="$(mktemp -d)/comparison"
+proteus recipe example candidate-comparison --out "$PROTEUS_EXAMPLE"
+proteus recipe check "$PROTEUS_EXAMPLE/recipe.json"
+proteus recipe lock "$PROTEUS_EXAMPLE/recipe.json" \
+    --source "proteus=$PWD" --out "$PROTEUS_EXAMPLE/lock.json"
+proteus recipe run "$PROTEUS_EXAMPLE/recipe.json" \
+    --lock "$PROTEUS_EXAMPLE/lock.json" \
+    --artifact-store "$PROTEUS_EXAMPLE/artifact-store" --out "$PROTEUS_EXAMPLE/run"
+proteus recipe resume "$PROTEUS_EXAMPLE/recipe.json" \
+    --lock "$PROTEUS_EXAMPLE/lock.json" --out "$PROTEUS_EXAMPLE/run"
+proteus recipe export "$PROTEUS_EXAMPLE/run" --out "$PROTEUS_EXAMPLE/export"
+```
+
+`export/report.json` and seven CSV files contain task/cohort records, candidate
+lineage, role/stage costs, attempts and controller intervals. Hidden final scores
+require a separate owner-side export with `--include-private`. A completed resume
+does not repeat formal trials; interrupted external work uses its declared recovery
+protocol. This deterministic example checks infrastructure, not model quality.
+
+To extend a method, start with [editable plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md),
+the [versioned API](docs/V1_PUBLIC_API.md), and the [search-policy tutorial](docs/V1_RECIPE_CATALOG.md).
+For experiments, use the catalog's original-domain instructions and
+[StudySpec comparisons](docs/V1_STUDY_COMPARISON.md). Read the
+[compatibility rules](docs/V1_COMPATIBILITY.md) before resuming an older run.
+
+The native workflow below continues to provide source-evolving harness adapters,
+configurable episodes, goals and surface-specific measurements.
 
 ## 🚀 60-second demo (no API key, no Docker)
+
+For the published native release, use a separate environment from the development
+checkout above:
 
 ```bash
 pip install proteus-evolve==0.4.0  # no model SDK; Python 3.10 adds only a TOML compatibility package
@@ -130,7 +183,7 @@ measured, snapshotted `loop` surface alongside instructions, notes, tools, and s
 adapters still leave the upstream repositories untouched: they arrange the run copy,
 launch one prepared container per phase, and parse the harness's own session logs.
 
-## 🏗️ How it works
+## 🏗️ How the native episode workflow works
 
 ```mermaid
 flowchart LR
@@ -295,27 +348,28 @@ roots, so the evolving agent can never read its own condition.
 
 ## 📊 Status
 
-`v0.4.0` (research preview). Working today: the offline `minimal` harness; the live `llm`
-harness; pinned, source-evolving DeepSeek Harness, Pi, and Codex CLI adapters with frozen per-episode
-activation, automatic rollback, exact-tree boundary gates, rebuild caching, turn budgets,
-phase-aware act-priority budget plans and agent-authored checkpoint tracking, and task
-mounts; the Aki research adapter; local, Polyglot, and SWE-bench task integrations;
-resume-safe sweeps, configurable phases, scheduled evaluators, and a local Visualize workspace;
-the full measurement,
-audit, reliability, report, and repository-export paths; and adapter/environment tooling.
-CI covers Python 3.10–3.14. The separate release-smoke workflow runs two episodes across
-the public release set (`minimal`, `llm`, `dsh`, `pi`, `codex`), exercises the benchmark path, and
-requires all three container harnesses to edit their own source and boot the edit; releases use
-pinned upstream versions, while the weekly upstream canary is advisory. As a
-cross-implementation check, Proteus's
-behavioural ruler applied to the research runs independently reproduces their headline
-dynamics: arms separate at episode 1 (R = 1.63) and converge by episode 30 (R = 0.93).
+The released native workflow remains `v0.4.0` (research preview); see its
+[release notes](docs/releases/v0.4.0.md). The 1.0 development line adds shared method
+recipes and researcher interfaces. [Unreleased 1.0 notes](docs/releases/v1.0.0.md)
+describe the current implementation and remaining acceptance.
+
+CI covers Python 3.10–3.14, installed wheel/sdist examples and pinned reference
+contracts. Harbor gates execute real Docker trials; the separate live release-smoke
+workflow covers minimal, LLM, Pi, DSH and Codex. These checks supplement the five
+families' required real-model studies. They do not replace those results.
+
+Work is integrated through feature PRs into `dev/1.0.0`. Final acceptance and main
+review precede a version change, release tag and publication. The full scope remains
+in the [1.0 implementation plan](docs/plans/proteus-1.0.0-implementation-plan.md).
 
 ## 🤝 Contributing
 
-The two highest-value contributions are **a new harness adapter** (evolve another agent
-framework) and **a new benchmark** (measure under more goals). Both are single-file,
-contract-checked, CI-gated additions:
+For the 1.0 framework, add a method, stage, evaluator, subject or search policy
+through the [plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md), preserving managed
+execution and evidence. Use source/version locks and include mechanism, recovery
+and installed-package checks.
+
+Native **harness adapters** and **benchmarks** continue to use these scaffolds:
 
 ```bash
 python -m proteus.scaffold adapter MyHarness    # skeleton -> proteus/adapters/myharness.py

@@ -85,6 +85,7 @@ framework validates eligible IDs, capabilities and recorded decisions. See
 [V1_SEARCH.md](V1_SEARCH.md) for parent sampling and archive retention interfaces,
 and [V1_PLUGIN_SCAFFOLDS.md](V1_PLUGIN_SCAFFOLDS.md) for typed self-evaluator projects.
 
-Catalog discovery, offline examples and this tutorial supplement the existing
-recipe check/lock/run/resume commands. Unified result export and complete real-model
-and release acceptance remain separate requirements.
+Catalog discovery and this tutorial accompany recipe check/lock/run/resume,
+[saved-run export](V1_RESULT_EXPORT.md), and [study comparison](V1_STUDY_COMPARISON.md).
+Complete real-model and release acceptance remain outstanding; the
+[architecture guide](V1_OVERVIEW.md) summarizes current support boundaries.

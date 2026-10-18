@@ -57,9 +57,10 @@ the candidate, trials or evaluation charges. Wheel and sdist gates run all five
 projects outside the checkout.
 
 The examples execute trusted local code. New backend, concurrency or session
-capabilities require corresponding tests. Recipe catalog discovery, a search-policy
-extension tutorial, unified result export and complete 1.0 release acceptance
-remain separate work; this increment does not complete I13–I15.
+capabilities require corresponding tests. [Recipe discovery and search-policy tutorials](V1_RECIPE_CATALOG.md),
+[unified exports](V1_RESULT_EXPORT.md) and [study comparisons](V1_STUDY_COMPARISON.md)
+provide the surrounding workflow. Complete real-model and 1.0 release acceptance
+remain required; template checks do not establish those results.
 
 The external ParentSelector experiment and versioned import surface are described
 in [V1_PUBLIC_API.md](V1_PUBLIC_API.md). Its selection/child/test checkpoint checks

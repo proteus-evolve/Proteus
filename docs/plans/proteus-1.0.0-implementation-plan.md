@@ -4,9 +4,19 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 首批范围是 GEPA、ACE、Meta-Harness、Combee、CORAL 五个方法家族。现有 Proteus 自进化协议作为 native recipe 保留。这个定位对应“RSI 方向的 ESPnet”：方法实现、任务、运行时和实验配置分别维护，通过 recipe 组合成完整实验。
 
-本文中的新模块、接口、目录和命令均为 1.0.0 的实施目标。未勾选的任务尚未完成。实现状态以代码、契约测试和真实实验记录为准。
+本文保留完整 1.0.0 范围。勾选项表示对应工程交付已有实现与验证依据，不代表方法真实结果或最终发布已通过；未勾选项仍须完成。实现状态以代码、契约测试和真实实验记录为准。下面 P01–P10 的进度段落是增量历史，其中“后续”描述对应当时状态；当前支持范围以[架构与方法矩阵](../V1_OVERVIEW.md)及本页行动项为准。
 
-### 实施进度（2026-10-18）
+### 当前工程与验收边界（2026-10-18）
+
+| 范围 | 当前工程交付 | 尚待验收 |
+| --- | --- | --- |
+| 方法 recipe | 五个家族的已声明 profile、native 兼容、八个离线示例及五个原始领域入口 | R01–R05 的真实模型、完整 split、baseline、seed 与偏差结果 |
+| 执行与恢复 | trial、显式 sequence 状态、持久 worker、公共账本与回执恢复 | 原生不透明调用的完整用量覆盖；最终版本的真实 backend/live 门禁 |
+| 研究者接口 | 版本化 API、五种模板、self-evaluator、parent/final policy 对照 | API 的最终发布冻结及完整分发验收 |
+| 报告 | 逐任务/候选/成本/重试、StudySpec、CORAL 共享证据与几何重评分、控制器计时 | 真实质量/成本/耗时实验；不能以 fixture 数值替代 |
+| 文档与发布 | README、架构、recipe、兼容边界、未发布说明和 exact-tag CI/Harbor/live 检查 | 完整验收后集成 main、版本变更、tag 和发布 |
+
+### 实施历史（2026-10-18）
 
 - 集成分支：`dev/1.0.0`，从已核实的 main `69f766e73460f67d96a3ce965a5c3f9adaab2f85` 建立。
 - 采用 feature branch → 面向 dev 的 PR → 测试和审查 → 合并 dev 的流程；每批汇报审查结果，全部发布验收通过后再向 main 提交集成 PR。
@@ -170,20 +180,21 @@ flowchart TD
 
 核心只解释公共字段。方法特有 payload 使用注册的 schema 与 codec，避免在核心写入 ACE、GEPA 或 CORAL 的专有字段。
 
-### 3.3 插件接口草案
+### 3.3 已实现的插件接口
 
-以下是职责层面的签名；具体 async 边界和类型在 I01、I02 中冻结。
+以下为当前同步接口的核心签名；公共导入与稳定范围见 [V1_PUBLIC_API.md](../V1_PUBLIC_API.md)。具体类型以版本化 API 为准，方法可以使用公共并行服务，不能据此把所有内部方法都视为稳定 API。
 
 ~~~text
 Method.run(services, restored_state) -> MethodResult
-Stage.run(context, inputs) -> StageResult
-ActorRuntime.execute(actor_spec, request) -> ActorResult
-ArtifactStore.apply_delta(base_ref, delta, codec) -> ArtifactRef
-SubjectRunner.run(candidate, task_batch, execution_spec) -> RolloutBatch
-EvaluationService.evaluate(rollouts, evaluation_spec) -> EvaluationBatch
-ParentSelector.select(archive_view, state) -> ParentSelection
-ArchivePolicy.update(archive_view, candidates, evaluations) -> ArchiveUpdate
-FinalSelector.select(archive_view, evaluation_protocol) -> CandidateSet
+Stage.run(context, inputs) -> Mapping[str, Contract]
+ActorRuntime.execute(actor_spec, request, workspace) -> ActorResult
+ArtifactStore.apply_delta(base_ref, delta) -> ArtifactRef
+SubjectRunner.run(context) -> SubjectResult
+Evaluator.grade(task, rollout, reference) -> Grade
+RunServices.evaluate(candidate, evaluation_id, operation_id=..., selection=..., inputs=...) -> EvaluationReceipt
+ParentSelector.select_parent(view, rng) -> PolicyResult
+ArchivePolicy.retain(view, rng) -> PolicyResult
+FinalSelector.select_final(view, rng) -> PolicyResult
 ~~~
 
 方法控制流允许用 Python 插件实现。外部执行、模型调用和正式评估必须经过公共服务，以便记录用量、检查预算、持久化结果和恢复。框架不能只启动一个不透明的外部脚本、最后读取其最高分，就把它视为完整 recipe。
@@ -209,7 +220,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 - [x] Stage 声明输入、输出、角色、工具、读写范围、失败处理和预算（P02 校验数据端口、能力与调用预留；Python 插件的声明不等同于进程权限沙箱）。
 - [x] 支持顺序执行、条件决策、有限循环、多候选输出及方法主动提交评估（P02 控制流与多输出；P03b `evaluate`/`open_evaluation` 正式候选评估服务）。
 - [x] 把现有循环接成 native recipe，保留旧 CLI 的兼容入口（P02 覆盖 minimal/llm/dsh/pi/codex 绑定；旧 CLI 继续覆盖原有高级参数和 adapter）。
-- [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本（P02 已隔离 native 协议并记录 core-rendered phase prompts；adapter 追加的最终消息仍需按 backend 补全记录）。
+- [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本（P02/P10f 已隔离协议并记录 core prompts、minimal policy、LLM HTTP body 和 Pi/DSH/Codex 最终 CLI 输入；Aki supervisor 内部及 coding harness 后续 provider 消息仍不透明，见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md)）。
 
 **验收：** 新增一个 stage 插件和配置即可运行；方法能够改变阶段组织而不修改 engine；原有 native 事务与恢复检查继续通过。
 
@@ -218,7 +229,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 - [x] 定义 ActorSpec，分别配置角色的模型、runtime、提示、工具、session 策略与预算（P01/P02；无法兑现的非默认配置提前拒绝）。
 - [ ] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留（P02 已有 chat HTTP transport 和 coding harness bridge；真实模型/容器验收随 M1 进行）。
 - [x] 将执行能力声明为可检查的 capability，如原生 resume、候选代码加载、归一化轨迹（P02 registry 和 lock；能力由后端实现声明并按配置检查）。
-- [ ] 明确 fresh、handoff、native session 三种上下文策略，不做隐式互换（P02 已区分请求类型及拒绝不匹配；通用内置 actor 当前为 fresh，native compatibility 按原 adapter 的策略执行；持久 session 在 I11 完成）。
+- [x] 明确 fresh、handoff、native session 三种上下文策略，不做隐式互换（P02/P09b/P09g：能力校验、session 确认、显式 fresh fallback 与代际记录；实际 provider 的最终 live 验收仍单列）。
 
 **验收：** 优化者与 subject 可以使用不同配置；同一 backend 可承接不同角色；缺少 recipe 所需能力时在正式调用前报错。
 
@@ -251,7 +262,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 - [x] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本（P04b 独立运行时、版本/源码字节/依赖环境 fingerprint）。
 - [x] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果（P04b 容器内检查完整文件树）。
 - [x] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用（P04b 私有 BackendEvaluation；未报告的用量保持 unknown）。
-- [ ] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力（P04b 完成独立 trial；P07c 的代码后端可在全新容器间携带显式 sequence 记忆，持久 worker 尚未实现）。
+- [x] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力（P04b 独立 trial、P07c 全新容器间显式 sequence 记忆、P09b/P09h 持久工作区与分代容器；不是所有 backend 的完整交叉矩阵）。
 - [x] 需要独立 grader 的 recipe 显式使用 separate verifier，并声明传递的产物；不假设默认 verifier 已独立（P04b 进一步移除 agent 的 verifier 日志挂载，检查独立容器及实际镜像）。
 - [x] 镜像记录实际 digest，构建状态与方法产物分开；镜像和缓存不携带其他候选的学习状态（P04b 预构建镜像；P04c 候选源码绑定的 build receipt/image ID、run 内缓存及全新 trial，verifier 保持独立原始镜像）。
 - [x] Harbor 作为可选依赖或独立受控运行时接入，处理其 Python 要求与 Proteus 核心支持版本的差异（P04b 核心仍支持 Python 3.10+，Harbor 使用独立 3.12+ 环境）。
@@ -262,7 +273,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 - [x] 建立候选和评估的可查询 archive；支持多分支及多个 parent 引用（P05a，不删除失败/被拒候选；隐藏评估不进入公开 archive）。
 - [x] 分离 ParentSelector、ArchivePolicy、FinalSelector（P05a，分别声明 capability、配置和操作记录）。
-- [x] 按参考版本实现 GEPA 逐样本 frontier 和 parent 选择；提供标量及多目标策略供其他 recipe 使用（P05b 固定提交的 full-validation instance profile 与原实现符合性检查；完整方法及其他 frontier profile 仍属 P05 后续验收）。
+- [x] 按参考版本实现 GEPA 逐样本 frontier 和 parent 选择；提供标量及多目标策略供其他 recipe 使用（P05b 固定提交的 full-validation instance profile 与原实现符合性检查；完整方法见 P05c/AIME 入口；其他 frontier profile 需另外适配与核对）。
 - [x] 支持不使用自动 parent selection 的 agent-directed proposal（P05a 验证直接创建多 parent 候选且不触发采样）。
 - [x] 保存采样状态、接纳与拒绝原因；最终结果可为候选集合或 frontier（P05a 纯策略的 RNG、评分视图、逐候选原因与 journal replay；具体方法的算法状态随 recipe 接入）。
 
@@ -276,15 +287,15 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 - [x] 区分优化者的工作 handoff、方法演化产物、共享研究知识和私有评估记录（P09a：独立 knowledge 空间与类型；recipe 锁定成员角色、证据范围及文件树依赖，隐藏评估不能成为共享来源）。
 - [x] 并发写入使用原子提交或版本冲突检测；不能仅假设 agent 总会选不同文件名（P09a：SQLite CAS、操作与冲突回执、原子读取快照；多进程竞争与提交前后硬退出验证）。
 
-P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARED_KNOWLEDGE.md](../V1_SHARED_KNOWLEDGE.md)。恢复复用原操作看到的快照与冲突，同时保留其他 worker 的后续更新；这部分是通用共享知识基建，CORAL 持久 worker、EvaluationGateway、事件干预与真实实验仍待后续 P09 完成。
+P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARED_KNOWLEDGE.md](../V1_SHARED_KNOWLEDGE.md)。恢复复用原操作看到的快照与冲突，同时保留其他 worker 的后续更新；这部分是通用共享知识基建；CORAL 的持久 worker、EvaluationGateway 与事件干预在 P09b–P09h 接入，真实模型实验仍属于 R05 验收。
 
 **验收：** Meta-Harness proposer 能按需检索多个历史候选；多个 worker 能交流知识且保留来源；无权访问的评估内容不出现在可见视图中。
 
 ### I09 预算事件与恢复
 
-- [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a 已持久化 actor/cohort 请求、转换事件和结算；真实 worker 与其他外部操作随后接入）。
-- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 公共 actor，P04b subject/grader/integrated verifier，P04c source build 的独立记录与去重汇总；profiling 和 native 完整覆盖仍待实现）。
-- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 原子预留/结算；P08a 接入并行 stage 的 run/role 并发调度、分支 actor 用量与恢复；并行评测、持久 worker 及 backend cost/time 限制仍待接入）。
+- [x] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a–P09h 的受管理 actor、subject、grader、build、cohort、workflow 与 worker 代际；native 不透明调用的完整覆盖仍在下一项）。
+- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a–P10h 已覆盖受管理角色、build、profiling、并行分支及 worker 代际并去重；native 完整汇总和不透明 backend 用量仍未完成，unknown 不转为零）。
+- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a/P08/P09 已接入 stage/workflow、并行评测和持久 worker 的共享预留与结算；native 和不透明 backend 的完整成本限制仍须补齐，不支持的有限限额必须拒绝）。
 - [x] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作（P04d 保存服务快照、archive DataRef、方法 payload 与未完成评估请求；具体 archive 策略随 I07 接入）。
 - [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略（P04d 已实现有序恢复、结果复用和不确定操作停止/报告；P04e 接回独立完成且有绑定回执的 Harbor worker，活 worker 保持运行和预算；无回执调用、未确认构建及其他 backend 策略仍需补齐）。
 - [x] 保留 native 的运行锁、候选修复和配置一致性检查（native 继续使用原事务引擎，P04d journal 单独显式启用并保持回归）。
@@ -303,13 +314,13 @@ P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARE
 
 ### I11 持久 actor 与事件干预
 
-P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算、暂停/停止、session 确认及显式 fresh fallback；真实子进程和方法恢复检查见 [V1_WORKERS.md](../V1_WORKERS.md)。当前 command bridge 是受信任的本地运行时；隔离的真实 provider bridge、EvaluationGateway、共享知识中介和 CORAL 事件策略仍待完成，以下 I11 验收尚未整体完成。
+P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算、暂停/停止、session 确认及显式 fresh fallback；真实子进程和方法恢复检查见 [V1_WORKERS.md](../V1_WORKERS.md)。本地 command bridge 仍是受信任的运行时；P09c–P09h 已接入 EvaluationGateway、共享知识中介、CORAL 事件策略、Codex bridge 和隔离的 Harbor worker。机制/进程/容器验收与真实模型研究结果分开，后者仍属 R05。
 
-- [ ] 管理 worker 的启动、session 继续、暂停、停止及异常退出恢复。
-- [ ] 每个 worker 有独立代码工作区、身份和预算记录，共享知识通过 I08 访问。
-- [x] 提供正式 EvaluationGateway，让 agent 主动提交准确版本的候选并获得允许的反馈（P09c：本地认证传输、精确候选、正式评估及共享 attempt；容器 worker 的网络传输仍需扩展）。
-- [ ] EventPolicy 支持评估次数、时间和停滞触发；将 reflect、consolidate、pivot 作为 CORAL 插件策略。
-- [ ] 保存触发历史、session 引用与恢复方式；无法恢复原生 session 时显式记录降级，不假称续接了原上下文。
+- [x] 管理 worker 的启动、session 继续、暂停、停止及异常退出恢复（P09b/P09e–P09h：持久代际、进程/容器回执、liveness restart 和明确续接策略）。
+- [x] 每个 worker 有独立代码工作区、身份和预算记录，共享知识通过 I08 访问（P09b/P09d/P09h；真实子进程与 Docker 挂载/权限门禁）。
+- [x] 提供正式 EvaluationGateway，让 agent 主动提交准确版本的候选并获得允许的反馈（P09c/P09h：认证传输、精确候选、正式评估与共享 attempt；容器通过显式 host-gateway/public 网络访问，非远程 TLS 服务）。
+- [x] EventPolicy 支持评估次数、时间和停滞触发；将 reflect、consolidate、pivot 作为 CORAL 插件策略（P09e/P09f 固定上游 policy 对照与持久事件状态；控制器停顿不虚构为实测研究时间）。
+- [x] 保存触发历史、session 引用与恢复方式；无法恢复原生 session 时显式记录降级，不假称续接了原上下文（P09b–P09h，原生 session 确认与 fresh fallback 分别保留）。
 
 **验收：** 至少两个真实 worker 异步探索并共享知识；评估和干预不重复结算；重启后能按声明的 session 协议继续工作。
 
@@ -318,39 +329,41 @@ P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算�
 - [x] 定义版本化配置，组合方法、阶段、角色、subject、任务、环境、搜索和预算（P01；插件专有 options 校验由 P02 注册）。
 - [x] 配置解析后生成不可变 RunManifest 和 dependency lock（P01 接受显式解析的版本锁；实际运行环境采集随后接入）。
 - [x] 提供默认值与覆盖规则；解析后的配置可直接导出，未知字段和缺少 capability 提前报错（P02 registry 解析插件 options 和端口；`recipe check` 导出完整配置）。
-- [ ] 将 paper reference、code reference、实现状态、偏差和结果证据纳入 recipe manifest。
-- [ ] 参考复现配置与研究扩展配置分别命名，更新公共模块不静默改变已锁定 recipe。
+- [x] 将 paper reference、code reference、实现状态、偏差和结果证据纳入 recipe manifest（ReferenceSpec 的 profile/status/revision/deviations/evidence；有入口不自动提升为 benchmark_validated）。
+- [x] 参考复现配置与研究扩展配置分别命名，更新公共模块不静默改变已锁定 recipe（reference/adapted/extended profile、实现 hash 与 lock 校验；实际结果仍须按对应条件交付）。
 
 **验收：** 已收录方法可通过配置运行；第三方插件可注册；配置改变能形成独立实验并被比较。
 
 ### I13 研究者入口与模板
 
-- [ ] 提供 recipe 列举、检查、运行、恢复和导出入口。
-- [ ] 提供新 method、stage、evaluator、subject adapter 的最小模板及 capability 测试。
-- [ ] 提供快速离线示例，以及一个真实任务的端到端示例。
-- [ ] 给出新增 self_evaluator stage、替换 search policy 的教程。
+- [x] 提供 recipe 列举、检查、运行、恢复和导出入口（P10b/P10c catalog、check/lock/run/resume/export）。
+- [x] 提供新 method、stage、evaluator、subject adapter 的最小模板及 capability 测试（P10a/P10e；另含 policy 模板，均通过安装包外部执行）。
+- [x] 提供快速离线示例，以及一个真实任务的端到端示例（P10b 八个机制示例；P09i 原始 circle-packing seed 候选与私有几何 verifier；真实模型搜索结果仍属 R05）。
+- [x] 给出新增 self_evaluator stage、替换 search policy 的教程（P10a/P10b/P10e：typed stage、配置替换 final policy、外部 ParentSelector 生成实际 child 并评估）。
 
 **验收：** 研究者按教程添加插件与配置即可完成两种扩展，不修改核心代码；安装包中的模板在仓库外可用。
 
-P10j 开发中：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。真实模型效果/成本/耗时实验与完整 I14 验收仍待完成。
+P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。真实模型效果/成本/耗时实验与完整 I14 验收仍待完成。
 
 ### I14 统一实验输出
 
 - [ ] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计。
-- [ ] 提供 baseline、模块消融与多 seed 实验配置和汇总。
+- [x] 提供 baseline、模块消融与多 seed 实验配置和汇总（P10d：StudySpec、显式差异、paired seed 和缺失指标传播；各领域另含原始 baseline 配置）。
 - [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果。
 - [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为。
 - [ ] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离。
 
 **验收：** 结果能由已保存的逐任务记录重新汇总；每张结果表能追溯到配置、候选与原始输出；缺失指标明确显示。
 
+P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 profile、配置与插件边界、Harbor 能力、结果解释及未发布 1.0 说明。以下发布清单保持独立，未以文档更新替代真实模型或最终提交验收。
+
 ### I15 兼容文档与发布
 
-- [ ] 定义 1.0 稳定公共 API、schema 和插件版本兼容规则。
-- [ ] 保留旧 CLI 的兼容入口；记录旧 run 的读取、续跑与迁移支持边界。
-- [ ] 不改写旧实验记录；不兼容的续跑要求原版本完成或新建 run。
-- [ ] 更新架构、recipe、扩展、Harbor、结果解释、迁移与发布文档。
-- [ ] 保留既有 runtime 发布检查，并增加新 recipe 的端到端检查。
+- [x] 定义 1.0 稳定公共 API、schema 和插件版本兼容规则（P10e：proteus.api.v1、字段/状态版本、实现锁与迁移边界；发布前仍为 proposed API）。
+- [x] 保留旧 CLI 的兼容入口；记录旧 run 的读取、续跑与迁移支持边界（native 原入口、兼容 recipe 和 V1_COMPATIBILITY.md）。
+- [x] 不改写旧实验记录；不兼容的续跑要求原版本完成或新建 run（只读导出、锁校验及明确拒绝未知 schema/state；不隐式原地迁移）。
+- [x] 更新架构、recipe、扩展、Harbor、结果解释、迁移与发布文档（P10k：统一入口与支持矩阵；README 的 prepare/check/lock/run/resume/export 在新安装环境实际执行；1.0 release notes 标为 unreleased）。
+- [x] 保留既有 runtime 发布检查，并增加新 recipe 的端到端检查（P10g 绑定同一 tag/SHA 的 CI、Harbor、live smoke；实际发布提交仍须全部通过）。
 - [ ] 验证 wheel、sdist、可选依赖、离线模板与真实 backend 的安装路径。
 
 **验收：** 新环境能按文档安装、运行、查看结果、恢复和导出；发布产物与验证的同一提交一致。
@@ -412,10 +425,10 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 
 首版范围为论文核心的单共享空间异步多 agent：长期探索、共享 attempts/notes/skills，以及 heartbeat 干预。多 island 与迁移留作后续配置。
 
-- [ ] 多个 worker 独立维护工作区与 session，通过共享知识交流发现。
-- [ ] 通过 EvaluationGateway 提交候选，允许 agent 决定探索、检索和评估时机。
-- [ ] 实现参考条件中的 reflect、consolidate、pivot 及触发规则。
-- [ ] 实现可恢复的 worker 生命周期、全局预算预留和共享写入处理。
+- [x] 多个 worker 独立维护工作区与 session，通过共享知识交流发现（P09f–P09h 工程机制：独立进程、来源保留、session 代际和空间隔离；真实模型结果见本节最后一项）。
+- [x] 通过 EvaluationGateway 提交候选，允许 agent 决定探索、检索和评估时机（P09c/P09f 的 worker 主动请求、精确候选、正式反馈和预算协议）。
+- [x] 实现参考条件中的 reflect、consolidate、pivot 及触发规则（P09e/P09f 固定参考 policy 与显式单空间适配；不将参考提示直接当成本地命令）。
+- [x] 实现可恢复的 worker 生命周期、全局预算预留和共享写入处理（P09b–P09h 的操作回执、并发 CAS、代际预算与本地完整方法恢复；最终容器组合与真实模型验收仍独立要求）。
 - [ ] 选取不涉及模型训练的原论文优化任务，完成单 worker 对照和至少两个 worker 的实验。
 
 **依赖：** I01–I09、I11、I12、I14。**完成定义：** 真实异步协作、共享知识、触发干预和中断恢复都有运行记录；不能仅以成功启动多个进程作为完成。
@@ -556,10 +569,10 @@ I09、I12 从 M1 开始随每个方法扩展，不能拖到所有方法完成后
 
 ### 8.4 扩展性验收
 
-- [ ] 在不修改核心代码的情况下加入一个 self_evaluator stage，输出单独的证据类型。
-- [ ] 在不修改核心代码的情况下替换一个 ParentSelector 或 ArchivePolicy，完成对照实验。
-- [ ] 用另一个 actor runtime 跑通至少一个相同 recipe，验证公共接口而非仅有单一实现。
-- [ ] 从安装包生成第三方插件模板，在仓库外完成运行和结果导出。
+- [x] 在不修改核心代码的情况下加入一个 self_evaluator stage，输出单独的证据类型（P10a/P10e 外部 stage 模板与配置变更对照）。
+- [x] 在不修改核心代码的情况下替换一个 ParentSelector 或 ArchivePolicy，完成对照实验（P10e 外部 ParentSelector，真实 child artifact/谱系和九次正式 fixture 评估）。
+- [x] 用另一个 actor runtime 跑通至少一个相同 recipe，验证公共接口而非仅有单一实现（P10e 同一外部 stage recipe 的第二个公开 ActorRuntime；是协议验证而非真实模型效果比较）。
+- [x] 从安装包生成第三方插件模板，在仓库外完成运行和结果导出（P10a/P10e wheel、sdist 的五种模板与实际 CLI 检查）。
 
 ## 9 发布清单
 
