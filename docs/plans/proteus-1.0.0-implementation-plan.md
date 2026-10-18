@@ -13,7 +13,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 第一批 P01：公共对象、严格序列化、JSON Schema、recipe 配置、依赖锁与不可变 RunManifest；实现说明见 [V1_CONTRACTS.md](../V1_CONTRACTS.md)。此批不声称已有新 method executor 或完成方法复现。
 - 第二批 P02：注册式 Method/Stage/ActorRuntime、typed ports、角色调用记录、顺序/条件/有限循环、自评 stage 示例与 native 兼容 recipe；说明见 [V1_PLUGINS.md](../V1_PLUGINS.md)。native 复用旧事务引擎，通用 stage 路径不隐式继承 native 提示。
 - 第三批拆成 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 为 pinned TaskSuite/TaskBatch、SubjectRunner、逐任务评估、整批/在线 session 与反馈/显式 JSON 状态协议。两部分共同完成原 P03 的公共服务；本地 Python/受管理 actor 示例不替代 Harbor 或真实方法验收。
-- P04–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。当前提供串行模型调用和 task-trial 评估预留；通用持久账本、并发、容器隔离与真实 backend 验收仍需后续批次。
+- P04a：SQLite 持久事件账本接入受管理 actor 调用和整批评估预留；请求、attempt、实际用量、未知用量和超额记录随事务保存，重新打开服务不补发预算、不重放既有调用。跨进程预留原语已验证；执行器仍串行。其余 P04、P05–P10、真实方法实验以及 1.0 发布验收继续推进。
 
 ## 1 目标与范围
 
@@ -204,9 +204,9 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I09 预算事件与恢复
 
-- [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial。
-- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量。
-- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零。
+- [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a 已持久化 actor/cohort 请求、转换事件和结算；真实 worker 与其他外部操作随后接入）。
+- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 覆盖通过公共 actor 服务的角色及 subject 调用；unmanaged subject、grader、profiling 和 native 完整覆盖仍待实现）。
+- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 已实现并测试 SQLite 跨进程原子预留/结算、已知上界保留和实际超额记账；公共并发调度与 backend cost/time 限制仍待接入）。
 - [ ] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作。
 - [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略。
 - [ ] 保留 native 的运行锁、候选修复和配置一致性检查。
@@ -430,7 +430,7 @@ I09、I12 从 M1 开始随每个方法扩展，不能拖到所有方法完成后
 1. P01 公共 schema、序列化、配置与 RunManifest。
 2. P02 Method/Stage、角色接口和 native 兼容层。
 3. P03a ArtifactStore、codec 与候选操作；P03b TaskSuite、SubjectRunner 与逐任务评估（保留原 P03 完整范围）。
-4. P04 Harbor bridge、候选精确加载、事件账本与闭环恢复。
+4. P04a 持久 dispatch 账本、actor 用量与 cohort 预算；后续 P04 完成 Harbor bridge、候选精确加载、完整用量覆盖、checkpoint/MethodState 恢复与不确定外部操作的 reconciliation（保留原 P04 完整范围）。
 5. P05 Archive/search policies 与 GEPA recipe。
 6. P06 Structured records、delta 算子与 ACE recipe。
 7. P07 Evidence views、代码 subject 与 Meta-Harness recipe。

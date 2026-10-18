@@ -334,13 +334,24 @@ def test_prompt_subject_uses_exact_candidate_and_fresh_actor_instances_with_acco
         actors={"subject": ActorSpec(runtime=plugin("fixture.actor"), model="fixture-model", budget=BudgetLimits(max_model_calls=2))},
         execution=replace(recipe.execution, timeout_seconds=None), budget=BudgetLimits(max_model_calls=2, max_evaluations=2),
         method=plugin("proteus.compare", **CompareOptions(evaluations=("score",), variants=(Variant(id="revised", delta=delta.to_dict()),)).to_dict()))
-    result, records, _ = run(tmp_path, registry, store, recipe)
+    result, records, root = run(tmp_path, registry, store, recipe)
     assert result.status == OperationStatus.COMPLETED, result.diagnostic
     assert [EvaluationBatch.from_dict(item).mean_score() for item in records["evaluations"]] == [0, 1]
     assert len(calls) == 2 and calls[0][2] != calls[1][2]
     assert all(call[0].model == "fixture-model" for call in calls)
     assert sum(row["usage"]["model_calls"] for row in records["rollouts"]) == 2
     assert len(records["actor_calls"]) == 2
+    from proteus.core.ledger import Ledger
+    from proteus.recipes.manifest import RunManifest
+    manifest = RunManifest.from_json((root / "manifest.json").read_text())
+    book = Ledger(root / "private/ledger.sqlite3", run_id=manifest.run_id,
+                  config_hash=manifest.config_hash, lock_hash=manifest.lock_hash)
+    balance = book.balance()
+    assert balance["charged"]["model_calls"] == balance["charged"]["evaluations"] == 2
+    assert balance["charged"]["cost_usd"] == 0.2
+    actors = [item for item in book.entries() if item["identity"]["metadata"]["kind"] == "actor"]
+    assert {item["identity"]["metadata"]["trial_id"] for item in actors} == {r["id"] for r in records["rollouts"]}
+    assert book.balance("role:subject")["charged"]["model_calls"] == 2
 
 
 def test_cache_identity_covers_task_runtime_protocol_environment_and_sequence_history(tmp_path):
