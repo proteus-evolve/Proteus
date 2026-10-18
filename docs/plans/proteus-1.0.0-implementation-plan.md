@@ -79,6 +79,8 @@ P10f 开发中：在 minimal/LLM/Pi/DSH/Codex 实际调用前持久记录 adapte
 
 P10g 开发中：将既有 live release-smoke、新 recipe/安装包 CI 与真实 Harbor 三套 workflow 共同纳入发布门禁，要求同一 tag、同一提交及各自完整成功的 jobs；live smoke 增加逐 episode 最终 adapter 输入证据核验。说明见 [RELEASING.md](../RELEASING.md)。本批不触发付费模型、打 tag 或发布；五类真实实验和完整发布清单仍待验收。
 
+P10h 开发中：加入单空间 CORAL 的离线实验报告，核对 worker 代际与用量、网关关闭、正式评估、知识发布/来源和实际干预；复用共同 StudySpec 比较单/多 worker 条件。共享快照可用性与声明来源不等于 GET 交付或因果收益，未知成本保持为空。详见 [V1_CORAL_REPORT.md](../V1_CORAL_REPORT.md)。真实模型效果、完整运行耗时与 R05 验收仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

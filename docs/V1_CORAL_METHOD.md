@@ -165,3 +165,5 @@ refusal to cancel claimed work. `tests/test_v1_worker_seed.py` covers four seed
 publication crash boundaries and preservation of worker edits. The installed
 acceptance script runs the public CLI outside the source checkout for both wheel
 and sdist.
+
+For completed runs, [CORAL cooperation reports](V1_CORAL_REPORT.md) validate and summarize worker generations, formal submissions, knowledge provenance and interventions, and compare explicit single/multi-worker studies.

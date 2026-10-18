@@ -64,3 +64,5 @@ Reference profile, paper/code citations and declared implementation deviations
 come from the original manifest. Export does not upgrade a fixture into a model
 result or label an adapted recipe as a paper reproduction. Cross-run comparison,
 multi-seed aggregation and release acceptance remain separate work.
+
+[CORAL cooperation reports](V1_CORAL_REPORT.md) extend these common saved-run and study contracts with per-worker generation usage, queue closure, knowledge provenance and event dispatch evidence.
