@@ -16,6 +16,7 @@ import os
 import platform
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -62,8 +63,22 @@ def write_json(path, value):
 
 
 def docker(*args, timeout=30):
-    result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=timeout, check=True)
-    return result.stdout.strip()
+    process = subprocess.Popen(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except BaseException:
+        # Docker Desktop can spawn a wrapper child retaining the pipes. Killing
+        # just the CLI parent would leave communicate() waiting indefinitely.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate(timeout=5)
+        raise
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, process.args, stdout, stderr)
+    return stdout.strip()
 
 
 def cleanup_owned_resources(trial_name, *, timeout=45):

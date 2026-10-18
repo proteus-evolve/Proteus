@@ -165,12 +165,14 @@ def _task_config(task_root, execution):
     require(not env.get("mcp_servers") and not env.get("skills_dir"), "task-injected tools require additional pins")
     require(not (task_root / "environment/docker-compose.yaml").exists(),
             "custom Compose services/mounts require explicit environment validation")
+    require(not any((task_root / "tests" / name).exists() for name in ("Dockerfile", "docker-compose.yaml")),
+            "a bundled verifier build would replace the pinned image")
     return config
 
 
 def _stop_worker(process):
     # Always signal the whole group, including a CLI left behind by an exited worker.
-    for sig, timeout in ((signal.SIGINT, 10), (signal.SIGKILL, 5)):
+    for sig, timeout in ((signal.SIGINT, 35), (signal.SIGKILL, 5)):
         try:
             os.killpg(process.pid, sig)
         except ProcessLookupError:

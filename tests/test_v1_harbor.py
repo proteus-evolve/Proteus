@@ -64,6 +64,14 @@ def test_custom_compose_is_rejected_before_container_dispatch(tmp_path):
         _task_config(task, recipe.execution)
 
 
+@pytest.mark.parametrize("name", ["Dockerfile", "docker-compose.yaml"])
+def test_verifier_build_cannot_replace_pinned_image(tmp_path, name):
+    recipe, task = fixture_recipe(tmp_path)
+    (task / "tests" / name).write_text("unbound verifier build")
+    with pytest.raises(ContractError, match="verifier build"):
+        _task_config(task, recipe.execution)
+
+
 def test_container_witness_checks_bytes_deletions_and_executable_bits(tmp_path):
     store = ArtifactStore(tmp_path / "store", builtin_registry())
     artifact = store.put(PluginRef(name="proteus.file_tree", version="1"), {
