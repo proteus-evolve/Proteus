@@ -1,5 +1,6 @@
 """Formula domain semantics, real HTTP transport, complete reports and recovery."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -212,6 +213,21 @@ def test_formula_settings_reject_unrecorded_extra_prompt(tmp_path, endpoint):
     _, _, _, runs = load(tmp_path / "study")
     assert runs[1][1].evaluations[0].tasks.split == "test"
     assert runs[1][1].evaluations[0].tasks == runs[1][1].evaluations[1].tasks
+
+
+def test_formula_cache_resolves_symlink_ancestors_before_durable_publication(tmp_path):
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(actual, target_is_directory=True)
+    checkout = tmp_path / "source"
+    source_file = checkout / "eval/finance/data/fixture.jsonl"
+    source_file.parent.mkdir(parents=True)
+    raw = b'{"context":"fixture","target":"1"}\n'
+    source_file.write_bytes(raw)
+    path = ace_formula_data.fetch({"file": "fixture.jsonl", "sha256": hashlib.sha256(raw).hexdigest()},
+                                 linked / "new-cache", checkout=checkout)
+    assert path == actual / "new-cache/fixture.jsonl" and path.read_bytes() == raw
 
 
 @pytest.mark.parametrize("mode,options", [

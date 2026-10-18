@@ -37,7 +37,7 @@ def source_url(source):
 
 
 def fetch(source, cache, *, checkout=None):
-    path = Path(cache) / source["file"]
+    path = Path(cache).resolve() / source["file"]
     if checkout is not None:
         data = (Path(checkout) / "eval/finance/data" / source["file"]).read_bytes()
     elif path.exists():
