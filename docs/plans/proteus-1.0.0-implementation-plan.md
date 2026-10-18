@@ -65,6 +65,8 @@ P09h 开始接入 Harbor 持久研究 worker：每代使用独立容器，仅挂
 
 - P09i 开发中：接入 CORAL 原始 circle-packing 非训练任务，固定原始 seed/评分参考和数值依赖，提供 baseline、单/双 worker 配置与 agent 可直接调用的评估/知识 CLI。独立容器只验证输出几何，明确最终确认不是 held-out 任务；数值机制对照已通过，真实 Docker 领域验收、真实模型优化与 R05 结果验收仍待完成。详见 [V1_CORAL_CIRCLE_PACKING.md](../V1_CORAL_CIRCLE_PACKING.md)。
 
+P10a 开发中：增加 `recipe scaffold`，生成独立的 method、stage、evaluator、subject 插件项目及可执行契约检查，提供 self-evaluator 配置消融示例。已验证生成项目运行、隐藏测试隔离、无重复恢复和 method 检查点后的强制退出恢复；安装包与完整发布验收仍需通过。详见 [V1_PLUGIN_SCAFFOLDS.md](../V1_PLUGIN_SCAFFOLDS.md)。recipe catalog、search-policy 教程和统一结果导出继续属于 I13–I15。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

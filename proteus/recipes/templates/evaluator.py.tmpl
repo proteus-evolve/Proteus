@@ -1,0 +1,55 @@
+"""An independent numeric grader with a configurable absolute tolerance."""
+
+from dataclasses import dataclass, field
+import math
+from pathlib import Path
+
+from proteus.core.contracts import Outcome, PluginRef
+from proteus.core.plugins import Plugin, implementation_hash
+from proteus.core.serialization import Contract
+from proteus.evaluation.records import Feedback, Grade, zero_usage
+
+
+@dataclass(frozen=True, kw_only=True)
+class Options(Contract):
+    tolerance: float = field(default=0.0, metadata={"minimum": 0})
+
+
+class NumericEvaluator:
+    def __init__(self, options):
+        self.options = options
+
+    def grade(self, task, rollout, reference):
+        if rollout.status != Outcome.SUCCEEDED:
+            return Grade(status=rollout.status, score=None, usage=zero_usage())
+        try:
+            actual, expected = float(rollout.output), float(reference)
+            error = abs(actual - expected)
+            valid = math.isfinite(actual) and math.isfinite(expected)
+            score = float(valid and error <= self.options.tolerance)
+        except (ValueError, TypeError, OverflowError):
+            score, error = 0.0, None
+        return Grade(
+            status=Outcome.SUCCEEDED,
+            score=score,
+            usage=zero_usage(),
+            feedback=Feedback(
+                value={
+                    "absolute_error": error if error is not None and math.isfinite(error) else None
+                }
+            ),
+        )
+
+
+def register(registry):
+    registry.register(
+        Plugin(
+            ref=PluginRef(name="{{NAME}}.evaluator", version="1"),
+            kind="evaluator",
+            options=Options,
+            factory=NumericEvaluator,
+            source="{{NAME}}",
+            implementation_hash=implementation_hash({"{{NAME}}.py": Path(__file__)}),
+            capabilities=("evaluator.deterministic",),
+        )
+    )

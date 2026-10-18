@@ -1,0 +1,52 @@
+"""A typed self-evaluator stage. Its evidence is separate from formal task scores."""
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from proteus.core.contracts import PluginRef
+from proteus.core.plugins import Plugin, implementation_hash
+from proteus.core.serialization import Contract
+
+
+@dataclass(frozen=True, kw_only=True)
+class Options(Contract):
+    minimum_characters: int = field(default=1, metadata={"minimum": 0})
+
+
+@dataclass(frozen=True, kw_only=True)
+class Assessment(Contract):
+    meets_length: bool
+    characters: int
+    explanation: str
+
+
+class SelfEvaluator:
+    def __init__(self, options):
+        self.options = options
+
+    def run(self, context, inputs):
+        length = len(inputs["answer"].text.strip())
+        return {
+            "assessment": Assessment(
+                meets_length=length >= self.options.minimum_characters,
+                characters=length,
+                explanation="Local length check; no claim about task correctness.",
+            )
+        }
+
+
+def register(registry):
+    registry.register_data("{{NAME}}.assessment@1", Assessment)
+    registry.register(
+        Plugin(
+            ref=PluginRef(name="{{NAME}}.stage", version="1"),
+            kind="stage",
+            options=Options,
+            factory=SelfEvaluator,
+            source="{{NAME}}",
+            implementation_hash=implementation_hash({"{{NAME}}.py": Path(__file__)}),
+            inputs={"answer": "proteus.actor_result@1"},
+            outputs={"assessment": "{{NAME}}.assessment@1"},
+            capabilities=("stage.replay", "stage.parallel"),
+        )
+    )

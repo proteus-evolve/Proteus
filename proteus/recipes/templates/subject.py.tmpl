@@ -1,0 +1,79 @@
+"""A candidate adapter: load a numeric factor artifact and apply it to each task."""
+
+from dataclasses import dataclass, field
+import json
+import math
+from pathlib import Path
+
+from proteus.core.contracts import ArtifactComponent, Outcome, PluginRef, RuntimeIdentity, require
+from proteus.core.plugins import Plugin, implementation_hash
+from proteus.core.serialization import Contract, content_hash
+from proteus.evaluation.records import SubjectResult, zero_usage
+
+
+@dataclass(frozen=True, kw_only=True)
+class Options(Contract):
+    filename: str = field(default="factor.json", metadata={"minLength": 1})
+
+
+def validate(recipe, options):
+    ArtifactComponent(path=options.filename, content_hash=content_hash("path-check"), size_bytes=0)
+    require(
+        recipe.subject.actor is None
+        and recipe.subject.initial_artifact.codec.name == "proteus.file_tree",
+        "numeric subject needs a file-tree candidate and no actor",
+    )
+    require(
+        recipe.execution is not None
+        and recipe.execution.environment.backend.plugin.name == "proteus.local_json",
+        "numeric subject needs the materializing local JSON environment",
+    )
+    require(not recipe.subject.mutable_scopes, "numeric subject has no mutable filesystem state")
+
+
+class NumericSubject:
+    def __init__(self, options):
+        self.options = options
+
+    def run(self, context):
+        root = context.lease.local_root
+        require(root is not None, "subject requires materialized candidate files")
+        runtime = RuntimeIdentity(
+            runtime=context.subject.runner.plugin,
+            environment_hash=content_hash(context.execution.environment),
+        )
+        common = dict(
+            loaded_artifact_hash=context.lease.loaded_artifact_hash,
+            runtime=runtime,
+            state=context.state,
+            usage=zero_usage(),
+        )
+        try:
+            factor = json.loads((root / self.options.filename).read_text())["factor"]
+            require(
+                type(factor) in (int, float) and math.isfinite(factor),
+                "factor must be finite numeric data",
+            )
+            output = context.task.input * factor
+            require(
+                type(output) in (int, float) and math.isfinite(output),
+                "task/output must be finite numbers",
+            )
+        except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+            return SubjectResult(status=Outcome.INVALID_CANDIDATE, diagnostic=str(exc), **common)
+        return SubjectResult(status=Outcome.SUCCEEDED, output=output, **common)
+
+
+def register(registry):
+    registry.register(
+        Plugin(
+            ref=PluginRef(name="{{NAME}}.subject", version="1"),
+            kind="subject",
+            options=Options,
+            factory=NumericSubject,
+            validate=validate,
+            source="{{NAME}}",
+            implementation_hash=implementation_hash({"{{NAME}}.py": Path(__file__)}),
+            capabilities=("subject.parallel",),
+        )
+    )

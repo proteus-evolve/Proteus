@@ -1,0 +1,104 @@
+"""Prepare the plugin's offline recipe; edit the generated JSON for experiments."""
+
+import argparse
+from dataclasses import replace
+from pathlib import Path
+
+from proteus.artifacts.codecs import FileContent
+from proteus.artifacts.store import ArtifactStore
+from proteus.core.contracts import BudgetLimits, PluginRef, require
+from proteus.examples.candidate_evaluation import plugin, prepare as prepare_candidates
+from proteus.recipes import load_recipe
+from proteus.recipes.builtins import builtin_registry
+from proteus.recipes.config import ActorSpec, RecipeConfig, ReferenceSpec, StageSpec
+from {{NAME}} import register
+
+
+def prepare(root):
+    root = Path(root).resolve()
+    require(not root.exists() or not any(root.iterdir()), "study already contains data")
+    registry = builtin_registry()
+    register(registry)
+    if "{{KIND}}" == "stage":
+        root.mkdir(parents=True, exist_ok=True)
+        recipe = RecipeConfig(
+            name="{{NAME}}-self-evaluation",
+            reference=ReferenceSpec(profile="native"),
+            actors={"author": ActorSpec(runtime=plugin("proteus.echo"))},
+            stages=(
+                StageSpec(
+                    id="propose",
+                    role="author",
+                    operator=plugin("proteus.prompt"),
+                    read_scopes=("proteus.text@1",),
+                    write_scopes=("proteus.actor_result@1",),
+                ),
+                StageSpec(
+                    id="assess",
+                    role="author",
+                    operator=plugin("{{NAME}}.stage"),
+                    read_scopes=("proteus.actor_result@1",),
+                    write_scopes=("{{NAME}}.assessment@1",),
+                ),
+            ),
+            method=plugin(
+                "proteus.sequence",
+                initial={
+                    "prompt": {"kind": "proteus.text@1", "value": {"text": "An offline proposal."}}
+                },
+                steps=[
+                    {
+                        "stage": "propose",
+                        "inputs": {"prompt": "prompt"},
+                        "outputs": {"response": "answer"},
+                    },
+                    {
+                        "stage": "assess",
+                        "inputs": {"answer": "answer"},
+                        "outputs": {"assessment": "review"},
+                    },
+                ],
+                outputs={"assessment": "review"},
+            ),
+            budget=BudgetLimits(max_model_calls=0),
+        )
+    else:
+        recipe = load_recipe(prepare_candidates(root))
+        if "{{KIND}}" == "method":
+            recipe = replace(
+                recipe,
+                method=plugin("{{NAME}}.method"),
+                budget=BudgetLimits(max_evaluations=3),
+            )
+        elif "{{KIND}}" == "evaluator":
+            recipe = replace(
+                recipe,
+                evaluations=tuple(
+                    replace(item, evaluator=plugin("{{NAME}}.evaluator"))
+                    for item in recipe.evaluations
+                ),
+            )
+        elif "{{KIND}}" == "subject":
+            artifact = ArtifactStore(root / "artifact-store", registry).put(
+                PluginRef(name="proteus.file_tree", version="1"),
+                {"factor.json": FileContent(b'{"factor":2}\n')},
+            )
+            recipe = replace(
+                recipe,
+                subject=replace(
+                    recipe.subject,
+                    runner=plugin("{{NAME}}.subject"),
+                    initial_artifact=artifact,
+                ),
+                method=plugin("proteus.compare", evaluations=["validation", "test"], variants=[]),
+                budget=BudgetLimits(max_evaluations=3),
+            )
+    path = root / "recipe.json"
+    path.write_text(registry.resolve(recipe).to_json() + "\n")
+    return path
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", type=Path, default=Path("study"))
+    print(prepare(parser.parse_args().out))

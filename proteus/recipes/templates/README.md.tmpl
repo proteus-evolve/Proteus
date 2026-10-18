@@ -1,0 +1,52 @@
+# {{NAME}}: editable {{KIND}} plugin
+
+This offline project runs through Proteus's normal registry, typed contracts,
+candidate/evaluation services and recovery journal. Edit `{{NAME}}.py` to change
+the mechanism and the generated `study/recipe.json` to change its configuration.
+No model, Docker daemon or external account is required for this example.
+
+From this directory, with Proteus installed and Python 3.10 or later:
+
+```sh
+python prepare.py
+PYTHONPATH=. python -m proteus.cli recipe check study/recipe.json --plugin {{NAME}}:register
+python check.py
+```
+
+To run with source provenance, commit the plugin project in your own Git
+repository and use that repository's root as `PLUGIN_REPOSITORY_ROOT`. Set
+`PROTEUS_REPOSITORY_ROOT` to the checkout matching your installed Proteus source.
+Both repositories need an origin remote. These paths are supplied by you; the
+scaffolder does not create commits, change remotes or invent source revisions.
+
+```sh
+PYTHONPATH=. python -m proteus.cli recipe lock study/recipe.json --plugin {{NAME}}:register \
+  --source proteus="$PROTEUS_REPOSITORY_ROOT" \
+  --source {{NAME}}="$PLUGIN_REPOSITORY_ROOT" --out lock.json
+PYTHONPATH=. python -m proteus.cli recipe run study/recipe.json --plugin {{NAME}}:register \
+  --lock lock.json --out run
+```
+
+For **method, evaluator and subject** projects, append
+`--artifact-store study/artifact-store` to the run command. The **stage** project
+has no candidate artifact and omits that option. To resume, use the same command
+with `resume` in place of `run`; keep the same recipe, lock and run directory.
+
+The stage template checks proposal length and publishes typed self-evaluation
+evidence. Its result is not a formal benchmark score. The evaluator template
+grades numeric outputs against private references, preserving unsuccessful
+rollout statuses and missing scores. The subject template loads `factor.json`
+from the exact candidate version. The method template evaluates one candidate
+and checkpoints after each cohort; its hidden-test receipt contains no scores.
+
+`check.py` runs the example, verifies its outputs and private-test visibility,
+and resumes without repeated work. It uses a temporary directory and explicitly
+labelled fixture source pins. Update its expectations as you change the method;
+use the Git-backed lock command above for actual research provenance.
+
+The local environment is intended for trusted examples and does not provide a
+container sandbox. Capabilities are explicit promises by plugin code. After
+editing, generate a new lock and a fresh run directory; an old run is resumed
+with its original implementation. When adding helper modules, include them in
+`implementation_hash`. Extend the example's tests before declaring additional
+resume, parallel, session or backend capabilities.

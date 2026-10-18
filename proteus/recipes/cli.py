@@ -65,6 +65,10 @@ def command(args):
 
 
 def _command(args):
+    if args.recipe_cmd == 'scaffold':
+        from proteus.recipes.scaffolding import scaffold
+        print(scaffold(args.kind, args.name, args.out))
+        return 0
     registry = builtin_registry()
     for entry in args.plugin:
         registry.load(entry)
@@ -108,6 +112,11 @@ def _command(args):
 def add_parser(subparsers):
     parser = subparsers.add_parser("recipe", help="check and execute versioned 1.0 recipes")
     commands = parser.add_subparsers(dest="recipe_cmd", required=True)
+    create = commands.add_parser('scaffold', help='create an editable offline plugin project')
+    create.add_argument('kind', choices=('method', 'stage', 'evaluator', 'subject'))
+    create.add_argument('--name', required=True, help='Python module and plugin namespace')
+    create.add_argument('--out', required=True, help='new project directory')
+    create.set_defaults(func=command)
     for name in ("list", "check", "lock", "run", "resume", "recovery"):
         item = commands.add_parser(name)
         item.add_argument("--plugin", action="append", default=[], metavar="MODULE:REGISTER",
