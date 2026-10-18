@@ -65,6 +65,10 @@ def command(args):
 
 
 def _command(args):
+    if args.recipe_cmd == 'summarize':
+        from proteus.recipes.study import summarize_study
+        print(summarize_study(args.study, args.out, include_private=args.include_private))
+        return 0
     if args.recipe_cmd == 'export':
         from proteus.recipes.export import export_run
         print(export_run(args.run, args.out, include_private=args.include_private))
@@ -124,6 +128,11 @@ def _command(args):
 def add_parser(subparsers):
     parser = subparsers.add_parser("recipe", help="check and execute versioned 1.0 recipes")
     commands = parser.add_subparsers(dest="recipe_cmd", required=True)
+    summarize = commands.add_parser('summarize', help='compare explicit study conditions and aggregate seeds')
+    summarize.add_argument('study', help='study JSON with declared conditions, seeds and final evaluations')
+    summarize.add_argument('--out', required=True, help='new comparison JSON outside all runs')
+    summarize.add_argument('--include-private', action='store_true', help='include final hidden grades in owner-side comparisons')
+    summarize.set_defaults(func=command)
     export = commands.add_parser('export', help='export saved recipe evidence and aggregate metrics')
     export.add_argument('run', help='existing settled run directory')
     export.add_argument('--out', required=True, help='new export directory outside the run')
