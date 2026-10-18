@@ -54,6 +54,9 @@ uploads its raw trial records. A skipped local test does not count as this gate.
   bits inside the container, and inspects the actual Docker image ID and requested
   CPU/memory limits. The witness is retained in controller memory and associated
   with candidate/task hashes and the Harbor trial UUID.
+- The separate verifier's container ID, actual image, resource limits and mounts
+  are also inspected before grading; it must use a different container from the
+  candidate. This evidence stays in the private backend record.
 - Image digests, network policy/allowlist and CPU/memory declarations must agree
   with `task.toml`. Phase overrides cannot silently change networking. Unsupported
   custom Compose mounts/services, source builds, injected skills/MCP tools, legacy
