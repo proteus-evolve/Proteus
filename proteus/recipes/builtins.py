@@ -32,7 +32,7 @@ from proteus.evaluation.runners import (
     ExactMatch, LocalJsonEnvironment, PromptSubject, PromptSubjectOptions, PythonSubject,
     PythonSubjectOptions, validate_local, validate_prompt, validate_python,
 )
-from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, TaskBatch, TaskSelection
+from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, SupervisedBatch, TaskBatch, TaskSelection
 from proteus.core.contracts import EvaluationBatch
 from proteus.methods.compare import CompareMethod, CompareOptions, CompareState, validate_compare
 from proteus.methods.native import NativeMethod, NativeOptions, NativeSummary, validate_native
@@ -85,6 +85,7 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.search.view@1", SelectionView)
     registry.register_data("proteus.search.decision@1", SearchDecision)
     registry.register_data("proteus.eval.selection@1", TaskSelection)
+    registry.register_data("proteus.eval.supervised_batch@1", SupervisedBatch)
     for kind, schema in (("task_batch", TaskBatch), ("state", StateValue), ("feedback", Feedback),
                          ("trace", Trace), ("batch", EvaluationBatch), ("receipt", EvaluationReceipt),
                          ("observation", Observation)):

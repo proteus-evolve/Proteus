@@ -548,6 +548,9 @@ class RunServices:
     def task_pool(self, evaluation_id: str):
         return self._evaluation_service.task_pool(evaluation_id)
 
+    def supervised_batch(self, evaluation_id: str):
+        return self._evaluation_service.supervised_batch(evaluation_id)
+
     def archive_snapshot(self):
         from proteus.core.search import SearchService
         return SearchService(self).snapshot()

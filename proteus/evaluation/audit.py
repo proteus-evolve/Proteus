@@ -64,8 +64,8 @@ class RunAudit:
     def fixed_cohort(self, receipt, evaluation_id, dataset, candidate_id, *, selection=None, inputs=None):
         recipe = self.recipe
         require(type(receipt) is EvaluationReceipt, "expected evaluation receipt")
-        require(recipe.execution.state_policy == StatePolicy.INDEPENDENT,
-                "fixed-cohort report currently audits independent trials")
+        require(recipe.execution.state_policy in (StatePolicy.INDEPENDENT, StatePolicy.SEQUENCE),
+                "fixed-cohort report requires independent or explicit sequence trials")
         spec = next(item for item in recipe.evaluations if item.id == evaluation_id)
         require("evaluator.deterministic" in self.registry.get(spec.evaluator.plugin).capabilities,
                 "offline regrading requires a deterministic evaluator")
@@ -114,6 +114,11 @@ class RunAudit:
             trial = TrialRecord.from_json((root / "predictions" / f"{index:06d}.json").read_text())
             require(trial.rollout == rollout and trial.task_hash == content_hash(task) and trial.inputs == refs,
                     "prediction evidence differs")
+            before = expected.initial_state if index == 0 or recipe.execution.state_policy == StatePolicy.INDEPENDENT else (
+                self.values.get(self.rollouts[batch.rows[index - 1].rollout_id].state_after))
+            require(self.values.get(rollout.state_before) == before,
+                    "fixed-cohort initial state or sequence continuity differs")
+            self.values.get(rollout.state_after)
             grade = grader.grade(task, rollout, references[(task.split, task.id)])
             require((row.score, row.status, dict(row.metrics)) == (grade.score, grade.status, dict(grade.metrics)),
                     "cohort grade disagrees with the pinned metric")

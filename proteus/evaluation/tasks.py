@@ -77,6 +77,16 @@ class TaskSuite(Protocol):
 
 
 @dataclass(frozen=True, kw_only=True)
+class SupervisedBatch(Contract):
+    """Explicitly disclosed training references, aligned to a pinned public batch."""
+    batch: TaskBatch
+    references: tuple[Any, ...]
+
+    def _validate(self):
+        require(len(self.references) == len(self.batch.tasks), 'supervision/reference count differs')
+
+
+@dataclass(frozen=True, kw_only=True)
 class JsonSuiteOptions(Contract):
     path: str = field(metadata=TEXT)
 
