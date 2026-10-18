@@ -83,9 +83,9 @@ def test_packing_research_worker_protocol_uses_shared_geometry_and_native_interv
         FileWrite.from_bytes('main.py',wrapper.encode()),
         FileWrite.from_bytes('initial_program.py',b'def run(): return [], [0], 999999\n'),
         FileWrite.from_bytes('research.py',(ROOT/'research.py').read_bytes()))))
-    command=(sys.executable,str(FIXTURE),'--evaluation','validation')+ (('--cooperate',) if workers==2 else ())
+    command=(sys.executable,'-c',FIXTURE.read_text(),'--evaluation','validation')+ (('--cooperate',) if workers==2 else ())
     options={**recipe.workers[0].runtime.options,'command':command,
-        'command_files':{path:'sha256:'+hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in command[:2]}}
+        'command_files':{path:'sha256:'+hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in command[:1]}}
     recipe=registry.resolve(replace(recipe,subject=replace(recipe.subject,initial_artifact=artifact),
         workers=tuple(replace(worker,runtime=replace(worker.runtime,options=options)) for worker in recipe.workers)))
     lock=registry.make_lock(recipe,[SOURCE])
@@ -118,8 +118,11 @@ def test_live_harbor_full_coral_packing_search_and_report(tmp_path,workers):
     sentinel.write_text('HOST_PRIVATE_GRADER_SENTINEL')
     source=FIXTURE.read_text()
     options=live_options(source,network='public')
-    options=replace(options,command=(*options.command,'--sentinel',str(sentinel),
+    # Bind fixture source through the locked command, leaving the run directory
+    # empty until the runner owns initialization (also in the crash subprocess).
+    options=replace(options,command=(options.command[0],'-c',source,'--sentinel',str(sentinel),
         *(('--cooperate',) if workers==2 else ('--submissions-a','3'))),
+                    command_files={options.command[0]:options.command_files[options.command[0]]},
                     timeout_seconds=900,setup_timeout_seconds=120,shutdown_grace_seconds=10)
     path=prepare(root/'study',os.environ['PROTEUS_HARBOR_PYTHON'],workers=workers,submissions=3,
         worker_runtime=plugin('proteus.worker.harbor',**options.to_dict()))
@@ -138,8 +141,7 @@ def test_live_harbor_full_coral_packing_search_and_report(tmp_path,workers):
     (root/'recipe.json').write_text(recipe.to_json())
     (root/'lock.json').write_text(lock.to_json())
     services=RunServices(run_id='run',recipe=recipe,registry=registry,root=root/'run',lock_hash=content_hash(lock))
-    for worker in recipe.workers:
-        (services.worker(worker.id).controller.workspace/'provider.py').write_text(source)
+    assert not (root/'run').exists() or not any((root/'run').iterdir())
     try:
         if workers==2:
             interrupt_controller(root,'proteus.benchmarks.coral_circle_packing.recipe')
