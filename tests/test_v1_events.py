@@ -266,6 +266,56 @@ def test_hard_exit_reuses_observation_plan_and_worker_generation(tmp_path, bound
         cleanup(current)
 
 
+def test_pause_during_slow_gateway_poll_preserves_native_session(tmp_path):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+
+    polling, release = threading.Event(), threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers['Content-Length']))
+            payload = b'{"ticket_id":"accepted"}'
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def do_GET(self):
+            # Hold the response beyond the client's timeout. A pause must stop
+            # retries and confirm the session before supervisor escalation.
+            polling.set()
+            release.wait(5)
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    recipe, registry, lock = setup(tmp_path)
+    current = services(tmp_path, recipe, registry, lock)
+    worker = current.worker('a')
+    worker.controller.environment = {'PROTEUS_EVALUATION_URL': f'http://127.0.0.1:{server.server_port}',
+                                     'PROTEUS_EVALUATION_TOKEN': 'fixture-token'}
+    try:
+        first = worker.start('blocked-poll', 'Submit and await feedback.')
+        assert polling.wait(5), 'worker never reached its pending HTTP request'
+        worker.control(first, 'pause')
+        paused = wait(worker, first)
+        assert paused.state == 'paused' and paused.completion.session_id == 'session-a', paused
+        second = worker.start('continue', 'Continue after the pause.', previous=first)
+        completed = wait(worker, second)
+        assert completed.state == 'completed' and completed.completion.resumed_from == 'session-a'
+        assert current.ledger.balance()['active_slots'] == 0
+    finally:
+        release.set()
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+        cleanup(current)
+
+
 def test_fresh_intervention_is_an_explicit_recorded_policy(tmp_path):
     recipe, registry, _ = setup(tmp_path)
     recipe = replace(recipe, event_policies=(replace(recipe.event_policies[0], resume_policy='fresh',
