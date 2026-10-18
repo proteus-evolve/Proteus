@@ -56,6 +56,15 @@ class GatewayHost:
                     self.end_headers()
                     self.wfile.write(encoded)
 
+                def body(self):
+                    size = int(self.headers.get("Content-Length", "-1"))
+                    require(0 < size <= gateway.spec.max_request_bytes, "request exceeds configured size limits")
+                    require(self.headers.get("Content-Type", "").split(";")[0] == "application/json",
+                            "gateway requests must be JSON")
+                    raw = self.rfile.read(size)
+                    require(len(raw) == size, "incomplete gateway request")
+                    return read_json(raw.decode())
+
                 def handle_request(self, submit):
                     authorization = self.headers.get("Authorization", "")
                     if not authorization.startswith("Bearer "):
@@ -67,18 +76,15 @@ class GatewayHost:
                         self.reply(401, {"error": "invalid_credential"})
                         return
                     try:
+                        if self.path.startswith("/v1/knowledge/"):
+                            self.reply(200, gateway.knowledge().dispatch(worker, "POST" if submit else "GET", self.path,
+                                                                        self.body() if submit else None))
+                            return
                         if submit:
                             if self.path != "/v1/submissions":
                                 self.reply(404, {"error": "unknown_route"})
                                 return
-                            size = int(self.headers.get("Content-Length", "-1"))
-                            require(0 < size <= gateway.spec.max_request_bytes,
-                                    "request exceeds configured size limits")
-                            require(self.headers.get("Content-Type", "").split(";")[0] == "application/json",
-                                    "gateway requests must be JSON")
-                            body = self.rfile.read(size)
-                            require(len(body) == size, "incomplete gateway request")
-                            submission = GatewaySubmission.from_json(body.decode())
+                            submission = GatewaySubmission.from_dict(self.body())
                             ticket = gateway.submit(worker, submission)
                             self.reply(202, {"ticket_id": ticket.id(), "ticket": ticket.to_dict()})
                         else:

@@ -53,6 +53,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P09c：加入 worker 主动提交候选的 EvaluationGateway，冻结提交字节、事务化入队、按原认领恢复、复用正式评分并返回授权证据；可自动发布共享 attempt。首个传输为可信本地 worker 的 loopback HTTP，候选执行可接 Harbor。恢复、安装包及容器验收见 [V1_EVALUATION_GATEWAY.md](../V1_EVALUATION_GATEWAY.md)。CORAL 事件策略、完整 recipe、真实模型实验与发布验收仍未完成。
 
+- P09d：补齐 worker 通过认证接口自主读取共享快照、按版本修改 notes/skills，并引用正式 attempt 的闭环；读写权限需显式开启，保持历史读、成功与冲突回执。两个真实子进程的知识传递与控制器硬退出恢复已验证，说明见 [V1_WORKER_KNOWLEDGE.md](../V1_WORKER_KNOWLEDGE.md)。CORAL 事件干预、完整方法与真实模型实验仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

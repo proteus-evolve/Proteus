@@ -200,6 +200,7 @@ class GatewaySpec(Contract):
     members: Mapping[str, str]  # worker ID -> explicit evidence-owning stage
     evaluations: tuple[str, ...] = field(metadata={**UNIQUE, "minItems": 1})
     knowledge_space: str | None = field(default=None, metadata=TEXT)
+    knowledge_access: Literal["none", "read", "read_write"] = "none"
     max_pending_per_worker: int = field(default=1, metadata={"minimum": 1})
     max_evaluations_per_worker: int | None = field(default=None, metadata={"minimum": 0})
     max_request_bytes: int = field(default=8 * 1024 * 1024, metadata={"minimum": 1})
@@ -253,6 +254,8 @@ class RecipeConfig(Contract):
                         "worker has no matching gateway membership")
         for gateway in self.gateways:
             require(self.subject is not None, "evaluation gateway requires a subject")
+            require(gateway.knowledge_access == "none" or gateway.knowledge_space is not None,
+                    "worker knowledge access requires a declared space")
             require(set(gateway.evaluations) <= set(evaluations), "gateway references an unknown evaluation")
             require(all(evaluations[key].visibility == FeedbackVisibility.OBSERVED for key in gateway.evaluations),
                     "private evaluations cannot be submitted through a worker gateway")
