@@ -395,8 +395,9 @@ class Bridge:
 
 
 class GepaMethod:
-    def __init__(self, options):
+    def __init__(self, options, *, reflection_strategy_factory=None):
         self.options = options
+        self.reflection_strategy_factory = reflection_strategy_factory
         self.gepa = load_reference()
 
     def run(self, services, restored_state):
@@ -421,6 +422,8 @@ class GepaMethod:
             try:
                 result = self.gepa.optimize(seed_candidate=bridge.texts(initial.id), trainset=bridge.train,
                     valset=bridge.validation, adapter=bridge, reflection_lm=bridge.reflect,
+                    reflection_strategy=(self.reflection_strategy_factory(bridge)
+                                         if self.reflection_strategy_factory else None),
                     candidate_selection_strategy=bridge, batch_sampler=bridge, reflection_minibatch_size=None,
                     max_metric_calls=self.options.max_metric_calls, skip_perfect_score=self.options.skip_perfect_score,
                     perfect_score=self.options.perfect_score, acceptance_criterion=self.options.acceptance,

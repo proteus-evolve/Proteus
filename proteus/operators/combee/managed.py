@@ -19,6 +19,18 @@ class Wave(Contract):
         require(len(self.prompts) == len(self.responses), "aggregation wave is not aligned")
 
 
+class CompletionText(str):
+    """Ephemeral parser input; the durable ActorResult owns provider metadata."""
+
+    def __new__(cls, value, *, finish_reason=None):
+        instance = super().__new__(cls, value)
+        instance.finish_reason = finish_reason
+        return instance
+
+    def strip(self, chars=None):
+        return type(self)(super().strip(chars), finish_reason=self.finish_reason)
+
+
 class ManagedLM:
     def __init__(self, services, stage, *, operation_id, max_workers):
         require(services._journal is not None, "aggregation requires a journal-enabled method")
@@ -75,7 +87,7 @@ class ManagedLM:
         )
         wave = Wave(operation_id=operation, prompts=refs, responses=responses, map_receipt=receipt)
         self.waves.append(services.values.publish("proteus.combee.wave@1", wave))
-        return [value.text for value in values]
+        return [CompletionText(value.text, finish_reason=value.finish_reason) for value in values]
 
     def __call__(self, prompt):
         return self.complete([prompt], parallel=False)[0]

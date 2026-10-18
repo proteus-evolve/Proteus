@@ -72,7 +72,8 @@ class ChatActor:
             model=body.get("model"), settings={"requested_model": spec.model, **spec.model_settings}),
             usage=Usage(model_calls=1, input_tokens=usage.get("prompt_tokens"),
                         output_tokens=usage.get("completion_tokens"),
-                        wall_seconds=time.monotonic() - started))
+                        wall_seconds=time.monotonic() - started),
+            finish_reason=body["choices"][0].get("finish_reason"))
 
 
 @dataclass(frozen=True, kw_only=True)

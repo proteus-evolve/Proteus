@@ -5,7 +5,8 @@ stage-map scheduler. A method owns generation, evaluation, counter updates,
 candidate acceptance and batch rollback. The operators own reflection grouping,
 managed proposal/reducer calls and the resulting update proposal.
 
-This is an aggregation milestone. Complete `combee_ace` and `combee_gepa`
+This is an aggregation milestone. A fixed-batch GEPA integration is described in
+[V1_COMBEE_GEPA.md](V1_COMBEE_GEPA.md). Complete `combee_ace` and parallel GEPA
 experimental recipes, concurrent task evaluation, per-sample adaptive loops,
 profiling, dynamic batch control and quality/cost/elapsed-time experiments remain
 in P08. Running these offline examples does not establish model performance or
@@ -42,9 +43,10 @@ mapping order is preserved through `ReflectionBatch`, including after recovery.
 The upstream incomplete-output parser and multi-component wave scheduling are
 retained. Plain unfenced text and partial code fences follow the reference's
 permissive salvage behavior; an unclosed leading reasoning block is rejected.
-The current ActorResult text interface does not carry provider finish-reason
-metadata, so truncation detectable only from that metadata is not supported by
-this profile. Transport errors propagate rather than triggering an
+ActorResult also preserves optional provider `finish_reason` metadata. The
+managed wrapper carries it through trimming into the reference parser: known
+truncated unfenced outputs are rejected, while complete fences retain upstream
+acceptance semantics. Transport errors propagate rather than triggering an
 unaccounted upstream fallback.
 
 ## Method API

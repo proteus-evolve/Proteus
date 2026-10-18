@@ -46,6 +46,7 @@ class ActorResult(Contract):
     trace: tuple[Mapping[str, Any], ...] = ()
     diagnostic: str = ""
     workspace_artifact: ArtifactRef | None = None
+    finish_reason: str | None = field(default=None, metadata=TEXT)
 
 
 @dataclass(frozen=True, kw_only=True)

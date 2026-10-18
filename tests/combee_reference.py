@@ -148,6 +148,7 @@ def ace(source, samples, responder, *, factor=2, num_groups=None, seed=42):
 GEPA_WORKER = r"""
 import hashlib,json,random,sys
 from gepa.proposer.reflective_mutation.combee import ComBEEReflectionLM
+from gepa.lm import LMOutput
 data=json.loads(sys.stdin.read())
 calls=[]
 class LM:
@@ -157,7 +158,7 @@ class LM:
     def answer(self,prompt):
         digest=hashlib.sha256(json.dumps(prompt,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         value=data['responses'].get('sha256:'+digest,data.get('default_response'))
-        return value if value is not None else '```instruction '+digest[:12]+'```'
+        return LMOutput(value if value is not None else '```instruction '+digest[:12]+'```',finish_reason=data.get('finish_reason'))
     def batch_complete(self,messages):
         prompts=[message[0]['content'] for message in messages]
         calls.append(prompts)
