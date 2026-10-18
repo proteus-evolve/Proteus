@@ -28,6 +28,11 @@ conformance tests. Managed transport, stricter artifact validation and serial
 execution are declared adaptations; this does not reproduce published model
 performance. See `docs/V1_ACE_METHOD.md` for the supported profile and limits.
 
+`prompts.py` also includes the exact `CURATOR_OPERATIONS_AGGREGATION_PROMPT`
+from `ace/prompts/curator.py` at this same revision. The Combee aggregation
+operator uses this reducer prompt; `tests/combee_reference.py` checks its bytes
+and the full proposal/reducer behavior against the actual upstream batch method.
+
 `proteus/benchmarks/ace_formula_reference.py` contains the Formula question parser
 and exact correctness predicate from `eval/finance/data_processor.py` at the same
 revision, with only trailing whitespace removed. The complete license above also
