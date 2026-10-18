@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -120,6 +121,19 @@ def test_cleanup_daemon_failure_is_never_reported_as_success(monkeypatch):
     monkeypatch.setattr(harbor_worker, "docker", fail)
     result = harbor_worker.cleanup_owned_resources("proteus-" + "b" * 32)
     assert not result["verified"] and len(result["errors"]) == 6
+
+
+def test_docker_timeout_terminates_wrapper_children_holding_pipes(tmp_path, monkeypatch):
+    wrapper = tmp_path / "docker"
+    wrapper.write_text(f"#!{sys.executable}\nimport subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+        "time.sleep(30)\n")
+    wrapper.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    started = time.monotonic()
+    with pytest.raises(subprocess.TimeoutExpired):
+        harbor_worker.docker("info", timeout=0.2)
+    assert time.monotonic() - started < 3
 
 
 def test_verifier_not_started_is_zero_but_executed_opaque_verifier_is_unknown():
