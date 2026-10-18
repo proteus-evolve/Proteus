@@ -51,7 +51,7 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
             require(not root.exists() or not any(root.iterdir()), "run directory already contains data")
             manifest = RunManifest.create(run_id=run_id or root.name, recipe=recipe, lock=lock)
         services = RunServices(run_id=manifest.run_id, recipe=recipe, registry=registry,
-                               root=root, prompts=prompts, resume=resume)
+                               root=root, prompts=prompts, resume=resume, lock_hash=manifest.lock_hash)
         services.native_prompts = []
         # Constructor option validation and role prompt hashes precede publication.
         method = registry.create(recipe.method, "method")
@@ -70,6 +70,8 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                                              recipe.subject.initial_artifact)
             result = method.run(services, restored)
             require(type(result) is MethodResult, "method must return MethodResult")
+            require(all(session.closed for session in services._evaluation_service.sessions),
+                    "method left an incomplete evaluation cohort")
             for ref in result.outputs.values():
                 services.values.get(ref)
             validate_state(result.state)
@@ -79,6 +81,7 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
             result = MethodResult(status=OperationStatus.FAILED,
                                   diagnostic=f"{type(exc).__name__}: {exc}")
         finally:
+            services._evaluation_service.finalize_incomplete()
             # Keep separate attempt files on native resume; never erase prior evidence.
             attempt = 1
             while (root / f"execution-{attempt:04d}.json").exists():
@@ -89,6 +92,9 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                 "results": [item.to_dict() for item in services.results],
                 "actor_calls": services.actor_calls, "native_prompts": services.native_prompts,
                 "candidates": [item.to_dict() for item in services.candidates],
+                "rollouts": [item.to_dict() for item in services.rollouts],
+                "evaluations": [item.to_dict() for item in services.evaluations],
+                "reserved_evaluations": services._evaluation_service.reserved,
                 "values": services.values.export(), "values_hash": content_hash(services.values.export()),
             })
             if result is not None:

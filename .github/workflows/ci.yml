@@ -65,6 +65,10 @@ jobs:
           /tmp/proteus-wheel/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
           /tmp/proteus-wheel/bin/proteus recipe lock self-evaluation.toml --plugin proteus.examples.self_evaluator_plugin:register --source "proteus=$GITHUB_WORKSPACE" --out self-evaluation.lock.json
           /tmp/proteus-wheel/bin/proteus recipe run self-evaluation.toml --plugin proteus.examples.self_evaluator_plugin:register --lock self-evaluation.lock.json --out self-evaluation-run
+          /tmp/proteus-wheel/bin/python -m proteus.examples.candidate_evaluation --out candidate-study
+          /tmp/proteus-wheel/bin/proteus recipe lock candidate-study/recipe.json --source "proteus=$GITHUB_WORKSPACE" --out candidate-study/lock.json
+          /tmp/proteus-wheel/bin/proteus recipe run candidate-study/recipe.json --lock candidate-study/lock.json --artifact-store candidate-study/artifact-store --out candidate-study/run
+          /tmp/proteus-wheel/bin/python -c 'import json; from pathlib import Path; from proteus.core.contracts import EvaluationBatch; r=json.loads(Path("candidate-study/run/execution-0001.json").read_text()); assert [EvaluationBatch.from_dict(b).mean_score() for b in r["evaluations"]] == [0, 1]; assert len(r["rollouts"]) == 6'
           /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
       - name: Sdist scaffolder works outside the checkout
         run: |
@@ -81,4 +85,8 @@ jobs:
           /tmp/proteus-sdist/bin/proteus recipe lock native.toml --source "proteus=$GITHUB_WORKSPACE" --out native.lock.json
           /tmp/proteus-sdist/bin/proteus recipe run native.toml --lock native.lock.json --out native-run
           /tmp/proteus-sdist/bin/proteus recipe resume native.toml --lock native.lock.json --out native-run
+          /tmp/proteus-sdist/bin/python -m proteus.examples.candidate_evaluation --out candidate-study
+          /tmp/proteus-sdist/bin/proteus recipe lock candidate-study/recipe.json --source "proteus=$GITHUB_WORKSPACE" --out candidate-study/lock.json
+          /tmp/proteus-sdist/bin/proteus recipe run candidate-study/recipe.json --lock candidate-study/lock.json --artifact-store candidate-study/artifact-store --out candidate-study/run
+          /tmp/proteus-sdist/bin/python -c 'import json; from pathlib import Path; from proteus.core.contracts import EvaluationBatch; r=json.loads(Path("candidate-study/run/execution-0001.json").read_text()); assert [EvaluationBatch.from_dict(b).mean_score() for b in r["evaluations"]] == [0, 1]; assert len(r["rollouts"]) == 6'
           /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'

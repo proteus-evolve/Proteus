@@ -73,6 +73,7 @@ class TaskSuiteSpec(Contract):
     dataset_version: str = field(metadata=TEXT)
     split: str = field(metadata=TEXT)
     task_ids: tuple[str, ...] = field(metadata={**UNIQUE, "minItems": 1})
+    dataset_hash: str | None = field(default=None, metadata=DIGEST)
     order: Literal["declared", "shuffle"] = "declared"
     seed: int = 0
 

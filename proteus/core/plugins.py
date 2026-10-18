@@ -124,7 +124,8 @@ class Registry:
     def resolve(self, recipe: RecipeConfig) -> RecipeConfig:
         """Validate all declarations before construction/execution; expand option defaults."""
         from proteus.core.methods import supported_budget
-        for budget in (recipe.budget, *(actor.budget for actor in recipe.actors.values()),
+        supported_budget(recipe.budget, allow_evaluations=True)
+        for budget in (*(actor.budget for actor in recipe.actors.values()),
                        *(stage.budget for stage in recipe.stages)):
             supported_budget(budget)
         def resolve(spec, kind):
@@ -181,6 +182,21 @@ class Registry:
                     f"{plugin.ref.name} does not support {actor.session.value} sessions")
             if plugin.validate is not None:
                 plugin.validate(actor, plugin.options.from_dict(actor.runtime.options))
+        components = []
+        if resolved.subject is not None:
+            components.append((resolved.subject.runner, resolved))
+        if resolved.execution is not None:
+            components.append((resolved.execution.environment.backend, resolved.execution))
+        if resolved.tasks is not None:
+            components.append((resolved.tasks.suite, resolved.tasks))
+        for evaluation in resolved.evaluations:
+            components.extend(((evaluation.tasks.suite, evaluation.tasks), (evaluation.evaluator, evaluation)))
+        for spec, context in components:
+            plugin = self.get(spec.plugin)
+            if plugin.validate is not None:
+                plugin.validate(context, plugin.options.from_dict(spec.options))
+        from proteus.evaluation.service import validate_evaluation_config
+        validate_evaluation_config(resolved, self)
         method = self.get(resolved.method.plugin, "method")
         if method.validate is not None:
             method.validate(resolved, method.options.from_dict(resolved.method.options))
