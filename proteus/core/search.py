@@ -85,11 +85,20 @@ class SelectionView(Contract):
     protocol_hash: str | None = field(default=None, metadata=DIGEST)
     dimensions: tuple[str, ...] = ()
     objectives: tuple[Objective, ...] = ()
+    candidate_ids: tuple[str, ...] | None = None
     vectors: tuple[ScoreVector, ...] = ()
     excluded: Mapping[str, str] = field(default_factory=dict)
 
     def _validate(self):
         unique((item.candidate_id for item in self.vectors), "selection candidate")
+        if self.candidate_ids is not None:
+            unique(self.candidate_ids, "selection population")
+            require(all(item.candidate_id in self.candidate_ids for item in self.vectors),
+                    "selection candidate outside declared population")
+            require(tuple(item.candidate_id for item in self.vectors) == tuple(
+                candidate_id for candidate_id in self.candidate_ids
+                if candidate_id in {item.candidate_id for item in self.vectors}),
+                "selection population order differs")
         require(all(len(item.scores) == len(self.dimensions) for item in self.vectors), "score dimensions differ")
         require(not set(self.excluded).intersection(item.candidate_id for item in self.vectors),
                 "selection candidate is both eligible and excluded")
@@ -183,12 +192,12 @@ class SearchService:
             return services.values.publish("proteus.archive@1", snapshot)
         return self.services._record("archive.snapshot", {}, capture, decode=DataRef.from_dict)
 
-    def view(self, archive_ref, evaluation_id, *, protocol_hash=None, objectives=()):
+    def view(self, archive_ref, evaluation_id, *, protocol_hash=None, objectives=(), candidate_ids=None):
         return self.services._record("archive.view", {"archive": archive_ref, "evaluation_id": evaluation_id,
-            "protocol_hash": protocol_hash, "objectives": objectives},
-            lambda: self._view(archive_ref, evaluation_id, protocol_hash, objectives), decode=DataRef.from_dict)
+            "protocol_hash": protocol_hash, "objectives": objectives, "candidate_ids": candidate_ids},
+            lambda: self._view(archive_ref, evaluation_id, protocol_hash, objectives, candidate_ids), decode=DataRef.from_dict)
 
-    def _view(self, archive_ref, evaluation_id, protocol_hash, objectives):
+    def _view(self, archive_ref, evaluation_id, protocol_hash, objectives, candidate_ids=None):
         services = self.services
         archive = services.values.get(archive_ref)
         require(type(archive) is ArchiveSnapshot and archive.run_id == services.run_id, "expected this run's archive")
@@ -204,6 +213,11 @@ class SearchService:
                 and spec.visibility == FeedbackVisibility.OBSERVED, "evaluation is not eligible for selection")
         require(all(type(item) is Objective for item in objectives), "expected typed objectives")
         unique((item.metric for item in objectives), "selection objective")
+        if candidate_ids is not None:
+            require(type(candidate_ids) is tuple and all(type(item) is str for item in candidate_ids),
+                    "candidate_ids must be an ordered tuple of candidate IDs")
+            unique(candidate_ids, "selection population")
+            require(set(candidate_ids) <= {item.id for item in archive.candidates}, "unknown population candidate")
         evaluations = [item for item in archive.evaluations if item.evaluation_id == evaluation_id]
         protocols = {item.batch.protocol_hash for item in evaluations}
         if protocol_hash is None:
@@ -214,6 +228,9 @@ class SearchService:
         latest = {item.batch.candidate_id: item for item in evaluations if item.batch.protocol_hash == protocol_hash}
         vectors, excluded, dimensions = [], {}, ()
         for candidate in archive.candidates:
+            if candidate_ids is not None and candidate.id not in candidate_ids:
+                excluded[candidate.id] = "outside declared population"
+                continue
             evidence = latest.get(candidate.id)
             if candidate.validation == ValidationStatus.INVALID:
                 excluded[candidate.id] = "invalid candidate"
@@ -241,8 +258,12 @@ class SearchService:
             require(not dimensions or dimensions == names, "comparable protocol has different score dimensions")
             dimensions = names
             vectors.append(ScoreVector(candidate_id=candidate.id, batch_id=evidence.batch.id, scores=tuple(scores)))
+        if candidate_ids is not None:
+            by_id = {item.candidate_id: item for item in vectors}
+            vectors = [by_id[item] for item in candidate_ids if item in by_id]
         view = SelectionView(archive=archive_ref, evaluation_id=evaluation_id, protocol_hash=protocol_hash,
-            dimensions=dimensions, objectives=tuple(objectives), vectors=tuple(vectors), excluded=excluded)
+            dimensions=dimensions, objectives=tuple(objectives), candidate_ids=candidate_ids,
+            vectors=tuple(vectors), excluded=excluded)
         return services.values.publish("proteus.search.view@1", view)
 
     def choose(self, role, policy_name, view_ref, *, operation_id=None):
@@ -259,7 +280,7 @@ class SearchService:
         require("search." + role in definition.capabilities, "search policy does not support this role")
         view = services.values.get(view_ref)
         require(type(view) is SelectionView, "expected a selection view")
-        require(self._view(view.archive, view.evaluation_id, view.protocol_hash, view.objectives) == view_ref,
+        require(self._view(view.archive, view.evaluation_id, view.protocol_hash, view.objectives, view.candidate_ids) == view_ref,
                 "selection view differs from its eligible archive evidence")
         services._check_operation(operation_id)
         services._operations.add(operation_id)

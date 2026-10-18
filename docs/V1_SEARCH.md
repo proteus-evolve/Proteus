@@ -1,8 +1,9 @@
 # 1.0 development: task selection, archives and search policies
 
-P05a supplies shared search primitives. It does not implement the GEPA recipe or
-claim paper reproduction. GEPA's instance frontier, parent sampling, acceptance,
-component mutation and merge remain the pinned upstream adapter's work.
+P05a supplies shared search primitives. P05b adds [pinned GEPA search and task
+sampling](V1_GEPA_SEARCH.md). Neither implements the complete GEPA recipe or claims
+paper reproduction; reflection, acceptance, component mutation, merge and engine
+recovery remain the method adapter's work.
 
 ## Select tasks from a declared pool
 
@@ -63,6 +64,13 @@ active = services.retain_candidates("population", view)
 final = services.select_final("final", view)
 chosen_ids = final.result.selected
 ```
+
+An optional `candidate_ids=(...)` argument to `selection_view` defines an ordered
+population of existing candidate IDs. It filters membership and preserves that
+order, while all original archive evidence stays intact. Ineligible members remain
+excluded; no scores are fabricated. The population is part of the view/journal
+identity. Methods such as GEPA require the explicit accepted-program order so
+rejected proposals and equal-content candidates cannot change program indices.
 
 These names resolve to independently configured plugins in `RecipeConfig.search`.
 A view requires a declared, observed, selection-eligible non-test evaluation and

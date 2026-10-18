@@ -486,9 +486,10 @@ class RunServices:
         from proteus.core.search import SearchService
         return SearchService(self).snapshot()
 
-    def selection_view(self, archive, evaluation_id, *, protocol_hash=None, objectives=()):
+    def selection_view(self, archive, evaluation_id, *, protocol_hash=None, objectives=(), candidate_ids=None):
         from proteus.core.search import SearchService
-        return SearchService(self).view(archive, evaluation_id, protocol_hash=protocol_hash, objectives=objectives)
+        return SearchService(self).view(archive, evaluation_id, protocol_hash=protocol_hash,
+                                        objectives=objectives, candidate_ids=candidate_ids)
 
     def select_parents(self, policy, view, *, operation_id=None):
         from proteus.core.search import SearchService

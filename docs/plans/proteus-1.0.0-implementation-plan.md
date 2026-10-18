@@ -19,6 +19,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - P04d：持久操作 journal、方法检查点与 compare/sequence resume；恢复 typed values、候选、在线评估状态、随机采样和角色用量，复用已结算的 actor/subject/grader 结果，未确认的外部调用保持不确定并报告。说明见 [V1_RECOVERY.md](../V1_RECOVERY.md)。具体 backend 的不确定操作 reconciliation、持久 worker 和五种方法实验仍未完成。
 - P04e：增加 `subject.reconcile` 接口及 Harbor worker 的独立完成回执；控制进程硬退出后，仍运行的 worker 保持原预算，完成后可核验请求、候选、任务、构建镜像与私有 verifier 结果并接回账本。真实 Docker 门禁包含活 worker 等待、原 trial 接回与重复恢复。无持久回执的调用、未确认构建和其他 backend 的恢复策略仍待实现；不将其标为全量 reconciliation 完成。
 - P05a：公开任务池与有序 TaskSelection（重复样本逐次计费）、可查询的不可变 ArchiveSnapshot，以及独立 ParentSelector/ArchivePolicy/FinalSelector 接口。通用 scalar、uniform、Pareto 策略记录候选取舍与 RNG，使用受可见性/选择资格约束的评分视图，恢复不重复抽样或评估。说明见 [V1_SEARCH.md](../V1_SEARCH.md)。GEPA 的参考 frontier/parent sampling、上游算法桥接与真实 benchmark 仍待后续 P05 完成，通用 Pareto 不计作 GEPA 复现。
+- P05b：接入固定 GEPA 提交的逐样本 frontier、覆盖冗余剔除、按覆盖频次选择 parent 和 epoch minibatch sampler；显式 accepted population 保留程序索引，同内容候选不合并。对照实际上游 GEPAState 验证策略与 RNG，采样状态可纳入方法检查点。说明见 [V1_GEPA_SEARCH.md](../V1_GEPA_SEARCH.md)。完整 GEPA Method、反思/接纳、上游 engine 恢复和 benchmark 仍未完成；本批不计作完整 recipe 复现。
 
 ## 1 目标与范围
 
@@ -199,7 +200,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 - [x] 建立候选和评估的可查询 archive；支持多分支及多个 parent 引用（P05a，不删除失败/被拒候选；隐藏评估不进入公开 archive）。
 - [x] 分离 ParentSelector、ArchivePolicy、FinalSelector（P05a，分别声明 capability、配置和操作记录）。
-- [ ] 按参考版本实现 GEPA 逐样本 frontier 和 parent 选择；提供标量及多目标策略供其他 recipe 使用。
+- [x] 按参考版本实现 GEPA 逐样本 frontier 和 parent 选择；提供标量及多目标策略供其他 recipe 使用（P05b 固定提交的 full-validation instance profile 与原实现符合性检查；完整方法及其他 frontier profile 仍属 P05 后续验收）。
 - [x] 支持不使用自动 parent selection 的 agent-directed proposal（P05a 验证直接创建多 parent 候选且不触发采样）。
 - [x] 保存采样状态、接纳与拒绝原因；最终结果可为候选集合或 frontier（P05a 纯策略的 RNG、评分视图、逐候选原因与 journal replay；具体方法的算法状态随 recipe 接入）。
 
