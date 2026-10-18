@@ -29,6 +29,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: install
         run: pip install -e '.[dev,dsh,pi]'
+      - name: Install exact optional GEPA reference for conformance tests
+        run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
       - name: configure git identity (snapshot tests)
         run: |
           git config --global user.email ci@proteus
@@ -36,6 +38,8 @@ jobs:
       - name: lint
         run: ruff check .
       - name: tests
+        env:
+          PROTEUS_REQUIRE_GEPA: "1"
         run: pytest tests/ -q
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py

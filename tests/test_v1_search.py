@@ -238,6 +238,25 @@ def test_agent_directed_multiple_parents_need_no_sampling_and_scalar_ties_use_cr
     assert services.select_final("final", view).result.selected == (first.id,)
 
 
+def test_ordered_population_filters_eligible_evidence_without_deleting_history(tmp_path):
+    services, _ = scored_fixture(tmp_path)
+    archive = services.archive_snapshot()
+    selected = services.selection_view(archive, "score", candidate_ids=("tie", "initial", "failed"))
+    view = services.values.get(selected)
+    assert view.candidate_ids == ("tie", "initial", "failed")
+    assert tuple(item.candidate_id for item in view.vectors) == ("tie", "initial")
+    assert view.excluded["balanced"] == "outside declared population"
+    assert "missing" in view.excluded["failed"]
+    assert services.select_final("final", selected).result.selected == ("tie",)
+    assert len(services.values.get(archive).candidates) == 8
+    for ids in (("unknown",), ("tie", "tie"), ["tie"]):
+        with pytest.raises(ContractError):
+            services.selection_view(archive, "score", candidate_ids=ids)
+    empty = services.selection_view(archive, "score", candidate_ids=())
+    assert services.values.get(empty).vectors == ()
+    assert services.retain_candidates("archive", empty).result.selected == ()
+
+
 RECOVERY_DRIVER = r'''
 import os,sys
 from pathlib import Path
