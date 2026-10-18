@@ -107,21 +107,33 @@ class EvaluationService:
             return 0
         return self.services.ledger.balance()["charged"]["evaluations"]
 
-    def open(self, evaluation_id, *, operation_id=None):
+    def _load_pool(self, evaluation_id):
+        validate_evaluation_config(self.services.recipe, self.services.registry)
+        spec = next((spec for spec in self.services.recipe.evaluations if spec.id == evaluation_id), None)
+        require(spec is not None, f"unknown declared evaluation: {evaluation_id}")
+        dataset = self.services.registry.create(spec.tasks.suite, "task_suite").load()
+        return spec, dataset
+
+    def task_pool(self, evaluation_id):
+        def load():
+            spec, dataset = self._load_pool(evaluation_id)
+            return make_batch(dataset, spec.tasks)
+        return self.services._record("evaluation.pool", {"evaluation_id": evaluation_id}, load,
+                                     decode=TaskBatch.from_dict)
+
+    def open(self, evaluation_id, *, operation_id=None, selection=None):
         operation_id = operation_id or f"op-{len(self.services._operations) + 1:06d}"
-        return self.services._record("evaluation.open", {"evaluation_id": evaluation_id, "operation_id": operation_id},
-            lambda: self._open(evaluation_id, operation_id=operation_id), encode=lambda session: session.operation_id,
+        return self.services._record("evaluation.open", {"evaluation_id": evaluation_id,
+            "operation_id": operation_id, "selection": selection},
+            lambda: self._open(evaluation_id, operation_id=operation_id, selection=selection), encode=lambda session: session.operation_id,
             decode=self.services.evaluation_session)
 
-    def _open(self, evaluation_id, *, operation_id):
+    def _open(self, evaluation_id, *, operation_id, selection):
         services = self.services
         require(threading.get_ident() == services._dispatch_thread, "evaluation requires serial service dispatch")
         require(not services.resume or services._journal is not None, "evaluation recovery requires the durable operation journal")
-        validate_evaluation_config(services.recipe, services.registry)
-        spec = next((spec for spec in services.recipe.evaluations if spec.id == evaluation_id), None)
-        require(spec is not None, f"unknown declared evaluation: {evaluation_id}")
-        dataset = services.registry.create(spec.tasks.suite, "task_suite").load()
-        batch = make_batch(dataset, spec.tasks)
+        spec, dataset = self._load_pool(evaluation_id)
+        batch = make_batch(dataset, spec.tasks, selection)
         execution = services.recipe.execution
         require(execution.initial_state_hash is None or execution.initial_state_hash == content_hash(batch.initial_state),
                 "initial state differs from ExecutionSpec")
