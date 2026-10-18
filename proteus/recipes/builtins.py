@@ -93,6 +93,9 @@ def builtin_registry() -> Registry:
     from proteus.knowledge.records import KnowledgeRevision, KnowledgeSnapshot
     registry.register_data("proteus.knowledge.revision@1", KnowledgeRevision)
     registry.register_data("proteus.knowledge.snapshot@1", KnowledgeSnapshot)
+    from proteus.workers.records import CommandWorkerOptions, WorkerCompletion, WorkerRef
+    registry.register_data("proteus.worker.ref@1", WorkerRef)
+    registry.register_data("proteus.worker.completion@1", WorkerCompletion)
     registry.register_data("proteus.code.call@1", CodeCall)
     registry.register_data("proteus.code.state@1", CodeState)
     registry.register_data("proteus.code.result@1", CodeResult)
@@ -114,6 +117,9 @@ def builtin_registry() -> Registry:
     for name, codec in BUILTIN_CODECS.items():
         add(name, "codec", EmptyOptions, lambda options, codec=codec: codec(),
             capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
+    from proteus.workers.runtime import CommandWorkerRuntime
+    add("proteus.worker.command", "worker", CommandWorkerOptions, lambda options: CommandWorkerRuntime(),
+        capabilities=("worker.lifecycle", "worker.reconcile", "worker.session_protocol"))
     for name, factory, roles in (("scalar_best", ScalarBest, ("parent", "final")),
                                  ("uniform_parent", UniformParent, ("parent",)),
                                  ("keep_all", KeepAll, ("archive",)),

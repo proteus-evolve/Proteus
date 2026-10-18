@@ -269,6 +269,8 @@ P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARE
 
 ### I11 持久 actor 与事件干预
 
+P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算、暂停/停止、session 确认及显式 fresh fallback；真实子进程和方法恢复检查见 [V1_WORKERS.md](../V1_WORKERS.md)。当前 command bridge 是受信任的本地运行时；隔离的真实 provider bridge、EvaluationGateway、共享知识中介和 CORAL 事件策略仍待完成，以下 I11 验收尚未整体完成。
+
 - [ ] 管理 worker 的启动、session 继续、暂停、停止及异常退出恢复。
 - [ ] 每个 worker 有独立代码工作区、身份和预算记录，共享知识通过 I08 访问。
 - [ ] 提供正式 EvaluationGateway，让 agent 主动提交准确版本的候选并获得允许的反馈。

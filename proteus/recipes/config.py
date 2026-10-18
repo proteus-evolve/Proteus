@@ -186,6 +186,14 @@ class KnowledgeSpec(Contract):
 
 
 @dataclass(frozen=True, kw_only=True)
+class WorkerSpec(Contract):
+    id: str = field(metadata=TEXT)
+    role: str = field(metadata=TEXT)
+    runtime: PluginSpec
+    budget: BudgetLimits = field(default_factory=BudgetLimits)
+
+
+@dataclass(frozen=True, kw_only=True)
 class RecipeConfig(Contract):
     name: str = field(metadata=TEXT)
     method: PluginSpec
@@ -201,6 +209,7 @@ class RecipeConfig(Contract):
     budget: BudgetLimits = field(default_factory=BudgetLimits)
     seed: int = 0
     knowledge: tuple[KnowledgeSpec, ...] = ()
+    workers: tuple[WorkerSpec, ...] = ()
 
     def _validate(self):
         require(all(role.strip() for role in self.actors), "actor roles must be nonempty")
@@ -212,6 +221,8 @@ class RecipeConfig(Contract):
         unique((workflow.id for workflow in self.workflows), "workflow ID")
         unique((spec.id for spec in self.evaluations), "evaluation ID")
         unique((spec.id for spec in self.knowledge), "knowledge space ID")
+        unique((spec.id for spec in self.workers), "worker ID")
+        require(all(spec.role in self.actors for spec in self.workers), "worker references an unknown actor role")
         evaluations = {spec.id: spec for spec in self.evaluations}
         knowledge = {spec.id: spec for spec in self.knowledge}
         for space in self.knowledge:
@@ -273,6 +284,7 @@ class RecipeConfig(Contract):
         if self.execution is not None:
             optional.append(self.execution.environment.backend)
         return (self.method, *optional, *(actor.runtime for actor in self.actors.values()),
+                *(worker.runtime for worker in self.workers),
                 *(stage.operator for stage in self.stages), *(workflow.operator for workflow in self.workflows),
                 *self.search.values(),
                 *(spec.evaluator for spec in self.evaluations),

@@ -267,6 +267,8 @@ class RunServices:
                 evidence.bound(value, value.stage_id, verify_files=True)
         from proteus.knowledge.service import validate_restored
         validate_restored(self)
+        from proteus.workers.service import validate_restored as validate_workers
+        validate_workers(self)
 
     def _record(self, kind, identity, function, *, decode, encode=lambda value: value.to_dict()):
         require(threading.get_ident() == self._dispatch_thread, "cross-thread dispatch requires serial service dispatch")
@@ -293,6 +295,10 @@ class RunServices:
     def knowledge(self, space_id):
         from proteus.knowledge.service import KnowledgeService
         return KnowledgeService(self, space_id)
+
+    def worker(self, worker_id):
+        from proteus.workers.service import WorkerService
+        return WorkerService(self, worker_id)
 
     def invoke_candidate(self, candidate: Candidate, call, *, operation_id: str | None = None):
         from proteus.execution.code_service import CodeService

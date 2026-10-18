@@ -51,7 +51,7 @@ class Plugin:
 
     def __post_init__(self):
         require(self.kind in {"method", "stage", "workflow", "actor", "subject", "task_suite", "environment",
-                              "codec", "evaluator", "policy"}, "unknown plugin kind")
+                              "codec", "evaluator", "policy", "worker"}, "unknown plugin kind")
         require(isinstance(self.options, type) and issubclass(self.options, Contract),
                 "plugin options must be a Contract class")
         require(callable(self.factory), "plugin factory must be callable")
@@ -188,6 +188,7 @@ class Registry:
                 backend=resolve(execution.environment.backend, "environment")))
         resolved = replace(recipe, method=resolve(recipe.method, "method"), stages=tuple(stages),
             workflows=tuple(workflows),
+            workers=tuple(replace(worker, runtime=resolve(worker.runtime, "worker")) for worker in recipe.workers),
             actors={name: replace(actor, runtime=resolve(actor.runtime, "actor"))
                     for name, actor in recipe.actors.items()}, subject=subject, tasks=tasks,
             execution=execution, search={name: resolve(spec, "policy") for name, spec in recipe.search.items()},
@@ -233,6 +234,11 @@ class Registry:
             require("run.journal" in self.get(resolved.method.plugin).capabilities,
                     "shared knowledge requires a journal-enabled method")
             self.get(PluginRef(name="proteus.file_tree", version="1"), "codec")
+        if resolved.workers:
+            require("run.journal" in self.get(resolved.method.plugin).capabilities,
+                    "persistent workers require a journal-enabled method")
+            from proteus.workers.service import validate_workers
+            validate_workers(resolved, self)
         if workflows:
             require("run.journal" in self.get(resolved.method.plugin).capabilities,
                     "workflows require a journal-enabled method")
