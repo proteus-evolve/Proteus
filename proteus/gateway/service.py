@@ -5,7 +5,7 @@ from proteus.core.contracts import require
 from proteus.core.recovery import RecoveryRequired
 from proteus.core.serialization import content_hash, read_json
 from proteus.evidence.store import EvidenceStore
-from proteus.gateway.records import GatewayClaim, GatewayIdentity, GatewayResult
+from proteus.gateway.records import GatewayClaim, GatewayClosure, GatewayIdentity, GatewayResult
 from proteus.gateway.store import GatewayStore
 
 
@@ -71,7 +71,8 @@ class GatewayService:
         accepted = self.store.poll(ticket.worker_id, ticket.id())
         require(accepted.ticket == ticket,
                 "gateway ticket differs from its accepted request")
-        require(accepted.status != "queued", "gateway request must be claimed before evaluation")
+        require(accepted.status != "queued" and self.store.was_claimed(ticket),
+                "gateway request must be claimed before evaluation")
         services, candidate = self.services, None
         operation = "gateway:" + ticket.id()
         previous_worker = getattr(services, "_worker_id", None)
@@ -135,6 +136,22 @@ class GatewayService:
         from proteus.gateway.transport import GatewayHost
         return GatewayHost(self)
 
+    def close(self, operation_id, reason):
+        def close():
+            result = self.store.close(operation_id, reason)
+            self.services.values.publish("proteus.gateway.closure@1", result)
+            return result
+        return self.services._record("gateway.close", {"gateway_id": self.spec.id,
+            "operation_id": operation_id, "reason": reason}, close, decode=GatewayClosure.from_dict)
+
+    def cancel(self, ticket, closure):
+        def cancel():
+            result = self.store.cancel(ticket, closure)
+            self.services.values.publish("proteus.gateway.result@1", result)
+            return result
+        return self.services._record("gateway.cancel", {"gateway_id": self.spec.id, "ticket": ticket,
+            "closure": closure}, cancel, decode=GatewayResult.from_dict)
+
     def knowledge(self):
         from proteus.gateway.knowledge import WorkerKnowledge
         return WorkerKnowledge(self)
@@ -150,12 +167,16 @@ class GatewayService:
 
 def validate_restored(services):
     values = [(ref, value) for ref, value in services.values._values.values()
-              if ref.kind in ("proteus.gateway.ticket@1", "proteus.gateway.result@1")]
+              if ref.kind in ("proteus.gateway.ticket@1", "proteus.gateway.result@1", "proteus.gateway.closure@1")]
     if not values:
         return
     gateways = [GatewayService(services, spec.id) for spec in services.recipe.gateways]
     by_hash = {content_hash(gateway.identity): gateway for gateway in gateways}
     for ref, value in values:
+        if ref.kind == "proteus.gateway.closure@1":
+            require(value.identity_hash in by_hash and by_hash[value.identity_hash].store.closure() == value,
+                    "restored gateway closure differs from its receipt")
+            continue
         ticket = value if ref.kind == "proteus.gateway.ticket@1" else value.ticket
         require(ticket.identity_hash in by_hash, "restored gateway ticket belongs to an undeclared gateway")
         gateway = by_hash[ticket.identity_hash]

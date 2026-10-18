@@ -60,6 +60,10 @@ class WorkerService:
         self.services.values.publish("proteus.worker.ref@1", ref)
         return ref
 
+    def seed(self, operation_id, artifact, *, directory="candidate"):
+        from proteus.workers.seeding import seed
+        return seed(self, operation_id, artifact, directory=directory)
+
     def poll(self, ref):
         # Dynamic observations must not be replayed as permanently "active".
         # Launch/control identities and terminal receipts are durable separately.
@@ -78,6 +82,9 @@ class WorkerService:
 def validate_restored(services):
     references = {}
     for ref, value in services.values._values.values():
+        if ref.kind == "proteus.worker.seed@1":
+            from proteus.workers.seeding import validate_seed
+            validate_seed(services, value)
         if ref.kind == "proteus.worker.ref@1":
             worker = WorkerService(services, value.worker_id).controller
             worker._launch(value)

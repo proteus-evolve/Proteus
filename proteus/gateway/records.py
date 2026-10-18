@@ -80,3 +80,16 @@ class GatewayPoll(Contract):
         require((self.status in ("completed", "failed")) == (self.result is not None), "gateway result status differs")
         if self.result is not None:
             require(self.result.ticket == self.ticket and self.result.status == self.status, "gateway result belongs to another ticket")
+
+
+@dataclass(frozen=True, kw_only=True)
+class GatewayClosure(Contract):
+    identity_hash: str = field(metadata=DIGEST)
+    operation_id: str = field(metadata=TEXT)
+    reason: Literal["completed", "submission_limit", "poll_limit", "worker_failure", "requested"]
+    pending: tuple[GatewayTicket, ...]
+
+    def _validate(self):
+        unique((ticket.id() for ticket in self.pending), "pending gateway ticket")
+        require(all(ticket.identity_hash == self.identity_hash for ticket in self.pending),
+                "gateway closure contains a foreign ticket")

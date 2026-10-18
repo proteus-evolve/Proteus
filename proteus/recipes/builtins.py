@@ -93,12 +93,14 @@ def builtin_registry() -> Registry:
     from proteus.knowledge.records import KnowledgeRevision, KnowledgeSnapshot
     registry.register_data("proteus.knowledge.revision@1", KnowledgeRevision)
     registry.register_data("proteus.knowledge.snapshot@1", KnowledgeSnapshot)
-    from proteus.workers.records import CommandWorkerOptions, WorkerCompletion, WorkerRef
+    from proteus.workers.records import CommandWorkerOptions, WorkerCompletion, WorkerRef, WorkerSeed
     registry.register_data("proteus.worker.ref@1", WorkerRef)
     registry.register_data("proteus.worker.completion@1", WorkerCompletion)
-    from proteus.gateway.records import GatewayResult, GatewayTicket
+    registry.register_data("proteus.worker.seed@1", WorkerSeed)
+    from proteus.gateway.records import GatewayClosure, GatewayResult, GatewayTicket
     registry.register_data("proteus.gateway.ticket@1", GatewayTicket)
     registry.register_data("proteus.gateway.result@1", GatewayResult)
+    registry.register_data("proteus.gateway.closure@1", GatewayClosure)
     from proteus.events.records import EventDecision, InterventionPlan, InterventionDispatch
     registry.register_data("proteus.event.decision@1", EventDecision)
     registry.register_data("proteus.event.plan@1", InterventionPlan)

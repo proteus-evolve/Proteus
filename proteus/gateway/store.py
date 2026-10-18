@@ -10,7 +10,7 @@ import sqlite3
 from proteus.artifacts.store import _mkdir_durable, _sync_directory
 from proteus.core.contracts import require
 from proteus.core.serialization import canonical_json, content_hash
-from proteus.gateway.records import GatewayClaim, GatewayPoll, GatewayResult, GatewayTicket
+from proteus.gateway.records import GatewayClaim, GatewayClosure, GatewayPoll, GatewayResult, GatewayTicket
 from proteus.workers.runtime import immutable
 
 
@@ -29,7 +29,7 @@ class GatewayStore:
         with self.transaction() as db:
             version = db.execute("PRAGMA user_version").fetchone()[0]
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            require(version in (0, 1), "unsupported gateway schema")
+            require(version in (0, 2), "unsupported gateway schema; resume with the original implementation")
             if version == 0:
                 require(not tables and not marker.exists(), "refusing to initialize an unknown gateway database")
                 db.execute("CREATE TABLE identity (policy TEXT NOT NULL)")
@@ -38,12 +38,13 @@ class GatewayStore:
                            "status TEXT NOT NULL, result TEXT, UNIQUE(worker,operation))")
                 db.execute("CREATE TABLE claims (operation TEXT PRIMARY KEY, ticket TEXT)")
                 db.execute("CREATE TABLE credentials (worker TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE)")
+                db.execute("CREATE TABLE closure (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL)")
                 db.executemany("INSERT INTO credentials VALUES (?,?)",
                                ((worker, secrets.token_urlsafe(32)) for worker in self.members))
                 db.execute("INSERT INTO identity VALUES (?)", (canonical_json(self.policy),))
-                db.execute("PRAGMA user_version=1")
+                db.execute("PRAGMA user_version=2")
             else:
-                require(tables == {"identity", "requests", "claims", "credentials"}, "gateway schema differs")
+                require(tables == {"identity", "requests", "claims", "credentials", "closure"}, "gateway schema differs")
                 rows = db.execute("SELECT policy FROM identity").fetchall()
                 require(len(rows) == 1 and rows[0][0] == canonical_json(self.policy), "gateway identity or policy changed")
             tokens = dict(db.execute("SELECT worker,token FROM credentials"))
@@ -53,7 +54,7 @@ class GatewayStore:
             self._tokens = tokens
         self.path.chmod(0o600)
         _sync_directory(self.root)
-        immutable(marker, {"schema_version": 1, "policy_hash": content_hash(self.policy)})
+        immutable(marker, {"schema_version": 2, "policy_hash": content_hash(self.policy)})
 
     @contextmanager
     def transaction(self):
@@ -114,6 +115,8 @@ class GatewayStore:
             ticket = self._ticket(previous)
             require(ticket.request_hash == content_hash(submission), "gateway operation was reused with different inputs")
             return ticket
+        require(db.execute("SELECT 1 FROM closure").fetchone() is None,
+                "gateway is closed to new submissions")
         rows = db.execute("SELECT * FROM requests WHERE worker=?", (worker,)).fetchall()
         pending = sum(row["status"] in ("queued", "processing") for row in rows)
         require(pending < self.pending_limit, "worker gateway queue is full")
@@ -151,6 +154,12 @@ class GatewayStore:
             return (db.execute("SELECT 1 FROM claims WHERE operation=?", (operation_id,)).fetchone() is not None
                     or db.execute("SELECT 1 FROM requests WHERE status='queued' LIMIT 1").fetchone() is not None)
 
+    def was_claimed(self, ticket):
+        with self.transaction() as db:
+            require(self._ticket(db.execute("SELECT * FROM requests WHERE id=?", (ticket.id(),)).fetchone()) == ticket,
+                    "gateway claim references a different admission")
+            return db.execute("SELECT 1 FROM claims WHERE ticket=?", (ticket.to_json(),)).fetchone() is not None
+
     def poll(self, worker, ticket_id):
         with self.transaction() as db:
             row = db.execute("SELECT * FROM requests WHERE id=? AND worker=?", (ticket_id, worker)).fetchone()
@@ -178,3 +187,49 @@ class GatewayStore:
     def has_requests(self):
         with self.transaction() as db:
             return db.execute("SELECT 1 FROM requests LIMIT 1").fetchone() is not None
+
+    def _closure(self, db):
+        row = db.execute("SELECT body FROM closure WHERE id=1").fetchone()
+        if row is None:
+            return None
+        result = GatewayClosure.from_json(row[0])
+        require(result.identity_hash == content_hash(self.identity), "gateway closure belongs to another run")
+        for ticket in result.pending:
+            require(self._ticket(db.execute("SELECT * FROM requests WHERE id=?", (ticket.id(),)).fetchone()) == ticket,
+                    "gateway closure no longer matches an admitted request")
+        return result
+
+    def closure(self):
+        with self.transaction() as db:
+            return self._closure(db)
+
+    def close(self, operation_id, reason):
+        with self.transaction() as db:
+            previous = self._closure(db)
+            if previous is not None:
+                require((previous.operation_id, previous.reason) == (operation_id, reason),
+                        "gateway closure operation or reason changed")
+                return previous
+            pending = tuple(self._ticket(row) for row in db.execute(
+                "SELECT * FROM requests WHERE status IN ('queued','processing') ORDER BY sequence"))
+            result = GatewayClosure(identity_hash=content_hash(self.identity), operation_id=operation_id,
+                                    reason=reason, pending=pending)
+            db.execute("INSERT INTO closure VALUES (1,?)", (result.to_json(),))
+            return result
+
+    def cancel(self, ticket, closure):
+        """Only undispatched requests can be cancelled without evaluation reconciliation."""
+        with self.transaction() as db:
+            require(self._closure(db) == closure and ticket in closure.pending,
+                    "gateway cancellation requires its saved closure")
+            row = db.execute("SELECT * FROM requests WHERE id=?", (ticket.id(),)).fetchone()
+            require(self._ticket(row) == ticket, "cancelled ticket differs from its admission")
+            result = GatewayResult(ticket=ticket, status="failed",
+                diagnostic=f"GatewayClosed: submission was not dispatched ({closure.reason})")
+            if row["result"] is not None:
+                require(GatewayResult.from_json(row["result"]) == result,
+                        "a completed formal result cannot be replaced by cancellation")
+                return result
+            require(row["status"] == "queued", "claimed evaluations require reconciliation, not cancellation")
+            db.execute("UPDATE requests SET status='failed',result=? WHERE id=?", (result.to_json(), ticket.id()))
+            return result

@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
-from proteus.core.contracts import DIGEST, TEXT, PluginRef, Usage, require
+from proteus.core.contracts import DIGEST, TEXT, ArtifactRef, PluginRef, Usage, require
 from proteus.core.serialization import Contract, content_hash
 
 
@@ -45,6 +45,14 @@ class WorkerRef(Contract):
     worker_id: str = field(metadata=TEXT)
     operation_id: str = field(metadata=TEXT)
     request_hash: str = field(metadata=DIGEST)
+
+
+@dataclass(frozen=True, kw_only=True)
+class WorkerSeed(Contract):
+    identity: WorkerIdentity
+    operation_id: str = field(metadata=TEXT)
+    artifact: ArtifactRef
+    directory: str = field(metadata={"pattern": r"^[A-Za-z0-9][A-Za-z0-9._-]*$"})
 
 
 @dataclass(frozen=True, kw_only=True)
