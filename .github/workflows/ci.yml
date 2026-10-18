@@ -117,6 +117,7 @@ jobs:
           cp tests/check_ace_formula_package.py /tmp/proteus-wheel-out/check_ace_formula_package.py
           cp tests/check_evidence_package.py /tmp/proteus-wheel-out/check_evidence_package.py
           cp tests/check_knowledge_package.py /tmp/proteus-wheel-out/check_knowledge_package.py
+          cp tests/check_worker_package.py /tmp/proteus-wheel-out/check_worker_package.py
           cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
@@ -132,6 +133,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_ace_formula_package.py
           /tmp/proteus-wheel/bin/python check_evidence_package.py
           /tmp/proteus-wheel/bin/python check_knowledge_package.py
+          /tmp/proteus-wheel/bin/python check_worker_package.py
           /tmp/proteus-wheel/bin/python check_code_memory_package.py
           /tmp/proteus-wheel/bin/python check_workspace_package.py
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
@@ -178,6 +180,7 @@ jobs:
           cp tests/check_ace_formula_package.py /tmp/proteus-sdist-out/check_ace_formula_package.py
           cp tests/check_evidence_package.py /tmp/proteus-sdist-out/check_evidence_package.py
           cp tests/check_knowledge_package.py /tmp/proteus-sdist-out/check_knowledge_package.py
+          cp tests/check_worker_package.py /tmp/proteus-sdist-out/check_worker_package.py
           cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
@@ -193,6 +196,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_ace_formula_package.py
           /tmp/proteus-sdist/bin/python check_evidence_package.py
           /tmp/proteus-sdist/bin/python check_knowledge_package.py
+          /tmp/proteus-sdist/bin/python check_worker_package.py
           /tmp/proteus-sdist/bin/python check_code_memory_package.py
           /tmp/proteus-sdist/bin/python check_workspace_package.py
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py

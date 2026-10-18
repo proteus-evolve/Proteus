@@ -77,6 +77,8 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                                              recipe.subject.initial_artifact)
             result = MethodResult.from_dict(finished) if finished is not None else method.run(services, restored)
             require(type(result) is MethodResult, "method must return MethodResult")
+            from proteus.workers.service import require_terminal
+            require_terminal(services)
             require(all(session.closed for session in services._evaluation_service.sessions),
                     "method left an incomplete evaluation cohort")
             for ref in result.outputs.values():
@@ -92,6 +94,14 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                                   diagnostic=f"{type(exc).__name__}: {exc}")
         finally:
             uncertain = uncertain or (services._journal is not None and services._journal.pending)
+            if recipe.workers and not uncertain and result is not None and result.status != OperationStatus.COMPLETED:
+                from proteus.workers.service import require_terminal
+                try:
+                    require_terminal(services)
+                except RecoveryRequired as exc:
+                    uncertain = True
+                    result = MethodResult(status=OperationStatus.FAILED,
+                        diagnostic=f"{result.diagnostic or 'Method failed'}; RecoveryRequired: {exc}")
             if not uncertain and (services._journal is None or result is not None):
                 services._evaluation_service.finalize_incomplete()
             if services._journal is not None and result is not None and not uncertain and finished is None:
