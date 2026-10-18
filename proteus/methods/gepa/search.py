@@ -73,13 +73,21 @@ class InstanceFrontier:
         chosen = self.sample(fronts, scores, rng)
         return self._result(view, fronts, pruned, (chosen,))
 
+    def select_final(self, view, rng):
+        _, scores = self.inputs(view)
+        from gepa.gepa_utils import idxmax
+        chosen = idxmax(scores)
+        return PolicyResult(selected=(view.vectors[chosen].candidate_id,), reasons={item.candidate_id:
+            "maximum reference mean; first program breaks ties" if index == chosen else "lower mean or later tie"
+            for index, item in enumerate(view.vectors)})
+
 
 def register(registry):
     policy = InstanceFrontier()  # Fail before a run if the optional reference differs.
     root = Path(__file__).resolve().parent
     digest = content_hash({"bridge": implementation_hash({path.name: path for path in root.glob("*.py")}),
                            "upstream_revision": REVISION, "upstream_source": SOURCE_HASH})
-    for name, role in (("gepa_parent", "parent"), ("gepa_frontier", "archive")):
+    for name, role in (("gepa_parent", "parent"), ("gepa_frontier", "archive"), ("gepa_best", "final")):
         registry.register(Plugin(ref=PluginRef(name="proteus." + name, version="1"), kind="policy",
             options=EmptyOptions, factory=lambda options: policy, implementation_hash=digest,
             source="proteus", capabilities=("search." + role,)))
