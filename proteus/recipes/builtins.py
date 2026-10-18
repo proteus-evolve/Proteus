@@ -14,6 +14,7 @@ from proteus.execution.harbor import (
 from proteus.artifacts.codecs import BUILTIN_CODECS
 from proteus.core.contracts import ArtifactRef, Candidate, OperationStatus, PluginRef, RuntimeIdentity, Usage, require
 from proteus.core.methods import ActorResult, ArtifactProposal
+from proteus.core.parallel import StageJob, StageMapResult
 from proteus.core.plugins import EmptyOptions, Plugin, Registry, implementation_hash
 from proteus.core.serialization import Contract
 from proteus.evidence.records import EvidenceView
@@ -72,6 +73,8 @@ def builtin_registry() -> Registry:
     digest = implementation_hash({str(path.relative_to(root)): path for path in root.rglob("*.py")})
     registry.register_data("proteus.text@1", Text)
     registry.register_data("proteus.actor_result@1", ActorResult)
+    registry.register_data("proteus.stage_job@1", StageJob)
+    registry.register_data("proteus.stage_map@1", StageMapResult)
     registry.register_data("proteus.native_summary@1", NativeSummary)
     registry.register_data("proteus.artifact_ref@1", ArtifactRef)
     registry.register_data("proteus.candidate@1", Candidate)
@@ -136,16 +139,16 @@ def builtin_registry() -> Registry:
     add("proteus.native", "method", NativeOptions, NativeMethod, validate=validate_native,
         capabilities=("run.resume", "legacy.episode"))
     add("proteus.prompt", "stage", EmptyOptions, lambda options: PromptStage(),
-        capabilities=("stage.replay",),
+        capabilities=("stage.replay", "stage.parallel"),
         inputs={"prompt": "proteus.text@1"}, outputs={"response": "proteus.actor_result@1"})
     add('proteus.workspace', 'stage', WorkspaceOptions, WorkspaceStage,
-        capabilities=('stage.replay', 'stage.workspace'),
+        capabilities=('stage.replay', 'stage.workspace', 'stage.parallel'),
         inputs={'prompt': 'proteus.text@1', 'seed': 'proteus.artifact_ref@1', 'history': 'proteus.evidence.view@1'},
         outputs={'response': 'proteus.actor_result@1'})
     add("proteus.echo", "actor", EmptyOptions, lambda options: EchoActor(), validate=validate_echo,
-        capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout"))
+        capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout", "actor.parallel"))
     add("proteus.chat", "actor", ChatOptions, ChatActor, validate=validate_chat,
-        capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout"))
+        capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout", "actor.parallel"))
     for name in ("minimal", "llm", "dsh", "pi", "codex"):
         if name in ('dsh', 'pi', 'codex'):
             add(f'proteus.workspace.{name}', 'actor', HarnessOptions,

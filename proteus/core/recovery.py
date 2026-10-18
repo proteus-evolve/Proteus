@@ -52,6 +52,9 @@ def recovery_status(root):
         if not result_path.exists():
             require(pending is None, "multiple incomplete serial operations")
             pending = {"sequence": sequence, "kind": request["kind"], "request_hash": content_hash(request)}
+            if request["kind"] == "stage.map":
+                from proteus.core.parallel import map_status
+                pending["branches"] = map_status(root, request["identity"]["operation_id"])
             continue
         require(pending is None, "uncommitted operation precedes later operations")
         result = _load(result_path)
@@ -68,7 +71,7 @@ def recovery_status(root):
             if entry["state"] in ("reserved", "started"):
                 metadata = entry["identity"]["metadata"]
                 unsettled.append({"id": entry["id"], "state": entry["state"],
-                    **{key: metadata.get(key) for key in ("kind", "operation_id", "attempt_id", "trial_id")}})
+                    **{key: metadata.get(key) for key in ("kind", "operation_id", "attempt_id", "trial_id", "worker_id")}})
     return {"run_id": manifest.run_id, "checkpoint": checkpoint, "pending": pending,
             "terminal_result": terminal, "unsettled": unsettled}
 

@@ -1,8 +1,8 @@
-"""Synchronous method, stage and actor boundaries for the 1.0 plugin API.
+"""Method, stage and actor boundaries for the 1.0 plugin API.
 
 Methods own control flow. Side-effecting actor work crosses a service boundary;
-stage inputs/outputs are registered immutable records. Durable orchestration and
-parallel dispatch are subsequent layers, not implicit behavior of this executor.
+stage inputs/outputs are registered immutable records. Methods dispatch serially
+unless they explicitly join independent stages through the bounded map service.
 """
 
 from __future__ import annotations
@@ -87,9 +87,9 @@ class StageFailed(RuntimeError):
 
 def supported_budget(budget: BudgetLimits, *, allow_evaluations: bool = False) -> None:
     require(budget.max_cost_usd is None and budget.max_wall_seconds is None
-            and (allow_evaluations or budget.max_evaluations is None) and budget.max_concurrency == 1,
-            "execution supports model-call caps, run evaluation caps and serial dispatch; cost/time/"
-            "concurrent execution requires backend bounds/deadlines and the subsequent scheduler")
+            and (allow_evaluations or budget.max_evaluations is None),
+            "execution supports model-call, run evaluation and concurrency caps; cost/time "
+            "caps require backend bounds/deadlines")
 
 
 class Values:
@@ -338,7 +338,7 @@ class RunServices:
         entry = self.ledger.reserve(call_id, scopes=limits, reservation=Amounts(model_calls=bound),
             metadata={"kind": "actor", "operation_id": operation.operation_id,
                       "attempt_id": operation.attempt_id, "stage": stage.id, "role": stage.role,
-                      "trial_id": trial_id, "worker_id": None, "ordinal": ordinal},
+                      "trial_id": trial_id, "worker_id": getattr(self, "_worker_id", None), "ordinal": ordinal},
             request={"actor": spec, "request": request}, reuse=recovering)
         self._actor_ordinals[key] = ordinal
         if recovering and entry["state"] != "reserved":
@@ -407,6 +407,13 @@ class RunServices:
         operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
         return self._record("stage", {"stage": stage_id, "inputs": inputs, "operation_id": operation_id},
             lambda: self._stage(stage_id, inputs, operation_id=operation_id), decode=StageResult.from_dict)
+
+    def map_stages(self, jobs, *, operation_id: str, max_workers: int,
+                   failure_policy: str = "collect"):
+        """Join independent stage branches in declared order with durable receipts."""
+        from proteus.core.parallel import StageMap
+        return StageMap(self).run(jobs, operation_id=operation_id, max_workers=max_workers,
+                                  failure_policy=failure_policy)
 
     def _stage(self, stage_id, inputs, *, operation_id):
         require(threading.get_ident() == self._dispatch_thread,
