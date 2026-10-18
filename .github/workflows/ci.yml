@@ -37,6 +37,12 @@ jobs:
           git -C /tmp/proteus-ace-reference remote add origin https://github.com/ace-agent/ace.git
           git -C /tmp/proteus-ace-reference fetch --depth=1 origin 82709de050e1db6e6ef2f07bcb0393560b94992a
           git -C /tmp/proteus-ace-reference checkout --detach FETCH_HEAD
+      - name: Fetch pinned ComBEE operator for independent upstream conformance
+        run: |
+          git init /tmp/proteus-combee-gepa-reference
+          git -C /tmp/proteus-combee-gepa-reference remote add origin https://github.com/gepa-ai/gepa.git
+          git -C /tmp/proteus-combee-gepa-reference fetch --depth=1 origin f1cfdee2856e9dc4b5b4dc5cc2e391d0aa20d819
+          git -C /tmp/proteus-combee-gepa-reference checkout --detach FETCH_HEAD
       - name: configure git identity (snapshot tests)
         run: |
           git config --global user.email ci@proteus
@@ -54,6 +60,7 @@ jobs:
           PROTEUS_REQUIRE_GEPA: "1"
           PROTEUS_ACE_SOURCE: /tmp/proteus-ace-reference
           PROTEUS_META_HARNESS_SOURCE: /tmp/proteus-meta-harness-reference
+          PROTEUS_COMBEE_GEPA_SOURCE: /tmp/proteus-combee-gepa-reference
         run: pytest tests/ -q
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py
@@ -108,6 +115,7 @@ jobs:
           cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
           cp tests/check_parallel_package.py /tmp/proteus-wheel-out/check_parallel_package.py
+          cp tests/check_combee_package.py /tmp/proteus-wheel-out/check_combee_package.py
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python check_ace_package.py
           /tmp/proteus-wheel/bin/python check_ace_formula_package.py
@@ -116,6 +124,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_workspace_package.py
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
           /tmp/proteus-wheel/bin/python check_parallel_package.py
+          /tmp/proteus-wheel/bin/python check_combee_package.py ace
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
@@ -133,6 +142,7 @@ jobs:
         run: |
           /tmp/proteus-wheel/bin/pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
           cd /tmp/proteus-wheel-out
+          /tmp/proteus-wheel/bin/python check_combee_package.py gepa
           /tmp/proteus-wheel/bin/python -m proteus.examples.gepa_prompt --out gepa-study
           /tmp/proteus-wheel/bin/proteus recipe lock gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --source "proteus=$GITHUB_WORKSPACE" --out gepa-study/lock.json
           /tmp/proteus-wheel/bin/proteus recipe run gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --artifact-store gepa-study/artifact-store --out gepa-study/run
@@ -152,6 +162,7 @@ jobs:
           cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
           cp tests/check_parallel_package.py /tmp/proteus-sdist-out/check_parallel_package.py
+          cp tests/check_combee_package.py /tmp/proteus-sdist-out/check_combee_package.py
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python check_ace_package.py
           /tmp/proteus-sdist/bin/python check_ace_formula_package.py
@@ -160,6 +171,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_workspace_package.py
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py
           /tmp/proteus-sdist/bin/python check_parallel_package.py
+          /tmp/proteus-sdist/bin/python check_combee_package.py ace
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
           /tmp/proteus-sdist/bin/proteus visualize --help
@@ -173,3 +185,8 @@ jobs:
           /tmp/proteus-sdist/bin/python -c 'import json; from pathlib import Path; from proteus.core.contracts import EvaluationBatch; r=json.loads(Path("candidate-study/run/execution-0001.json").read_text()); assert [EvaluationBatch.from_dict(b).mean_score() for b in r["evaluations"]] == [0, 1]; assert len(r["rollouts"]) == 6'
           /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.core.ledger import Ledger; from proteus.recipes.manifest import RunManifest; root=Path("candidate-study/run"); m=RunManifest.from_json((root/"manifest.json").read_text()); book=Ledger(root/"private/ledger.sqlite3", run_id=m.run_id, config_hash=m.config_hash, lock_hash=m.lock_hash); assert book.balance()["charged"]["evaluations"] == 6; assert all(e["state"] == "completed" for e in book.entries())'
           /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
+      - name: Installed sdist runs the pinned ComBEE operator outside the checkout
+        run: |
+          /tmp/proteus-sdist/bin/pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+          cd /tmp/proteus-sdist-out
+          /tmp/proteus-sdist/bin/python check_combee_package.py gepa
