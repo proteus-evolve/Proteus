@@ -381,7 +381,8 @@ subject/model settings, evaluator/visibility protocol, execution environment, se
 initial/current state, sequence history/position, dependency lock and implementations.
 P03b **always re-executes**: it defines identity without introducing implicit cache
 reuse. Prediction and grading records are individually durable, but complete method
-recovery, result reuse and cross-process budget settlement still require P04. A failed
+recovery and result reuse still require the remaining P04 work. P04a adds durable
+managed-actor accounting and cohort reservations, described below. A failed
 publication closes the session; it cannot silently re-execute or advance sequence state.
 
 Plugin `validate` callbacks now receive the component's context: the full recipe for
@@ -389,3 +390,53 @@ subjects, `ExecutionSpec` for environments, `TaskSuiteSpec` for task suites, and
 `EvaluationSpec` for evaluators, plus decoded plugin options. These preflight checks
 precede execution. New dataset hash defaults also change development config/lock hashes;
 old experiments must retain their original source rather than being relabeled as resumed.
+
+## Durable dispatch ledger (P04a)
+
+`RunServices` lazily opens `private/ledger.sqlite3` before managed actor dispatch or
+evaluation admission. SQLite transactions atomically reserve across run, role and
+stage-operation scopes, persist requests before dispatch, and settle returned usage
+with the result. The schema, run ID, resolved config hash, dependency lock and each
+scope's limits are immutable. This uses the standard library and a local filesystem;
+it is not a distributed or network-filesystem database.
+
+An actor entry records its parent operation/attempt, stage, role, per-attempt call
+ordinal and optional trial/worker identity. Calls from a subject carry their rollout
+ID. Identifiers derive from this identity, not an in-memory global call counter.
+The ordered journal records `reserved`, `started` and `settled` transitions. Settlement
+and charge updates commit together. Reopening the same ledger preserves spent budget.
+Actor results include token usage as reported by the runtime; the ledger does not
+invent prices or fill missing measurements with zero.
+
+- A known actual quantity replaces its reservation. Unknown actual usage retains
+  the bound and is separately marked unknown; without a known bound it stays unknown.
+- An over-bound result is recorded with its actual usage and a violation before the
+  actor call fails. Wrong-runtime results likewise retain their reported spend.
+- Failure before dispatch cancels the reservation with zero external usage. A returned
+  exception after dispatch settles as failed with unknown usage when none was returned.
+- A process crash after `started` leaves an uncertain operation, its reservation and
+  concurrency slot intact. It cannot be silently cancelled or replayed. The method's
+  retry policy cannot turn a previously submitted operation into a fresh invocation.
+- An evaluation reserves the entire declared cohort before creating a session. Its
+  reservation holds no actor slot, so subjects can acquire their own slots. Finishing
+  or aborting keeps all admitted task-trial slots charged, including unexecuted members
+  of an incomplete cohort, matching the prior conservative evaluation-budget policy.
+
+`proteus.core.ledger.Ledger` exposes `reserve`, `start`, `settle`, `entry`, `entries`,
+`events(after=...)` and `balance(scope=...)`. Repeating an identical reservation or
+settlement is idempotent; changing its payload fails. Idempotence does **not** authorize
+re-execution. Monetary cap arithmetic uses decimal values. Concurrent processes have
+been checked against shared caps, but the public method executor remains serial.
+
+Coverage is explicitly `managed_actor_calls` and `evaluation_cohort_reservations` in
+`execution-*.json`. A ledger balance is **not the complete run's usage**: unmanaged
+subjects, grading and native opaque episodes still have their existing result/trace
+records and require subsequent P04 accounting integration. The native path reports
+no ledger coverage rather than a fabricated zero total. Ledger payloads stay private;
+do not publish the database as a public trace or use it as an optimizer evidence view.
+
+This batch does not enable generic `recipe resume`, evaluation replay, worker scheduling,
+Harbor or finite cost/wall-time execution caps. The ledger supports those reservation
+dimensions, but admission of such caps still requires backend-enforced bounds/deadlines.
+Checkpoint/MethodState restoration, reconciliation of uncertain external effects and
+complete subject/grader accounting remain part of P04's original acceptance scope.

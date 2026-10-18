@@ -18,6 +18,7 @@ from proteus.core.contracts import (
     PluginRef, Rollout, RuntimeIdentity, StageRequest, StageResult, StatePolicy, Usage, ValidationStatus, require,
 )
 from proteus.core.serialization import canonical_json, content_hash
+from proteus.core.ledger import Amounts
 from proteus.evaluation.records import (
     EvaluationReceipt, Grade, Observation, StateUpdate, SubjectResult, TrialRecord,
     sum_usage, zero_usage,
@@ -77,7 +78,12 @@ class EvaluationService:
     def __init__(self, services):
         self.services = services
         self.sessions = []
-        self.reserved = 0
+
+    @property
+    def reserved(self):
+        if self.services._ledger is None and not (self.services.root / "private/ledger.sqlite3").exists():
+            return 0
+        return self.services.ledger.balance()["charged"]["evaluations"]
 
     def open(self, evaluation_id, *, operation_id=None):
         services = self.services
@@ -91,12 +97,22 @@ class EvaluationService:
         execution = services.recipe.execution
         require(execution.initial_state_hash is None or execution.initial_state_hash == content_hash(batch.initial_state),
                 "initial state differs from ExecutionSpec")
-        limit = services.recipe.budget.max_evaluations
-        require(limit is None or self.reserved + len(batch.tasks) <= limit, "evaluation budget exhausted")
         operation_id = operation_id or f"op-{len(services._operations) + 1:06d}"
-        require(operation_id not in services._operations, "operation already submitted")
-        session = EvaluationSession(self, spec, dataset, batch, operation_id)
-        self.reserved += len(batch.tasks)
+        services._check_operation(operation_id)
+        entry_id = "evaluation-" + content_hash(operation_id).split(":")[1]
+        services.ledger.reserve(entry_id, scopes={"run": services.recipe.budget},
+            reservation=Amounts.zero(evaluations=len(batch.tasks)), slots=0,
+            metadata={"kind": "evaluation_cohort", "operation_id": operation_id,
+                      "attempt_id": "attempt-1", "stage": "evaluation", "role": "framework",
+                      "trial_id": None, "worker_id": None},
+            request={"evaluation": spec, "batch": batch, "execution": execution}, reuse=False)
+        services.ledger.start(entry_id)
+        try:
+            session = EvaluationSession(self, spec, dataset, batch, operation_id, entry_id)
+        except BaseException as exc:
+            services.ledger.settle(entry_id, actual=Amounts.zero(evaluations=len(batch.tasks)),
+                status="failed", result={"error": f"{type(exc).__name__}: {exc}"})
+            raise
         services._operations.add(operation_id)
         self.sessions.append(session)
         return session
@@ -108,9 +124,10 @@ class EvaluationService:
 
 
 class EvaluationSession:
-    def __init__(self, owner, spec, dataset, batch, operation_id):
+    def __init__(self, owner, spec, dataset, batch, operation_id, entry_id):
         self.owner, self.services, self.spec, self.batch = owner, owner.services, spec, batch
         self.operation_id = operation_id
+        self.ledger_entry = entry_id
         self.closed, self._running, self._sequence_failed = False, False, False
         self._observations, self._grades, self._grade_usage, self._trials = [], {}, {}, []
         self._updates = []
@@ -211,7 +228,8 @@ class EvaluationSession:
                     if recipe.subject.actor is not None:
                         stage = StageSpec(id="subject", operator=recipe.subject.runner, role=recipe.subject.actor)
                         def actor(prompt):
-                            return services._actor(stage, self.request, prompt, None, None, isolate=True)
+                            return services._actor(stage, self.request, prompt, None, None, isolate=True,
+                                trial_id=f"{self.operation_id}:rollout-{index + 1}")
                     context = SubjectContext(candidate=candidate, task=task, state=state, history=history,
                         seed=seed, execution=recipe.execution, subject=recipe.subject, lease=lease, _actor=actor)
                     # New runner instance per task prevents undeclared plugin-instance memory.
@@ -340,8 +358,10 @@ class EvaluationSession:
         self._save("receipt.json", receipt)
         for batch in batches:
             self._value("proteus.eval.batch@1", batch)
-        self.services.evaluations.extend(batches)
         ref = self._value("proteus.eval.receipt@1", receipt)
+        self.services.ledger.settle(self.ledger_entry, actual=Amounts.zero(evaluations=len(self.batch.tasks)),
+            status="completed", result={"receipt": ref})
+        self.services.evaluations.extend(batches)
         self.services.results.append(StageResult(run_id=self.services.run_id, operation_id=self.operation_id,
             attempt_id=self.request.attempt_id, status=OperationStatus.COMPLETED, outputs={"evaluation": ref},
             usage=sum_usage([*(item.rollout.usage for item in self._observations), *self._grade_usage.values()])))
@@ -360,3 +380,5 @@ class EvaluationSession:
             diagnostic=reason))
         self._save("incomplete.json", {"reason": reason, "completed_predictions": len(self._observations),
                                        "expected_predictions": len(self.batch.tasks)})
+        self.services.ledger.settle(self.ledger_entry, actual=Amounts.zero(evaluations=len(self.batch.tasks)),
+            status="failed", result={"reason": reason, "completed_predictions": len(self._observations)})

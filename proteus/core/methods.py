@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 import threading
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Protocol
@@ -83,7 +83,7 @@ def supported_budget(budget: BudgetLimits, *, allow_evaluations: bool = False) -
     require(budget.max_cost_usd is None and budget.max_wall_seconds is None
             and (allow_evaluations or budget.max_evaluations is None) and budget.max_concurrency == 1,
             "execution supports model-call caps, run evaluation caps and serial dispatch; cost/time/"
-            "concurrent reservations require the subsequent ledger services")
+            "concurrent execution requires backend bounds/deadlines and the subsequent scheduler")
 
 
 class Values:
@@ -145,14 +145,25 @@ class RunServices:
         self.requests, self.results, self.actor_calls = [], [], []
         self._operations, self._runtime = set(), {}
         self._dispatch_thread = threading.get_ident()
-        self._charged = {"run": 0}
+        self._ledger = None
+        self._actor_ordinals = {}
         for actor in recipe.actors.values():
             if actor.prompt_hash is not None:
                 require(actor.prompt_hash in self.prompts, "role prompt content is missing")
                 require(content_hash(self.prompts[actor.prompt_hash]) == actor.prompt_hash,
                         "role prompt content differs from its hash")
 
-    def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False):
+    @property
+    def ledger(self):
+        # Lazy creation preserves preflight failures without publishing a run.
+        if self._ledger is None:
+            from proteus.core.ledger import Ledger
+            self._ledger = Ledger(self.root / "private" / "ledger.sqlite3", run_id=self.run_id,
+                                  config_hash=self.recipe.config_hash, lock_hash=self.lock_hash)
+        return self._ledger
+
+    def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False, trial_id=None):
+        from proteus.core.ledger import Amounts
         require(threading.get_ident() == self._dispatch_thread,
                 "P02 services are serial; cross-thread actor dispatch requires the parallel scheduler")
         spec = self.recipe.actors[stage.role]
@@ -172,43 +183,63 @@ class RunServices:
             runtime = self._runtime[stage.role]
         bound = runtime.model_call_bound
         require(bound is None or (type(bound) is int and bound >= 0), "invalid actor call bound")
-        limits = (("run", self.recipe.budget), (f"role:{stage.role}", spec.budget),
-                  (f"stage:{operation.operation_id}", stage.budget))
-        for key, budget in limits:
+        limits = {"run": self.recipe.budget, f"role:{stage.role}": spec.budget,
+                  f"stage:{operation.operation_id}": stage.budget}
+        for key, budget in limits.items():
             supported_budget(budget, allow_evaluations=key == "run")
-            if budget.max_model_calls is not None:
-                require(bound is not None, "runtime cannot enforce a finite model-call reservation")
-                require(self._charged.get(key, 0) + bound <= budget.max_model_calls,
-                        f"model-call budget exhausted: {key}")
-        for key, _ in limits:
-            self._charged[key] = self._charged.get(key, 0) + (bound or 0)
-        call_id = f"actor-{len(self.actor_calls) + 1:06d}"
+        key = (operation.operation_id, operation.attempt_id, stage.role)
+        ordinal = self._actor_ordinals.get(key, 0) + 1
+        call_id = "actor-" + content_hash([*key, ordinal]).split(":")[1]
+        self.ledger.reserve(call_id, scopes=limits, reservation=Amounts(model_calls=bound),
+            metadata={"kind": "actor", "operation_id": operation.operation_id,
+                      "attempt_id": operation.attempt_id, "stage": stage.id, "role": stage.role,
+                      "trial_id": trial_id, "worker_id": None, "ordinal": ordinal},
+            request={"actor": spec, "request": request}, reuse=False)
+        self._actor_ordinals[key] = ordinal
         workspace = self.root / "actors" / call_id
-        workspace.mkdir(parents=True, exist_ok=False)
         record = {"id": call_id, "operation_id": operation.operation_id,
                   "attempt_id": operation.attempt_id, "role": stage.role,
                   "request": request.to_dict(), "prompt_hash": content_hash(request),
                   "reserved_model_calls": bound, "result": None}
         self.actor_calls.append(record)
         started = time.monotonic()
+        result = None
+        error = None
         try:
+            workspace.mkdir(parents=True, exist_ok=False)
+            self.ledger.start(call_id)
             result = runtime.execute(spec, request, workspace)
             require(type(result) is ActorResult, "actor must return ActorResult")
+            # Preserve returned usage before validating runtime identity or bounds.
+            record["result"] = result.to_dict()
             require(result.runtime.runtime == spec.runtime.plugin, "actor returned a different runtime")
             actual = result.usage.model_calls
             require(bound is None or actual is None or actual <= bound,
                     "actor exceeded its declared model-call bound")
-            record["result"] = result.to_dict()
-            # Unknown usage keeps the entire reservation charged.
-            if bound is not None and actual is not None:
-                for key, _ in limits:
-                    self._charged[key] -= bound - actual
             return result
-        except Exception as exc:
-            record["error"] = f"{type(exc).__name__}: {exc}"
+        except BaseException as exc:
+            error = record["error"] = f"{type(exc).__name__}: {exc}"
             raise
         finally:
             record["wall_seconds"] = time.monotonic() - started
+            if self.ledger.entry(call_id)["state"] == "reserved":
+                record["usage"] = Usage(model_calls=0, input_tokens=0, output_tokens=0,
+                                        cost_usd=0, wall_seconds=0).to_dict()
+                self.ledger.settle(call_id, actual=Amounts.zero(), status="cancelled", result=record)
+            else:
+                usage = result.usage if type(result) is ActorResult else Usage()
+                usage = replace(usage, wall_seconds=record["wall_seconds"])
+                record["usage"] = usage.to_dict()
+                self.ledger.settle(call_id,
+                    actual=Amounts.from_usage(usage),
+                    status="failed" if error or result.status != OperationStatus.COMPLETED else "completed",
+                    result=record)
+
+    def _check_operation(self, operation_id):
+        require(operation_id not in self._operations, "operation already submitted")
+        if self._ledger is not None or (self.root / "private/ledger.sqlite3").exists():
+            require(not self.ledger.has_operation(operation_id),
+                    "operation already submitted; durable replay/reconciliation is not enabled")
 
     def stage(self, stage_id: str, inputs: Mapping[str, DataRef], *, operation_id: str | None = None) -> StageResult:
         require(threading.get_ident() == self._dispatch_thread,
@@ -221,7 +252,7 @@ class RunServices:
             require(ref.kind == spec.input_types[name], f"{stage_id}.{name}: input data kind mismatch")
             values[name] = self.values.get(ref)
         operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
-        require(operation_id not in self._operations, "operation already submitted")
+        self._check_operation(operation_id)
         self._operations.add(operation_id)
         supported_budget(spec.budget)
         plugin = self.registry.create(spec.operator, "stage")
@@ -263,7 +294,8 @@ class RunServices:
             return Usage(model_calls=0, input_tokens=0, output_tokens=0, cost_usd=0, wall_seconds=0)
         totals = {}
         for key in ("model_calls", "input_tokens", "output_tokens", "cost_usd"):
-            values = [(call.get("result") or {}).get("usage", {}).get(key) for call in calls]
+            values = [call.get("usage", (call.get("result") or {}).get("usage", {})).get(key)
+                      for call in calls]
             totals[key] = None if any(value is None for value in values) else sum(values)
         return Usage(**totals, wall_seconds=sum(call["wall_seconds"] for call in calls))
 
@@ -293,7 +325,7 @@ class RunServices:
                     and self.artifacts.candidate(self.run_id, parent.id) == parent,
                     "candidate parent belongs to another run or differs from stored identity")
         operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
-        require(operation_id not in self._operations, "operation already submitted")
+        self._check_operation(operation_id)
         inputs = {"artifact": self.values.publish("proteus.artifact_ref@1", artifact)}
         inputs.update({f"parent-{i}": self.values.publish("proteus.candidate@1", parent)
                        for i, parent in enumerate(parents)})
