@@ -12,8 +12,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 采用 feature branch → 面向 dev 的 PR → 测试和审查 → 合并 dev 的流程；每批汇报审查结果，全部发布验收通过后再向 main 提交集成 PR。
 - 第一批 P01：公共对象、严格序列化、JSON Schema、recipe 配置、依赖锁与不可变 RunManifest；实现说明见 [V1_CONTRACTS.md](../V1_CONTRACTS.md)。此批不声称已有新 method executor 或完成方法复现。
 - 第二批 P02：注册式 Method/Stage/ActorRuntime、typed ports、角色调用记录、顺序/条件/有限循环、自评 stage 示例与 native 兼容 recipe；说明见 [V1_PLUGINS.md](../V1_PLUGINS.md)。native 复用旧事务引擎，通用 stage 路径不隐式继承 native 提示。
-- 第三批拆成可独立审查的 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 继续 TaskSuite、SubjectRunner、逐任务评估与反馈/状态协议。两部分共同完成原 P03，存储层通过不代表候选评估已完成。
-- P03b–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。当前只提供串行调用预留；通用持久账本、并发、候选重执行及真实 backend 验收仍需后续批次。
+- 第三批拆成 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 为 pinned TaskSuite/TaskBatch、SubjectRunner、逐任务评估、整批/在线 session 与反馈/显式 JSON 状态协议。两部分共同完成原 P03 的公共服务；本地 Python/受管理 actor 示例不替代 Harbor 或真实方法验收。
+- P04–P10、真实方法实验以及 1.0 发布验收继续按本计划推进。当前提供串行模型调用和 task-trial 评估预留；通用持久账本、并发、容器隔离与真实 backend 验收仍需后续批次。
 
 ## 1 目标与范围
 
@@ -131,7 +131,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 
 - [x] 建立方法与算子注册机制，支持方法私有命名空间（P02 显式注册、options/data/state schema、运行时注册表快照）。
 - [x] Stage 声明输入、输出、角色、工具、读写范围、失败处理和预算（P02 校验数据端口、能力与调用预留；Python 插件的声明不等同于进程权限沙箱）。
-- [ ] 支持顺序执行、条件决策、有限循环、多候选输出及方法主动提交评估（P02 已有控制流和多输出；正式评估服务由 P03 接入）。
+- [x] 支持顺序执行、条件决策、有限循环、多候选输出及方法主动提交评估（P02 控制流与多输出；P03b `evaluate`/`open_evaluation` 正式候选评估服务）。
 - [x] 把现有循环接成 native recipe，保留旧 CLI 的兼容入口（P02 覆盖 minimal/llm/dsh/pi/codex 绑定；旧 CLI 继续覆盖原有高级参数和 adapter）。
 - [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本（P02 已隔离 native 协议并记录 core-rendered phase prompts；adapter 追加的最终消息仍需按 backend 补全记录）。
 
@@ -158,14 +158,16 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 
 ### I05 任务集与候选评估
 
-- [ ] 定义 TaskSuite、TaskBatch 和 ExecutionSpec，声明数据版本、split、顺序及 seed。
-- [ ] 实现 SubjectRunner，运行指定候选并保存逐任务输出与轨迹。
-- [ ] 支持独立任务重置、序列内状态继承、候选间相同起点三种状态规则。
-- [ ] EvaluationService 保留逐样本指标、反馈和错误，不只保留平均分。
-- [ ] online recipe 必须先记录预测，再接收允许的反馈并更新；保留协议要求的时间顺序。
-- [ ] 定义缓存键，覆盖候选、任务、模型设置、evaluator、初始状态、环境和随机条件；序列任务另含历史与位置。
+- [x] 定义 TaskSuite、TaskBatch 和 ExecutionSpec，声明数据版本、split、顺序及 seed（P03b 强制执行时校验 dataset 内容 hash、version、split、任务集合和初始状态）。
+- [x] 实现 SubjectRunner，运行指定候选并保存逐任务输出与轨迹（P03b 本地 Python/受管理 prompt actor，检查实际加载 hash 和 runtime/environment；Harbor runner 在 I06）。
+- [x] 支持独立任务重置、序列内状态继承、候选间相同起点三种状态规则（P03b 显式 JSON 状态/历史、新 runner/actor 实例；每个独立评估 session 重置起点，online session 可在保留显式状态时更换候选；持久 filesystem/worker 状态见 I06/I11）。
+- [x] EvaluationService 保留逐样本指标、反馈和错误，不只保留平均分（P03b 完整任务 cohort 与不可用状态；不缩小分母，隐藏数据不进入公共 Values/历史）。
+- [x] online recipe 必须先记录预测，再接收允许的反馈并更新；保留协议要求的时间顺序（P03b prediction commit → allowed feedback → explicit state/candidate update；落盘失败停止重试且不推进状态）。
+- [x] 定义缓存键，覆盖候选、任务、模型设置、evaluator、初始状态、环境和随机条件；序列任务另含历史与位置（P03b 同时包含依赖锁和实现身份；本批每次重执行，尚不复用缓存结果）。
 
 **验收：** baseline 和修改候选能独立重跑同一批任务；任务或状态不串用；隐藏评分不会通过提示、缓存或历史视图进入优化者上下文。
+
+P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。该后端不是针对恶意代码的 filesystem 沙箱；不可托信 agent 的容器与独立 verifier 隔离仍必须通过 I06/P04 验收。
 
 ### I06 环境与 Harbor
 

@@ -43,8 +43,8 @@ class SequenceOptions(Contract):
 def validate_sequence(recipe, options, registry):
     require(recipe.subject is None and recipe.tasks is None and recipe.execution is None
             and not recipe.evaluations and not recipe.search,
-            "sequence method uses stage data; candidate/task services arrive in P03")
-    supported_budget(recipe.budget)
+            "sequence method consumes stage data; use a candidate method for subject/task evaluation")
+    supported_budget(recipe.budget, allow_evaluations=True)
     for actor in recipe.actors.values():
         supported_budget(actor.budget)
     stages = {stage.id: stage for stage in recipe.stages}

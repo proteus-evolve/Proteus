@@ -19,7 +19,7 @@ from proteus.core.contracts import (
     TEXT, ArtifactRef, BudgetLimits, Candidate, DataRef, MethodState, OperationStatus, PluginRef,
     RuntimeIdentity, StageRequest, StageResult, Usage, ValidationStatus, require,
 )
-from proteus.core.serialization import Contract, ContractError, content_hash
+from proteus.core.serialization import Contract, content_hash
 from proteus.recipes.config import ActorSpec, RecipeConfig
 
 
@@ -79,10 +79,10 @@ class StageFailed(RuntimeError):
         super().__init__(result.diagnostic)
 
 
-def supported_budget(budget: BudgetLimits) -> None:
+def supported_budget(budget: BudgetLimits, *, allow_evaluations: bool = False) -> None:
     require(budget.max_cost_usd is None and budget.max_wall_seconds is None
-            and budget.max_evaluations is None and budget.max_concurrency == 1,
-            "P02 execution supports model-call caps and serial dispatch; cost/time/evaluation/"
+            and (allow_evaluations or budget.max_evaluations is None) and budget.max_concurrency == 1,
+            "execution supports model-call caps, run evaluation caps and serial dispatch; cost/time/"
             "concurrent reservations require the subsequent ledger services")
 
 
@@ -129,15 +129,19 @@ class StageContext:
 
 class RunServices:
     def __init__(self, *, run_id: str, recipe: RecipeConfig, registry, root: Path,
-                 prompts: Mapping[str, str] | None = None, resume: bool = False):
+                 prompts: Mapping[str, str] | None = None, resume: bool = False, lock_hash: str | None = None):
         self.run_id, self.recipe, self.registry = run_id, recipe, registry
         self.root, self.resume = Path(root), resume
+        self.lock_hash = lock_hash
         self.prompts = dict(prompts or {})
         self.values = Values(registry)
         from proteus.artifacts.store import ArtifactStore
         codecs = (recipe.subject.initial_artifact.codec,) if recipe.subject is not None else ()
         self.artifacts = ArtifactStore(self.root / "artifacts", registry, allowed_codecs=codecs)
         self.candidates = []
+        self.rollouts, self.evaluations = [], []
+        from proteus.evaluation.service import EvaluationService
+        self._evaluation_service = EvaluationService(self)
         self.requests, self.results, self.actor_calls = [], [], []
         self._operations, self._runtime = set(), {}
         self._dispatch_thread = threading.get_ident()
@@ -148,7 +152,7 @@ class RunServices:
                 require(content_hash(self.prompts[actor.prompt_hash]) == actor.prompt_hash,
                         "role prompt content differs from its hash")
 
-    def _actor(self, stage, operation, prompt, session_id, handoff):
+    def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False):
         require(threading.get_ident() == self._dispatch_thread,
                 "P02 services are serial; cross-thread actor dispatch requires the parallel scheduler")
         spec = self.recipe.actors[stage.role]
@@ -160,15 +164,18 @@ class RunServices:
             require(handoff is None, "native sessions cannot silently become handoffs")
         request = ActorRequest(prompt=prompt, system=self.prompts.get(spec.prompt_hash, ""),
                                session_id=session_id, handoff=handoff)
-        if stage.role not in self._runtime:
+        if isolate:
+            runtime = self.registry.create(spec.runtime, "actor")
+        elif stage.role not in self._runtime:
             self._runtime[stage.role] = self.registry.create(spec.runtime, "actor")
-        runtime = self._runtime[stage.role]
+        if not isolate:
+            runtime = self._runtime[stage.role]
         bound = runtime.model_call_bound
         require(bound is None or (type(bound) is int and bound >= 0), "invalid actor call bound")
         limits = (("run", self.recipe.budget), (f"role:{stage.role}", spec.budget),
                   (f"stage:{operation.operation_id}", stage.budget))
         for key, budget in limits:
-            supported_budget(budget)
+            supported_budget(budget, allow_evaluations=key == "run")
             if budget.max_model_calls is not None:
                 require(bound is not None, "runtime cannot enforce a finite model-call reservation")
                 require(self._charged.get(key, 0) + bound <= budget.max_model_calls,
@@ -324,5 +331,15 @@ class RunServices:
                         wall_seconds=time.monotonic() - started)))
         return candidate
 
-    def evaluate(self, *args, **kwargs):
-        raise ContractError("candidate evaluation requires the P03 SubjectRunner/EvaluationService")
+    def open_evaluation(self, evaluation_id: str, *, operation_id: str | None = None):
+        return self._evaluation_service.open(evaluation_id, operation_id=operation_id)
+
+    def evaluate(self, candidate: Candidate, evaluation_id: str, *, operation_id: str | None = None):
+        session = self.open_evaluation(evaluation_id, operation_id=operation_id)
+        try:
+            for _ in session.batch.tasks:
+                session.step(candidate)
+            return session.finish()
+        except Exception:
+            session.abort("candidate evaluation did not complete")
+            raise

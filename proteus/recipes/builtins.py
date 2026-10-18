@@ -13,6 +13,14 @@ from proteus.core.serialization import Contract
 from proteus.execution.actors import (
     AdapterOptions, ChatActor, ChatOptions, HarnessActor, HarnessOptions, validate_chat, validate_harness,
 )
+from proteus.evaluation.records import EvaluationReceipt, Feedback, Trace
+from proteus.evaluation.runners import (
+    ExactMatch, LocalJsonEnvironment, PromptSubject, PromptSubjectOptions, PythonSubject,
+    PythonSubjectOptions, validate_local, validate_prompt, validate_python,
+)
+from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, TaskBatch
+from proteus.core.contracts import EvaluationBatch
+from proteus.methods.compare import CompareMethod, CompareOptions, validate_compare
 from proteus.methods.native import NativeMethod, NativeOptions, NativeSummary, validate_native
 from proteus.methods.sequence import SequenceMethod, SequenceOptions, validate_sequence
 
@@ -54,6 +62,9 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.artifact_ref@1", ArtifactRef)
     registry.register_data("proteus.candidate@1", Candidate)
     registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
+    for kind, schema in (("task_batch", TaskBatch), ("state", StateValue), ("feedback", Feedback),
+                         ("trace", Trace), ("batch", EvaluationBatch), ("receipt", EvaluationReceipt)):
+        registry.register_data(f"proteus.eval.{kind}@1", schema)
 
     def add(name, kind, options, factory, *, capabilities=(), inputs=None, outputs=None, validate=None):
         registry.register(Plugin(ref=PluginRef(name=name, version="1"), kind=kind, options=options,
@@ -63,6 +74,15 @@ def builtin_registry() -> Registry:
     for name, codec in BUILTIN_CODECS.items():
         add(name, "codec", EmptyOptions, lambda options, codec=codec: codec(),
             capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
+    add("proteus.compare", "method", CompareOptions, CompareMethod, validate=validate_compare)
+    add("proteus.json_tasks", "task_suite", JsonSuiteOptions, JsonTaskSuite)
+    add("proteus.local_json", "environment", EmptyOptions, lambda options: LocalJsonEnvironment(),
+        validate=validate_local, capabilities=("state.independent", "state.sequence", "state.explicit_json", "candidate.exact_tree"))
+    add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python)
+    add("proteus.prompt_subject", "subject", PromptSubjectOptions, PromptSubject, validate=validate_prompt,
+        capabilities=("subject.managed_actor",))
+    add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
+        capabilities=("evaluator.deterministic",))
     add("proteus.sequence", "method", SequenceOptions, SequenceMethod,
         validate=lambda recipe, options: validate_sequence(recipe, options, registry),
         capabilities=("control.sequence", "control.bounded_loop", "control.condition"))

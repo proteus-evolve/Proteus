@@ -162,8 +162,9 @@ do not have a defensible hard global model-call bound, so finite generic model-c
 caps are rejected for them. Native methods retain their explicit episode turn
 budgets, whose semantics are different from a model-call count.
 
-Finite cost/time/evaluation reservations and concurrent execution are rejected until
-their ledger/scheduler services are present. Built-in chat has no tool loop; existing
+P03b adds a run-level `max_evaluations` cap, measured in reserved candidate-task trials.
+Finite cost/time reservations, stage/role evaluation caps and concurrent execution
+are rejected until their ledger/scheduler services are present. Built-in chat has no tool loop; existing
 harness bridges use their native tool sets and reject unsupported tool allowlists.
 Scope declarations enforce typed data-port access and requested tool compatibility;
 they are not a filesystem or process sandbox for trusted Python plugins.
@@ -190,9 +191,9 @@ records stay outside its subject workspace.
 
 These execution files are finalized on return or handled failure. They do not yet
 provide per-operation crash durability or cross-process budget reservations.
-P03a adds the artifact store described below. Formal `services.evaluate` still fails
-explicitly until P03b provides candidate task execution and evaluation. Those
-requirements remain open in the 1.0 plan.
+P03a adds the artifact store and P03b adds candidate task execution/evaluation as
+described below. Persistent worker state, general operation recovery and Harbor
+execution remain open in the 1.0 plan.
 
 ## Immutable artifacts and candidate operations (P03a)
 
@@ -227,8 +228,10 @@ store.verify_tree(revised, "trial-001/candidate")
 ```
 
 Manifests hash codec/runtime/environment identity, sorted paths, byte hashes, sizes
-and executable flags. Reads verify stored identity and content. Paths reject traversal,
-links, special files, conflicting prefixes and case/Unicode aliases. `capture_tree`
+and executable flags. Reads verify stored identity and content.
+Optional artifact environment bindings hash the **resolved** `ExecutionSpec.environment`,
+including plugin option defaults; resolve configuration before computing that binding.
+Paths reject traversal, links, special files, conflicting prefixes and case/Unicode aliases. `capture_tree`
 captures every regular file without implicit ignore rules; empty directories are not
 artifacts. Callers must supply a clean source tree rather than a build/work directory.
 `validate` checks byte and codec integrity. Source build/boot validation remains a
@@ -264,3 +267,125 @@ Artifact publication is durable and idempotent for identical content. Full metho
 recovery, replay of completed operations and budget recovery still require P04. This
 development API adds executable mode to `ArtifactComponent`; regenerate pre-P03 locks
 for a new experiment rather than presenting an old configuration as a compatible resume.
+
+## Task execution and evaluation (P03b)
+
+`TaskDataset` contains versioned `TaskRecord(task, reference)` entries and an explicit
+initial `StateValue`. `Task` includes ID, version, split and input; it contains no
+reference answer. A `TaskSuite` plugin loads the dataset, and the framework verifies
+the `TaskSuiteSpec.dataset_hash`, dataset version, requested IDs and split before
+execution. The hash is `content_hash(TaskDataset)`, using resolved canonical records,
+not a hash of JSON whitespace. Declared order or seeded shuffling produces a saved
+`TaskBatch`. Actual evaluation requires a dataset hash even though inspection-only
+configurations may omit it.
+
+An offline example runs two real Python code candidates on the same tasks:
+
+```sh
+python -m proteus.examples.candidate_evaluation --out /tmp/candidate-study
+proteus recipe lock /tmp/candidate-study/recipe.json \
+  --source "proteus=$PWD" --out /tmp/candidate-study/lock.json
+proteus recipe run /tmp/candidate-study/recipe.json \
+  --lock /tmp/candidate-study/lock.json \
+  --artifact-store /tmp/candidate-study/artifact-store --out /tmp/candidate-study/run
+```
+
+Run the lock command with `proteus` pointing at the checked-out source repository.
+The example also ships in wheel/sdist and works outside the checkout. Its original
+code returns the input, and the changed code doubles it: validation scores are 0/2
+and 2/2. Two additional held-out trials save private test grades. This is an offline
+integration example; it provides no evidence of a research method's benchmark gain.
+
+The built-in `proteus.compare` method creates configured delta variants from the
+initial artifact and evaluates each configured cohort. It does not choose a winner
+or use hidden test scores. More complex methods use the same public services:
+
+```python
+candidate = services.initial_candidate()
+receipt = services.evaluate(candidate, "validation")
+
+# Online methods control updates between steps. Each step commits its prediction
+# before grading and releasing feedback permitted by the EvaluationSpec.
+session = services.open_evaluation("online")
+for task in session.batch.tasks:
+    observation = session.step(candidate)
+    # With after_prediction, use observation.row / observation.feedback to propose
+    # a delta, then call services.fork_candidate(candidate, delta=...) for next step.
+    # With sequence state, session.update_state(StateValue(...)) records a separate
+    # feedback-driven state transition. This is forbidden for hidden/after_batch data.
+receipt = session.finish()
+```
+
+`finish` requires the full declared cohort. Online candidate changes produce separate
+per-candidate `EvaluationBatch` objects with their actual task membership; a researcher
+must not compare averages from different task subsets as if they were the same cohort.
+A method that leaves a session unfinished is failed, with partial predictions retained
+and no fabricated complete-cohort average. Duplicate operations, finished sessions
+and cross-thread dispatch are rejected.
+
+State rules are explicit:
+
+- **independent:** every task starts from the same pinned initial JSON state, with an
+  empty history and fresh runner/subject actor instance.
+- **sequence:** a session carries committed JSON state and permitted history between
+  steps. A separate session starts from the same initial state, including when it
+  evaluates another candidate. An unavailable prediction makes later sequence steps
+  cancelled instead of silently reverting to a guessed state.
+- **worker:** deferred to the persistent worker service in I11.
+
+`SubjectRunner.run(SubjectContext)` receives the exact candidate, public task, state,
+permitted history, seed and an environment lease. It returns `SubjectResult`, including
+the loaded artifact hash, runtime identity, output, state, normalized trace and usage.
+The service records `Rollout` objects and rejects mismatched runtime/environment or
+candidate identity. Environments implement `open(artifact, store, root, execution)` as
+a context manager yielding `EnvironmentLease`; future remote providers can use its
+handle without requiring a local path.
+
+The bundled `proteus.local_json` environment uses fresh materializations and explicit
+JSON state. It executes **trusted host code**, requires `provider="host"` and
+`network="unrestricted"`, and rejects container/resource/filesystem restrictions it
+cannot enforce. Local Python subjects currently require POSIX process-group cleanup.
+`proteus.python_subject` starts a fresh interpreter with JSON stdin and a `PythonReply`
+on stdout, and terminates its process group on timeout/interruption. Its arbitrary
+code has unknown model usage; finite model-call caps are rejected. `proteus.prompt_subject`
+loads a declared text component and calls a fresh managed actor, using normal role/run
+call accounting. It uses the actor transport's timeout and rejects an unsupported
+execution deadline. Persistent filesystem/session state and container isolation are
+separate P04/I11 backend work.
+
+Evaluators implement `grade(task, rollout, reference) -> Grade`. P03b accepts deterministic
+evaluators; actor-backed grading needs an explicit managed grader role in the later
+accounting layer. `proteus.exact_match` is the first built-in evaluator. Every task gets
+an `EvaluationRow`: valid failure can score zero, while invalid candidates, timeouts,
+infrastructure errors and missing scores remain unavailable. A nonfinite/malformed
+grade becomes an unavailable row, and a batch with any unavailable score has no mean.
+`EvaluationBatch.usage` counts grading only; `Rollout.usage` counts subject work; the
+evaluation operation's `StageResult.usage` is their total, without double-counting
+actor-call evidence. Unknown usage stays unknown, including failed publication.
+
+The visibility boundary is enforced in the service API:
+
+- `after_prediction` releases observed grading only after the prediction is durable.
+- `after_batch` executes all predictions before grading/releasing the cohort.
+- Hidden evaluations return receipts with no scores, feedback, grader diagnostics or
+  private record hashes. Their rows never enter public `Values`, execution exports or
+  subject history. The controller stores raw datasets/grades under `private/` for audit.
+
+These are API/data-flow boundaries between trusted plugins; the local provider is
+not a security sandbox against code that deliberately reads the controller filesystem.
+Harbor/separate-verifier integration in P04 must enforce the corresponding environment
+boundary for untrusted agents. Existing native benchmark workspace semantics are unchanged.
+
+Each prediction records a cache key covering artifact, task/version/split, dataset,
+subject/model settings, evaluator/visibility protocol, execution environment, seed,
+initial/current state, sequence history/position, dependency lock and implementations.
+P03b **always re-executes**: it defines identity without introducing implicit cache
+reuse. Prediction and grading records are individually durable, but complete method
+recovery, result reuse and cross-process budget settlement still require P04. A failed
+publication closes the session; it cannot silently re-execute or advance sequence state.
+
+Plugin `validate` callbacks now receive the component's context: the full recipe for
+subjects, `ExecutionSpec` for environments, `TaskSuiteSpec` for task suites, and
+`EvaluationSpec` for evaluators, plus decoded plugin options. These preflight checks
+precede execution. New dataset hash defaults also change development config/lock hashes;
+old experiments must retain their original source rather than being relabeled as resumed.
