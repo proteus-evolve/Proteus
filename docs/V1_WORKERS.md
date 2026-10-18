@@ -87,6 +87,21 @@ rejected. The supervisor measures wall time and enforces a generation timeout,
 including when the bridge does not read stdin. Pause/stop first sends SIGINT, then
 SIGTERM and SIGKILL after successive grace periods.
 
+A bridge can emit an early `session` event with exactly `event`, `session_id` and
+`resumed_from`. This confirms identity before a forced stop; it is not a final
+result and does not imply known usage. Repeated confirmations must agree. A
+`protocol_error` event rejects the generation and its session claims. A final
+result must agree with the early identity.
+
+Providers that report cumulative session tokens can return `session_usage` with
+`input_tokens` and `output_tokens`. These totals are stored separately from the
+generation's `usage` charges. Native launches receive the predecessor's confirmed
+totals; fresh/fallback launches receive none. If a generation was interrupted
+without confirmed totals, the next delta remains unknown. See
+[Codex worker bridge](V1_CODEX_WORKER.md) for a concrete implementation. The new
+launch/receipt fields affect content hashes; old locked runs require their
+original implementation rather than an implicit migration.
+
 This backend does not enforce hard provider-call or monetary limits, nor a strict
 wall-time budget including shutdown. Recipes with those finite caps are rejected;
 the generation timeout and shared concurrency cap are separate controls. Other
