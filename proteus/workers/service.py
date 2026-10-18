@@ -16,6 +16,8 @@ def validate_workers(recipe, registry):
         plugin = registry.get(spec.runtime.plugin, "worker")
         require({"worker.lifecycle", "worker.reconcile"} <= set(plugin.capabilities),
                 "worker runtime must support lifecycle and reconciliation")
+        require(spec.gateway is None or "worker.connection_environment" in plugin.capabilities,
+                "gateway workers require a runtime with mediated connection support")
         options = plugin.options.from_dict(spec.runtime.options)
         runtime = registry.create(spec.runtime, "worker")
         bounds = runtime.reservation(options)
@@ -44,7 +46,8 @@ class WorkerService:
                     lock_hash=services.lock_hash, worker_id=spec.id, role=spec.role),
                 options=plugin.options.from_dict(spec.runtime.options), ledger=services.ledger,
                 scopes=scopes(services.recipe, spec), runtime=services.registry.create(spec.runtime, "worker"),
-                runtime_ref=spec.runtime.plugin)
+                runtime_ref=spec.runtime.plugin,
+                environment=(lambda: services.gateway(spec.gateway).connection(spec.id)) if spec.gateway is not None else None)
         return self._controller
 
     def start(self, operation_id, prompt, *, previous=None, fresh_orientation=None, fallback_reason=None):
@@ -94,3 +97,6 @@ def require_terminal(services):
         if head is not None:
             if worker.poll(head).completion is None:
                 raise RecoveryRequired("method cannot complete with an active or uncertain worker")
+    for spec in services.recipe.gateways:
+        if services.gateway(spec.id).store.pending():
+            raise RecoveryRequired("method cannot complete with pending gateway evaluations")

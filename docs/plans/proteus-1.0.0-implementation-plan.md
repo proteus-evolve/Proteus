@@ -51,6 +51,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08h：接入 Formula 上顺序 ACE、naive parallel、固定/动态 Combee 四组 offline/online 实验配置，共用已锁定数据、角色和预算上限；增加私有重评分、样本/更新/调用完整性审计与可恢复的端到端计时。完整 HTTP fixture、500/300/200 数据准备、跨实验硬退出恢复及 wheel/sdist 安装验证通过。说明见 [V1_COMBEE_FORMULA.md](../V1_COMBEE_FORMULA.md)。该 common-condition 设置明确不同于论文中尚未确定精确子集的 250 个训练样本；真实模型质量/成本/耗时结果仍待完成。
 
+- P09c：加入 worker 主动提交候选的 EvaluationGateway，冻结提交字节、事务化入队、按原认领恢复、复用正式评分并返回授权证据；可自动发布共享 attempt。首个传输为可信本地 worker 的 loopback HTTP，候选执行可接 Harbor。恢复、安装包及容器验收见 [V1_EVALUATION_GATEWAY.md](../V1_EVALUATION_GATEWAY.md)。CORAL 事件策略、完整 recipe、真实模型实验与发布验收仍未完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -275,7 +277,7 @@ P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算�
 
 - [ ] 管理 worker 的启动、session 继续、暂停、停止及异常退出恢复。
 - [ ] 每个 worker 有独立代码工作区、身份和预算记录，共享知识通过 I08 访问。
-- [ ] 提供正式 EvaluationGateway，让 agent 主动提交准确版本的候选并获得允许的反馈。
+- [x] 提供正式 EvaluationGateway，让 agent 主动提交准确版本的候选并获得允许的反馈（P09c：本地认证传输、精确候选、正式评估及共享 attempt；容器 worker 的网络传输仍需扩展）。
 - [ ] EventPolicy 支持评估次数、时间和停滞触发；将 reflect、consolidate、pivot 作为 CORAL 插件策略。
 - [ ] 保存触发历史、session 引用与恢复方式；无法恢复原生 session 时显式记录降级，不假称续接了原上下文。
 

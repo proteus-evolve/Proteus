@@ -52,7 +52,7 @@ def immutable(path, value):
 
 class WorkerRuntime(Protocol):
     def reservation(self, options): ...
-    def start(self, launch, directory: Path) -> None: ...
+    def start(self, launch, directory: Path, *, environment=None) -> None: ...
     def poll(self, launch, directory: Path) -> WorkerObservation: ...
     def control(self, launch, directory: Path, action: str) -> None: ...
 
@@ -69,7 +69,7 @@ class CommandWorkerRuntime:
         from proteus.core.ledger import Amounts
         return Amounts()
 
-    def start(self, launch, directory):
+    def start(self, launch, directory, *, environment=None):
         options = CommandWorkerOptions.from_dict(launch.options)
         with lease(directory / "supervisor.lock", blocking=False) as ownership:
             if ownership is None or (directory / "dispatch.json").exists():
@@ -79,14 +79,17 @@ class CommandWorkerRuntime:
                         for path, digest in options.command_files.items()), "worker command file changed")
             require(all(name in os.environ for name in options.credential_env),
                     "missing worker credential environment variable")
-            environment = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL", "TMPDIR") if key in os.environ}
-            environment.update({key: os.environ[key] for key in options.credential_env})
+            require(environment is None or set(environment) <= {"PROTEUS_EVALUATION_URL", "PROTEUS_EVALUATION_TOKEN"},
+                    "unsupported worker connection environment")
+            process_environment = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL", "TMPDIR") if key in os.environ}
+            process_environment.update({key: os.environ[key] for key in options.credential_env})
+            process_environment.update(environment or {})
             # The supervisor is a standalone stdlib script. Installed packages
             # work outside the source checkout without PYTHONPATH injection.
             with (directory / "supervisor.log").open("ab") as log:
                 child = subprocess.Popen([sys.executable, str(Path(__file__).with_name("supervisor.py")),
                     str(directory / "request.json"), str(ownership.fileno())],
-                    stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=environment,
+                    stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=process_environment,
                     pass_fds=(ownership.fileno(),), start_new_session=True)
             # Popen's object is not a durable identity. Reaping is best effort;
             # ownership and completion are proven by the lease and receipt.

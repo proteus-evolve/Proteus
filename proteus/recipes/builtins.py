@@ -96,6 +96,9 @@ def builtin_registry() -> Registry:
     from proteus.workers.records import CommandWorkerOptions, WorkerCompletion, WorkerRef
     registry.register_data("proteus.worker.ref@1", WorkerRef)
     registry.register_data("proteus.worker.completion@1", WorkerCompletion)
+    from proteus.gateway.records import GatewayResult, GatewayTicket
+    registry.register_data("proteus.gateway.ticket@1", GatewayTicket)
+    registry.register_data("proteus.gateway.result@1", GatewayResult)
     registry.register_data("proteus.code.call@1", CodeCall)
     registry.register_data("proteus.code.state@1", CodeState)
     registry.register_data("proteus.code.result@1", CodeResult)
@@ -119,7 +122,7 @@ def builtin_registry() -> Registry:
             capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
     from proteus.workers.runtime import CommandWorkerRuntime
     add("proteus.worker.command", "worker", CommandWorkerOptions, lambda options: CommandWorkerRuntime(),
-        capabilities=("worker.lifecycle", "worker.reconcile", "worker.session_protocol"))
+        capabilities=("worker.lifecycle", "worker.reconcile", "worker.session_protocol", "worker.connection_environment"))
     for name, factory, roles in (("scalar_best", ScalarBest, ("parent", "final")),
                                  ("uniform_parent", UniformParent, ("parent",)),
                                  ("keep_all", KeepAll, ("archive",)),

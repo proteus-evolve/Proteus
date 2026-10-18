@@ -191,6 +191,23 @@ class WorkerSpec(Contract):
     role: str = field(metadata=TEXT)
     runtime: PluginSpec
     budget: BudgetLimits = field(default_factory=BudgetLimits)
+    gateway: str | None = field(default=None, metadata=TEXT)
+
+
+@dataclass(frozen=True, kw_only=True)
+class GatewaySpec(Contract):
+    id: str = field(metadata=TEXT)
+    members: Mapping[str, str]  # worker ID -> explicit evidence-owning stage
+    evaluations: tuple[str, ...] = field(metadata={**UNIQUE, "minItems": 1})
+    knowledge_space: str | None = field(default=None, metadata=TEXT)
+    max_pending_per_worker: int = field(default=1, metadata={"minimum": 1})
+    max_evaluations_per_worker: int | None = field(default=None, metadata={"minimum": 0})
+    max_request_bytes: int = field(default=8 * 1024 * 1024, metadata={"minimum": 1})
+    max_files: int = field(default=1024, metadata={"minimum": 1})
+
+    def _validate(self):
+        require(bool(self.members) and all(key.strip() and value.strip() for key, value in self.members.items()),
+                "gateway members need worker and evidence stage identities")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -210,6 +227,7 @@ class RecipeConfig(Contract):
     seed: int = 0
     knowledge: tuple[KnowledgeSpec, ...] = ()
     workers: tuple[WorkerSpec, ...] = ()
+    gateways: tuple[GatewaySpec, ...] = ()
 
     def _validate(self):
         require(all(role.strip() for role in self.actors), "actor roles must be nonempty")
@@ -223,8 +241,37 @@ class RecipeConfig(Contract):
         unique((spec.id for spec in self.knowledge), "knowledge space ID")
         unique((spec.id for spec in self.workers), "worker ID")
         require(all(spec.role in self.actors for spec in self.workers), "worker references an unknown actor role")
+        unique((spec.id for spec in self.gateways), "gateway ID")
+        gateways = {spec.id: spec for spec in self.gateways}
+        workers = {spec.id: spec for spec in self.workers}
+        stages = {spec.id: spec for spec in self.stages}
         evaluations = {spec.id: spec for spec in self.evaluations}
         knowledge = {spec.id: spec for spec in self.knowledge}
+        for worker in self.workers:
+            if worker.gateway is not None:
+                require(worker.gateway in gateways and worker.id in gateways[worker.gateway].members,
+                        "worker has no matching gateway membership")
+        for gateway in self.gateways:
+            require(self.subject is not None, "evaluation gateway requires a subject")
+            require(set(gateway.evaluations) <= set(evaluations), "gateway references an unknown evaluation")
+            require(all(evaluations[key].visibility == FeedbackVisibility.OBSERVED for key in gateway.evaluations),
+                    "private evaluations cannot be submitted through a worker gateway")
+            for worker_id, stage_id in gateway.members.items():
+                require(worker_id in workers and workers[worker_id].gateway == gateway.id,
+                        "gateway references an unbound worker")
+                require(stage_id in stages and stages[stage_id].role == workers[worker_id].role,
+                        "gateway evidence stage belongs to another role")
+                access = stages[stage_id].evidence
+                require(access is not None and set(gateway.evaluations) <= set(access.evaluation_ids),
+                        "gateway evaluations exceed the declared evidence access")
+                if gateway.knowledge_space is not None:
+                    require(gateway.knowledge_space in knowledge, "gateway references an unknown knowledge space")
+                    space = knowledge[gateway.knowledge_space]
+                    require(workers[worker_id].role in space.roles and space.evidence is not None
+                            and set(access.evaluation_ids) <= set(space.evidence.evaluation_ids)
+                            and set(access.splits) <= set(space.evidence.splits)
+                            and set(access.kinds) <= set(space.evidence.kinds),
+                            "gateway evidence exceeds shared knowledge permissions")
         for space in self.knowledge:
             require(set(space.roles) <= set(self.actors), "knowledge space references an unknown role")
             if space.evidence is not None:
