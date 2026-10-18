@@ -18,6 +18,7 @@ from proteus.examples.harbor_evaluation import IMAGE
 from proteus.methods.coral.report import report_coral
 from proteus.recipes.export import SavedRun, report_run
 from proteus.workers.records import WorkerLaunch
+from proteus.workers.harbor import HarborWorkerOptions
 
 
 def raw(run, relative):
@@ -47,8 +48,9 @@ def harbor_generations(run, containers):
             continue
         request=run.read(prefix+'/harbor-request.json')
         execution=run.read(prefix+'/execution.json')
+        expected_options=HarborWorkerOptions.from_dict(launch.options).to_dict()
         require(request['request_hash']==execution['request_hash']==content_hash(launch)
-                and request['options']==dict(launch.options) and request['workspace']==launch.workspace,
+                and request['options']==expected_options and request['workspace']==launch.workspace,
                 'Harbor worker request differs from launch')
         require(request['trial_name']=='proteus-'+content_hash(launch).split(':')[1][:32], 'worker container identity differs')
         digest=content_hash(request)
