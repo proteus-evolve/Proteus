@@ -18,9 +18,9 @@ from test_v1_gateway import setup, services, submission
 from test_v1_ledger import run_ledger
 
 
-@pytest.mark.parametrize('reader', ['fixture', 'fixture_post', 'client'])
+@pytest.mark.parametrize('reader', ['fixture', 'fixture_post', 'knowledge', 'knowledge_post', 'client'])
 def test_worker_retries_a_truncated_response_after_controller_exit(monkeypatch, reader):
-    from proteus.examples import _gateway_worker_fixture
+    from proteus.examples import _gateway_worker_fixture, _knowledge_worker_fixture
     from proteus.gateway.client import GatewayClient
     calls = []
     posts = []
@@ -50,10 +50,10 @@ def test_worker_retries_a_truncated_response_after_controller_exit(monkeypatch, 
     monkeypatch.setenv('PROTEUS_EVALUATION_URL', url)
     monkeypatch.setenv('PROTEUS_EVALUATION_TOKEN', 'offline-test')
     try:
-        path = '/v1/submissions' if reader == 'fixture_post' else '/v1/submissions/ticket'
-        body = {'operation_id': 'same-operation', 'files': []} if reader == 'fixture_post' else None
-        value = (_gateway_worker_fixture.request(path, body) if reader.startswith('fixture')
-                 else GatewayClient(url, 'offline-test').wait('ticket', timeout=5))
+        path = '/v1/submissions' if reader.endswith('_post') else '/v1/submissions/ticket'
+        body = {'operation_id': 'same-operation', 'files': []} if reader.endswith('_post') else None
+        request = _knowledge_worker_fixture.request if reader.startswith('knowledge') else _gateway_worker_fixture.request
+        value = (request(path, body) if reader != 'client' else GatewayClient(url, 'offline-test').wait('ticket', timeout=5))
         assert value == {'status': 'completed'} and calls == [path] * 2
         assert posts == ([body, body] if body is not None else [])
     finally:
