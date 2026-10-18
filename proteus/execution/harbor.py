@@ -334,7 +334,10 @@ class HarborSubject:
         return self._result(context, request, response, cleanup, usage)
 
     def _result(self, context, request, response, cleanup, bridge_usage):
-        build = BuildReceipt.from_dict(request["build_receipt"]) if request["build_receipt"] else None
+        # A live dispatch carries the typed receipt; recovery reads its wire form.
+        build = request["build_receipt"]
+        if build is not None and not isinstance(build, BuildReceipt):
+            build = BuildReceipt.from_dict(build)
         runtime = RuntimeIdentity(runtime=context.subject.runner.plugin, model=self.options.model,
             environment_hash=content_hash(context.execution.environment),
             settings={"harbor_runtime_hash": request["runtime_hash"]})

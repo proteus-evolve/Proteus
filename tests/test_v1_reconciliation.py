@@ -14,6 +14,8 @@ from proteus.evaluation.runners import SubjectRecoveryContext
 from proteus.evaluation.tasks import StateValue, TaskDataset
 from proteus.execution.harbor import HarborSubject, HarborSubjectOptions, completed_worker
 from proteus.execution import harbor_worker
+from proteus.execution.builds import BuildReceipt
+from proteus.evaluation.records import zero_usage
 from proteus.recipes.builtins import builtin_registry
 from test_v1_harbor import fixture_recipe
 from test_v1_ledger import run_ledger
@@ -113,6 +115,30 @@ def test_completed_worker_result_reuses_original_usage_and_private_evidence(tmp_
     assert result.backend_evaluation.payload["cleanup"]["verified"]
     assert subject.reconcile(context) == result
     assert json.loads((private / "bridge-usage.json").read_text())["elapsed_seconds"] == 9.5
+
+
+@pytest.mark.parametrize("serialized", [False, True])
+def test_source_built_result_decodes_live_and_recovered_receipts(tmp_path, serialized):
+    context, request, private = bundle(tmp_path)
+    build = BuildReceipt(id="build-1", artifact_hash=context.candidate.artifact.content_hash,
+        build_hash=content_hash("build"), base_image=request["image_digest"],
+        dockerfile_hash=content_hash("Dockerfile"), image_id=content_hash("built image"),
+        status="completed", usage=zero_usage())
+    request.update(build_receipt=build, agent_image=build.image_id)
+    if serialized:
+        request = json.loads(canonical_json(request))
+    response = json.loads((private / "response.json").read_text())
+    response["request_hash"] = content_hash(request)
+    response["loaded_proof"].update(requested_image=build.image_id, image_id=build.image_id,
+                                    build_receipt_hash=content_hash(build))
+    _, cleanup, usage = completed_worker(private, json.loads((private / "request.json").read_text()))
+    subject = HarborSubject(HarborSubjectOptions())
+    result = subject._result(context, request, response, cleanup, usage)
+    assert result.status == Outcome.SUCCEEDED and result.output == 42
+    assert result.usage.wall_seconds == 3 and result.backend_evaluation.usage.wall_seconds == 3
+    response["loaded_proof"]["image_id"] = content_hash("another image")
+    with pytest.raises(ContractError, match="did not execute the built image"):
+        subject._result(context, request, response, cleanup, usage)
 
 
 @pytest.mark.parametrize("name", ["response.json", "worker-cleanup.json"])
