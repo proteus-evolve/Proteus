@@ -43,8 +43,16 @@ def validate_evaluation_config(recipe, registry):
             "environment does not support the requested state policy")
     for spec in recipe.evaluations:
         require(spec.tasks.dataset_hash is not None, "evaluations require a pinned task dataset_hash")
-        require("evaluator.deterministic" in registry.get(spec.evaluator.plugin, "evaluator").capabilities,
-                "P03 evaluators must be deterministic; actor-backed grading needs a managed grader role")
+        capabilities = registry.get(spec.evaluator.plugin, "evaluator").capabilities
+        backend = {cap for cap in capabilities if cap.startswith("evaluation.backend.")}
+        if backend:
+            subject_caps = registry.get(recipe.subject.runner.plugin, "subject").capabilities
+            require(backend.issubset(subject_caps), "backend evaluator requires a matching subject adapter")
+            require(recipe.budget.max_model_calls is None,
+                    "integrated verifier cannot enforce a finite model-call cap")
+        else:
+            require("evaluator.deterministic" in capabilities,
+                    "evaluators must be deterministic or a declared integrated backend")
     subject = recipe.subject
     subject_plugin = registry.get(subject.runner.plugin, "subject")
     if recipe.budget.max_model_calls is not None:
@@ -130,6 +138,7 @@ class EvaluationSession:
         self.ledger_entry = entry_id
         self.closed, self._running, self._sequence_failed = False, False, False
         self._observations, self._grades, self._grade_usage, self._trials = [], {}, {}, []
+        self._backend_evaluations, self._backend_usage = {}, {}
         self._updates = []
         self._pending_usage = self._pending_grade_usage = None
         self._state = batch.initial_state
@@ -168,6 +177,19 @@ class EvaluationSession:
         require(threading.get_ident() == self.services._dispatch_thread, "evaluation requires serial service dispatch")
         require(not self.closed and not self._running, "evaluation session is closed or already executing")
 
+    def _backend(self):
+        return any(cap.startswith("evaluation.backend.") for cap in
+                   self.services.registry.get(self.spec.evaluator.plugin).capabilities)
+
+    def _reserve_dispatch(self, kind, index, *, request, reservation, slots):
+        entry_id = kind + "-" + content_hash([self.operation_id, self.request.attempt_id, index]).split(":")[1]
+        self.services.ledger.reserve(entry_id, scopes={"run": self.services.recipe.budget},
+            reservation=reservation, slots=slots, reuse=False,
+            metadata={"kind": kind, "operation_id": self.operation_id, "attempt_id": self.request.attempt_id,
+                      "role": "grader" if kind == "backend_verifier" else kind,
+                      "trial_id": f"{self.operation_id}:rollout-{index + 1}", "worker_id": None}, request=request)
+        return entry_id
+
     def step(self, candidate: Candidate) -> Observation:
         self._check()
         index = len(self._observations)
@@ -202,6 +224,28 @@ class EvaluationSession:
         runtime_ref = recipe.actors[recipe.subject.actor].runtime.plugin if recipe.subject.actor else recipe.subject.runner.plugin
         runtime = RuntimeIdentity(runtime=runtime_ref, environment_hash=content_hash(recipe.execution.environment))
         first_actor = len(services.actor_calls)
+        managed = recipe.subject.actor is not None
+        model_free = "subject.model_free" in services.registry.get(recipe.subject.runner.plugin).capabilities
+        subject_entry = self._reserve_dispatch("subject", index,
+            request={"candidate": candidate, "task": task, "execution": recipe.execution,
+                     "state": state, "history_hash": content_hash(history), "seed": seed,
+                     "delegates_usage_to_actor": managed},
+            reservation=Amounts.zero() if managed else Amounts(model_calls=0 if model_free else None),
+            slots=0 if managed else 1)
+        verifier_entry = None
+        if self._backend():
+            try:
+                verifier_entry = self._reserve_dispatch("backend_verifier", index,
+                    request={"candidate": candidate, "task": task, "evaluation": self.spec},
+                    reservation=Amounts(), slots=0)
+            except BaseException:
+                services.ledger.settle(subject_entry, actual=Amounts.zero(), status="cancelled")
+                raise
+        services.ledger.start(subject_entry)
+        if verifier_entry is not None:
+            services.ledger.start(verifier_entry)
+        result = None
+        rejected_result = None
         try:
             if self._sequence_failed:
                 result = SubjectResult(loaded_artifact_hash=candidate.artifact.content_hash, runtime=runtime,
@@ -240,6 +284,15 @@ class EvaluationSession:
                 require(result.runtime.runtime == runtime_ref
                         and result.runtime.environment_hash == runtime.environment_hash,
                         "subject runtime/environment differs from configured execution")
+                if result.backend_evaluation is not None:
+                    backend = result.backend_evaluation
+                    require(backend.producer == recipe.subject.runner.plugin
+                            and backend.artifact_hash == candidate.artifact.content_hash
+                            and backend.task_hash == content_hash(task),
+                            "backend evidence belongs to a different producer/candidate/task")
+                    require(any(cap.startswith("evaluation.backend.") for cap in
+                                services.registry.get(self.spec.evaluator.plugin).capabilities),
+                            "backend evidence requires its declared evaluator")
                 if recipe.subject.actor is not None:
                     usage = services._usage(first_actor)
                     require(result.usage.model_calls == usage.model_calls, "subject actor usage mismatch")
@@ -247,13 +300,36 @@ class EvaluationSession:
                 elif "subject.model_free" in services.registry.get(recipe.subject.runner.plugin).capabilities:
                     require(result.usage.model_calls == 0, "model-free subject reported nonzero/unknown model calls")
         except Exception as exc:
-            usage = services._usage(first_actor) if len(services.actor_calls) > first_actor else Usage()
+            rejected_result = result if type(result) is SubjectResult else None
+            usage = services._usage(first_actor) if len(services.actor_calls) > first_actor else (
+                result.usage if type(result) is SubjectResult else Usage())
             result = SubjectResult(loaded_artifact_hash=candidate.artifact.content_hash, runtime=runtime,
                 status=Outcome.INVALID_CANDIDATE if isinstance(exc, InvalidCandidate) else Outcome.INFRA_ERROR,
                 state=state, usage=usage,
                 diagnostic=f"{type(exc).__name__}: {exc}")
+        finally:
+            if type(result) is SubjectResult and result.backend_evaluation is None:
+                result = replace(result, usage=replace(result.usage, wall_seconds=time.monotonic() - started))
+            observed = result.usage if type(result) is SubjectResult else Usage()
+            self._pending_usage = observed
+            services.ledger.settle(subject_entry, actual=Amounts.zero() if managed else Amounts.from_usage(observed),
+                status="completed" if type(result) is SubjectResult and result.status in VALID else "failed",
+                result={"usage": observed, "delegates_usage_to_actor": managed,
+                        "status": result.status if type(result) is SubjectResult else "interrupted",
+                        "rejected_result": rejected_result})
+            if verifier_entry is not None:
+                evidence_result = rejected_result or result
+                backend = evidence_result.backend_evaluation if type(evidence_result) is SubjectResult else None
+                self._backend_usage[index] = backend.usage if backend else Usage()
+                services.ledger.settle(verifier_entry, actual=Amounts.from_usage(self._backend_usage[index]),
+                    status="completed" if backend and rejected_result is None else "failed",
+                    result={"backend_evidence": backend})
         after = result.state if result.status in VALID else state
-        usage = replace(result.usage, wall_seconds=time.monotonic() - started)
+        if result.backend_evaluation is not None:
+            self._save(f"private/backend/{index:06d}.json", result.backend_evaluation)
+            self._backend_evaluations[index] = result.backend_evaluation
+        # Integrated backends report agent and verifier phase durations separately.
+        usage = result.usage
         self._pending_usage = usage
         rollout = Rollout(id=f"{self.operation_id}:rollout-{index + 1}", run_id=services.run_id,
             operation_id=self.operation_id, attempt_id=self.request.attempt_id,
@@ -288,19 +364,45 @@ class EvaluationSession:
             return observation
         started = time.monotonic()
         self._pending_grade_usage = Usage()
+        backend = self._backend_evaluations.get(index)
+        is_backend = self._backend()
+        if is_backend:
+            self._pending_grade_usage = None  # Already tracked when the trial ran.
+        # Integrated verifier usage was reserved before the external trial and
+        # settled with its private result. Only ordinary graders dispatch here.
+        grader_entry = None
+        if not is_backend:
+            grader_entry = self._reserve_dispatch("grader", index,
+                request={"rollout": rollout, "evaluation": self.spec, "reference": self._references[rollout.task_id]},
+                reservation=Amounts(model_calls=0), slots=1)
+            self.services.ledger.start(grader_entry)
         if rollout.status not in VALID:
-            grade = Grade(status=rollout.status, score=None, usage=zero_usage(), diagnostic=rollout.diagnostic)
+            grade = Grade(status=rollout.status, score=None,
+                usage=self._backend_usage[index] if is_backend else zero_usage(), diagnostic=rollout.diagnostic)
         else:
+            grade = None
             try:
                 grader = self.services.registry.create(self.spec.evaluator, "evaluator")
-                grade = grader.grade(self.batch.tasks[index], rollout, self._references[rollout.task_id])
-                require(type(grade) is Grade and grade.usage.model_calls == 0,
-                        "deterministic evaluator must return Grade with zero model calls")
+                if is_backend:
+                    require(backend is not None, "integrated evaluator has no private backend evidence")
+                    grade = grader.grade(self.batch.tasks[index], rollout,
+                        self._references[rollout.task_id], backend=backend)
+                    require(type(grade) is Grade and grade.usage == backend.usage,
+                            "backend evaluator must preserve the recorded verifier usage")
+                else:
+                    grade = grader.grade(self.batch.tasks[index], rollout, self._references[rollout.task_id])
+                    require(type(grade) is Grade and grade.usage.model_calls == 0,
+                            "deterministic evaluator must return Grade with zero model calls")
             except (Exception, SystemExit) as exc:
-                grade = Grade(status=Outcome.INFRA_ERROR, score=None, usage=Usage(),
+                grade = Grade(status=Outcome.INFRA_ERROR, score=None,
+                              usage=self._backend_usage[index] if is_backend else (
+                                  grade.usage if type(grade) is Grade else Usage()),
                               diagnostic=f"{type(exc).__name__}: {exc}")
-        grade = replace(grade, usage=replace(grade.usage, wall_seconds=time.monotonic() - started))
-        self._pending_grade_usage = grade.usage
+        if not is_backend:
+            grade = replace(grade, usage=replace(grade.usage, wall_seconds=time.monotonic() - started))
+            self.services.ledger.settle(grader_entry, actual=Amounts.from_usage(grade.usage),
+                status="completed" if grade.status in VALID else "failed", result={"grade": grade})
+        self._pending_grade_usage = None if is_backend else grade.usage
         hidden = self.spec.visibility == FeedbackVisibility.HIDDEN
         feedback = self._value("proteus.eval.feedback@1", grade.feedback, private=hidden)
         row = EvaluationRow(rollout_id=rollout.id, task_id=rollout.task_id, status=grade.status,
@@ -374,6 +476,7 @@ class EvaluationSession:
             return
         self.closed = True
         pending = [usage for usage in (self._pending_usage, self._pending_grade_usage) if usage is not None]
+        pending.extend(usage for index, usage in self._backend_usage.items() if index not in self._grade_usage)
         self.services.results.append(StageResult(run_id=self.services.run_id, operation_id=self.operation_id,
             attempt_id=self.request.attempt_id, status=OperationStatus.FAILED,
             usage=sum_usage([*(item.rollout.usage for item in self._observations), *self._grade_usage.values(), *pending]),

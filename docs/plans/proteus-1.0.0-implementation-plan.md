@@ -14,6 +14,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - 第二批 P02：注册式 Method/Stage/ActorRuntime、typed ports、角色调用记录、顺序/条件/有限循环、自评 stage 示例与 native 兼容 recipe；说明见 [V1_PLUGINS.md](../V1_PLUGINS.md)。native 复用旧事务引擎，通用 stage 路径不隐式继承 native 提示。
 - 第三批拆成 P03a/P03b：P03a 为不可变 ArtifactStore、三类 codec、确定性 delta、候选谱系与 Method 服务接入；P03b 为 pinned TaskSuite/TaskBatch、SubjectRunner、逐任务评估、整批/在线 session 与反馈/显式 JSON 状态协议。两部分共同完成原 P03 的公共服务；本地 Python/受管理 actor 示例不替代 Harbor 或真实方法验收。
 - P04a：SQLite 持久事件账本接入受管理 actor 调用和整批评估预留；请求、attempt、实际用量、未知用量和超额记录随事务保存，重新打开服务不补发预算、不重放既有调用。跨进程预留原语已验证；执行器仍串行。其余 P04、P05–P10、真实方法实验以及 1.0 发布验收继续推进。
+- P04b：独立 Harbor 运行时、Docker 候选精确加载、独立 verifier 私有结果通道、清理记录及 subject/grader/backend verifier 账本接入；加入真实 Docker A/B/A、超时、伪造 reward 与隔离验收，CI 上传逐 trial 证据。说明见 [V1_HARBOR.md](../V1_HARBOR.md)。sequence/worker、source build 与通用恢复仍在 P04/I11 范围。
 
 ## 1 目标与范围
 
@@ -171,14 +172,14 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I06 环境与 Harbor
 
-- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期。
-- [ ] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本。
-- [ ] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果。
-- [ ] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用。
-- [ ] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力。
-- [ ] 需要独立 grader 的 recipe 显式使用 separate verifier，并声明传递的产物；不假设默认 verifier 已独立。
-- [ ] 镜像记录实际 digest，构建状态与方法产物分开；镜像和缓存不携带其他候选的学习状态。
-- [ ] Harbor 作为可选依赖或独立受控运行时接入，处理其 Python 要求与 Proteus 核心支持版本的差异。
+- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b 已接入固定镜像、CPU/内存、任务网络策略与独立 trial；source build、其他资源/访问范围仍需补齐）。
+- [x] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本（P04b 独立运行时、版本/源码字节/依赖环境 fingerprint）。
+- [x] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果（P04b 容器内检查完整文件树）。
+- [x] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用（P04b 私有 BackendEvaluation；未报告的用量保持 unknown）。
+- [ ] 支持 trial、sequence、worker 三种生命周期，并检查底层 provider 的实际能力（P04b 完成独立 trial，其他策略显式拒绝）。
+- [x] 需要独立 grader 的 recipe 显式使用 separate verifier，并声明传递的产物；不假设默认 verifier 已独立（P04b 进一步移除 agent 的 verifier 日志挂载，检查独立容器及实际镜像）。
+- [ ] 镜像记录实际 digest，构建状态与方法产物分开；镜像和缓存不携带其他候选的学习状态（P04b 完成预构建镜像与全新候选目录；source build/cache 验收待完成）。
+- [x] Harbor 作为可选依赖或独立受控运行时接入，处理其 Python 要求与 Proteus 核心支持版本的差异（P04b 核心仍支持 Python 3.10+，Harbor 使用独立 3.12+ 环境）。
 
 **验收：** 在 Docker 中运行两个不同候选并确认实际执行版本；结果与状态隔离、超时、清理和资源用量有记录；不把缺少 Docker 的运行静默替换成宿主机执行。
 
@@ -205,7 +206,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 ### I09 预算事件与恢复
 
 - [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a 已持久化 actor/cohort 请求、转换事件和结算；真实 worker 与其他外部操作随后接入）。
-- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 覆盖通过公共 actor 服务的角色及 subject 调用；unmanaged subject、grader、profiling 和 native 完整覆盖仍待实现）。
+- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 覆盖公共 actor 服务，P04b 接入 unmanaged subject、grader 和 integrated verifier，避免重复计费并保留被拒结果的实际用量；profiling 和 native 完整覆盖仍待实现）。
 - [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 已实现并测试 SQLite 跨进程原子预留/结算、已知上界保留和实际超额记账；公共并发调度与 backend cost/time 限制仍待接入）。
 - [ ] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作。
 - [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略。

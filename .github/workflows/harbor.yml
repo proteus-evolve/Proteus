@@ -1,0 +1,43 @@
+name: Harbor integration
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev/1.0.0]
+
+jobs:
+  docker:
+    name: Pinned Harbor and real Docker trials
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.5"
+      - uses: actions/checkout@v4
+        with:
+          repository: harbor-framework/harbor
+          ref: b53b8134e1241686dca7759af188f987ecc48e8b
+          path: .harbor-runtime-src
+      - name: Install isolated locked Harbor runtime
+        working-directory: .harbor-runtime-src
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/proteus-harbor
+        run: uv sync --frozen --no-dev --no-editable --python 3.12
+      - run: python -m pip install -e '.[dev]'
+      - name: Real candidate loading, independent verifier and cleanup
+        env:
+          PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
+          PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
+        run: python -m pytest tests/test_v1_harbor.py -k live_harbor -q
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harbor-trial-evidence
+          path: ${{ runner.temp }}/proteus-harbor-study
+          include-hidden-files: true
+          retention-days: 14

@@ -238,7 +238,8 @@ def test_retry_reservations_survive_reopen_and_keep_attempt_identity(tmp_path):
     assert book.balance()["charged"]["model_calls"] == 2
     assert book.balance()["unknown"]["model_calls"] == 1
     assert sorted(e["state"] for e in entries) == ["completed", "failed"]
-    assert execution(root)["ledger"]["coverage"] == ["managed_actor_calls", "evaluation_cohort_reservations"]
+    assert execution(root)["ledger"]["coverage"] == ["managed_actor_calls", "evaluation_cohort_reservations",
+                                                   "subject_calls", "grader_calls", "backend_verifiers"]
 
 
 def test_reopened_services_do_not_refill_budget_or_replay_an_actor(tmp_path):
@@ -341,7 +342,7 @@ def test_evaluation_cohort_reservation_survives_service_recreation(tmp_path):
     result, records, root = evaluation_run(tmp_path, registry, store, recipe)
     assert result.status == OperationStatus.COMPLETED
     book = run_ledger(root)
-    entry, = book.entries()
+    entry, = [e for e in book.entries() if e["identity"]["metadata"]["kind"] == "evaluation_cohort"]
     assert entry["state"] == "completed"
     assert entry["identity"]["metadata"]["kind"] == "evaluation_cohort"
     assert book.balance()["charged"]["evaluations"] == records["reserved_evaluations"] == 2
@@ -351,7 +352,7 @@ def test_evaluation_cohort_reservation_survives_service_recreation(tmp_path):
     assert services._evaluation_service.reserved == 2
     with pytest.raises(ContractError, match="evaluation budget exhausted"):
         services.open_evaluation("score", operation_id="new-evaluation")
-    assert services.rollouts == [] and len(book.entries()) == 1
+    assert services.rollouts == [] and len(book.entries()) == 5
 
 
 def test_native_path_does_not_claim_zero_cost_ledger_coverage(tmp_path):
@@ -393,7 +394,7 @@ def test_aborted_evaluation_retains_its_entire_admitted_cohort(tmp_path):
     result, _, root = evaluation_run(tmp_path, registry, store, method(registry, recipe, study))
     assert result.status == OperationStatus.FAILED
     book = run_ledger(root)
-    entry, = book.entries()
+    entry, = [e for e in book.entries() if e["identity"]["metadata"]["kind"] == "evaluation_cohort"]
     assert entry["state"] == "failed"
     assert entry["settlement"]["result"]["completed_predictions"] == 1
     assert book.balance()["charged"]["evaluations"] == 2
