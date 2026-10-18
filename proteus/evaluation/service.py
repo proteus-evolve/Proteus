@@ -27,7 +27,7 @@ from proteus.evaluation.records import (
     sum_usage, zero_usage,
 )
 from proteus.evaluation.runners import EnvironmentLease, InvalidCandidate, SubjectContext, SubjectRecoveryContext
-from proteus.evaluation.tasks import StateValue, TaskBatch, make_batch
+from proteus.evaluation.tasks import StateValue, SupervisedBatch, TaskBatch, make_batch
 from proteus.recipes.config import StageSpec
 
 
@@ -123,6 +123,17 @@ class EvaluationService:
             return make_batch(dataset, spec.tasks)
         return self.services._record("evaluation.pool", {"evaluation_id": evaluation_id}, load,
                                      decode=TaskBatch.from_dict)
+
+    def supervised_batch(self, evaluation_id):
+        def load():
+            spec, dataset = self._load_pool(evaluation_id)
+            require(spec.allow_supervision, 'this pool does not authorize training reference disclosure')
+            batch = make_batch(dataset, spec.tasks)
+            references = {record.task.id: record.reference for record in dataset.records
+                          if record.task.split == batch.split}
+            return SupervisedBatch(batch=batch, references=tuple(references[task.id] for task in batch.tasks))
+        return self.services._record('evaluation.supervision', {'evaluation_id': evaluation_id}, load,
+                                     decode=SupervisedBatch.from_dict)
 
     def open(self, evaluation_id, *, operation_id=None, selection=None, inputs=None):
         inputs = {} if inputs is None else inputs

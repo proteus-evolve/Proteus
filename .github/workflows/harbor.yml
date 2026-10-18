@@ -33,7 +33,7 @@ jobs:
         env:
           PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
           PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
-        run: python -m pytest tests/test_v1_harbor.py tests/test_v1_source_build.py tests/test_v1_recovery.py tests/test_v1_harbor_code.py tests/test_v1_workspace.py -k 'live_harbor or live_workspace_docker' -q
+        run: python -m pytest tests/test_v1_harbor.py tests/test_v1_source_build.py tests/test_v1_recovery.py tests/test_v1_harbor_code.py tests/test_v1_workspace.py tests/test_v1_meta_harness.py -k 'live_harbor or live_workspace_docker' -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:

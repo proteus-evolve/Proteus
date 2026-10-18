@@ -33,6 +33,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - P07a–P07c：完成按权限披露的不可变历史文件视图、候选代码预测/记忆更新协议，以及 Harbor 隔离代码执行、显式 sequence 状态与清理；上游记忆类接口已核对。说明见 [V1_EVIDENCE.md](../V1_EVIDENCE.md)、[V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md) 和 [V1_HARBOR_CODE.md](../V1_HARBOR_CODE.md)。
 - P07d：接入通用 coding workspace stage 和 DSH/Pi/Codex 文件型 actor；显式 seed/history 输入、只读挂载、受限输出捕获和已结算结果恢复。示例从多个历史版本生成三个候选并评估。说明见 [V1_CODING_WORKSPACES.md](../V1_CODING_WORKSPACES.md)。这是 R03 的 proposer 接入基建；完整 Meta-Harness 控制流、领域 recipe 和真实模型实验仍待完成。
 
+- P07e：实现固定上游版本的 Meta-Harness 文本分类 recipe：offline/online 内层学习、多文件 proposer、完整 seed/dataset 聚合、frontier 和隐藏测试冻结；接入三套原始 MCE 数据、NoMemory/FewShotAll baseline、私有结果审计与操作恢复。上游对照和 fixture 用于验证机制；真实模型实验仍待验收。使用说明与运行时偏差见 [V1_META_HARNESS.md](../V1_META_HARNESS.md)。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -332,10 +334,10 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 **流程：** proposer 按需检索历史代码、分数和轨迹 → 提出一个或多个 harness → 接口验证 → 执行评估 → 保存历史 → 继续搜索。
 
-- [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a 完成公共 evidence view；P07d 接入显式 coding workspace、DSH/Pi/Codex 只读输入挂载、不可变输出 artifact 和不重复生成恢复，示例从多个历史版本生成并评估三个候选。上游 Meta-Harness proposer 协议、完整方法和真实模型验收仍待完成，见 [V1_EVIDENCE.md](../V1_EVIDENCE.md) 和 [V1_CODING_WORKSPACES.md](../V1_CODING_WORKSPACES.md)）。
-- [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b 已接入受管理的候选代码预测/记忆更新协议、独立状态和模型调用账本，并用固定官方 NoMemory/FewShotAll 类核对接口；P07c 增加同协议的 Harbor 无网络/无挂载容器后端、独立清理 guard、源码构建与显式 sequence 状态；完整领域 recipe 与多候选 proposer 仍待完成，见 [V1_CODE_PROTOCOL.md](../V1_CODE_PROTOCOL.md) 和 [V1_HARBOR_CODE.md](../V1_HARBOR_CODE.md)）。
-- [ ] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本。
-- [ ] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier。
+- [x] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a/P07d/P07e：原始文件视图、源代码、学习记录、释放的预测轨迹和报告；受角色、split 与反馈时机约束）。
+- [x] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b–P07e：MemorySystem/LLMCallable 桥接、独立代码与记忆状态、Harbor 隔离、三套固定 MCE 数据和多文件候选；声明串行及进程状态适配）。
+- [x] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本（P07e 保留 base_system 元数据，不虚构 parent 谱系）。
+- [x] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier（P07e 完整 seed/dataset 分组、accuracy/context frontier、best-per-dataset 与 baseline 联集、隐藏测试前冻结；审计拒绝缺失评分与不完整 benchmark 分组）。
 - [ ] 锁定并运行一个原方法领域的真实任务设置。
 
 **依赖：** I01–I09、I12。**完成定义：** proposer 的历史检索、候选生成及后续评估均可审计；最终选择遵守数据划分。

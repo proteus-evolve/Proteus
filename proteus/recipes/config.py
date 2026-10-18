@@ -130,6 +130,7 @@ class EvaluationSpec(Contract):
     visibility: FeedbackVisibility = FeedbackVisibility.HIDDEN
     feedback_timing: Literal["never", "after_prediction", "after_batch"] = "never"
     selection_eligible: bool = True
+    allow_supervision: bool = False
 
     def _validate(self):
         require((self.visibility == FeedbackVisibility.HIDDEN) == (self.feedback_timing == "never"),
@@ -137,6 +138,9 @@ class EvaluationSpec(Contract):
         if self.purpose == "test":
             require(not self.selection_eligible and self.visibility == FeedbackVisibility.HIDDEN,
                     "test results cannot be used for optimization feedback or candidate selection")
+        require(not self.allow_supervision or (self.purpose == 'optimization'
+                and self.visibility == FeedbackVisibility.OBSERVED),
+                'supervision requires an explicitly observed optimization pool')
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -182,6 +186,16 @@ class RecipeConfig(Contract):
         unique((stage.id for stage in self.stages), "stage ID")
         unique((spec.id for spec in self.evaluations), "evaluation ID")
         evaluations = {spec.id: spec for spec in self.evaluations}
+        for training in self.evaluations:
+            if not training.allow_supervision:
+                continue
+            for other in self.evaluations:
+                if other.purpose == 'optimization' and other.visibility == FeedbackVisibility.OBSERVED:
+                    continue
+                same_pool = (training.tasks.dataset_hash == other.tasks.dataset_hash
+                             and training.tasks.split == other.tasks.split)
+                require(not same_pool or not set(training.tasks.task_ids).intersection(other.tasks.task_ids),
+                        'supervised training cannot overlap validation or hidden evaluation tasks')
         for stage in self.stages:
             if stage.evidence is None:
                 continue
