@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shlex
 import subprocess
 import sys
 import time
@@ -92,6 +93,38 @@ def test_container_gateway_rewrite_retains_scoped_credential(monkeypatch):
     value = harbor_bridge.container_environment({'options': options(network='public').to_dict()})
     assert value == {'PROTEUS_EVALUATION_URL': 'http://host.docker.internal:12345',
                      'PROTEUS_EVALUATION_TOKEN': 'fixture-token'}
+
+
+def test_installed_helpers_have_exact_bytes_and_readable_nonwritable_permissions(tmp_path):
+    source = tmp_path/'source.py'
+    source.write_text('print("fixture")\n')
+    # Restrictive host permissions must not propagate to the container helper.
+    source.chmod(0o600)
+    command, expected = harbor_bridge.helper_installation(
+        {'bootstrap': str(source), 'codex_bridge': str(source)}, str(tmp_path/'installed'))
+    arguments = shlex.split(command)
+    completed = subprocess.run([sys.executable, *arguments[1:]], capture_output=True, text=True, check=True)
+    installed = json.loads(completed.stdout)
+    assert installed == {name: {**record, 'uid': os.getuid()} for name, record in expected.items()}
+    for name in installed:
+        assert (tmp_path/'installed'/name).read_bytes() == source.read_bytes()
+    # A pre-existing helper cannot be silently replaced.
+    assert subprocess.run([sys.executable, *arguments[1:]], capture_output=True).returncode != 0
+
+
+def test_stream_keeps_provider_events_buffered_with_bootstrap_header():
+    import io
+    payload = b'{"worker_pid":123}\n{"event":"session","session_id":"first"}\n{"event":"result"}\n'
+    child = subprocess.Popen([sys.executable, '-c', f'import os; os.write(1,{payload!r})'], stdout=subprocess.PIPE)
+    try:
+        assert child.wait(timeout=5) == 0
+        header = child.stdout.readline()
+        assert json.loads(header) == {'worker_pid': 123}
+        output = io.BytesIO()
+        harbor_bridge.forward_stream(child.stdout, output)
+        assert output.getvalue() == payload[len(header):]
+    finally:
+        child.stdout.close()
 
 
 def test_worker_completion_waits_for_verified_owned_resource_cleanup(tmp_path, monkeypatch):

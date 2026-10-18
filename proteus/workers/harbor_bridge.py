@@ -1,12 +1,15 @@
 """Standalone pinned-Harbor research worker and independent resource guard."""
 
 import asyncio
+import base64
 import fcntl
+import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import select
+import shlex
 import signal
 import subprocess
 import sys
@@ -25,6 +28,14 @@ docker, cleanup_owned_resources = _helper.docker, _helper.cleanup_owned_resource
 
 def emit(value):
     print(canonical(value), flush=True)
+
+
+def forward_stream(source, target):
+    # readline() consumed the bootstrap header and may have buffered provider
+    # events from the same OS read. Keep using that buffer when streaming.
+    while chunk := source.read1(65536):
+        target.write(chunk)
+        target.flush()
 
 
 def compose(request):
@@ -145,6 +156,28 @@ def container_environment(request):
     return environment
 
 
+def helper_installation(request, directory='/opt/proteus'):
+    files = {name: Path(request[key]).read_bytes() for key, name in
+             (('bootstrap', 'container_worker.py'), ('codex_bridge', 'codex_bridge.py'))}
+    encoded = {name: base64.b64encode(data).decode() for name, data in files.items()}
+    # Create root-owned helpers before any worker starts. An upload may retain
+    # host ownership; chmod on that file needs CAP_FOWNER, which is absent.
+    script = ('import base64,hashlib,json,os,stat\nfrom pathlib import Path\n'
+              f'root=Path({directory!r}); root.mkdir(parents=True,exist_ok=True,mode=0o755)\n'
+              'records={}\n'
+              f'for name,encoded in {encoded!r}.items():\n'
+              ' path=root/name\n'
+              ' with path.open("xb") as stream: stream.write(base64.b64decode(encoded))\n'
+              ' path.chmod(0o644)\n'
+              ' info=path.stat()\n'
+              ' records[name]={"sha256":"sha256:"+hashlib.sha256(path.read_bytes()).hexdigest(),'
+              '"uid":info.st_uid,"mode":stat.S_IMODE(info.st_mode)}\n'
+              'print(json.dumps(records))\n')
+    return 'python3 -I -c '+shlex.quote(script), {
+        name: {'sha256': 'sha256:'+hashlib.sha256(data).hexdigest(), 'uid': 0, 'mode': 0o644}
+        for name, data in files.items()}
+
+
 async def run(path, request, launch, guard_fd, interrupted):
     from harbor.models.task.config import EnvironmentConfig, NetworkMode, NetworkPolicy
     from harbor.models.trial.paths import TrialPaths
@@ -176,13 +209,15 @@ async def run(path, request, launch, guard_fd, interrupted):
             actual = await _helper.checked_environment(proof_request, environment, {'/workspace'})
             container_id = actual['container_id']
             proof = await asyncio.to_thread(isolation_proof, container_id, request)
-            for source, target in ((request['bootstrap'], '/opt/proteus/container_worker.py'),
-                                   (request['codex_bridge'], '/opt/proteus/codex_bridge.py')):
-                await environment.upload_file(source_path=Path(source), target_path=target)
-            result = await environment.exec('chmod -R a+rX /opt/proteus', timeout_sec=15)
+            command, expected = helper_installation(request)
+            result = await environment.exec(command, user='0', timeout_sec=15)
             if result.return_code:
-                raise ValueError('container bootstrap is not readable')
-            write_json(root/'harbor-loaded.json', {'request_hash': digest(request), **actual, **proof})
+                raise ValueError('container helper installation failed: '+str(result.stdout)+' '+str(result.stderr))
+            installed = json.loads(result.stdout)
+            if installed != expected:
+                raise ValueError('container helper bytes, ownership or permissions differ')
+            write_json(root/'harbor-loaded.json', {'request_hash': digest(request), **actual, **proof,
+                                                 'helpers': installed})
 
         await asyncio.wait_for(setup(), options['setup_timeout_seconds'])
         if interrupted():
@@ -205,11 +240,7 @@ async def run(path, request, launch, guard_fd, interrupted):
             raise ValueError('container worker did not confirm its process group')
         child_pid = header['worker_pid']
 
-        def forward():
-            while chunk := os.read(process.stdout.fileno(), 65536):
-                sys.stdout.buffer.write(chunk)
-                sys.stdout.buffer.flush()
-        output_thread = threading.Thread(target=forward, daemon=True)
+        output_thread = threading.Thread(target=forward_stream, args=(process.stdout, sys.stdout.buffer), daemon=True)
         output_thread.start()
         stopped = None
         while True:
