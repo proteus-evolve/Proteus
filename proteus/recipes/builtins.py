@@ -26,9 +26,9 @@ from proteus.evaluation.runners import (
 )
 from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, TaskBatch
 from proteus.core.contracts import EvaluationBatch
-from proteus.methods.compare import CompareMethod, CompareOptions, validate_compare
+from proteus.methods.compare import CompareMethod, CompareOptions, CompareState, validate_compare
 from proteus.methods.native import NativeMethod, NativeOptions, NativeSummary, validate_native
-from proteus.methods.sequence import SequenceMethod, SequenceOptions, validate_sequence
+from proteus.methods.sequence import SequenceMethod, SequenceOptions, SequenceState, validate_sequence
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -72,15 +72,16 @@ def builtin_registry() -> Registry:
                          ("trace", Trace), ("batch", EvaluationBatch), ("receipt", EvaluationReceipt)):
         registry.register_data(f"proteus.eval.{kind}@1", schema)
 
-    def add(name, kind, options, factory, *, capabilities=(), inputs=None, outputs=None, validate=None):
+    def add(name, kind, options, factory, *, capabilities=(), inputs=None, outputs=None, validate=None, state_schema=None):
         registry.register(Plugin(ref=PluginRef(name=name, version="1"), kind=kind, options=options,
             factory=factory, implementation_hash=digest, source="proteus", capabilities=capabilities,
-            inputs=inputs or {}, outputs=outputs or {}, validate=validate))
+            inputs=inputs or {}, outputs=outputs or {}, validate=validate, state_schema=state_schema))
 
     for name, codec in BUILTIN_CODECS.items():
         add(name, "codec", EmptyOptions, lambda options, codec=codec: codec(),
             capabilities=("artifact.immutable", "artifact.delta", "artifact.materialize"))
-    add("proteus.compare", "method", CompareOptions, CompareMethod, validate=validate_compare)
+    add("proteus.compare", "method", CompareOptions, CompareMethod, validate=validate_compare,
+        capabilities=("run.resume", "run.journal"), state_schema=CompareState)
     add("proteus.json_tasks", "task_suite", JsonSuiteOptions, JsonTaskSuite)
     add("proteus.local_json", "environment", EmptyOptions, lambda options: LocalJsonEnvironment(),
         validate=validate_local, capabilities=("state.independent", "state.sequence", "state.explicit_json", "candidate.exact_tree"))
@@ -98,10 +99,12 @@ def builtin_registry() -> Registry:
         capabilities=(BACKEND_CAPABILITY,))
     add("proteus.sequence", "method", SequenceOptions, SequenceMethod,
         validate=lambda recipe, options: validate_sequence(recipe, options, registry),
-        capabilities=("control.sequence", "control.bounded_loop", "control.condition"))
+        capabilities=("control.sequence", "control.bounded_loop", "control.condition", "run.resume", "run.journal"),
+        state_schema=SequenceState)
     add("proteus.native", "method", NativeOptions, NativeMethod, validate=validate_native,
         capabilities=("run.resume", "legacy.episode"))
     add("proteus.prompt", "stage", EmptyOptions, lambda options: PromptStage(),
+        capabilities=("stage.replay",),
         inputs={"prompt": "proteus.text@1"}, outputs={"response": "proteus.actor_result@1"})
     add("proteus.echo", "actor", EmptyOptions, lambda options: EchoActor(), validate=validate_echo,
         capabilities=("session.fresh", "actor.execute", "calls.bounded"))

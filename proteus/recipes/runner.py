@@ -8,6 +8,7 @@ from pathlib import Path
 from proteus.core.contracts import OperationStatus, require
 from proteus.core.methods import MethodResult, RunServices, StageFailed
 from proteus.core.run_lock import run_lock
+from proteus.core.recovery import Journal, RecoveryRequired
 from proteus.core.serialization import content_hash
 from proteus.recipes.manifest import RunManifest
 
@@ -57,31 +58,44 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
         method = registry.create(recipe.method, "method")
         manifest.write(manifest_path)
         restored = None
+        finished = None
         previous = root / "result.json"
-        if resume and previous.is_file():
+        if "run.journal" in definition.capabilities:
+            require(definition.state_schema is not None, "journal methods require a state schema")
+            services._journal = Journal(services, manifest_hash=manifest.manifest_hash, validate_state=validate_state)
+            restored, finished = services._journal.initialize()
+        elif resume and previous.is_file():
             restored = MethodResult.from_json(previous.read_text(encoding="utf-8")).state
             validate_state(restored)
         result = None
+        uncertain = False
         try:
             if artifact_source is not None:
                 from proteus.artifacts.store import ArtifactStore
                 require(recipe.subject is not None, "artifact import requires a subject")
                 services.artifacts.copy_from(ArtifactStore(artifact_source, registry),
                                              recipe.subject.initial_artifact)
-            result = method.run(services, restored)
+            result = MethodResult.from_dict(finished) if finished is not None else method.run(services, restored)
             require(type(result) is MethodResult, "method must return MethodResult")
             require(all(session.closed for session in services._evaluation_service.sessions),
                     "method left an incomplete evaluation cohort")
             for ref in result.outputs.values():
                 services.values.get(ref)
             validate_state(result.state)
+        except RecoveryRequired as exc:
+            uncertain = True
+            result = MethodResult(status=OperationStatus.FAILED, diagnostic=f"RecoveryRequired: {exc}")
         except StageFailed as exc:
             result = MethodResult(status=OperationStatus.FAILED, diagnostic=str(exc))
         except (Exception, SystemExit) as exc:
             result = MethodResult(status=OperationStatus.FAILED,
                                   diagnostic=f"{type(exc).__name__}: {exc}")
         finally:
-            services._evaluation_service.finalize_incomplete()
+            uncertain = uncertain or (services._journal is not None and services._journal.pending)
+            if not uncertain and (services._journal is None or result is not None):
+                services._evaluation_service.finalize_incomplete()
+            if services._journal is not None and result is not None and not uncertain and finished is None:
+                result = services._journal.finish(result)
             # Keep separate attempt files on native resume; never erase prior evidence.
             attempt = 1
             while (root / f"execution-{attempt:04d}.json").exists():

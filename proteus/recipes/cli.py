@@ -89,6 +89,14 @@ def _command(args):
         print(path)
         return 0
     lock = DependencyLock.from_json(Path(args.lock).read_text(encoding="utf-8"))
+    if args.recipe_cmd == "recovery":
+        from proteus.core.recovery import recovery_status
+        from proteus.recipes.manifest import RunManifest
+        registry.check_lock(recipe, lock)
+        manifest = RunManifest.from_json((Path(args.out) / "manifest.json").read_text())
+        manifest.assert_resume_compatible(recipe, lock)
+        print(json.dumps(recovery_status(args.out), indent=2))
+        return 0
     prompts = read_json(Path(args.prompts).read_text(encoding="utf-8")) if args.prompts else {}
     result = run_recipe(recipe, registry=registry, lock=lock, root=args.out,
                         run_id=args.run_id, prompts=prompts, resume=args.recipe_cmd == "resume",
@@ -100,7 +108,7 @@ def _command(args):
 def add_parser(subparsers):
     parser = subparsers.add_parser("recipe", help="check and execute versioned 1.0 recipes")
     commands = parser.add_subparsers(dest="recipe_cmd", required=True)
-    for name in ("list", "check", "lock", "run", "resume"):
+    for name in ("list", "check", "lock", "run", "resume", "recovery"):
         item = commands.add_parser(name)
         item.add_argument("--plugin", action="append", default=[], metavar="MODULE:REGISTER",
                           help="explicitly import a trusted plugin registration hook")
@@ -109,7 +117,7 @@ def add_parser(subparsers):
         if name == "lock":
             item.add_argument("--source", action="append", required=True, metavar="NAME=ROOT")
             item.add_argument("--out", required=True)
-        if name in ("run", "resume"):
+        if name in ("run", "resume", "recovery"):
             item.add_argument("--lock", required=True, help="resolved dependency lock JSON")
             item.add_argument("--out", required=True)
             item.add_argument("--run-id")

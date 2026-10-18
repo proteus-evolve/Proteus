@@ -16,6 +16,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - P04a：SQLite 持久事件账本接入受管理 actor 调用和整批评估预留；请求、attempt、实际用量、未知用量和超额记录随事务保存，重新打开服务不补发预算、不重放既有调用。跨进程预留原语已验证；执行器仍串行。其余 P04、P05–P10、真实方法实验以及 1.0 发布验收继续推进。
 - P04b：独立 Harbor 运行时、Docker 候选精确加载、独立 verifier 私有结果通道、清理记录及 subject/grader/backend verifier 账本接入；加入真实 Docker A/B/A、超时、伪造 reward 与隔离验收，CI 上传逐 trial 证据。说明见 [V1_HARBOR.md](../V1_HARBOR.md)。sequence/worker、source build 与通用恢复仍在 P04/I11 范围。
 - P04c：候选源码构建契约、构建账本与不可变 receipt、run 内镜像缓存，以及构建镜像和独立 verifier 原始镜像的分离；真实 Docker 门禁覆盖源码修改/删除/重命名、A/B/A 复用与构建失败。说明见 [V1_SOURCE_BUILDS.md](../V1_SOURCE_BUILDS.md)。持久 sequence/worker、通用恢复和五种方法的真实实验继续推进。
+- P04d：持久操作 journal、方法检查点与 compare/sequence resume；恢复 typed values、候选、在线评估状态、随机采样和角色用量，复用已结算的 actor/subject/grader 结果，未确认的外部调用保持不确定并报告。说明见 [V1_RECOVERY.md](../V1_RECOVERY.md)。具体 backend 的不确定操作 reconciliation、持久 worker 和五种方法实验仍未完成。
 
 ## 1 目标与范围
 
@@ -217,9 +218,9 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 - [ ] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a 已持久化 actor/cohort 请求、转换事件和结算；真实 worker 与其他外部操作随后接入）。
 - [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a 公共 actor，P04b subject/grader/integrated verifier，P04c source build 的独立记录与去重汇总；profiling 和 native 完整覆盖仍待实现）。
 - [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a 已实现并测试 SQLite 跨进程原子预留/结算、已知上界保留和实际超额记账；公共并发调度与 backend cost/time 限制仍待接入）。
-- [ ] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作。
-- [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略。
-- [ ] 保留 native 的运行锁、候选修复和配置一致性检查。
+- [x] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作（P04d 保存服务快照、archive DataRef、方法 payload 与未完成评估请求；具体 archive 策略随 I07 接入）。
+- [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略（P04d 已实现有序恢复、结果复用和不确定操作停止/报告；具体 backend 的 reconciliation 仍需补齐）。
+- [x] 保留 native 的运行锁、候选修复和配置一致性检查（native 继续使用原事务引擎，P04d journal 单独显式启用并保持回归）。
 
 **验收：** 在候选生成、评估完成与结果提交等边界注入中断，能够恢复且账本一致；并发预算预留有效；修改实验条件不会伪装成续跑。
 

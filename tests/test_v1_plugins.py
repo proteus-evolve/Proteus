@@ -348,9 +348,9 @@ def test_native_failed_episode_resumes_exact_durable_checkpoint(tmp_path, monkey
     assert [row["episode"] for row in execution(root, 2)["native_prompts"]] == [2]
 
 
-def test_generic_resume_and_native_session_mismatch_rejected(tmp_path):
+def test_resume_needs_manifest_and_native_session_mismatch_rejected(tmp_path):
     registry = builtin_registry()
-    with pytest.raises(ContractError, match="recovery"):
+    with pytest.raises(ContractError, match="existing manifest"):
         run(stage_recipe(), registry, tmp_path / "stage", resume=True)
     recipe = native_recipe()
     with pytest.raises(ContractError):

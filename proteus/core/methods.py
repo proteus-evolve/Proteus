@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 import threading
+import random
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -16,9 +17,10 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from proteus.core.contracts import (
-    TEXT, ArtifactRef, BudgetLimits, Candidate, DataRef, MethodState, OperationStatus, PluginRef,
-    RuntimeIdentity, StageRequest, StageResult, Usage, ValidationStatus, require,
+    TEXT, ArtifactRef, BudgetLimits, Candidate, DataRef, EvaluationBatch, MethodState, OperationStatus, PluginRef,
+    Rollout, RuntimeIdentity, StageRequest, StageResult, Usage, ValidationStatus, require, validate_records,
 )
+from proteus.core.recovery import RecoveryRequired, tuples
 from proteus.core.serialization import Contract, content_hash
 from proteus.recipes.config import ActorSpec, RecipeConfig
 
@@ -111,6 +113,13 @@ class Values:
         return [{"ref": ref.to_dict(), "value": value.to_dict()}
                 for ref, value in self._values.values()]
 
+    def restore(self, records):
+        self._values = {}
+        for record in records:
+            ref = DataRef.from_dict(record["ref"])
+            value = self.registry.data_schema(ref.kind).from_dict(record["value"])
+            require(self.publish(ref.kind, value) == ref, "restored data reference differs")
+
 
 class StageContext:
     """A stage receives its bound actor and explicitly supplied typed inputs only.
@@ -148,6 +157,8 @@ class RunServices:
         self._ledger = None
         self._builds = None
         self._actor_ordinals = {}
+        self._journal = None
+        self.rng = random.Random(recipe.seed)
         for actor in recipe.actors.values():
             if actor.prompt_hash is not None:
                 require(actor.prompt_hash in self.prompts, "role prompt content is missing")
@@ -169,6 +180,76 @@ class RunServices:
             from proteus.execution.builds import BuildService
             self._builds = BuildService(self)
         return self._builds
+
+    def snapshot(self):
+        return {"run_id": self.run_id, "config_hash": self.recipe.config_hash, "lock_hash": self.lock_hash,
+            "values": self.values.export(), "candidates": self.candidates, "rollouts": self.rollouts,
+            "evaluations": self.evaluations, "requests": self.requests, "results": self.results,
+            "actor_calls": self.actor_calls, "native_prompts": getattr(self, "native_prompts", []),
+            "operations": sorted(self._operations), "actor_ordinals": [[key, value] for key, value in self._actor_ordinals.items()],
+            "rng": self.rng.getstate(), "sessions": self._evaluation_service.snapshot(),
+            "builds": self._builds.records if self._builds is not None else []}
+
+    def restore(self, snapshot):
+        require(snapshot["run_id"] == self.run_id and snapshot["config_hash"] == self.recipe.config_hash
+                and snapshot["lock_hash"] == self.lock_hash, "service snapshot belongs to another experiment")
+        self.values.restore(snapshot["values"])
+        for name, schema in (("candidates", Candidate), ("rollouts", Rollout), ("evaluations", EvaluationBatch),
+                             ("requests", StageRequest), ("results", StageResult)):
+            setattr(self, name, [schema.from_dict(value) for value in snapshot[name]])
+        validate_records(run_id=self.run_id, candidates=self.candidates, rollouts=self.rollouts,
+                         evaluations=self.evaluations, requests=self.requests, results=self.results)
+        for candidate in self.candidates:
+            require(self.artifacts.candidate(self.run_id, candidate.id) == candidate, "restored candidate differs from store")
+            self.artifacts.validate(candidate.artifact)
+        self.actor_calls, self.native_prompts = snapshot["actor_calls"], snapshot["native_prompts"]
+        self._operations = set(snapshot["operations"])
+        self._actor_ordinals = {tuple(key): value for key, value in snapshot["actor_ordinals"]}
+        self.rng.setstate(tuples(snapshot["rng"]))
+        self._evaluation_service.restore(snapshot["sessions"])
+        if snapshot["builds"] or self._builds is not None:
+            from proteus.execution.builds import BuildReceipt
+            self.builds.records = [BuildReceipt.from_dict(value) for value in snapshot["builds"]]
+
+    def _record(self, kind, identity, function, *, decode, encode=lambda value: value.to_dict()):
+        require(threading.get_ident() == self._dispatch_thread, "cross-thread dispatch requires serial service dispatch")
+        if self._journal is None:
+            return function()
+        return self._journal.call(kind, identity, function, encode=encode, decode=decode)
+
+    def checkpoint(self, payload, **kwargs):
+        require(self._journal is not None, "checkpoints require a journal-enabled method")
+        return self._journal.checkpoint(payload, **kwargs)
+
+    def evaluation_session(self, operation_id):
+        session = next((item for item in self._evaluation_service.sessions if item.operation_id == operation_id), None)
+        require(session is not None, "unknown evaluation session")
+        return session
+
+    def restore_trial_usage(self, trial_id):
+        """Recover settled role records which preceded a missing prediction commit."""
+        from proteus.execution.builds import BuildReceipt
+        entries = {entry["id"]: entry for entry in self.ledger.entries()
+                   if entry["identity"]["metadata"].get("trial_id") == trial_id}
+        builds = []
+        for event in self.ledger.events():
+            if event["kind"] != "reserved" or event["entry"] not in entries:
+                continue
+            entry = entries[event["entry"]]
+            if entry["settlement"] is None:
+                continue
+            metadata, record = entry["identity"]["metadata"], entry["settlement"]["result"]
+            if metadata["kind"] == "actor" and record is not None:
+                if not any(call["id"] == entry["id"] for call in self.actor_calls):
+                    self.actor_calls.append(record)
+                key = (metadata["operation_id"], metadata["attempt_id"], metadata["role"])
+                self._actor_ordinals[key] = max(self._actor_ordinals.get(key, 0), metadata["ordinal"])
+            elif metadata["kind"] == "source_build" and record is not None:
+                receipt = BuildReceipt.from_dict(record["receipt"])
+                if not any(old.id == receipt.id for old in self.builds.records):
+                    self.builds.records.append(receipt)
+                builds.append(receipt.usage)
+        return builds
 
     def _actor(self, stage, operation, prompt, session_id, handoff, *, isolate=False, trial_id=None):
         from proteus.core.ledger import Amounts
@@ -198,12 +279,22 @@ class RunServices:
         key = (operation.operation_id, operation.attempt_id, stage.role)
         ordinal = self._actor_ordinals.get(key, 0) + 1
         call_id = "actor-" + content_hash([*key, ordinal]).split(":")[1]
-        self.ledger.reserve(call_id, scopes=limits, reservation=Amounts(model_calls=bound),
+        recovering = self._journal is not None and self._journal.recovering
+        entry = self.ledger.reserve(call_id, scopes=limits, reservation=Amounts(model_calls=bound),
             metadata={"kind": "actor", "operation_id": operation.operation_id,
                       "attempt_id": operation.attempt_id, "stage": stage.id, "role": stage.role,
                       "trial_id": trial_id, "worker_id": None, "ordinal": ordinal},
-            request={"actor": spec, "request": request}, reuse=False)
+            request={"actor": spec, "request": request}, reuse=recovering)
         self._actor_ordinals[key] = ordinal
+        if recovering and entry["state"] != "reserved":
+            if entry["state"] == "started":
+                raise RecoveryRequired(f"actor {call_id} was dispatched without a settled result; reconcile before continuing")
+            record = entry["settlement"]["result"]
+            require(record is not None and record["id"] == call_id, "actor recovery record is unavailable")
+            self.actor_calls.append(record)
+            if record.get("error") or record["result"] is None:
+                raise RuntimeError(record.get("error") or "previous actor call failed")
+            return ActorResult.from_dict(record["result"])
         workspace = self.root / "actors" / call_id
         record = {"id": call_id, "operation_id": operation.operation_id,
                   "attempt_id": operation.attempt_id, "role": stage.role,
@@ -214,7 +305,7 @@ class RunServices:
         result = None
         error = None
         try:
-            workspace.mkdir(parents=True, exist_ok=False)
+            workspace.mkdir(parents=True, exist_ok=recovering)
             self.ledger.start(call_id)
             result = runtime.execute(spec, request, workspace)
             require(type(result) is ActorResult, "actor must return ActorResult")
@@ -246,14 +337,22 @@ class RunServices:
     def _check_operation(self, operation_id):
         require(operation_id not in self._operations, "operation already submitted")
         if self._ledger is not None or (self.root / "private/ledger.sqlite3").exists():
-            require(not self.ledger.has_operation(operation_id),
+            require((self._journal is not None and self._journal.recovering) or not self.ledger.has_operation(operation_id),
                     "operation already submitted; durable replay/reconciliation is not enabled")
 
     def stage(self, stage_id: str, inputs: Mapping[str, DataRef], *, operation_id: str | None = None) -> StageResult:
+        operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
+        return self._record("stage", {"stage": stage_id, "inputs": inputs, "operation_id": operation_id},
+            lambda: self._stage(stage_id, inputs, operation_id=operation_id), decode=StageResult.from_dict)
+
+    def _stage(self, stage_id, inputs, *, operation_id):
         require(threading.get_ident() == self._dispatch_thread,
                 "P02 services are serial; cross-thread stage dispatch requires the parallel scheduler")
         spec = next((item for item in self.recipe.stages if item.id == stage_id), None)
         require(spec is not None, f"unknown stage: {stage_id}")
+        if (self._journal is not None and self._journal.recovering
+                and "stage.replay" not in self.registry.get(spec.operator.plugin).capabilities):
+            raise RecoveryRequired(f"stage {stage_id} does not declare safe replay of an interrupted invocation")
         require(set(inputs) == set(spec.input_types), f"{stage_id}: input port mismatch")
         values = {}
         for name, ref in inputs.items():
@@ -283,6 +382,8 @@ class RunServices:
                 result = StageResult(operation_id=operation_id, attempt_id=request.attempt_id,
                     run_id=self.run_id, status=OperationStatus.COMPLETED, outputs=refs,
                     usage=self._usage(first_call))
+            except RecoveryRequired:
+                raise
             except Exception as exc:
                 result = StageResult(operation_id=operation_id, attempt_id=request.attempt_id,
                     run_id=self.run_id, status=OperationStatus.FAILED, usage=self._usage(first_call),
@@ -325,6 +426,13 @@ class RunServices:
                                validation, None)
 
     def _candidate(self, artifact, delta, parents, candidate_id, operation_id, validation, checkpoint):
+        operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
+        return self._record("candidate", {"artifact": artifact, "delta": delta, "parents": parents,
+            "candidate_id": candidate_id, "operation_id": operation_id, "validation": validation, "checkpoint": checkpoint},
+            lambda: self._create_candidate(artifact, delta, parents, candidate_id, operation_id, validation, checkpoint),
+            decode=Candidate.from_dict)
+
+    def _create_candidate(self, artifact, delta, parents, candidate_id, operation_id, validation, checkpoint):
         require(threading.get_ident() == self._dispatch_thread,
                 "candidate operations require serial service dispatch")
         for parent in parents:
@@ -380,6 +488,8 @@ class RunServices:
             for _ in session.batch.tasks:
                 session.step(candidate)
             return session.finish()
+        except RecoveryRequired:
+            raise
         except Exception:
             session.abort("candidate evaluation did not complete")
             raise
