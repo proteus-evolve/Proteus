@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from proteus.benchmarks import ace_formula_data
-from proteus.core.serialization import ContractError
+from proteus.core.serialization import ContractError, content_hash
 from proteus.evaluation.tasks import Task, TaskDataset, TaskRecord
 from proteus.examples.ace_formula import Settings, execute, load, prepare, report
 from proteus.examples.ace_playbook import response
@@ -180,6 +180,16 @@ def test_formula_transport_failure_stops_before_learning_or_other_runs(tmp_path,
     assert len(endpoint[1]) == 1
     assert not (root / "runs/seed-0-online").exists()
     assert all(payload["model"] == "fixture-generator" for payload in endpoint[1])
+
+
+def test_formula_report_rejects_changed_evaluator_implementation_even_when_scores_agree(tmp_path, endpoint, monkeypatch):
+    from proteus.benchmarks import ace_formula
+    root = tmp_path / "study"
+    setup(root, endpoint, modes=("offline",))
+    execute(root)
+    monkeypatch.setattr(ace_formula, "implementation_hash", lambda files: content_hash("changed metric implementation"))
+    with pytest.raises(ContractError, match="implementations or schemas differ"):
+        report(root)
 
 
 def test_formula_full_pinned_data_and_reference_semantics(tmp_path):

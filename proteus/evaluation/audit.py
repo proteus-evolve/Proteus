@@ -36,6 +36,10 @@ def ledger_totals(root, manifest):
 class RunAudit:
     def __init__(self, root, recipe, lock, registry):
         self.root, self.recipe, self.registry = Path(root), recipe, registry
+        # Reporting may run on another host without the model SDKs, but must not
+        # reinterpret old evidence with changed plugin code or data contracts.
+        current = registry.make_lock(recipe, lock.sources, packages=lock.packages)
+        require(current.plugins == lock.plugins, "report implementations or schemas differ from the recorded lock")
         self.manifest = RunManifest.from_json((self.root / "manifest.json").read_text())
         self.manifest.assert_resume_compatible(recipe, lock)
         self.result = MethodResult.from_json((self.root / "result.json").read_text())

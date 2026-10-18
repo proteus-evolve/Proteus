@@ -132,6 +132,9 @@ usage, including every role; charged operation time is not study elapsed time.
 The private report uses shared `RunAudit` helpers, also used by the GEPA AIME
 report. It verifies candidate/store identity, exact task cohorts, input-bound
 protocols, raw predictions, hidden feedback rules and deterministic regrading.
+Reporting checks plugin implementation/schema identities against the recorded lock
+even when reading on a different host; changed grading code cannot silently
+reinterpret an old experiment. The current domain metrics use only the standard library.
 Formula additionally checks every training observation, sample order, regeneration
 count, validation selection, window boundaries, complete chronological rollout
 coverage and role/ledger totals. A missing score never shrinks the denominator or
