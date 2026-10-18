@@ -49,18 +49,23 @@ def main():
                         raise
                 except (urllib.error.URLError, TimeoutError, ConnectionError, IncompleteRead):
                     pass
+                if interrupted:
+                    return None
                 time.sleep(0.025)
             raise TimeoutError("gateway did not recover")
 
         accepted = call("/v1/submissions", body)
-        while True:
+        while accepted is not None and not interrupted:
             response = call("/v1/submissions/" + accepted["ticket_id"])
+            if response is None:
+                break
             if response["status"] in ("completed", "failed"):
                 assert response["status"] == "completed"
                 Path("feedback.json").write_text(json.dumps(response))
                 break
             time.sleep(0.01)
-        Path("ready").touch()
+        if not interrupted:
+            Path("ready").touch()
         while not interrupted:
             time.sleep(0.01)
     else:
