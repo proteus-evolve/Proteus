@@ -50,7 +50,7 @@ class Plugin:
     state_version: int = 1
 
     def __post_init__(self):
-        require(self.kind in {"method", "stage", "actor", "subject", "task_suite", "environment",
+        require(self.kind in {"method", "stage", "workflow", "actor", "subject", "task_suite", "environment",
                               "codec", "evaluator", "policy"}, "unknown plugin kind")
         require(isinstance(self.options, type) and issubclass(self.options, Contract),
                 "plugin options must be a Contract class")
@@ -62,9 +62,10 @@ class Plugin:
         validated = PluginLock(plugin=self.ref, implementation_hash=self.implementation_hash, source=self.source,
                                capabilities=self.capabilities)
         object.__setattr__(self, "capabilities", validated.capabilities)
-        require(self.kind in {"stage", "subject"} or not self.inputs,
-                "only stages and subjects declare input ports")
-        require(self.kind == "stage" or not self.outputs, "only stages declare output ports")
+        require(self.kind in {"stage", "workflow", "subject"} or not self.inputs,
+                "only stages, workflows and subjects declare input ports")
+        require(self.kind in {"stage", "workflow"} or not self.outputs,
+                "only stages and workflows declare output ports")
         for ports in (self.inputs, self.outputs):
             require(all(type(name) is str and name.strip() and type(kind) is str and kind.strip()
                         for name, kind in ports.items()), "data ports and kinds must be named")
@@ -158,6 +159,17 @@ class Registry:
                     f"{stage.id}: output kinds must be declared in write_scopes")
             stages.append(replace(stage, operator=resolve(stage.operator, "stage"),
                                   input_types=plugin.inputs, output_types=plugin.outputs))
+        workflows = []
+        for workflow in recipe.workflows:
+            plugin = self.get(workflow.operator.plugin, "workflow")
+            require({"workflow.replay", "workflow.parallel"} <= set(plugin.capabilities),
+                    "workflows must declare replay and independent execution")
+            require(not workflow.input_types or dict(workflow.input_types) == dict(plugin.inputs),
+                    f"{workflow.id}: declared inputs differ from the registered workflow")
+            require(not workflow.output_types or dict(workflow.output_types) == dict(plugin.outputs),
+                    f"{workflow.id}: declared outputs differ from the registered workflow")
+            workflows.append(replace(workflow, operator=resolve(workflow.operator, "workflow"),
+                                     input_types=plugin.inputs, output_types=plugin.outputs))
         subject = recipe.subject
         if subject is not None:
             self.get(subject.initial_artifact.codec, "codec")
@@ -175,6 +187,7 @@ class Registry:
             execution = replace(execution, environment=replace(execution.environment,
                 backend=resolve(execution.environment.backend, "environment")))
         resolved = replace(recipe, method=resolve(recipe.method, "method"), stages=tuple(stages),
+            workflows=tuple(workflows),
             actors={name: replace(actor, runtime=resolve(actor.runtime, "actor"))
                     for name, actor in recipe.actors.items()}, subject=subject, tasks=tasks,
             execution=execution, search={name: resolve(spec, "policy") for name, spec in recipe.search.items()},
@@ -216,6 +229,15 @@ class Registry:
                 plugin.validate(context, plugin.options.from_dict(spec.options))
         from proteus.evaluation.service import validate_evaluation_config
         validate_evaluation_config(resolved, self)
+        if workflows:
+            require("run.journal" in self.get(resolved.method.plugin).capabilities,
+                    "workflows require a journal-enabled method")
+            from proteus.core.workflows import validate_workflows
+            validate_workflows(resolved, self)
+            for workflow in workflows:
+                definition = self.get(workflow.operator.plugin)
+                if definition.validate is not None:
+                    definition.validate(resolved, definition.options.from_dict(workflow.operator.options))
         method = self.get(resolved.method.plugin, "method")
         if method.validate is not None:
             method.validate(resolved, method.options.from_dict(resolved.method.options))

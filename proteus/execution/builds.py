@@ -166,7 +166,8 @@ class BuildService:
         entry = "build-" + content_hash([operation_id, attempt_id, trial_id]).split(":")[1]
         services.ledger.reserve(entry, scopes={"run": services.recipe.budget}, reservation=Amounts(), slots=0,
             metadata={"kind": "source_build", "role": "builder", "operation_id": operation_id,
-                      "attempt_id": attempt_id, "trial_id": trial_id, "worker_id": None},
+                      "attempt_id": attempt_id, "trial_id": trial_id,
+                      "worker_id": getattr(services, "_worker_id", None)},
             request={"artifact": artifact, "build": spec, "base_image": base_image}, reuse=False)
         services.ledger.start(entry)
         started = time.monotonic()

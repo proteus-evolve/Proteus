@@ -420,6 +420,13 @@ class RunServices:
         return StageMap(self).run(jobs, operation_id=operation_id, max_workers=max_workers,
                                   failure_policy=failure_policy)
 
+    def map_workflows(self, jobs, *, operation_id: str, max_workers: int,
+                      failure_policy: str = "collect"):
+        """Run independent programs with managed stages, evaluation and artifacts."""
+        from proteus.core.workflows import WorkflowMap
+        return WorkflowMap(self).run(jobs, operation_id=operation_id, max_workers=max_workers,
+                                     failure_policy=failure_policy)
+
     def _stage(self, stage_id, inputs, *, operation_id):
         require(threading.get_ident() == self._dispatch_thread,
                 "P02 services are serial; cross-thread stage dispatch requires the parallel scheduler")
