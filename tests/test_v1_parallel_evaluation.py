@@ -438,7 +438,10 @@ def test_forged_prediction_cannot_override_settled_subject_result(tmp_path):
     not os.environ.get("PROTEUS_HARBOR_PYTHON"),
     reason="requires pinned Harbor runtime and live Docker",
 )
-def test_live_harbor_parallel_trials_build_cache_and_independent_verifiers(tmp_path, monkeypatch):
+@pytest.mark.parametrize("mode", ["trials", "workflows"])
+def test_live_harbor_parallel_trials_build_cache_and_independent_verifiers(
+    tmp_path, monkeypatch, mode
+):
     import os
     from pathlib import Path
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -450,7 +453,9 @@ def test_live_harbor_parallel_trials_build_cache_and_independent_verifiers(tmp_p
     from proteus.recipes.config import load_recipe
     from proteus.recipes.builtins import builtin_registry
 
-    root = Path(os.environ.get("PROTEUS_HARBOR_STUDY", str(tmp_path))) / "parallel-evaluation"
+    root = Path(os.environ.get("PROTEUS_HARBOR_STUDY", str(tmp_path))) / (
+        "parallel-evaluation" if mode == "trials" else "parallel-workflows"
+    )
     barrier = threading.Barrier(2)
     arrivals = []
 
@@ -547,6 +552,11 @@ ended = time.time()
                 budget=BudgetLimits(max_evaluations=2, max_concurrency=2),
             )
         )
+        if mode == "workflows":
+            from test_v1_workflows import configure_harbor_workflows
+
+            recipe = configure_harbor_workflows(registry, recipe)
+        count = 2 if mode == "trials" else 4
         lock = registry.make_lock(recipe, [SOURCE])
         (root / "recipe.json").write_text(recipe.to_json())
         (root / "lock.json").write_text(lock.to_json())
@@ -555,17 +565,23 @@ ended = time.time()
         )
         assert result.status == OperationStatus.COMPLETED, result.diagnostic
         records = json.loads((root / "run/execution-0001.json").read_text())
-        assert arrivals == ["/ready", "/ready"]
+        assert arrivals == ["/ready"] * count
         outputs = [row["output"] for row in records["rollouts"]]
-        assert all(row["answer"] == 41 and row["obsolete"] for row in outputs)
-        assert max(row["started"] for row in outputs) < min(row["ended"] for row in outputs)
-        assert [row["score"] for row in records["evaluations"][0]["rows"]] == [0, 0]
+        assert [row["answer"] for row in outputs] == (
+            [41, 41] if mode == "trials" else [41, 42, 41, 42]
+        )
+        assert all(row["obsolete"] == (row["answer"] == 41) for row in outputs)
+        for phase in (outputs,) if mode == "trials" else (outputs[::2], outputs[1::2]):
+            assert max(row["started"] for row in phase) < min(row["ended"] for row in phase)
+        assert [row["score"] for batch in records["evaluations"] for row in batch["rows"]] == (
+            [0, 0] if mode == "trials" else [0, 1, 0, 1]
+        )
         receipts = [
             BuildReceipt.from_json(path.read_text())
             for path in (root / "run/private/builds/attempts").glob("*/receipt.json")
         ]
-        assert len(receipts) == 2 and sum(item.cache_hit for item in receipts) == 1
-        assert len({item.image_id for item in receipts}) == 1
+        assert len(receipts) == count and sum(item.cache_hit for item in receipts) == count // 2
+        assert len({item.image_id for item in receipts}) == count // 2
         proofs = []
         for path in (root / "run/evaluations").glob("*/trials/*/private/response.json"):
             response = json.loads(path.read_text())
@@ -577,16 +593,19 @@ ended = time.time()
             assert agent["build_receipt_hash"] in {content_hash(item) for item in receipts}
             assert json.loads(path.with_name("cleanup.json").read_text())["verified"]
             proofs.append(agent)
-        assert len(proofs) == 2 and len({item["container_id"] for item in proofs}) == 2
+        assert len(proofs) == count and len({item["container_id"] for item in proofs}) == count
         assert "PROTEUS_PRIVATE_VERIFIER_23" not in json.dumps(records)
         book = run_ledger(root / "run")
-        assert book.balance()["charged"]["evaluations"] == 2 and book.balance()["active_slots"] == 0
+        assert (
+            book.balance()["charged"]["evaluations"] == count
+            and book.balance()["active_slots"] == 0
+        )
         before = book.events()
         assert (
             run_recipe(recipe, registry=registry, lock=lock, root=root / "run", resume=True)
             == result
         )
-        assert book.events() == before and len(arrivals) == 2
+        assert book.events() == before and len(arrivals) == count
     finally:
         server.shutdown()
         server.server_close()

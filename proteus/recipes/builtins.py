@@ -77,6 +77,10 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.actor_result@1", ActorResult)
     registry.register_data("proteus.stage_job@1", StageJob)
     registry.register_data("proteus.stage_map@1", StageMapResult)
+    from proteus.core.workflows import WorkflowJob, WorkflowResult, WorkflowMapResult
+    registry.register_data("proteus.workflow_job@1", WorkflowJob)
+    registry.register_data("proteus.workflow_result@1", WorkflowResult)
+    registry.register_data("proteus.workflow_map@1", WorkflowMapResult)
     registry.register_data("proteus.native_summary@1", NativeSummary)
     registry.register_data("proteus.artifact_ref@1", ArtifactRef)
     registry.register_data("proteus.candidate@1", Candidate)

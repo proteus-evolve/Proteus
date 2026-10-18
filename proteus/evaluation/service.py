@@ -184,7 +184,7 @@ class EvaluationService:
             reservation=Amounts.zero(evaluations=len(batch.tasks)), slots=0,
             metadata={"kind": "evaluation_cohort", "operation_id": operation_id,
                       "attempt_id": "attempt-1", "stage": "evaluation", "role": "framework",
-                      "trial_id": None, "worker_id": None},
+                      "trial_id": None, "worker_id": getattr(services, "_worker_id", None)},
             request={"evaluation": spec, "batch": batch, "execution": execution, "inputs": inputs}, reuse=recovering)
         if entry["state"] == "reserved":
             services.ledger.start(entry_id)
@@ -303,7 +303,8 @@ class EvaluationSession:
             reuse=self.services._journal is not None and self.services._journal.recovering,
             metadata={"kind": kind, "operation_id": self.operation_id, "attempt_id": self.request.attempt_id,
                       "role": "grader" if kind == "backend_verifier" else kind,
-                      "trial_id": f"{self.operation_id}:rollout-{index + 1}", "worker_id": None}, request=request)
+                      "trial_id": f"{self.operation_id}:rollout-{index + 1}",
+                      "worker_id": getattr(self.services, "_worker_id", None)}, request=request)
         return entry_id
 
     def step(self, candidate: Candidate) -> Observation:

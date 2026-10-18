@@ -43,6 +43,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08d：新增独立任务的并行正式评估，保留整批预留、原始位置/seed、逐 trial 调用编号、反馈权限及有序汇总；恢复先处理已派发工作，再允许预留请求启动。构建缓存事务串行化，实际 trial 可并发执行。说明见 [V1_PARALLEL_EVALUATION.md](../V1_PARALLEL_EVALUATION.md)。ACE 自适应样本循环、动态 batch controller、CORAL worker 和真实实验仍待后续实现。
 
+- P08e：增加 typed workflow 插件和有序 map，让各样本独立组合正式评估、反思 stage 与候选修改，共享全局/角色预算。分支按操作恢复，先核验和接回旧工作再派发新工作；候选、调用、评分与回执交叉核验。说明见 [V1_WORKFLOWS.md](../V1_WORKFLOWS.md)。这是 Combee-ACE 自适应循环的通用基建；完整 combee_ace、动态 batch controller、CORAL 和真实实验仍未完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

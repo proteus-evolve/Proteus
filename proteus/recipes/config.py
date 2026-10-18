@@ -166,6 +166,18 @@ class ReferenceSpec(Contract):
 
 
 @dataclass(frozen=True, kw_only=True)
+class WorkflowSpec(Contract):
+    """A replayable local program composing declared stages and evaluations."""
+
+    id: str = field(metadata=TEXT)
+    operator: PluginSpec
+    stages: tuple[str, ...] = field(default=(), metadata={"uniqueItems": True})
+    evaluations: tuple[str, ...] = field(default=(), metadata={"uniqueItems": True})
+    input_types: Mapping[str, str] = field(default_factory=dict)
+    output_types: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, kw_only=True)
 class RecipeConfig(Contract):
     name: str = field(metadata=TEXT)
     method: PluginSpec
@@ -175,6 +187,7 @@ class RecipeConfig(Contract):
     tasks: TaskSuiteSpec | None = None
     execution: ExecutionSpec | None = None
     stages: tuple[StageSpec, ...] = ()
+    workflows: tuple[WorkflowSpec, ...] = ()
     evaluations: tuple[EvaluationSpec, ...] = ()
     search: Mapping[str, PluginSpec] = field(default_factory=dict)
     budget: BudgetLimits = field(default_factory=BudgetLimits)
@@ -187,8 +200,14 @@ class RecipeConfig(Contract):
         require(all(stage.role in self.actors for stage in self.stages),
                 "stage references an unknown actor role")
         unique((stage.id for stage in self.stages), "stage ID")
+        unique((workflow.id for workflow in self.workflows), "workflow ID")
         unique((spec.id for spec in self.evaluations), "evaluation ID")
         evaluations = {spec.id: spec for spec in self.evaluations}
+        for workflow in self.workflows:
+            require(set(workflow.stages) <= {stage.id for stage in self.stages},
+                    "workflow references an unknown stage")
+            require(set(workflow.evaluations) <= set(evaluations),
+                    "workflow references an unknown evaluation")
         for training in self.evaluations:
             if not training.allow_supervision:
                 continue
@@ -226,7 +245,8 @@ class RecipeConfig(Contract):
         if self.execution is not None:
             optional.append(self.execution.environment.backend)
         return (self.method, *optional, *(actor.runtime for actor in self.actors.values()),
-                *(stage.operator for stage in self.stages), *self.search.values(),
+                *(stage.operator for stage in self.stages), *(workflow.operator for workflow in self.workflows),
+                *self.search.values(),
                 *(spec.evaluator for spec in self.evaluations),
                 *(spec.tasks.suite for spec in self.evaluations))
 
