@@ -1,10 +1,9 @@
 # 1.0 development: GEPA reference search and task sampling
 
 P05b integrates GEPA's instance-frontier parent selection and epoch-shuffled
-minibatches as reusable building blocks. It does **not** register a complete GEPA
-Method or claim a benchmark reproduction. Reflection, acceptance, component
-mutation, optional merge, engine checkpoints and end-to-end method conformance
-remain P05 work. The search profile requires complete, comparable validation
+minibatches as reusable building blocks. P05c adds the [executable method and
+engine recovery](V1_GEPA_METHOD.md) for a declared no-merge profile. Neither claims
+a benchmark reproduction. The search profile requires complete, comparable validation
 vectors for every accepted program; objective/hybrid frontiers and sparse
 validation are not covered.
 
@@ -43,7 +42,7 @@ register(registry)  # before resolving/freezing the run registry
 # RecipeConfig.search declares these independent policy slots:
 # parent:    proteus.gepa_parent@1
 # population: proteus.gepa_frontier@1
-# final:     proteus.scalar_best@1 (a separate final-selection choice)
+# final:     proteus.gepa_best@1 (reference mean and first tie)
 
 view = services.selection_view(
     services.archive_snapshot(), "validation",
@@ -140,9 +139,7 @@ visibility constraints and no evaluation charges for selection. Hard-exit tests
 resume search and sampler checkpoints without additional subject invocations;
 changed population replay is rejected.
 
-These fixtures establish the documented search/sampling behavior. They do not
-establish full GEPA engine recovery, reference-paper results, model effectiveness
-or a five-method recipe release. Remaining P05 work must map accepted upstream
-program indices to candidate lineage, route actual reflection through ActorRuntime,
-handle the upstream seed-evaluation-on-resume behavior, seal engine state, and
-validate complete recipes and budget boundaries before benchmark claims.
+These fixtures establish the documented search/sampling behavior. Method integration
+and engine recovery have separate [P05c evidence](V1_GEPA_METHOD.md). Reference-paper
+results, live-model benchmark effectiveness, additional profiles and the five-method
+release remain outside these component-test claims.

@@ -21,6 +21,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 - P05a：公开任务池与有序 TaskSelection（重复样本逐次计费）、可查询的不可变 ArchiveSnapshot，以及独立 ParentSelector/ArchivePolicy/FinalSelector 接口。通用 scalar、uniform、Pareto 策略记录候选取舍与 RNG，使用受可见性/选择资格约束的评分视图，恢复不重复抽样或评估。说明见 [V1_SEARCH.md](../V1_SEARCH.md)。GEPA 的参考 frontier/parent sampling、上游算法桥接与真实 benchmark 仍待后续 P05 完成，通用 Pareto 不计作 GEPA 复现。
 - P05b：接入固定 GEPA 提交的逐样本 frontier、覆盖冗余剔除、按覆盖频次选择 parent 和 epoch minibatch sampler；显式 accepted population 保留程序索引，同内容候选不合并。对照实际上游 GEPAState 验证策略与 RNG，采样状态可纳入方法检查点。说明见 [V1_GEPA_SEARCH.md](../V1_GEPA_SEARCH.md)。完整 GEPA Method、反思/接纳、上游 engine 恢复和 benchmark 仍未完成；本批不计作完整 recipe 复现。
 
+- P05c：已接入 pinned GEPA 的完整 single-mutation/no-merge 方法循环，反思经过受管理 Stage/ActorRuntime，保留上游 renderer/parser、接纳与 round-robin 组件选择。候选索引、seed 复用、规范化 engine 检查点、最终隐藏测试及预算阈值边界见 [V1_GEPA_METHOD.md](../V1_GEPA_METHOD.md)。机制与中断恢复检查使用显式离线 fixture；真实 benchmark 和 R01/M2 的完整结果验收仍待完成，不能计作论文结果复现。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -296,7 +298,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 **流程：** 选择 parent → 采样任务与待修改组件 → 获取轨迹和反馈 → 反思修改 → 按参考规则比较 → 更新候选集合。最终配置同时声明组合操作是否启用。
 
 - [ ] 锁定论文与实现版本、反思提示、数据划分和搜索预算。
-- [ ] 优先通过上游 adapter 和回调接入算法，桥接逐样本评估、候选与状态持久化。
+- [x] 优先通过上游 adapter 和回调接入算法，桥接逐样本评估、候选与状态持久化（P05c single-mutation、full-validation、instance frontier、no-merge/no-cache profile；真实 benchmark 尚未完成）。
 - [ ] 核对 parent 选择、minibatch 比较、验证策略、组件修改及参考版本的组合操作。
 - [ ] 在固定评分与 proposal fixture 上对照参考逻辑，再运行真实 benchmark。
 

@@ -75,6 +75,15 @@ jobs:
           /tmp/proteus-wheel/bin/python -c 'import json; from pathlib import Path; from proteus.core.contracts import EvaluationBatch; r=json.loads(Path("candidate-study/run/execution-0001.json").read_text()); assert [EvaluationBatch.from_dict(b).mean_score() for b in r["evaluations"]] == [0, 1]; assert len(r["rollouts"]) == 6'
           /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.core.ledger import Ledger; from proteus.recipes.manifest import RunManifest; root=Path("candidate-study/run"); m=RunManifest.from_json((root/"manifest.json").read_text()); book=Ledger(root/"private/ledger.sqlite3", run_id=m.run_id, config_hash=m.config_hash, lock_hash=m.lock_hash); assert book.balance()["charged"]["evaluations"] == 6; assert all(e["state"] == "completed" for e in book.entries())'
           /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
+      - name: Installed wheel runs the pinned GEPA method outside the checkout
+        run: |
+          /tmp/proteus-wheel/bin/pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+          cd /tmp/proteus-wheel-out
+          /tmp/proteus-wheel/bin/python -m proteus.examples.gepa_prompt --out gepa-study
+          /tmp/proteus-wheel/bin/proteus recipe lock gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --source "proteus=$GITHUB_WORKSPACE" --out gepa-study/lock.json
+          /tmp/proteus-wheel/bin/proteus recipe run gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --artifact-store gepa-study/artifact-store --out gepa-study/run
+          /tmp/proteus-wheel/bin/proteus recipe resume gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --out gepa-study/run
+          /tmp/proteus-wheel/bin/python -c 'import json; from pathlib import Path; p=Path("gepa-study/run"); assert json.loads((p/"result.json").read_text())["status"]=="completed"; r=json.loads((p/"execution-0002.json").read_text()); s=next(x["value"] for x in r["values"] if x["ref"]["kind"]=="proteus.gepa.summary@1"); assert s["metric_calls"]==10 and s["reflection_calls"]==1; assert len(r["rollouts"])==12 and len(r["actor_calls"])==13; assert sum(len(x.read_text().splitlines()) for x in p.rglob("fixture-invocations.txt"))==13'
       - name: Sdist scaffolder works outside the checkout
         run: |
           python -m venv /tmp/proteus-sdist

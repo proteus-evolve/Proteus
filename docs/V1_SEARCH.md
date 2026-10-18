@@ -1,9 +1,8 @@
 # 1.0 development: task selection, archives and search policies
 
 P05a supplies shared search primitives. P05b adds [pinned GEPA search and task
-sampling](V1_GEPA_SEARCH.md). Neither implements the complete GEPA recipe or claims
-paper reproduction; reflection, acceptance, component mutation, merge and engine
-recovery remain the method adapter's work.
+sampling](V1_GEPA_SEARCH.md); P05c adds the [executable GEPA method](V1_GEPA_METHOD.md)
+for the declared no-merge profile. These do not claim benchmark/paper reproduction.
 
 ## Select tasks from a declared pool
 
