@@ -27,3 +27,11 @@ and prompt strings and executes the pinned upstream control flow for independent
 conformance tests. Managed transport, stricter artifact validation and serial
 execution are declared adaptations; this does not reproduce published model
 performance. See `docs/V1_ACE_METHOD.md` for the supported profile and limits.
+
+`proteus/benchmarks/ace_formula_reference.py` contains the Formula question parser
+and exact correctness predicate from `eval/finance/data_processor.py` at the same
+revision, with only trailing whitespace removed. The complete license above also
+applies to these selected functions. `tests/check_ace_formula_reference.py`
+verifies their ASTs against the upstream file and checks all 1000 source records.
+The Formula dataset is fetched separately by hash; its bytes are not redistributed
+in the Proteus package. See `docs/V1_ACE_FORMULA.md` for provenance and scope.

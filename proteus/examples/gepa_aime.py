@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,14 +13,13 @@ from proteus.artifacts.codecs import TextComponents
 from proteus.artifacts.store import ArtifactStore, publish_bytes
 from proteus.benchmarks import aime, aime_data, aime_format
 from proteus.core.contracts import (
-    DIGEST, BudgetLimits, Candidate, EvaluationBatch, FeedbackVisibility, OperationStatus, PluginRef, Rollout, require,
+    DIGEST, BudgetLimits, FeedbackVisibility, OperationStatus, PluginRef, require,
 )
-from proteus.core.ledger import Ledger, TERMINAL
-from proteus.core.methods import MethodResult, Values
 from proteus.core.plugins import implementation_hash
 from proteus.core.run_lock import run_lock
 from proteus.core.serialization import Contract, canonical_json, content_hash, read_json
-from proteus.evaluation.records import EvaluationReceipt
+from proteus.evaluation import audit as audit_module
+from proteus.evaluation.audit import RunAudit
 from proteus.evaluation.tasks import TaskDataset, make_batch
 from proteus.examples.candidate_evaluation import plugin
 from proteus.methods.gepa.method import GepaOptions, evaluation_bound, register as register_gepa
@@ -91,7 +89,7 @@ def registry():
 
 
 def controller_hash():
-    return implementation_hash({"study": Path(__file__)})
+    return implementation_hash({"study": Path(__file__), "audit": Path(audit_module.__file__)})
 
 
 def make_recipes(root, dataset, settings, initial):
@@ -204,85 +202,20 @@ def execute(root, *, resume=False):
         return report(root, locked=True)
 
 
-def _ledger(root, manifest):
-    with sqlite3.connect((root / "private/ledger.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
-        db.row_factory = sqlite3.Row
-        identities = db.execute("SELECT value FROM identity").fetchall()
-        require(len(identities) == 1 and read_json(identities[0][0]) == {"schema_version": 1,
-            "run_id": manifest.run_id, "config_hash": manifest.config_hash, "lock_hash": manifest.lock_hash},
-            "study ledger identity differs")
-        charged, unknown, slots, count = Ledger._balance(db, "run")
-        require(slots == 0 and all(row[0] in TERMINAL for row in db.execute("SELECT state FROM entries")),
-                "study contains unsettled operations")
-        return {"charged": {k: None if value is None else float(value) for k, value in charged.items()},
-                "unknown": unknown, "entries": count}
-
-
 def _arm_report(root, entry, recipe, lock, dataset, reg):
-    manifest = RunManifest.from_json((root / "manifest.json").read_text())
-    manifest.assert_resume_compatible(recipe, lock)
-    require(manifest.run_id == entry.name, "study run identity differs")
-    result = MethodResult.from_json((root / "result.json").read_text())
-    require(result.status == OperationStatus.COMPLETED, "cannot report an incomplete study run")
-    records = read_json(sorted(root.glob("execution-*.json"))[-1].read_text())
-    require(records["manifest_hash"] == manifest.manifest_hash and content_hash(records["values"]) == records["values_hash"],
-            "study execution identity/values differ")
-    values = Values(reg)
-    values.restore(records["values"])
+    audit = RunAudit(root, recipe, lock, reg)
+    require(audit.manifest.run_id == entry.name, "study run identity differs")
+    result, values = audit.result, audit.values
     receipt = values.get(result.outputs["initial:test" if entry.arm == "baseline" else "test"])
-    require(type(receipt) is EvaluationReceipt and not receipt.batches, "test results must remain hidden from the method")
     candidate_id = "initial" if entry.arm == "baseline" else values.get(result.outputs["candidate"]).id
-    candidates = {item["id"]: item for item in records["candidates"]}
-    require(candidate_id in candidates, "selected candidate is missing")
-    candidate = candidates[candidate_id]
-    typed_candidate = Candidate.from_dict(candidate)
-    require((typed_candidate.artifact == recipe.subject.initial_artifact) if entry.arm == "baseline"
-            else typed_candidate == values.get(result.outputs["candidate"]), "study result candidate differs")
-    ArtifactStore(root / "artifacts", reg).get(typed_candidate.artifact)
-    test = next(item for item in recipe.evaluations if item.id == "test")
-    expected = make_batch(dataset, test.tasks)
-    batches = []
-    for path in (root / "evaluations").glob("*/protocol.json"):
-        protocol = read_json(path.read_text())
-        if protocol["evaluation"]["id"] != "test":
-            continue
-        require(protocol["evaluation"] == test.to_dict() and protocol["batch"] == expected.to_dict()
-                and protocol["execution"] == recipe.execution.to_dict() and protocol.get("inputs") == {},
-                "test evaluation protocol differs")
-        stored_receipt = EvaluationReceipt.from_json((path.parent / "receipt.json").read_text())
-        require(stored_receipt == receipt, "test receipt differs from the method result")
-        batches.extend(EvaluationBatch.from_json(p.read_text()) for p in sorted((path.parent / "private/batches").glob("*.json")))
-    require(len(batches) == 1, "test requires exactly one complete candidate batch")
-    batch = batches[0]
-    require(batch.run_id == manifest.run_id and batch.candidate_id == candidate_id
-            and batch.artifact_hash == candidate["artifact"]["content_hash"] and batch.evaluator == test.evaluator.plugin
-            and batch.visibility == FeedbackVisibility.HIDDEN, "test candidate/evaluator identity differs")
-    require(batch.protocol_hash == content_hash({"spec": test, "batch": expected,
-        "subject": recipe.subject, "execution": recipe.execution, "lock_hash": manifest.lock_hash,
-        "inputs": {}}), "test protocol hash differs")
-    require(tuple(row.task_id for row in batch.rows) == test.tasks.task_ids and batch.expected_rollout_ids == receipt.rollout_ids
-            and receipt.candidate_ids == (candidate_id,) * len(expected.tasks), "test coverage/order differs")
-    rollouts = {item["id"]: Rollout.from_dict(item) for item in records["rollouts"]}
-    references = {r.task.id: r.reference for r in dataset.records if r.task.split == "test"}
-    for row in batch.rows:
-        require(row.score is not None, "study stopped: test includes unavailable scores")
-        rollout = rollouts[row.rollout_id]
-        require(rollout.candidate_id == candidate_id and rollout.artifact_hash == batch.artifact_hash
-                and rollout.task_id == row.task_id and rollout.split == "test"
-                and rollout.run_id == manifest.run_id and rollout.operation_id == batch.operation_id
-                and rollout.execution_hash == content_hash(recipe.execution), "test rollout binding differs")
-        grade = aime.AimeMetric().grade(None, rollout, references[row.task_id])
-        require(row.score == grade.score and row.status == grade.status, "test grade disagrees with the frozen metric")
-    score = batch.mean_score()
-    require(score is not None, "test includes unavailable scores")
-    ledger = _ledger(root, manifest)
-    require(ledger["charged"]["evaluations"] == len(rollouts), "study evaluation accounting differs")
-    require(ledger["charged"]["model_calls"] == len(records["actor_calls"]), "study actor accounting differs")
-    tokens = {key: [call["usage"].get(key) for call in records["actor_calls"]] for key in ("input_tokens", "output_tokens")}
-    return {"accuracy": score, "tasks": len(batch.rows), "candidate_id": candidate_id,
-        "artifact_hash": batch.artifact_hash, "manifest_hash": manifest.manifest_hash,
-        "test_scores": [{"task_id": row.task_id, "score": row.score} for row in batch.rows],
-        "ledger": ledger, "tokens": {key: None if None in items else sum(items) for key, items in tokens.items()},
+    candidate = audit.candidates[candidate_id]
+    require(candidate.artifact == recipe.subject.initial_artifact if entry.arm == "baseline"
+            else candidate == values.get(result.outputs["candidate"]), "study result candidate differs")
+    cohort = audit.fixed_cohort(receipt, "test", dataset, candidate_id)
+    audit.assert_cohort_coverage((receipt,), evaluation_ids={"test"})
+    return {"accuracy": cohort["accuracy"], "tasks": cohort["tasks"], "candidate_id": candidate_id,
+        "artifact_hash": candidate.artifact.content_hash, "manifest_hash": audit.manifest.manifest_hash,
+        "test_scores": cohort["scores"], **audit.managed_totals(),
         "metric_calls": None if entry.arm == "baseline" else values.get(result.outputs["summary"]).metric_calls}
 
 

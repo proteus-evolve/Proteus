@@ -319,7 +319,8 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 - [x] 实现 offline 与 online 协议，锁定顺序、epoch、反馈来源和更新时点（P06b；已声明托管调用与串行执行偏差）。
 - [x] 核对官方代码实际支持的操作；论文描述与代码差异进入偏差清单，额外 UPDATE/MERGE 等能力单独作为扩展 profile（P06a/P06b 保留未执行的原始操作记录，尚未提供扩展算子）。
 - [x] 验证固定 delta 的确定性、条目保留及在线预测前后时序（P06a/P06b；逐次对照实际上游并检查硬退出恢复）。
-- [ ] 完成领域数据/评分适配、真实模型实验、完整私有测试结果审计及 baseline 对照。
+- [x] 完成 Formula 500/300/200 领域数据/评分适配、offline/online study、完整私有结果审计及初始 baseline 对照（P06c；数据与实际参考代码逐项核对，HTTP fixture 仅验证机制，详见 [Formula recipe](../V1_ACE_FORMULA.md)）。
+- [ ] 完成所声明领域的真实模型实验与 baseline 结果；FiNER/AppWorld 尚未纳入已验证 profile。
 
 **依赖：** I01–I06、I08、I09、I12。**完成定义：** playbook 与每次更新可追溯；有完整声明协议下的真实结果及 baseline。
 

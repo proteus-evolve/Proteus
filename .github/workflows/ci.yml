@@ -31,7 +31,7 @@ jobs:
         run: pip install -e '.[dev,dsh,pi]'
       - name: Install exact optional GEPA reference for conformance tests
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
-      - name: Fetch pinned ACE source for playbook and full-method conformance (no SDK imports)
+      - name: Fetch pinned ACE source for playbook, full-method and Formula conformance (no SDK imports)
         run: |
           git init /tmp/proteus-ace-reference
           git -C /tmp/proteus-ace-reference remote add origin https://github.com/ace-agent/ace.git
@@ -95,8 +95,10 @@ jobs:
           cp recipes/examples/p01-contract.toml /tmp/proteus-wheel-out/recipe.toml
           cp recipes/examples/self-evaluation.toml /tmp/proteus-wheel-out/self-evaluation.toml
           cp tests/check_ace_package.py /tmp/proteus-wheel-out/check_ace_package.py
+          cp tests/check_ace_formula_package.py /tmp/proteus-wheel-out/check_ace_formula_package.py
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python check_ace_package.py
+          /tmp/proteus-wheel/bin/python check_ace_formula_package.py
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
@@ -127,8 +129,10 @@ jobs:
           cp recipes/examples/p01-contract.toml /tmp/proteus-sdist-out/recipe.toml
           cp recipes/native/minimal.toml /tmp/proteus-sdist-out/native.toml
           cp tests/check_ace_package.py /tmp/proteus-sdist-out/check_ace_package.py
+          cp tests/check_ace_formula_package.py /tmp/proteus-sdist-out/check_ace_formula_package.py
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python check_ace_package.py
+          /tmp/proteus-sdist/bin/python check_ace_formula_package.py
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
           /tmp/proteus-sdist/bin/proteus visualize --help

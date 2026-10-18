@@ -1,8 +1,11 @@
 """Domain semantics, real HTTP transport, full-cohort reporting and recovery."""
 
 import importlib.util
+import hashlib
+import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -129,7 +132,7 @@ def test_domain_reflection_matches_actual_optimize_anything(tmp_path, endpoint, 
 
 
 @requires_gepa
-@pytest.mark.parametrize("damage", ["dataset", "config", "provenance", "test-batch", "test-score", "receipt", "subject-inputs"])
+@pytest.mark.parametrize("damage", ["dataset", "config", "provenance", "test-batch", "test-score", "receipt", "subject-inputs", "extra-cohort"])
 def test_report_refuses_drift_and_incomplete_test_evidence(tmp_path, endpoint, damage):
     root = tmp_path / "study"
     setup(root, endpoint)
@@ -148,6 +151,11 @@ def test_report_refuses_drift_and_incomplete_test_evidence(tmp_path, endpoint, d
     else:
         protocol = next(path for path in (root / "runs/seed-0-optimized/evaluations").glob("*/protocol.json")
                         if json.loads(path.read_text())["evaluation"]["id"] == "test")
+        if damage == "extra-cohort":
+            shutil.copytree(protocol.parent, protocol.parent.parent / "unreported-cohort")
+            with pytest.raises(ContractError, match="unreported evaluation cohorts"):
+                report(root)
+            return
         target = protocol if damage == "subject-inputs" else protocol.parent / (
             "receipt.json" if damage == "receipt" else "private/batches/000000.json")
         if damage == "test-batch":
@@ -223,6 +231,19 @@ def test_data_source_hash_and_split_rules(tmp_path):
     with pytest.raises(ContractError, match="checksum"):
         aime_data.fetch(aime_data.SOURCES[0], tmp_path)
     assert path.read_bytes() == b"corrupt"
+
+
+def test_aime_cache_resolves_symlink_ancestors_before_durable_publication(tmp_path, monkeypatch):
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(actual, target_is_directory=True)
+    raw = b"fixture source bytes"
+    monkeypatch.setattr(aime_data.urllib.request, "urlopen", lambda *args, **kwargs: io.BytesIO(raw))
+    source = {"file": "fixture.parquet", "repository": "fixture/source", "revision": "0" * 40,
+              "sha256": hashlib.sha256(raw).hexdigest()}
+    path = aime_data.fetch(source, linked / "new-cache")
+    assert path == actual / "new-cache/fixture.parquet" and path.read_bytes() == raw
 
 
 @requires_gepa
