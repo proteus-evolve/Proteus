@@ -150,7 +150,8 @@ def builtin_registry() -> Registry:
                                              "environment.code_protocol", "environment.parallel"))
     add("proteus.harbor_code", "environment", HarborCodeOptions, HarborCodeEnvironment,
         validate=validate_harbor_code, capabilities=("state.independent", "state.sequence", "state.explicit_json",
-            "candidate.exact_tree", "environment.code_protocol", "environment.source_build", "environment.parallel"))
+            "candidate.exact_tree", "environment.code_protocol", "environment.source_build", "environment.parallel",
+            "environment.filesystem_scopes", "environment.pids"))
     add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python,
         capabilities=("subject.parallel",))
     add("proteus.code_subject", "subject", CodeOptions, CodeSubject, validate=validate_code,

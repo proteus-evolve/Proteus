@@ -7,6 +7,10 @@ advertises `environment.code_protocol` and returns an `EnvironmentLease` with a
 `code_executor(options, call, actor)` callable. Capability resolution rejects an
 opaque environment before a code method can dispatch.
 
+Container directory access and process limits can also be declared through the
+[filesystem scope contract](V1_ENVIRONMENT_SCOPES.md). Requested scopes require
+actual Landlock enforcement before candidate input is forwarded.
+
 ## Execution boundary
 
 Each call gets a fresh Docker container created, uploaded and stopped through

@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+import hashlib
 import subprocess
 import uuid
 
@@ -15,6 +16,7 @@ from proteus.execution.builds import image_pin
 from proteus.execution.code_rpc import invoke
 from proteus.execution.harbor import HarborEnvironment, HarborEnvironmentOptions, _stop_worker, validate_environment
 from proteus.execution.harbor_code_worker import cleanup_record
+from proteus.execution.filesystem_policy import policy, validate_receipt
 
 
 WORKER = Path(__file__).with_name('harbor_code_worker.py')
@@ -30,11 +32,17 @@ def validate_harbor_code(execution, options):
     require(execution.state_policy in (StatePolicy.INDEPENDENT, StatePolicy.SEQUENCE),
             'Harbor code uses independent containers with explicit sequence memory')
     validate_environment(replace(execution, state_policy=StatePolicy.INDEPENDENT,
-                                 environment=replace(execution.environment, lifecycle='trial')), options)
+                                 environment=replace(execution.environment, lifecycle='trial', read_scopes=(), write_scopes=(),
+                                     resources={key: value for key, value in execution.environment.resources.items()
+                                                if key != 'pids'})), options)
     env = execution.environment
     image_pin(env.image_digest)
     require(env.network == 'none' and not env.allowed_hosts, 'managed Harbor code requires no-network containers')
-    require(set(env.resources) == {'cpus', 'memory_mb'}, 'Harbor code requires explicit CPU and memory limits')
+    require({'cpus', 'memory_mb'} <= set(env.resources) <= {'cpus', 'memory_mb', 'pids'},
+            'Harbor code requires explicit CPU and memory limits; optional pids is supported')
+    if 'pids' in env.resources:
+        require(type(env.resources['pids']) is int and env.resources['pids'] >= 8, 'pids must be an integer of at least 8')
+    policy(env.read_scopes, env.write_scopes)
     require(options.bridge_timeout_seconds >= execution.timeout_seconds,
             'Harbor bridge timeout must cover the code invocation deadline')
 
@@ -53,13 +61,19 @@ def invoke_harbor_code(lease, artifact, execution, options, call, actor):
     private = handle.root / 'code-private'
     private.mkdir(mode=0o700)
     request_path = private / 'request.json'
+    access = policy(execution.environment.read_scopes, execution.environment.write_scopes)
+    helper = Path(__file__).with_name('filesystem_policy.py')
     request = {
         'version': 1, 'runtime_hash': handle.options.runtime_hash,
         'candidate_dir': str(lease.local_root.resolve()), 'artifact': artifact.to_dict(),
         'image_digest': execution.environment.image_digest,
         'agent_image': handle.build.image_id if handle.build else execution.environment.image_digest,
         'build_receipt': handle.build.to_dict() if handle.build else None,
-        'resources': dict(execution.environment.resources), 'max_pids': handle.options.max_pids,
+        'resources': {key: value for key, value in execution.environment.resources.items() if key != 'pids'},
+        'max_pids': execution.environment.resources.get('pids', handle.options.max_pids),
+        'filesystem_policy': access,
+        'filesystem_helper': str(helper) if access else None,
+        'filesystem_helper_hash': 'sha256:' + hashlib.sha256(helper.read_bytes()).hexdigest() if access else None,
         'trial_name': 'proteus-' + uuid.uuid4().hex,
         'max_frame_bytes': options.max_frame_bytes,
         'setup_timeout_seconds': handle.options.setup_timeout_seconds,
@@ -93,6 +107,10 @@ def invoke_harbor_code(lease, artifact, execution, options, call, actor):
         require(proof['request_hash'] == content_hash(request)
                 and proof['loaded_artifact_hash'] == artifact.content_hash,
                 'Harbor code loaded proof differs from its dispatch')
+        if access is not None:
+            validate_receipt(proof.get('filesystem_policy'), access, uid=65534, gid=65534)
+            require(proof.get('filesystem_helper_hash') == request['filesystem_helper_hash'],
+                    'filesystem policy helper differs from its dispatch')
         reply = replace(reply, trace=Trace(events=(*reply.trace.events, {'kind': 'sandbox', **proof})))
     elif reply.status == Outcome.SUCCEEDED:
         raise ValueError('successful Harbor code execution lacks loaded-container evidence')
