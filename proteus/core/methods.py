@@ -135,6 +135,25 @@ class StageContext:
               handoff: str | None = None) -> ActorResult:
         return self._services._actor(self.spec, self.request, prompt, session_id, handoff)
 
+    def read_evidence(self, view, path: str) -> bytes:
+        evidence, ref = self._evidence(view)
+        return evidence.store.read(ref, path)
+
+    def search_evidence(self, view, text: str):
+        evidence, ref = self._evidence(view)
+        return evidence.store.search(ref, text)
+
+    def materialize_evidence(self, view, destination: Path) -> Path:
+        evidence, ref = self._evidence(view)
+        return evidence.store.materialize(ref, destination)
+
+    def _evidence(self, view):
+        from proteus.evidence.service import EvidenceService
+        evidence = EvidenceService(self._services)
+        ref = evidence.bound(view, self.spec.id)
+        require(ref in self.request.inputs.values(), "evidence was not supplied to this stage invocation")
+        return evidence, ref
+
 
 class RunServices:
     def __init__(self, *, run_id: str, recipe: RecipeConfig, registry, root: Path,
@@ -210,6 +229,11 @@ class RunServices:
         if snapshot["builds"] or self._builds is not None:
             from proteus.execution.builds import BuildReceipt
             self.builds.records = [BuildReceipt.from_dict(value) for value in snapshot["builds"]]
+        from proteus.evidence.service import EvidenceService
+        evidence = EvidenceService(self)
+        for ref, value in self.values._values.values():
+            if ref.kind == "proteus.evidence.view@1":
+                evidence.bound(value, value.stage_id, verify_files=True)
 
     def _record(self, kind, identity, function, *, decode, encode=lambda value: value.to_dict()):
         require(threading.get_ident() == self._dispatch_thread, "cross-thread dispatch requires serial service dispatch")
@@ -220,6 +244,10 @@ class RunServices:
     def checkpoint(self, payload, **kwargs):
         require(self._journal is not None, "checkpoints require a journal-enabled method")
         return self._journal.checkpoint(payload, **kwargs)
+
+    def evidence_view(self, stage_id: str, *, candidate_ids: tuple[str, ...] | None = None) -> DataRef:
+        from proteus.evidence.service import EvidenceService
+        return EvidenceService(self).view(stage_id, candidate_ids=candidate_ids)
 
     def evaluation_session(self, operation_id):
         session = next((item for item in self._evaluation_service.sessions if item.operation_id == operation_id), None)
@@ -358,6 +386,9 @@ class RunServices:
         for name, ref in inputs.items():
             require(ref.kind == spec.input_types[name], f"{stage_id}.{name}: input data kind mismatch")
             values[name] = self.values.get(ref)
+            if ref.kind == "proteus.evidence.view@1":
+                from proteus.evidence.service import EvidenceService
+                EvidenceService(self).bound(values[name], stage_id, verify_files=True)
         operation_id = operation_id or f"op-{len(self._operations) + 1:06d}"
         self._check_operation(operation_id)
         self._operations.add(operation_id)

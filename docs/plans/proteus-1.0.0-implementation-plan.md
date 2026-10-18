@@ -216,8 +216,8 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I08 证据与共享知识
 
-- [ ] EvidenceStore 保存代码、rollout、评分、诊断和来源关系，提供可检索的文件视图。
-- [ ] EvidenceView 按角色、split、反馈时机和权限选择证据。
+- [x] EvidenceStore 保存代码、rollout、评分、诊断和来源关系，提供可检索的文件视图（P07a：内容寻址的不可变快照、原始文件读取/搜索/导出与来源 hash；只收纳已授权且已释放的公共证据）。
+- [x] EvidenceView 按角色、split、反馈时机和权限选择证据（P07a：stage 声明 evaluation/split/kinds，视图绑定 run/config/lock/stage/role，作为明确输入交付；隐藏评估不进入视图，导出文件不等于 OS 沙箱）。
 - [ ] SharedKnowledgeStore 支持 attempts、notes、skills 等带来源和版本的产物。
 - [ ] 区分优化者的工作 handoff、方法演化产物、共享研究知识和私有评估记录。
 - [ ] 并发写入使用原子提交或版本冲突检测；不能仅假设 agent 总会选不同文件名。
@@ -328,7 +328,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 **流程：** proposer 按需检索历史代码、分数和轨迹 → 提出一个或多个 harness → 接口验证 → 执行评估 → 保存历史 → 继续搜索。
 
-- [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要。
+- [ ] 为 proposer 提供可检索的历史文件视图，不强制压缩成单一摘要（P07a 已完成公共 evidence view 与跨候选离线示例；Meta-Harness proposer/隔离代码工作区仍待接入，见 [V1_EVIDENCE.md](../V1_EVIDENCE.md)）。
 - [ ] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选。
 - [ ] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本。
 - [ ] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier。

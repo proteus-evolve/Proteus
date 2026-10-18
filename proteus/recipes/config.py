@@ -13,6 +13,7 @@ from proteus.core.contracts import (
     PluginRef, SessionPolicy, StatePolicy, require, unique,
 )
 from proteus.core.serialization import Contract, ContractError, content_hash, json_value, read_json
+from proteus.evidence.records import EvidenceAccess
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -53,6 +54,7 @@ class StageSpec(Contract):
     failure_policy: Literal["stop", "record", "retry"] = "stop"
     max_attempts: int = field(default=1, metadata={"minimum": 1})
     budget: BudgetLimits = field(default_factory=BudgetLimits)
+    evidence: EvidenceAccess | None = None
 
     def _validate(self):
         require(self.failure_policy == "retry" or self.max_attempts == 1,
@@ -179,6 +181,20 @@ class RecipeConfig(Contract):
                 "stage references an unknown actor role")
         unique((stage.id for stage in self.stages), "stage ID")
         unique((spec.id for spec in self.evaluations), "evaluation ID")
+        evaluations = {spec.id: spec for spec in self.evaluations}
+        for stage in self.stages:
+            if stage.evidence is None:
+                continue
+            require("proteus.evidence.view@1" in stage.input_types.values(),
+                    "evidence-enabled stages need an explicit evidence view input")
+            for evaluation_id in stage.evidence.evaluation_ids:
+                require(evaluation_id in evaluations, "unknown evaluation in evidence access")
+                spec = evaluations[evaluation_id]
+                require(spec.visibility == FeedbackVisibility.OBSERVED,
+                        "private evaluations cannot be granted as stage evidence")
+                require(spec.tasks.split in stage.evidence.splits, "evidence access excludes the evaluation split")
+            require(set(stage.evidence.splits) <= {evaluations[key].tasks.split
+                    for key in stage.evidence.evaluation_ids}, "unknown split in evidence access")
 
     @property
     def config_hash(self) -> str:
