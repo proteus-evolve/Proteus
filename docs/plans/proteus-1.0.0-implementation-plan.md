@@ -240,9 +240,11 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 - [x] EvidenceStore 保存代码、rollout、评分、诊断和来源关系，提供可检索的文件视图（P07a：内容寻址的不可变快照、原始文件读取/搜索/导出与来源 hash；只收纳已授权且已释放的公共证据）。
 - [x] EvidenceView 按角色、split、反馈时机和权限选择证据（P07a：stage 声明 evaluation/split/kinds，视图绑定 run/config/lock/stage/role，作为明确输入交付；隐藏评估不进入视图，导出文件不等于 OS 沙箱）。
-- [ ] SharedKnowledgeStore 支持 attempts、notes、skills 等带来源和版本的产物。
-- [ ] 区分优化者的工作 handoff、方法演化产物、共享研究知识和私有评估记录。
-- [ ] 并发写入使用原子提交或版本冲突检测；不能仅假设 agent 总会选不同文件名。
+- [x] SharedKnowledgeStore 支持 attempts、notes、skills 等带来源和版本的产物（P09a：不可变文件树、版本链、删除记录、来源引用；正式 attempts 只复制已披露的评估证据）。
+- [x] 区分优化者的工作 handoff、方法演化产物、共享研究知识和私有评估记录（P09a：独立 knowledge 空间与类型；recipe 锁定成员角色、证据范围及文件树依赖，隐藏评估不能成为共享来源）。
+- [x] 并发写入使用原子提交或版本冲突检测；不能仅假设 agent 总会选不同文件名（P09a：SQLite CAS、操作与冲突回执、原子读取快照；多进程竞争与提交前后硬退出验证）。
+
+P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARED_KNOWLEDGE.md](../V1_SHARED_KNOWLEDGE.md)。恢复复用原操作看到的快照与冲突，同时保留其他 worker 的后续更新；这部分是通用共享知识基建，CORAL 持久 worker、EvaluationGateway、事件干预与真实实验仍待后续 P09 完成。
 
 **验收：** Meta-Harness proposer 能按需检索多个历史候选；多个 worker 能交流知识且保留来源；无权访问的评估内容不出现在可见视图中。
 

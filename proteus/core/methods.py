@@ -159,6 +159,26 @@ class StageContext:
         require(ref in self.request.inputs.values(), "evidence was not supplied to this stage invocation")
         return evidence, ref
 
+    def _knowledge(self, snapshot):
+        from proteus.knowledge.service import KnowledgeService
+        require(snapshot.identity.space_id in self.spec.knowledge, "stage has no access to this knowledge space")
+        knowledge = KnowledgeService(self._services, snapshot.identity.space_id)
+        require(self.spec.role in knowledge.spec.roles, "stage role cannot access this knowledge space")
+        ref = knowledge.bound(snapshot)
+        require(ref in self.request.inputs.values(), "knowledge snapshot was not supplied to this stage invocation")
+        return knowledge
+
+    def read_knowledge(self, snapshot, revision, path):
+        knowledge = self._knowledge(snapshot)
+        require(revision in snapshot.revisions, "revision is outside the supplied knowledge snapshot")
+        return knowledge.store.read(revision, path)
+
+    def knowledge_entries(self, snapshot):
+        return self._knowledge(snapshot).store.records(snapshot)
+
+    def materialize_knowledge(self, snapshot, destination):
+        return self._knowledge(snapshot).store.materialize(snapshot, destination)
+
 
 class RunServices:
     def __init__(self, *, run_id: str, recipe: RecipeConfig, registry, root: Path,
@@ -245,6 +265,8 @@ class RunServices:
         for ref, value in self.values._values.values():
             if ref.kind == "proteus.evidence.view@1":
                 evidence.bound(value, value.stage_id, verify_files=True)
+        from proteus.knowledge.service import validate_restored
+        validate_restored(self)
 
     def _record(self, kind, identity, function, *, decode, encode=lambda value: value.to_dict()):
         require(threading.get_ident() == self._dispatch_thread, "cross-thread dispatch requires serial service dispatch")
@@ -267,6 +289,10 @@ class RunServices:
     def evidence_view(self, stage_id: str, *, candidate_ids: tuple[str, ...] | None = None) -> DataRef:
         from proteus.evidence.service import EvidenceService
         return EvidenceService(self).view(stage_id, candidate_ids=candidate_ids)
+
+    def knowledge(self, space_id):
+        from proteus.knowledge.service import KnowledgeService
+        return KnowledgeService(self, space_id)
 
     def invoke_candidate(self, candidate: Candidate, call, *, operation_id: str | None = None):
         from proteus.execution.code_service import CodeService

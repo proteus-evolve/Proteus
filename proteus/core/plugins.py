@@ -229,6 +229,10 @@ class Registry:
                 plugin.validate(context, plugin.options.from_dict(spec.options))
         from proteus.evaluation.service import validate_evaluation_config
         validate_evaluation_config(resolved, self)
+        if resolved.knowledge:
+            require("run.journal" in self.get(resolved.method.plugin).capabilities,
+                    "shared knowledge requires a journal-enabled method")
+            self.get(PluginRef(name="proteus.file_tree", version="1"), "codec")
         if workflows:
             require("run.journal" in self.get(resolved.method.plugin).capabilities,
                     "workflows require a journal-enabled method")
