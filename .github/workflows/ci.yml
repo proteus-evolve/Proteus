@@ -118,6 +118,7 @@ jobs:
           cp tests/check_workflow_package.py /tmp/proteus-wheel-out/check_workflow_package.py
           cp tests/check_combee_package.py /tmp/proteus-wheel-out/check_combee_package.py
           cp tests/check_combee_gepa_package.py /tmp/proteus-wheel-out/check_combee_gepa_package.py
+          cp tests/check_combee_ace_package.py /tmp/proteus-wheel-out/check_combee_ace_package.py
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python check_ace_package.py
           /tmp/proteus-wheel/bin/python check_ace_formula_package.py
@@ -127,6 +128,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
           /tmp/proteus-wheel/bin/python check_parallel_package.py
           /tmp/proteus-wheel/bin/python check_workflow_package.py
+          /tmp/proteus-wheel/bin/python check_combee_ace_package.py
           /tmp/proteus-wheel/bin/python check_combee_package.py ace
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
@@ -170,6 +172,7 @@ jobs:
           cp tests/check_workflow_package.py /tmp/proteus-sdist-out/check_workflow_package.py
           cp tests/check_combee_package.py /tmp/proteus-sdist-out/check_combee_package.py
           cp tests/check_combee_gepa_package.py /tmp/proteus-sdist-out/check_combee_gepa_package.py
+          cp tests/check_combee_ace_package.py /tmp/proteus-sdist-out/check_combee_ace_package.py
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python check_ace_package.py
           /tmp/proteus-sdist/bin/python check_ace_formula_package.py
@@ -179,6 +182,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py
           /tmp/proteus-sdist/bin/python check_parallel_package.py
           /tmp/proteus-sdist/bin/python check_workflow_package.py
+          /tmp/proteus-sdist/bin/python check_combee_ace_package.py
           /tmp/proteus-sdist/bin/python check_combee_package.py ace
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'

@@ -22,22 +22,26 @@ from proteus.methods.ace.roles import AceTask, CurationInput, Generation, Genera
 
 
 @dataclass(frozen=True, kw_only=True)
-class AceOptions(Contract):
+class LearningOptions(Contract):
     train: str = field(metadata=TEXT)
-    reflection_stage: str = field(metadata=TEXT)
-    curation_stage: str = field(metadata=TEXT)
     mode: Literal["offline", "online"] = "offline"
     validation: str | None = field(default=None, metadata=TEXT)
     stream: str | None = field(default=None, metadata=TEXT)
     test_evaluations: tuple[str, ...] = field(default=(), metadata={"uniqueItems": True})
     num_epochs: int = field(default=1, metadata={"minimum": 1})
     max_num_rounds: int = field(default=3, metadata={"minimum": 0})
-    curator_frequency: int = field(default=1, metadata={"minimum": 1})
     eval_steps: int = field(default=100, metadata={"minimum": 1})
     online_eval_frequency: int = field(default=100, metadata={"minimum": 1})
     token_budget: int = field(default=80000, metadata={"minimum": 1})
     no_ground_truth: bool = False
     json_mode: bool = False
+
+
+@dataclass(frozen=True, kw_only=True)
+class AceOptions(LearningOptions):
+    reflection_stage: str = field(metadata=TEXT)
+    curation_stage: str = field(metadata=TEXT)
+    curator_frequency: int = field(default=1, metadata={"minimum": 1})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -83,7 +87,7 @@ class AceSummary(Contract):
     revision: str = REVISION
 
 
-def validate_ace(recipe, options, registry):
+def validate_learning_protocol(recipe, options):
     require(recipe.subject is not None and recipe.execution is not None, "ACE requires subject/execution")
     require(recipe.subject.initial_artifact.codec == CODEC and
             dict(recipe.subject.input_types) == {"generation": "proteus.ace.generation_input@1"},
@@ -126,6 +130,16 @@ def validate_ace(recipe, options, registry):
         require(stream.purpose == "test" and stream.tasks == train.tasks,
                 "online ACE hidden stream and observed learning pool must have identical ordered tasks")
         require(stream.evaluator == train.evaluator, "online scoring and learning must use the same evaluator")
+    for actor in recipe.actors.values():
+        require(actor.session == SessionPolicy.FRESH, "ACE roles require fresh sessions")
+        if actor.runtime.plugin.name == "proteus.chat":
+            require((actor.model_settings.get("response_format") == {"type": "json_object"}) == options.json_mode,
+                    "ACE JSON parsing mode must match the chat response format")
+
+
+def validate_ace(recipe, options, registry):
+    validate_learning_protocol(recipe, options)
+    require(not recipe.workflows, "serial ACE does not consume workflow declarations")
     stages = {item.id: item for item in recipe.stages}
     require(options.reflection_stage != options.curation_stage and
             set(stages) == {options.reflection_stage, options.curation_stage}, "ACE stages differ or go unused")
@@ -135,11 +149,6 @@ def validate_ace(recipe, options, registry):
         require(dict(stage.input_types) == {"request": f"proteus.ace.{request}@1"} and
                 dict(stage.output_types) == {output: f"proteus.ace.{output}@1"}, "ACE stage port mismatch")
         require(stage.max_attempts == 1 and stage.failure_policy == "stop", "ACE roles stop on transport failures")
-    for actor in recipe.actors.values():
-        require(actor.session == SessionPolicy.FRESH, "ACE roles require fresh sessions")
-        if actor.runtime.plugin.name == "proteus.chat":
-            require((actor.model_settings.get("response_format") == {"type": "json_object"}) == options.json_mode,
-                    "ACE JSON parsing mode must match the chat response format")
 
 
 class AceMethod:

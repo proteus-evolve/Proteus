@@ -80,7 +80,7 @@ def register(registry):
     digest = implementation_hash({"example": Path(__file__)})
     registry.register(Plugin(ref=PluginRef(name="example.ace_offline", version="1"), kind="actor",
         options=OfflineOptions, factory=OfflineActor, source="proteus", implementation_hash=digest,
-        capabilities=("session.fresh", "actor.execute", "calls.bounded"), validate=validate_actor))
+        capabilities=("session.fresh", "actor.execute", "actor.parallel", "calls.bounded"), validate=validate_actor))
     registry.register(Plugin(ref=PluginRef(name="example.ace_exact", version="1"), kind="evaluator",
         options=EmptyOptions, factory=lambda options: ExactAnswer(), source="proteus", implementation_hash=digest,
         capabilities=("evaluator.deterministic",)))
