@@ -247,7 +247,8 @@ def _arm_report(root, entry, recipe, lock, dataset, reg):
         if protocol["evaluation"]["id"] != "test":
             continue
         require(protocol["evaluation"] == test.to_dict() and protocol["batch"] == expected.to_dict()
-                and protocol["execution"] == recipe.execution.to_dict(), "test evaluation protocol differs")
+                and protocol["execution"] == recipe.execution.to_dict() and protocol.get("inputs") == {},
+                "test evaluation protocol differs")
         stored_receipt = EvaluationReceipt.from_json((path.parent / "receipt.json").read_text())
         require(stored_receipt == receipt, "test receipt differs from the method result")
         batches.extend(EvaluationBatch.from_json(p.read_text()) for p in sorted((path.parent / "private/batches").glob("*.json")))
@@ -257,7 +258,8 @@ def _arm_report(root, entry, recipe, lock, dataset, reg):
             and batch.artifact_hash == candidate["artifact"]["content_hash"] and batch.evaluator == test.evaluator.plugin
             and batch.visibility == FeedbackVisibility.HIDDEN, "test candidate/evaluator identity differs")
     require(batch.protocol_hash == content_hash({"spec": test, "batch": expected,
-        "subject": recipe.subject, "execution": recipe.execution, "lock_hash": manifest.lock_hash}), "test protocol hash differs")
+        "subject": recipe.subject, "execution": recipe.execution, "lock_hash": manifest.lock_hash,
+        "inputs": {}}), "test protocol hash differs")
     require(tuple(row.task_id for row in batch.rows) == test.tasks.task_ids and batch.expected_rollout_ids == receipt.rollout_ids
             and receipt.candidate_ids == (candidate_id,) * len(expected.tasks), "test coverage/order differs")
     rollouts = {item["id"]: Rollout.from_dict(item) for item in records["rollouts"]}

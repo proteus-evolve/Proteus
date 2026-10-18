@@ -1,1 +1,1 @@
-"""ACE method components; the complete offline/online recipe is under development."""
+"""Opt-in ACE playbooks, managed roles and adapted offline/online recipes."""

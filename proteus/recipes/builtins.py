@@ -20,7 +20,7 @@ from proteus.core.search import ArchiveSnapshot, KeepAll, ParetoFront, ScalarBes
 from proteus.execution.actors import (
     AdapterOptions, ChatActor, ChatOptions, HarnessActor, HarnessOptions, validate_chat, validate_harness,
 )
-from proteus.evaluation.records import EvaluationReceipt, Feedback, Trace
+from proteus.evaluation.records import EvaluationReceipt, Feedback, Observation, Trace
 from proteus.evaluation.runners import (
     ExactMatch, LocalJsonEnvironment, PromptSubject, PromptSubjectOptions, PythonSubject,
     PythonSubjectOptions, validate_local, validate_prompt, validate_python,
@@ -74,7 +74,8 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.search.decision@1", SearchDecision)
     registry.register_data("proteus.eval.selection@1", TaskSelection)
     for kind, schema in (("task_batch", TaskBatch), ("state", StateValue), ("feedback", Feedback),
-                         ("trace", Trace), ("batch", EvaluationBatch), ("receipt", EvaluationReceipt)):
+                         ("trace", Trace), ("batch", EvaluationBatch), ("receipt", EvaluationReceipt),
+                         ("observation", Observation)):
         registry.register_data(f"proteus.eval.{kind}@1", schema)
 
     def add(name, kind, options, factory, *, capabilities=(), inputs=None, outputs=None, validate=None, state_schema=None):

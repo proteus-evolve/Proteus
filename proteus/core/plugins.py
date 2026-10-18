@@ -62,11 +62,12 @@ class Plugin:
         validated = PluginLock(plugin=self.ref, implementation_hash=self.implementation_hash, source=self.source,
                                capabilities=self.capabilities)
         object.__setattr__(self, "capabilities", validated.capabilities)
-        require(self.kind == "stage" or not (self.inputs or self.outputs),
-                "only stages declare data ports")
+        require(self.kind in {"stage", "subject"} or not self.inputs,
+                "only stages and subjects declare input ports")
+        require(self.kind == "stage" or not self.outputs, "only stages declare output ports")
         for ports in (self.inputs, self.outputs):
             require(all(type(name) is str and name.strip() and type(kind) is str and kind.strip()
-                        for name, kind in ports.items()), "stage ports and data kinds must be named")
+                        for name, kind in ports.items()), "data ports and kinds must be named")
         object.__setattr__(self, "inputs", MappingProxyType(dict(self.inputs)))
         object.__setattr__(self, "outputs", MappingProxyType(dict(self.outputs)))
 
@@ -159,7 +160,10 @@ class Registry:
             self.get(subject.initial_artifact.codec, "codec")
             if subject.initial_artifact.runtime is not None:
                 self.get(subject.initial_artifact.runtime)
-            subject = replace(subject, runner=resolve(subject.runner, "subject"))
+            subject_plugin = self.get(subject.runner.plugin, "subject")
+            require(not subject.input_types or dict(subject.input_types) == dict(subject_plugin.inputs),
+                    "subject inputs differ from registered ports")
+            subject = replace(subject, runner=resolve(subject.runner, "subject"), input_types=subject_plugin.inputs)
         tasks = recipe.tasks
         if tasks is not None:
             tasks = replace(tasks, suite=resolve(tasks.suite, "task_suite"))

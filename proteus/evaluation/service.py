@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Mapping
 from dataclasses import replace
+from types import MappingProxyType
 
 from proteus.artifacts.store import publish_bytes
 from proteus.core.contracts import (
@@ -77,12 +79,13 @@ def validate_evaluation_config(recipe, registry):
 
 
 def cache_key(*, candidate, task, batch, subject, actors, evaluation, execution, state, history,
-              position, seed, lock_hash, implementations):
+              position, seed, lock_hash, implementations, inputs=None):
     """An identity definition, not a cache hit/reuse policy. P03 always executes."""
     return content_hash({"artifact": candidate.artifact, "task": task, "dataset": batch.dataset_hash,
         "subject": subject, "actors": actors, "evaluation": evaluation, "execution": execution,
         "initial_state": batch.initial_state, "state": state, "history": history,
-        "position": position, "seed": seed, "lock_hash": lock_hash, "implementations": implementations})
+        "position": position, "seed": seed, "lock_hash": lock_hash, "implementations": implementations,
+        "inputs": inputs or {}})
 
 
 class EvaluationService:
@@ -121,14 +124,29 @@ class EvaluationService:
         return self.services._record("evaluation.pool", {"evaluation_id": evaluation_id}, load,
                                      decode=TaskBatch.from_dict)
 
-    def open(self, evaluation_id, *, operation_id=None, selection=None):
+    def open(self, evaluation_id, *, operation_id=None, selection=None, inputs=None):
+        inputs = {} if inputs is None else inputs
+        self.input_values(inputs)
+        inputs = dict(inputs)
         operation_id = operation_id or f"op-{len(self.services._operations) + 1:06d}"
         return self.services._record("evaluation.open", {"evaluation_id": evaluation_id,
-            "operation_id": operation_id, "selection": selection},
-            lambda: self._open(evaluation_id, operation_id=operation_id, selection=selection), encode=lambda session: session.operation_id,
+            "operation_id": operation_id, "selection": selection, "inputs": inputs},
+            lambda: self._open(evaluation_id, operation_id=operation_id, selection=selection, inputs=inputs), encode=lambda session: session.operation_id,
             decode=self.services.evaluation_session)
 
-    def _open(self, evaluation_id, *, operation_id, selection):
+    def input_values(self, inputs):
+        subject = self.services.recipe.subject
+        require(subject is not None, "evaluation requires a subject")
+        ports = self.services.registry.get(subject.runner.plugin, "subject").inputs
+        require(isinstance(inputs, Mapping) and set(inputs) == set(ports),
+                "evaluation inputs must match the subject's declared ports")
+        values = {}
+        for name, ref in inputs.items():
+            require(type(ref) is DataRef and ref.kind == ports[name], "subject input has the wrong data kind")
+            values[name] = self.services.values.get(ref)
+        return MappingProxyType(values)
+
+    def _open(self, evaluation_id, *, operation_id, selection, inputs):
         services = self.services
         require(threading.get_ident() == services._dispatch_thread, "evaluation requires serial service dispatch")
         require(not services.resume or services._journal is not None, "evaluation recovery requires the durable operation journal")
@@ -146,13 +164,13 @@ class EvaluationService:
             metadata={"kind": "evaluation_cohort", "operation_id": operation_id,
                       "attempt_id": "attempt-1", "stage": "evaluation", "role": "framework",
                       "trial_id": None, "worker_id": None},
-            request={"evaluation": spec, "batch": batch, "execution": execution}, reuse=recovering)
+            request={"evaluation": spec, "batch": batch, "execution": execution, "inputs": inputs}, reuse=recovering)
         if entry["state"] == "reserved":
             services.ledger.start(entry_id)
         elif entry["state"] != "started":
             raise RecoveryRequired(f"evaluation cohort {entry_id} already settled without a committed session")
         try:
-            session = EvaluationSession(self, spec, dataset, batch, operation_id, entry_id)
+            session = EvaluationSession(self, spec, dataset, batch, operation_id, entry_id, inputs)
         except BaseException as exc:
             services.ledger.settle(entry_id, actual=Amounts.zero(evaluations=len(batch.tasks)),
                 status="failed", result={"error": f"{type(exc).__name__}: {exc}"})
@@ -168,10 +186,11 @@ class EvaluationService:
 
 
 class EvaluationSession:
-    def __init__(self, owner, spec, dataset, batch, operation_id, entry_id):
+    def __init__(self, owner, spec, dataset, batch, operation_id, entry_id, inputs):
         self.owner, self.services, self.spec, self.batch = owner, owner.services, spec, batch
         self.operation_id = operation_id
         self.ledger_entry = entry_id
+        self.input_refs = MappingProxyType(dict(inputs))
         self.closed, self._running, self._sequence_failed = False, False, False
         self._observations, self._grades, self._grade_usage, self._trials = [], {}, {}, []
         self._backend_evaluations, self._backend_usage = {}, {}
@@ -186,16 +205,19 @@ class EvaluationSession:
                       canonical_json(dataset).encode("utf-8"))
         self._save("private/dataset-ref.json", {"dataset_hash": batch.dataset_hash})
         self._save("protocol.json", {"evaluation": spec, "batch": batch,
-            "execution": self.services.recipe.execution, "reserved_evaluations": len(batch.tasks)})
+            "execution": self.services.recipe.execution, "inputs": self.input_refs,
+            "reserved_evaluations": len(batch.tasks)})
         self.request = StageRequest(run_id=self.services.run_id, operation_id=operation_id, attempt_id="attempt-1",
             stage=PluginRef(name="proteus.evaluation", version="1"), role="framework",
-            inputs={"tasks": self._value("proteus.eval.task_batch@1", batch)},
-            read_scopes=("proteus.candidate@1", "proteus.eval.task_batch@1"),
+            inputs={"tasks": self._value("proteus.eval.task_batch@1", batch),
+                    **{"subject." + name: ref for name, ref in self.input_refs.items()}},
+            read_scopes=tuple(sorted({"proteus.candidate@1", "proteus.eval.task_batch@1",
+                                     *(ref.kind for ref in self.input_refs.values())})),
             write_scopes=("proteus.eval.receipt@1",), budget=self.services.recipe.budget)
         self.services.requests.append(self.request)
         self.protocol_hash = content_hash({"spec": spec, "batch": batch,
             "subject": self.services.recipe.subject, "execution": self.services.recipe.execution,
-            "lock_hash": self.services.lock_hash})
+            "lock_hash": self.services.lock_hash, "inputs": self.input_refs})
 
     def snapshot(self):
         return {"evaluation_id": self.spec.id, "operation_id": self.operation_id, "batch": self.batch,
@@ -205,11 +227,14 @@ class EvaluationSession:
             "backend_evaluations": {str(k): v for k, v in self._backend_evaluations.items()},
             "backend_usage": {str(k): v for k, v in self._backend_usage.items()}, "build_usage": self._build_usage,
             "updates": self._updates, "pending_usage": self._pending_usage, "pending_grade_usage": self._pending_grade_usage,
-            "state": self._state, "references": self._references, "request": self.request, "protocol_hash": self.protocol_hash}
+            "state": self._state, "references": self._references, "request": self.request, "protocol_hash": self.protocol_hash,
+            "inputs": self.input_refs}
 
     def restore(self, owner, record):
         self.owner, self.services = owner, owner.services
         self.operation_id, self.ledger_entry = record["operation_id"], record["ledger_entry"]
+        self.input_refs = MappingProxyType({name: DataRef.from_dict(ref) for name, ref in record["inputs"].items()})
+        owner.input_values(self.input_refs)
         self.spec = next(spec for spec in self.services.recipe.evaluations if spec.id == record["evaluation_id"])
         self.batch = TaskBatch.from_dict(record["batch"])
         self.closed, self._sequence_failed, self._running = record["closed"], record["sequence_failed"], False
@@ -297,6 +322,7 @@ class EvaluationSession:
         history = tuple(self._observations) if sequence else ()
         seed = int(content_hash([recipe.execution.seed, self.batch.seed, index, task.id]).split(":")[1][:15], 16)
         state_ref = self._value("proteus.eval.state@1", state)
+        invocation_inputs = self.owner.input_values(self.input_refs)
         self._pending_usage = Usage()
         started = time.monotonic()
         runtime_ref = recipe.actors[recipe.subject.actor].runtime.plugin if recipe.subject.actor else recipe.subject.runner.plugin
@@ -307,14 +333,14 @@ class EvaluationSession:
         subject_entry = self._reserve_dispatch("subject", index,
             request={"candidate": candidate, "task": task, "execution": recipe.execution,
                      "state": state, "history_hash": content_hash(history), "seed": seed,
-                     "delegates_usage_to_actor": managed},
+                     "delegates_usage_to_actor": managed, "inputs": self.input_refs},
             reservation=Amounts.zero() if managed else Amounts(model_calls=0 if model_free else None),
             slots=0 if managed else 1)
         verifier_entry = None
         if self._backend():
             try:
                 verifier_entry = self._reserve_dispatch("backend_verifier", index,
-                    request={"candidate": candidate, "task": task, "evaluation": self.spec},
+                    request={"candidate": candidate, "task": task, "evaluation": self.spec, "inputs": self.input_refs},
                     reservation=Amounts(), slots=0)
             except BaseException:
                 services.ledger.settle(subject_entry, actual=Amounts.zero(), status="cancelled")
@@ -330,7 +356,7 @@ class EvaluationSession:
                 if subject_record["state"] != "started" or "subject.reconcile" not in definition.capabilities:
                     raise RecoveryRequired(f"subject {subject_entry} has no settled execution result; reconcile before continuing")
                 context = SubjectRecoveryContext(candidate=candidate, task=task, state=state, history=history,
-                    seed=seed, execution=recipe.execution, subject=recipe.subject,
+                    seed=seed, execution=recipe.execution, subject=recipe.subject, inputs=invocation_inputs,
                     root=self.root / "trials" / f"{index:06d}")
                 try:
                     reconciled = services.registry.create(recipe.subject.runner, "subject").reconcile(context)
@@ -399,7 +425,8 @@ class EvaluationSession:
                             return services._actor(stage, self.request, prompt, None, None, isolate=True,
                                 trial_id=f"{self.operation_id}:rollout-{index + 1}")
                     context = SubjectContext(candidate=candidate, task=task, state=state, history=history,
-                        seed=seed, execution=recipe.execution, subject=recipe.subject, lease=lease, _actor=actor)
+                        seed=seed, execution=recipe.execution, subject=recipe.subject, lease=lease, _actor=actor,
+                        inputs=invocation_inputs)
                     # New runner instance per task prevents undeclared plugin-instance memory.
                     subject_dispatched = True
                     result = services.registry.create(recipe.subject.runner, "subject").run(context)
@@ -450,7 +477,8 @@ class EvaluationSession:
             operation_id=self.operation_id, attempt_id=self.request.attempt_id,
             candidate_id=candidate.id, artifact_hash=candidate.artifact.content_hash,
             task_id=task.id, task_version=task.version, split=task.split,
-            execution_hash=content_hash(recipe.execution), runtime=result.runtime, status=result.status,
+            execution_hash=content_hash({"execution": recipe.execution, "inputs": self.input_refs})
+                if self.input_refs else content_hash(recipe.execution), runtime=result.runtime, status=result.status,
             usage=usage, output=result.output,
             trace=(self._value("proteus.eval.trace@1", result.trace),),
             sequence_id=self.operation_id if sequence else None, step=index if sequence else None,
@@ -460,9 +488,10 @@ class EvaluationSession:
                            for ref in recipe.plugin_refs()}
         key = cache_key(candidate=candidate, task=task, batch=self.batch, subject=recipe.subject,
             actors=recipe.actors, evaluation=self.spec, execution=recipe.execution, state=state,
-            history=history, position=index, seed=seed, lock_hash=services.lock_hash, implementations=implementations)
+            history=history, position=index, seed=seed, lock_hash=services.lock_hash, implementations=implementations,
+            inputs=self.input_refs)
         trial = TrialRecord(rollout=rollout, cache_key=key, task_hash=content_hash(task),
-                            history_hash=content_hash(history), task_seed=seed)
+                            history_hash=content_hash(history), task_seed=seed, inputs=self.input_refs)
         self._save(f"predictions/{index:06d}.json", trial)
         if sequence:
             self._state = after

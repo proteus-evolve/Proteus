@@ -100,6 +100,7 @@ class TrialRecord(Contract):
     task_hash: str = field(metadata=DIGEST)
     history_hash: str = field(metadata=DIGEST)
     task_seed: int
+    inputs: Mapping[str, DataRef] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -503,11 +503,11 @@ class RunServices:
         from proteus.core.search import SearchService
         return SearchService(self).choose("final", policy, view, operation_id=operation_id)
 
-    def open_evaluation(self, evaluation_id: str, *, operation_id: str | None = None, selection=None):
-        return self._evaluation_service.open(evaluation_id, operation_id=operation_id, selection=selection)
+    def open_evaluation(self, evaluation_id: str, *, operation_id: str | None = None, selection=None, inputs=None):
+        return self._evaluation_service.open(evaluation_id, operation_id=operation_id, selection=selection, inputs=inputs)
 
-    def evaluate(self, candidate: Candidate, evaluation_id: str, *, operation_id: str | None = None, selection=None):
-        session = self.open_evaluation(evaluation_id, operation_id=operation_id, selection=selection)
+    def evaluate(self, candidate: Candidate, evaluation_id: str, *, operation_id: str | None = None, selection=None, inputs=None):
+        session = self.open_evaluation(evaluation_id, operation_id=operation_id, selection=selection, inputs=inputs)
         try:
             for _ in session.batch.tasks:
                 session.step(candidate)
