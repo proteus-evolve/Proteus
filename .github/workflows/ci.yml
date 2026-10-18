@@ -297,3 +297,10 @@ jobs:
           /tmp/proteus-sdist/bin/python check_combee_gepa_package.py --workers 3
           /tmp/proteus-sdist/bin/python check_dynamic_batch_package.py gepa
           /tmp/proteus-sdist/bin/python check_recipe_catalog.py --gepa
+      - name: Installed DSH usage works with the optional decoder outside the checkout
+        run: |
+          for distribution in wheel sdist; do
+            /tmp/proteus-$distribution/bin/pip install --disable-pip-version-check 'zstandard==0.25.0'
+            cp tests/check_native_dsh_package.py /tmp/proteus-$distribution-out/check_native_dsh_package.py
+            (cd /tmp/proteus-$distribution-out && /tmp/proteus-$distribution/bin/python check_native_dsh_package.py)
+          done

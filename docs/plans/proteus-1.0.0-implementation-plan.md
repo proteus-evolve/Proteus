@@ -99,6 +99,8 @@ P10m 开发中：将已验证的 Codex JSON stream parser 复用于 native fresh
 
 P10n 开发中：Pi native 调用按 attempt 固化新增 v3 session 的原始日志 bundle，汇总 assistant、带用量的 tool result、compaction 与 branch summary；缓存输入只计一次，缺失值及 SDK 无法区分的默认零值保持 unknown。旧 session 被改写、继承历史、截断、异常退出与重复 session identity 不得形成完整用量声明。已用固定上游 TypeScript 汇总函数核对四组正 token 样本；安装包检查使用确定性 transport，尚未宣称真实 Pi CLI/provider 用量验收。DSH/Aki、native evaluator 完整覆盖、有限成本约束与真实模型实验仍待完成，I09 未完成项保持不变。
 
+P10o 开发中：DSH native 固化新增压缩 session，严格验证完整 zstd frame 与打包事件序列；按 turn/step 用最终回执替换流式样本，按 fork seed 边界排除继承历史，并纳入独立摘要用量。失败重试、缺少回执的标题/搜索请求及摘要用量缺口保留 unknown，不把主循环汇总当作完整 harness 消耗。固定上游纯函数核对、adapter 到私有证据/导出的验证正在完成；真实 DSH CLI/provider、Aki、native evaluator 和有限成本约束仍待验收。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
