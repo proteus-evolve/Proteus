@@ -28,6 +28,7 @@ from typing import Optional, Sequence
 from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.core.budget import budget_plan, phase_prompt
+from proteus.core.native_inputs import native_input
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -281,18 +282,22 @@ class PiHarness:
 
             timed_out = False
             try:
-                proc = self.sandbox.run(
-                    run_root,
-                    ["--provider", self.provider, "--model", spec.model or self.model,
-                     "--session-dir", "/state", "--skill", "/workspace/skills",
-                     "-p", phase_prompt(spec, phase, used)],
-                    env={"DEEPSEEK_API_KEY": self.key},
-                    timeout_s=self.phase_timeout_s,
-                    mounts=workspace_mounts + ((str(state), "/state"),
-                            (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root, spec.readonly_task_paths),
-                    stop_check=stop_check if plan.enabled else None,
-                )
+                command = ["--provider", self.provider, "--model", spec.model or self.model,
+                           "--session-dir", "/state", "--skill", "/workspace/skills",
+                           "-p", phase_prompt(spec, phase, used)]
+                with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
+                                  payload=command, model=spec.model or self.model) as receipt:
+                    proc = self.sandbox.run(
+                        run_root,
+                        command,
+                        env={"DEEPSEEK_API_KEY": self.key},
+                        timeout_s=self.phase_timeout_s,
+                        mounts=workspace_mounts + ((str(state), "/state"),
+                                (str(handoffs.root), CONTAINER_ROOT))
+                               + self._task_mount(run_root, spec.readonly_task_paths),
+                        stop_check=stop_check if plan.enabled else None,
+                    )
+                    receipt["returncode"] = proc.returncode
             except subprocess.TimeoutExpired:
                 timed_out = True
                 proc = None

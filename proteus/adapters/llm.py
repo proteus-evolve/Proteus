@@ -28,6 +28,7 @@ from pathlib import Path
 from proteus.adapters.minimal import MinimalHarness
 from proteus.core.adapter import EpisodeResult, EpisodeSpec
 from proteus.core.budget import budget_plan, phase_prompt
+from proteus.core.native_inputs import native_input
 
 SYSTEM = """\
 You are an agent that can inspect and change its own harness — the set of files it wakes up
@@ -58,11 +59,14 @@ def _render_state(harness: Path) -> str:
     return text[:STATE_CHARS]
 
 
+def _chat_body(model, messages):
+    return {"model": model, "messages": messages, "temperature": 0.7, "max_tokens": 1200}
+
+
 def _chat(base_url: str, key: str, model: str, messages: list[dict]) -> str:
     req = urllib.request.Request(
         f"{base_url.rstrip('/')}/chat/completions",
-        data=json.dumps({"model": model, "messages": messages,
-                         "temperature": 0.7, "max_tokens": 1200}).encode(),
+        data=json.dumps(_chat_body(model, messages)).encode(),
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
         method="POST",
     )
@@ -136,9 +140,10 @@ class LLMHarness(MinimalHarness):
                 user = (f"Episode {spec.episode}, phase: {phase}.\n\n"
                         f"{prompt}\n\nCurrent harness state:\n{_render_state(harness)}")
                 try:
-                    reply, usage = _chat(self.base_url, self.key, model,
-                                         [{"role": "system", "content": SYSTEM},
-                                          {"role": "user", "content": user}])
+                    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
+                    with native_input(spec, backend=self.name, phase=phase, scope='chat_request',
+                                      payload=_chat_body(model, messages), model=model):
+                        reply, usage = _chat(self.base_url, self.key, model, messages)
                 except Exception as exc:  # noqa: BLE001 - recorded, episode marked failed
                     error = f"{type(exc).__name__}: {exc}"
                     break

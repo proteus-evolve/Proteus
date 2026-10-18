@@ -316,6 +316,8 @@ def test_native_recipe_matches_legacy_execution_and_resume(tmp_path):
     assert native["episodes_complete"] == legacy.episodes_complete == 2
     assert native["counters"] == legacy.counters
     assert [row["results"] for row in native["eval_history"]] == [row["results"] for row in legacy.eval_history]
+    assert len(records["native_inputs"]) == 8
+    assert all(row["completion"] == "returned" for row in records["native_inputs"])
     assert len(records["native_prompts"]) == 2
     assert "Proteus epistemic protocol" in records["native_prompts"][0]["prompts"]["act"]
     assert "Feedback on your last episode" in records["native_prompts"][1]["prompts"]["act"]
@@ -323,6 +325,7 @@ def test_native_recipe_matches_legacy_execution_and_resume(tmp_path):
     resumed = run(recipe, registry, root, resume=True)
     assert resumed.status == OperationStatus.COMPLETED
     assert execution(root, 2)["native_prompts"] == []
+    assert execution(root, 2)["native_inputs"] == records["native_inputs"]
     assert (root / "execution-0001.json").read_bytes() == before
     with pytest.raises(ContractError, match="resolved recipe"):
         run(replace(recipe, seed=1), registry, root, resume=True)

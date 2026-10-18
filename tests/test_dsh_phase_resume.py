@@ -83,6 +83,11 @@ def test_native_phase_resume_skips_prefix_and_charges_old_calls(tmp_path):
     assert result.counters["phase_act_turns"] == 8
     assert [row[:2] for row in calls] == [("act", 11), ("reflect", 120)]
     assert adapter.phase_resume is None
+    from proteus.core.native_inputs import read_native_inputs
+    inputs = read_native_inputs(tmp_path)
+    assert [row['input']['phase'] for row in inputs] == ['act', 'reflect']
+    assert [row['input']['payload'][-1] for row in inputs] == [row[2] for row in calls]
+    assert all(row['outcome']['returncode'] == 137 for row in inputs)
     updated = json.loads((tmp_path / "traces/ep001.json").read_text())
     assert len(updated["act"]) == 2 and updated["observe"] == recovery.mapping["observe"]
     archive = list((tmp_path / "traces").glob("ep001.attempt-*.json"))

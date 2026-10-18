@@ -20,6 +20,7 @@ from typing import Callable, Optional, Sequence, Tuple
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.budget import budget_plan, phase_prompt
+from proteus.core.native_inputs import native_input
 from proteus.core.disposition import Disposition
 
 # A policy maps (phase, prompt, episode, rng) -> list of (tool, surface, text) actions.
@@ -106,24 +107,26 @@ class MinimalHarness:
                     break
                 stop_at = plan.stop_at(phase, turn)
                 prompt = phase_prompt(spec, phase, turn)
-                for tool, surface, text in self.policy(phase, prompt, spec.episode, rng):
-                    if plan.enabled and turn >= stop_at:
-                        capped = turn >= plan.hard_limit
-                        break
-                    turn += 1
-                    phase_counts[phase] += 1
-                    if tool == "write_note":
-                        (harness / "notes" / f"{text}.md").write_text(
-                            f"episode {spec.episode}: {text}\n")
-                        writes["notes"] += 1
-                    elif tool == "write_tool":
-                        (harness / "tools" / f"{text}.py").write_text(
-                            f"# episode {spec.episode}\ndef {text}():\n    return {spec.episode}\n")
-                        writes["tools"] += 1
-                    sink.write(json.dumps({
-                        "turn": turn, "phase": phase, "tool": tool,
-                        "surface": surface, "text": text,
-                    }) + "\n")
+                with native_input(spec, backend=self.name, phase=phase, scope='policy_prompt',
+                                  payload=prompt, model=spec.model):
+                    for tool, surface, text in self.policy(phase, prompt, spec.episode, rng):
+                        if plan.enabled and turn >= stop_at:
+                            capped = turn >= plan.hard_limit
+                            break
+                        turn += 1
+                        phase_counts[phase] += 1
+                        if tool == "write_note":
+                            (harness / "notes" / f"{text}.md").write_text(
+                                f"episode {spec.episode}: {text}\n")
+                            writes["notes"] += 1
+                        elif tool == "write_tool":
+                            (harness / "tools" / f"{text}.py").write_text(
+                                f"# episode {spec.episode}\ndef {text}():\n    return {spec.episode}\n")
+                            writes["tools"] += 1
+                        sink.write(json.dumps({
+                            "turn": turn, "phase": phase, "tool": tool,
+                            "surface": surface, "text": text,
+                        }) + "\n")
         counters = {"writes": writes, "turn_capped": capped}
         counters.update({f"phase_{phase}_turns": count
                          for phase, count in phase_counts.items()})
