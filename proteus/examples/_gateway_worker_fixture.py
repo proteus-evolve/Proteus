@@ -1,6 +1,7 @@
 """Offline stdlib worker: submit exact code bytes, then await released feedback."""
 
 import base64
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -23,7 +24,7 @@ def request(path, body=None):
         except urllib.error.HTTPError as exc:
             if exc.code != 503:
                 raise
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
+        except (urllib.error.URLError, TimeoutError, ConnectionError, IncompleteRead):
             pass
         time.sleep(0.05)
     raise TimeoutError("gateway did not become available")

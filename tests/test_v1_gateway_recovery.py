@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import subprocess
 import sys
@@ -15,6 +16,50 @@ from proteus.gateway.records import GatewayResult
 from proteus.recipes.runner import run_recipe
 from test_v1_gateway import setup, services, submission
 from test_v1_ledger import run_ledger
+
+
+@pytest.mark.parametrize('reader', ['fixture', 'fixture_post', 'client'])
+def test_worker_retries_a_truncated_response_after_controller_exit(monkeypatch, reader):
+    from proteus.examples import _gateway_worker_fixture
+    from proteus.gateway.client import GatewayClient
+    calls = []
+    posts = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def do_GET(self):
+            calls.append(self.path)
+            body = b'{"status":"completed"}'
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body[:5] if len(calls) == 1 else body)
+            self.wfile.flush()
+            self.close_connection = True
+
+        def do_POST(self):
+            posts.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
+            self.do_GET()
+
+    server = HTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .01})
+    thread.start()
+    url = f'http://127.0.0.1:{server.server_port}'
+    monkeypatch.setenv('PROTEUS_EVALUATION_URL', url)
+    monkeypatch.setenv('PROTEUS_EVALUATION_TOKEN', 'offline-test')
+    try:
+        path = '/v1/submissions' if reader == 'fixture_post' else '/v1/submissions/ticket'
+        body = {'operation_id': 'same-operation', 'files': []} if reader == 'fixture_post' else None
+        value = (_gateway_worker_fixture.request(path, body) if reader.startswith('fixture')
+                 else GatewayClient(url, 'offline-test').wait('ticket', timeout=5))
+        assert value == {'status': 'completed'} and calls == [path] * 2
+        assert posts == ([body, body] if body is not None else [])
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 WORKER = r'''
@@ -61,7 +106,8 @@ def test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attem
                              text=True, capture_output=True, timeout=35)
     assert stopped.returncode == 86, stopped.stdout + stopped.stderr
     result = run_recipe(recipe, registry=registry, lock=lock, root=tmp_path/'run', resume=True)
-    assert result.status.value == 'completed', result.diagnostic
+    diagnostics = '\n'.join(path.read_text()[-2000:] for path in (tmp_path/'run/private/workers').rglob('stderr.log'))
+    assert result.status.value == 'completed', (result.diagnostic, diagnostics)
     current = services(tmp_path, recipe, registry, lock)
     records = json.loads((tmp_path/'run/execution-0001.json').read_text())
     assert len(records['rollouts']) == 5
