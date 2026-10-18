@@ -131,9 +131,9 @@ def inspect_environment(environment):
             "mount_destinations": sorted(m["Destination"] for m in row["Mounts"])}
 
 
-async def checked_environment(request, environment, mounts):
+async def checked_environment(request, environment, mounts, *, image=None):
     actual = await asyncio.to_thread(inspect_environment, environment)
-    expected_image = json.loads(await asyncio.to_thread(docker, "image", "inspect", request["image_digest"]))[0]["Id"]
+    expected_image = json.loads(await asyncio.to_thread(docker, "image", "inspect", image or request["image_digest"]))[0]["Id"]
     if actual["image_id"] != expected_image:
         raise ValueError("container image differs from the pinned image")
     resources = request["resources"]
@@ -150,7 +150,7 @@ async def checked_environment(request, environment, mounts):
 VERIFY_TREE = r'''
 import base64, hashlib, json, os, stat, sys
 from pathlib import Path
-ref=json.loads(base64.b64decode(sys.argv[1])); root=Path('/opt/proteus/candidate')
+ref=json.loads(base64.b64decode(sys.argv[1])); root=Path(sys.argv[2])
 actual=[]
 for p in sorted(root.rglob('*')):
     mode=p.lstat().st_mode
@@ -188,17 +188,22 @@ def candidate_agent_class():
             self.execution = None
 
         async def setup(self, environment):
-            await environment.upload_dir(source_dir=Path(self.request["candidate_dir"]),
-                                         target_dir="/opt/proteus/candidate")
+            built = self.request["build_receipt"] is not None
+            if not built:
+                await environment.upload_dir(source_dir=Path(self.request["candidate_dir"]),
+                                             target_dir="/opt/proteus/candidate")
+            source_root = "/opt/proteus/source" if built else "/opt/proteus/candidate"
             encoded = base64.b64encode(canonical(self.request["artifact"]).encode()).decode()
-            result = await environment.exec(shlex.join(["python3", "-c", VERIFY_TREE, encoded]), timeout_sec=30)
+            result = await environment.exec(shlex.join(["python3", "-I", "-c", VERIFY_TREE, encoded, source_root]), timeout_sec=30)
             if result.return_code:
                 raise ValueError("container candidate verification failed")
             proof = json.loads(result.stdout)
-            actual_environment = await checked_environment(self.request, environment, {"/logs/agent", "/logs/artifacts"})
+            actual_environment = await checked_environment(self.request, environment,
+                {"/logs/agent", "/logs/artifacts"}, image=self.request["agent_image"])
             self.loaded_proof = {**proof, **actual_environment,
                 "candidate_id": self.request["candidate_id"], "task_hash": self.request["task_hash"],
-                "requested_image": self.request["image_digest"]}
+                "requested_image": self.request["agent_image"],
+                "build_receipt_hash": digest(self.request["build_receipt"]) if built else None}
             write_json(self.logs_dir / "proteus-loaded.json", self.loaded_proof)
 
         async def run(self, instruction, environment, context):
@@ -207,9 +212,10 @@ def candidate_agent_class():
             input_path = self.logs_dir / "proteus-input.json"
             write_json(input_path, payload)
             await environment.upload_file(source_path=input_path, target_path="/opt/proteus/input.json")
-            command = shlex.join(["python3", "/opt/proteus/candidate/" + self.request["entrypoint"],
+            execution_root = "/opt/proteus/build" if self.request["build_receipt"] else "/opt/proteus/candidate"
+            command = shlex.join(["python3", execution_root + "/" + self.request["entrypoint"],
                                   *self.request["arguments"]]) + " < /opt/proteus/input.json"
-            result = await environment.exec(command, cwd="/opt/proteus/candidate",
+            result = await environment.exec(command, cwd=execution_root,
                 env={key: os.environ[key] for key in self.request["credential_env"]})
             self.execution = {"stdout": result.stdout or "", "stderr": result.stderr or "",
                               "return_code": result.return_code}
@@ -232,6 +238,16 @@ async def run(request, output):
     if identity["runtime_hash"] != request["runtime_hash"]:
         raise ValueError("Harbor runtime fingerprint changed")
     class PrivateVerifierTrial(SingleStepTrial):
+        def _init_agent_environment(self):
+            # Bind only the agent environment to the candidate build. The task
+            # retains its original image for checksum and separate verifier.
+            original = self.task.config.environment
+            try:
+                self.task.config.environment = original.model_copy(update={"docker_image": request["agent_image"]})
+                super()._init_agent_environment()
+            finally:
+                self.task.config.environment = original
+
         @property
         def _agent_env_mounts(self):
             # Harbor 0.24.0 also mounts verifier logs into separate-mode agents.

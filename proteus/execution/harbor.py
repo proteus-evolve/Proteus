@@ -19,6 +19,7 @@ from proteus.core.contracts import DIGEST, TEXT, ArtifactComponent, Outcome, Run
 from proteus.core.serialization import Contract, canonical_json, content_hash, read_json
 from proteus.evaluation.records import BackendEvaluation, Feedback, Grade, SubjectResult, Trace, zero_usage
 from proteus.evaluation.runners import EnvironmentLease, PythonReply
+from proteus.execution.builds import BuildReceipt, SourceBuildSpec, image_pin
 from proteus.execution.harbor_worker import cleanup_owned_resources
 
 
@@ -32,6 +33,7 @@ class HarborEnvironmentOptions(Contract):
     runtime_hash: str = field(metadata=DIGEST)
     setup_timeout_seconds: float = field(default=120, metadata={"exclusiveMinimum": 0})
     bridge_timeout_seconds: float = field(default=600, metadata={"exclusiveMinimum": 0})
+    source_build: SourceBuildSpec | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -65,7 +67,10 @@ def validate_environment(execution, options):
     require(Path(options.python).is_absolute(), "Harbor Python must be an explicit absolute path")
     require(env.provider == "docker" and env.image_digest is not None,
             "Harbor bridge requires Docker and an immutable image_digest")
-    require(env.build_hash is None, "Harbor build recipes require the subsequent source-build binding")
+    require(env.build_hash == (content_hash(options.source_build) if options.source_build else None),
+            "source build differs from the environment build_hash")
+    if options.source_build is not None:
+        image_pin(env.image_digest)
     require(execution.state_policy == StatePolicy.INDEPENDENT,
             "this Harbor adapter currently implements independent trials")
     require(execution.timeout_seconds is not None, "Harbor subjects require an explicit execution timeout")
@@ -96,6 +101,7 @@ class HarborLease:
     root: Path
     store: ArtifactStore
     options: HarborEnvironmentOptions
+    build: BuildReceipt | None = None
 
 
 class HarborEnvironment:
@@ -103,12 +109,16 @@ class HarborEnvironment:
         self.options = options
 
     @contextmanager
-    def open(self, artifact, store, root, execution):
+    def open(self, artifact, store, root, execution, *, build=None):
         identity = identify_runtime(self.options.python)
         require(identity["runtime_hash"] == self.options.runtime_hash, "Harbor runtime fingerprint changed")
         candidate = store.materialize(artifact, root / "candidate")
+        receipt = None
+        if self.options.source_build is not None:
+            require(callable(build), "source builds require the managed build service")
+            receipt = build(artifact, self.options.source_build, execution.environment.image_digest)
         yield EnvironmentLease(loaded_artifact_hash=artifact.content_hash, local_root=candidate,
-                               handle=HarborLease(root, store, self.options))
+                               handle=HarborLease(root, store, self.options, receipt))
 
 
 def _duration(value):
@@ -210,7 +220,7 @@ class HarborSubject:
         # Empty environment directories are not part of the content manifest.
         (task_root / "environment").mkdir(exist_ok=True)
         _task_config(task_root, context.execution)
-        require(self.options.entrypoint in {c.path for c in context.candidate.artifact.components},
+        require(lease.build is not None or self.options.entrypoint in {c.path for c in context.candidate.artifact.components},
                 "Harbor candidate entrypoint is missing")
         require(all(key in os.environ for key in self.options.credential_env), "missing subject credential environment")
         trial_name = "proteus-" + uuid.uuid4().hex
@@ -224,6 +234,8 @@ class HarborSubject:
             "timeout_seconds": context.execution.timeout_seconds,
             "setup_timeout_seconds": lease.options.setup_timeout_seconds,
             "image_digest": context.execution.environment.image_digest,
+            "agent_image": lease.build.image_id if lease.build else context.execution.environment.image_digest,
+            "build_receipt": lease.build,
             "resources": context.execution.environment.resources}
         request_path, response_path = private / "request.json", private / "response.json"
         publish_bytes(request_path, canonical_json(request).encode())
@@ -279,6 +291,11 @@ class HarborSubject:
             require(proof["loaded_artifact_hash"] == context.candidate.artifact.content_hash
                     and proof["candidate_id"] == context.candidate.id and proof["task_hash"] == content_hash(context.task),
                     "Harbor loaded a different candidate/task")
+            require(proof["requested_image"] == request["agent_image"]
+                    and proof["build_receipt_hash"] == (content_hash(lease.build) if lease.build else None),
+                    "Harbor build/image binding changed")
+            if lease.build:
+                require(proof["image_id"] == lease.build.image_id, "Harbor did not execute the built image")
             resources = context.execution.environment.resources
             require(("cpus" not in resources or proof["nano_cpus"] == resources["cpus"] * 10**9)
                     and ("memory_mb" not in resources or proof["memory_bytes"] == resources["memory_mb"] * 1024**2),

@@ -139,6 +139,7 @@ class EvaluationSession:
         self.closed, self._running, self._sequence_failed = False, False, False
         self._observations, self._grades, self._grade_usage, self._trials = [], {}, {}, []
         self._backend_evaluations, self._backend_usage = {}, {}
+        self._build_usage = []
         self._updates = []
         self._pending_usage = self._pending_grade_usage = None
         self._state = batch.initial_state
@@ -246,6 +247,18 @@ class EvaluationSession:
             services.ledger.start(verifier_entry)
         result = None
         rejected_result = None
+        subject_dispatched = False
+        build_elapsed = 0.0
+        def build(artifact, spec, base_image):
+            nonlocal build_elapsed
+            first = len(services.builds.records)
+            before = time.monotonic()
+            try:
+                return services.builds.execute(artifact, spec, base_image, operation_id=self.operation_id,
+                    attempt_id=self.request.attempt_id, trial_id=f"{self.operation_id}:rollout-{index + 1}")
+            finally:
+                build_elapsed += time.monotonic() - before
+                self._build_usage.extend(record.usage for record in services.builds.records[first:])
         try:
             if self._sequence_failed:
                 result = SubjectResult(loaded_artifact_hash=candidate.artifact.content_hash, runtime=runtime,
@@ -263,8 +276,10 @@ class EvaluationSession:
                     diagnostic="candidate is bound to a different runtime/environment")
             else:
                 environment = services.registry.create(recipe.execution.environment.backend, "environment")
+                options = {"build": build} if "environment.source_build" in services.registry.get(
+                    recipe.execution.environment.backend.plugin).capabilities else {}
                 with environment.open(candidate.artifact, services.artifacts,
-                        self.root / "trials" / f"{index:06d}", recipe.execution) as lease:
+                        self.root / "trials" / f"{index:06d}", recipe.execution, **options) as lease:
                     require(isinstance(lease, EnvironmentLease)
                             and lease.loaded_artifact_hash == candidate.artifact.content_hash,
                             "environment loaded a different candidate")
@@ -277,6 +292,7 @@ class EvaluationSession:
                     context = SubjectContext(candidate=candidate, task=task, state=state, history=history,
                         seed=seed, execution=recipe.execution, subject=recipe.subject, lease=lease, _actor=actor)
                     # New runner instance per task prevents undeclared plugin-instance memory.
+                    subject_dispatched = True
                     result = services.registry.create(recipe.subject.runner, "subject").run(context)
                 require(type(result) is SubjectResult, "subject must return SubjectResult")
                 require(result.loaded_artifact_hash == candidate.artifact.content_hash,
@@ -301,16 +317,19 @@ class EvaluationSession:
                     require(result.usage.model_calls == 0, "model-free subject reported nonzero/unknown model calls")
         except Exception as exc:
             rejected_result = result if type(result) is SubjectResult else None
+            fallback_usage = Usage() if subject_dispatched else zero_usage()
             usage = services._usage(first_actor) if len(services.actor_calls) > first_actor else (
-                result.usage if type(result) is SubjectResult else Usage())
+                result.usage if type(result) is SubjectResult else fallback_usage)
             result = SubjectResult(loaded_artifact_hash=candidate.artifact.content_hash, runtime=runtime,
                 status=Outcome.INVALID_CANDIDATE if isinstance(exc, InvalidCandidate) else Outcome.INFRA_ERROR,
                 state=state, usage=usage,
                 diagnostic=f"{type(exc).__name__}: {exc}")
         finally:
             if type(result) is SubjectResult and result.backend_evaluation is None:
-                result = replace(result, usage=replace(result.usage, wall_seconds=time.monotonic() - started))
-            observed = result.usage if type(result) is SubjectResult else Usage()
+                result = replace(result, usage=replace(result.usage,
+                    wall_seconds=max(0, time.monotonic() - started - build_elapsed)))
+            fallback_usage = Usage() if subject_dispatched else zero_usage()
+            observed = result.usage if type(result) is SubjectResult else fallback_usage
             self._pending_usage = observed
             services.ledger.settle(subject_entry, actual=Amounts.zero() if managed else Amounts.from_usage(observed),
                 status="completed" if type(result) is SubjectResult and result.status in VALID else "failed",
@@ -320,7 +339,7 @@ class EvaluationSession:
             if verifier_entry is not None:
                 evidence_result = rejected_result or result
                 backend = evidence_result.backend_evaluation if type(evidence_result) is SubjectResult else None
-                self._backend_usage[index] = backend.usage if backend else Usage()
+                self._backend_usage[index] = backend.usage if backend else fallback_usage
                 services.ledger.settle(verifier_entry, actual=Amounts.from_usage(self._backend_usage[index]),
                     status="completed" if backend and rejected_result is None else "failed",
                     result={"backend_evidence": backend})
@@ -466,7 +485,8 @@ class EvaluationSession:
         self.services.evaluations.extend(batches)
         self.services.results.append(StageResult(run_id=self.services.run_id, operation_id=self.operation_id,
             attempt_id=self.request.attempt_id, status=OperationStatus.COMPLETED, outputs={"evaluation": ref},
-            usage=sum_usage([*(item.rollout.usage for item in self._observations), *self._grade_usage.values()])))
+            usage=sum_usage([*(item.rollout.usage for item in self._observations),
+                             *self._grade_usage.values(), *self._build_usage])))
         self.closed = True
         return receipt
 
@@ -479,7 +499,8 @@ class EvaluationSession:
         pending.extend(usage for index, usage in self._backend_usage.items() if index not in self._grade_usage)
         self.services.results.append(StageResult(run_id=self.services.run_id, operation_id=self.operation_id,
             attempt_id=self.request.attempt_id, status=OperationStatus.FAILED,
-            usage=sum_usage([*(item.rollout.usage for item in self._observations), *self._grade_usage.values(), *pending]),
+            usage=sum_usage([*(item.rollout.usage for item in self._observations),
+                             *self._grade_usage.values(), *self._build_usage, *pending]),
             diagnostic=reason))
         self._save("incomplete.json", {"reason": reason, "completed_predictions": len(self._observations),
                                        "expected_predictions": len(self.batch.tasks)})

@@ -78,10 +78,10 @@ def test_container_witness_checks_bytes_deletions_and_executable_bits(tmp_path):
     artifact = store.put(PluginRef(name="proteus.file_tree", version="1"), {
         "main.py": FileContent(b"print(42)\n", executable=True)})
     candidate = store.materialize(artifact, tmp_path / "candidate")
-    code = harbor_worker.VERIFY_TREE.replace("Path('/opt/proteus/candidate')", "Path(" + repr(str(candidate)) + ")")
+    code = harbor_worker.VERIFY_TREE
     encoded = base64.b64encode(canonical_json(artifact).encode()).decode()
     def check():
-        return subprocess.run([sys.executable, "-c", code, encoded], capture_output=True, text=True)
+        return subprocess.run([sys.executable, "-c", code, encoded, str(candidate)], capture_output=True, text=True)
     result = check()
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["loaded_artifact_hash"] == artifact.content_hash
