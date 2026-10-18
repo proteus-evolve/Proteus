@@ -19,12 +19,13 @@ from proteus.core.contracts import (
 )
 from proteus.core.serialization import canonical_json, content_hash
 from proteus.core.ledger import Amounts
+from proteus.core.recovery import RecoveryRequired
 from proteus.evaluation.records import (
-    EvaluationReceipt, Grade, Observation, StateUpdate, SubjectResult, TrialRecord,
+    BackendEvaluation, EvaluationReceipt, Grade, Observation, StateUpdate, SubjectResult, TrialRecord,
     sum_usage, zero_usage,
 )
 from proteus.evaluation.runners import EnvironmentLease, InvalidCandidate, SubjectContext
-from proteus.evaluation.tasks import StateValue, make_batch
+from proteus.evaluation.tasks import StateValue, TaskBatch, make_batch
 from proteus.recipes.config import StageSpec
 
 
@@ -87,6 +88,17 @@ class EvaluationService:
         self.services = services
         self.sessions = []
 
+    def snapshot(self):
+        return [session.snapshot() for session in self.sessions]
+
+    def restore(self, records):
+        old = {session.operation_id: session for session in self.sessions}
+        self.sessions = []
+        for record in records:
+            session = old.get(record["operation_id"]) or object.__new__(EvaluationSession)
+            session.restore(self, record)
+            self.sessions.append(session)
+
     @property
     def reserved(self):
         if self.services._ledger is None and not (self.services.root / "private/ledger.sqlite3").exists():
@@ -94,9 +106,15 @@ class EvaluationService:
         return self.services.ledger.balance()["charged"]["evaluations"]
 
     def open(self, evaluation_id, *, operation_id=None):
+        operation_id = operation_id or f"op-{len(self.services._operations) + 1:06d}"
+        return self.services._record("evaluation.open", {"evaluation_id": evaluation_id, "operation_id": operation_id},
+            lambda: self._open(evaluation_id, operation_id=operation_id), encode=lambda session: session.operation_id,
+            decode=self.services.evaluation_session)
+
+    def _open(self, evaluation_id, *, operation_id):
         services = self.services
         require(threading.get_ident() == services._dispatch_thread, "evaluation requires serial service dispatch")
-        require(not services.resume, "evaluation recovery requires the durable P04 operation ledger")
+        require(not services.resume or services._journal is not None, "evaluation recovery requires the durable operation journal")
         validate_evaluation_config(services.recipe, services.registry)
         spec = next((spec for spec in services.recipe.evaluations if spec.id == evaluation_id), None)
         require(spec is not None, f"unknown declared evaluation: {evaluation_id}")
@@ -108,13 +126,17 @@ class EvaluationService:
         operation_id = operation_id or f"op-{len(services._operations) + 1:06d}"
         services._check_operation(operation_id)
         entry_id = "evaluation-" + content_hash(operation_id).split(":")[1]
-        services.ledger.reserve(entry_id, scopes={"run": services.recipe.budget},
+        recovering = services._journal is not None and services._journal.recovering
+        entry = services.ledger.reserve(entry_id, scopes={"run": services.recipe.budget},
             reservation=Amounts.zero(evaluations=len(batch.tasks)), slots=0,
             metadata={"kind": "evaluation_cohort", "operation_id": operation_id,
                       "attempt_id": "attempt-1", "stage": "evaluation", "role": "framework",
                       "trial_id": None, "worker_id": None},
-            request={"evaluation": spec, "batch": batch, "execution": execution}, reuse=False)
-        services.ledger.start(entry_id)
+            request={"evaluation": spec, "batch": batch, "execution": execution}, reuse=recovering)
+        if entry["state"] == "reserved":
+            services.ledger.start(entry_id)
+        elif entry["state"] != "started":
+            raise RecoveryRequired(f"evaluation cohort {entry_id} already settled without a committed session")
         try:
             session = EvaluationSession(self, spec, dataset, batch, operation_id, entry_id)
         except BaseException as exc:
@@ -161,6 +183,38 @@ class EvaluationSession:
             "subject": self.services.recipe.subject, "execution": self.services.recipe.execution,
             "lock_hash": self.services.lock_hash})
 
+    def snapshot(self):
+        return {"evaluation_id": self.spec.id, "operation_id": self.operation_id, "batch": self.batch,
+            "ledger_entry": self.ledger_entry, "closed": self.closed, "sequence_failed": self._sequence_failed,
+            "observations": self._observations, "grades": {str(k): v for k, v in self._grades.items()},
+            "grade_usage": {str(k): v for k, v in self._grade_usage.items()}, "trials": self._trials,
+            "backend_evaluations": {str(k): v for k, v in self._backend_evaluations.items()},
+            "backend_usage": {str(k): v for k, v in self._backend_usage.items()}, "build_usage": self._build_usage,
+            "updates": self._updates, "pending_usage": self._pending_usage, "pending_grade_usage": self._pending_grade_usage,
+            "state": self._state, "references": self._references, "request": self.request, "protocol_hash": self.protocol_hash}
+
+    def restore(self, owner, record):
+        self.owner, self.services = owner, owner.services
+        self.operation_id, self.ledger_entry = record["operation_id"], record["ledger_entry"]
+        self.spec = next(spec for spec in self.services.recipe.evaluations if spec.id == record["evaluation_id"])
+        self.batch = TaskBatch.from_dict(record["batch"])
+        self.closed, self._sequence_failed, self._running = record["closed"], record["sequence_failed"], False
+        for name, schema in (("observations", Observation), ("trials", TrialRecord), ("updates", StateUpdate), ("build_usage", Usage)):
+            setattr(self, "_" + name, [schema.from_dict(item) for item in record[name]])
+        for name, schema in (("grades", EvaluationRow), ("grade_usage", Usage),
+                             ("backend_evaluations", BackendEvaluation), ("backend_usage", Usage)):
+            setattr(self, "_" + name, {int(key): schema.from_dict(value) for key, value in record[name].items()})
+        for name in ("pending_usage", "pending_grade_usage"):
+            setattr(self, "_" + name, Usage.from_dict(record[name]) if record[name] is not None else None)
+        self._state, self._references = StateValue.from_dict(record["state"]), record["references"]
+        self.request = StageRequest.from_dict(record["request"])
+        self.protocol_hash = record["protocol_hash"]
+        self.root = self.services.root / "evaluations" / content_hash(self.operation_id).split(":")[1]
+
+    @property
+    def position(self):
+        return len(self._observations)
+
     def _save(self, name, value):
         publish_bytes(self.root / name, canonical_json(value).encode("utf-8"))
 
@@ -185,13 +239,18 @@ class EvaluationSession:
     def _reserve_dispatch(self, kind, index, *, request, reservation, slots):
         entry_id = kind + "-" + content_hash([self.operation_id, self.request.attempt_id, index]).split(":")[1]
         self.services.ledger.reserve(entry_id, scopes={"run": self.services.recipe.budget},
-            reservation=reservation, slots=slots, reuse=False,
+            reservation=reservation, slots=slots,
+            reuse=self.services._journal is not None and self.services._journal.recovering,
             metadata={"kind": kind, "operation_id": self.operation_id, "attempt_id": self.request.attempt_id,
                       "role": "grader" if kind == "backend_verifier" else kind,
                       "trial_id": f"{self.operation_id}:rollout-{index + 1}", "worker_id": None}, request=request)
         return entry_id
 
     def step(self, candidate: Candidate) -> Observation:
+        return self.services._record("evaluation.step", {"operation_id": self.operation_id,
+            "position": self.position, "candidate": candidate}, lambda: self._step(candidate), decode=Observation.from_dict)
+
+    def _step(self, candidate):
         self._check()
         index = len(self._observations)
         require(index < len(self.batch.tasks), "evaluation cohort has no remaining task")
@@ -206,7 +265,11 @@ class EvaluationSession:
                 observation = self._grade(index)
                 self._observations[index] = observation
             return observation
-        except BaseException:
+        except RecoveryRequired:
+            raise
+        except BaseException as exc:
+            if self.services._journal is not None and not isinstance(exc, Exception):
+                raise
             self.abort("prediction/feedback step did not commit; automatic replay is unavailable")
             raise
         finally:
@@ -242,9 +305,18 @@ class EvaluationSession:
             except BaseException:
                 services.ledger.settle(subject_entry, actual=Amounts.zero(), status="cancelled")
                 raise
-        services.ledger.start(subject_entry)
+        subject_record = services.ledger.entry(subject_entry)
+        replayed = None
+        if subject_record["state"] == "reserved":
+            services.ledger.start(subject_entry)
+        else:
+            prior = subject_record["settlement"]
+            if prior is None or not (prior["result"] or {}).get("subject_result"):
+                raise RecoveryRequired(f"subject {subject_entry} has no settled execution result; reconcile before continuing")
+            replayed = prior["result"]
         if verifier_entry is not None:
-            services.ledger.start(verifier_entry)
+            if services.ledger.entry(verifier_entry)["state"] == "reserved":
+                services.ledger.start(verifier_entry)
         result = None
         rejected_result = None
         subject_dispatched = False
@@ -260,7 +332,12 @@ class EvaluationSession:
                 build_elapsed += time.monotonic() - before
                 self._build_usage.extend(record.usage for record in services.builds.records[first:])
         try:
-            if self._sequence_failed:
+            if replayed is not None:
+                result = SubjectResult.from_dict(replayed["subject_result"])
+                subject_dispatched = replayed["subject_dispatched"]
+                rejected_result = SubjectResult.from_dict(replayed["rejected_result"]) if replayed["rejected_result"] else None
+                self._build_usage.extend(services.restore_trial_usage(f"{self.operation_id}:rollout-{index + 1}"))
+            elif self._sequence_failed:
                 result = SubjectResult(loaded_artifact_hash=candidate.artifact.content_hash, runtime=runtime,
                     status=Outcome.CANCELLED, state=state, usage=zero_usage(),
                     diagnostic="prior sequence state is unavailable")
@@ -315,6 +392,8 @@ class EvaluationSession:
                     result = replace(result, usage=usage)
                 elif "subject.model_free" in services.registry.get(recipe.subject.runner.plugin).capabilities:
                     require(result.usage.model_calls == 0, "model-free subject reported nonzero/unknown model calls")
+        except RecoveryRequired:
+            raise
         except Exception as exc:
             rejected_result = result if type(result) is SubjectResult else None
             fallback_usage = Usage() if subject_dispatched else zero_usage()
@@ -325,7 +404,7 @@ class EvaluationSession:
                 state=state, usage=usage,
                 diagnostic=f"{type(exc).__name__}: {exc}")
         finally:
-            if type(result) is SubjectResult and result.backend_evaluation is None:
+            if replayed is None and type(result) is SubjectResult and result.backend_evaluation is None:
                 result = replace(result, usage=replace(result.usage,
                     wall_seconds=max(0, time.monotonic() - started - build_elapsed)))
             fallback_usage = Usage() if subject_dispatched else zero_usage()
@@ -335,7 +414,8 @@ class EvaluationSession:
                 status="completed" if type(result) is SubjectResult and result.status in VALID else "failed",
                 result={"usage": observed, "delegates_usage_to_actor": managed,
                         "status": result.status if type(result) is SubjectResult else "interrupted",
-                        "rejected_result": rejected_result})
+                        "rejected_result": rejected_result, "subject_result": result,
+                        "subject_dispatched": subject_dispatched})
             if verifier_entry is not None:
                 evidence_result = rejected_result or result
                 backend = evidence_result.backend_evaluation if type(evidence_result) is SubjectResult else None
@@ -390,12 +470,21 @@ class EvaluationSession:
         # Integrated verifier usage was reserved before the external trial and
         # settled with its private result. Only ordinary graders dispatch here.
         grader_entry = None
+        replayed_grade = None
         if not is_backend:
             grader_entry = self._reserve_dispatch("grader", index,
                 request={"rollout": rollout, "evaluation": self.spec, "reference": self._references[rollout.task_id]},
                 reservation=Amounts(model_calls=0), slots=1)
-            self.services.ledger.start(grader_entry)
-        if rollout.status not in VALID:
+            entry = self.services.ledger.entry(grader_entry)
+            if entry["state"] == "reserved":
+                self.services.ledger.start(grader_entry)
+            elif entry["settlement"] is not None and entry["settlement"]["result"] is not None:
+                replayed_grade = Grade.from_dict(entry["settlement"]["result"]["grade"])
+            else:
+                raise RecoveryRequired(f"grader {grader_entry} has no settled result; reconcile before continuing")
+        if replayed_grade is not None:
+            grade = replayed_grade
+        elif rollout.status not in VALID:
             grade = Grade(status=rollout.status, score=None,
                 usage=self._backend_usage[index] if is_backend else zero_usage(), diagnostic=rollout.diagnostic)
         else:
@@ -418,7 +507,8 @@ class EvaluationSession:
                                   grade.usage if type(grade) is Grade else Usage()),
                               diagnostic=f"{type(exc).__name__}: {exc}")
         if not is_backend:
-            grade = replace(grade, usage=replace(grade.usage, wall_seconds=time.monotonic() - started))
+            if replayed_grade is None:
+                grade = replace(grade, usage=replace(grade.usage, wall_seconds=time.monotonic() - started))
             self.services.ledger.settle(grader_entry, actual=Amounts.from_usage(grade.usage),
                 status="completed" if grade.status in VALID else "failed", result={"grade": grade})
         self._pending_grade_usage = None if is_backend else grade.usage
@@ -432,6 +522,10 @@ class EvaluationSession:
         return observation if hidden else Observation(rollout=rollout, row=row, feedback=grade.feedback)
 
     def update_state(self, state: StateValue):
+        return self.services._record("evaluation.state", {"operation_id": self.operation_id,
+            "position": self.position, "state": state}, lambda: self._update_state(state), encode=lambda value: None, decode=lambda value: None)
+
+    def _update_state(self, state):
         """Explicit online state update after committed, visible prediction feedback."""
         self._check()
         require(self.services.recipe.execution.state_policy == StatePolicy.SEQUENCE
@@ -446,11 +540,19 @@ class EvaluationSession:
         self._state = state
 
     def finish(self):
+        return self.services._record("evaluation.finish", {"operation_id": self.operation_id, "position": self.position},
+            self._finish_checked, decode=EvaluationReceipt.from_dict)
+
+    def _finish_checked(self):
         self._check()
         require(len(self._observations) == len(self.batch.tasks), "cannot finish an incomplete task cohort")
         try:
             return self._finish()
-        except BaseException:
+        except RecoveryRequired:
+            raise
+        except BaseException as exc:
+            if self.services._journal is not None and not isinstance(exc, Exception):
+                raise
             self.abort("evaluation finalization did not commit; automatic replay is unavailable")
             raise
 

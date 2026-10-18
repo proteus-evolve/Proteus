@@ -3,7 +3,7 @@
 P04b adds `proteus.harbor`, `proteus.harbor_subject` and `proteus.harbor_reward`.
 They execute pinned file-tree candidates in independent Docker trials with a
 separate verifier. This is the first Harbor backend in the 1.0 plan, not completion
-of all P04 work: sequence/worker environments, generic recovery and
+of all P04 work: sequence/worker environments, uncertain external-effect reconciliation and
 the five external method recipes remain outstanding.
 
 P04c adds candidate-bound source builds and verified, run-local image reuse. See
@@ -106,4 +106,6 @@ finite model-call caps are rejected for this adapter. Harbor's agent/verifier ph
 times are recorded separately; total bridge elapsed time, including setup and
 cleanup, is a separate diagnostic in `bridge-usage.json` and is not added twice.
 This does not yet provide whole-system native/profiling accounting or generic
-checkpoint recovery. Completed/uncertain operations are not automatically replayed.
+remote-operation reconciliation. [P04d recovery](V1_RECOVERY.md) reuses a settled
+trial result across a controller crash without relaunching its agent or verifier.
+A dispatched trial without a settled controller result remains uncertain.

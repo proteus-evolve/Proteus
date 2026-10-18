@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
-from proteus.core.contracts import TEXT, OperationStatus, require
+from proteus.core.contracts import TEXT, DataRef, OperationStatus, require
 from proteus.core.methods import MethodResult, supported_budget
 from proteus.core.serialization import Contract, content_hash
 
@@ -38,6 +38,12 @@ class SequenceOptions(Contract):
     iterations: int = field(default=1, metadata={"minimum": 1})
     stop_when: Condition | None = None
     outputs: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, kw_only=True)
+class SequenceState(Contract):
+    slots: Mapping[str, DataRef]
+    position: int = field(default=0, metadata={"minimum": 0})
 
 
 def validate_sequence(recipe, options, registry):
@@ -76,21 +82,31 @@ class SequenceMethod:
         self.options = options
 
     def run(self, services, restored_state):
-        require(restored_state is None, "sequence recovery needs the durable operation ledger")
-        slots = {name: services.values.publish(value.kind,
+        if restored_state is None:
+            slots = {name: services.values.publish(value.kind,
                     services.registry.data_schema(value.kind).from_dict(value.value))
                  for name, value in self.options.initial.items()}
-        for iteration in range(self.options.iterations):
-            for i, step in enumerate(self.options.steps):
-                result = services.stage(step.stage, {port: slots[slot] for port, slot in step.inputs.items()},
-                                        operation_id=f"iteration-{iteration + 1}-step-{i + 1}")
-                if result.status != OperationStatus.COMPLETED:
-                    return MethodResult(status=result.status, diagnostic=result.diagnostic)
-                slots.update({slot: result.outputs[port] for port, slot in step.outputs.items()})
+            state = SequenceState(slots=slots)
+            checkpoint = services.checkpoint(state)
+        else:
+            state, checkpoint = SequenceState.from_dict(restored_state.state.payload), restored_state
+        total = self.options.iterations * len(self.options.steps)
+        for position in range(state.position, total):
+            iteration, i = divmod(position, len(self.options.steps))
+            step = self.options.steps[i]
+            result = services.stage(step.stage, {port: state.slots[slot] for port, slot in step.inputs.items()},
+                                    operation_id=f"iteration-{iteration + 1}-step-{i + 1}")
+            if result.status != OperationStatus.COMPLETED:
+                return MethodResult(status=result.status, diagnostic=result.diagnostic, state=checkpoint)
+            slots = {**state.slots, **{slot: result.outputs[port] for port, slot in step.outputs.items()}}
+            state = replace(state, slots=slots, position=position + 1)
             condition = self.options.stop_when
-            if condition is not None:
+            if condition is not None and i == len(self.options.steps) - 1:
                 record = services.values.get(slots[condition.slot]).to_dict()
                 require(condition.field in record, "stop condition field is absent")
                 if content_hash(record[condition.field]) == content_hash(condition.equals):
-                    break
-        return MethodResult(outputs={name: slots[slot] for name, slot in self.options.outputs.items()})
+                    state = replace(state, position=total)
+            checkpoint = services.checkpoint(state)
+            if state.position == total:
+                break
+        return MethodResult(outputs={name: state.slots[slot] for name, slot in self.options.outputs.items()}, state=checkpoint)

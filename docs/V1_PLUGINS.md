@@ -2,8 +2,9 @@
 
 Later batches extend this API: P03 candidate/evaluation services and P04a persistent
 reservations are documented below; [V1_HARBOR.md](V1_HARBOR.md) covers P04b's optional
-Harbor backend and subject/verifier accounting. Earlier phase-specific limitations
-below describe their original scope; generic resume is still unavailable.
+Harbor backend and subject/verifier accounting. [V1_RECOVERY.md](V1_RECOVERY.md) covers
+P04d's operation journal and checkpoint recovery for compare/sequence and opt-in
+methods. Earlier phase-specific limitations below describe their original scope.
 
 P02 makes the P01 configuration and data contracts executable. A registered `Method`
 owns control flow; stages consume and return typed records; actors execute through a
@@ -14,8 +15,8 @@ Development defaults and schema fingerprints changed since P01. Keep P01 experim
 records with their recorded source version; do not reinterpret a changed hash as a
 compatible resume. P02 experiments require a newly resolved lock and manifest.
 
-This is a development API on `dev/1.0.0`. Candidate execution, durable operation
-recovery, Harbor, archive/search and the five external recipes follow in later batches.
+This is a development API on `dev/1.0.0`. Archive/search, persistent workers and the
+five external recipes remain under development.
 
 ## Run the offline examples
 
@@ -49,8 +50,8 @@ API using their known immutable source references.
 `run` verifies the lock against registered implementations and installed versions,
 checks role prompt hashes, acquires a run lock and writes an immutable manifest.
 It refuses a nonempty run directory. `resume` requires a method declaring recovery;
-the native method uses its existing exact durable episode checkpoint. The generic
-sequence method currently rejects resume. Regenerate a lock for a changed experiment
+the native method uses its existing exact durable episode checkpoint. Compare and
+sequence now use the P04d journal. Regenerate a lock for a changed experiment
 and use a new run directory; do not overwrite a completed experiment to change its
 conditions.
 
@@ -128,9 +129,9 @@ Returned and restored `MethodState` must match the run, method, config hash,
 namespace and payload schema/version. Unsupported versions are rejected before
 calling the method. P01's `StateRegistry` remains available for explicit migrations;
 loading never silently migrates stored state. Declaring `run.resume` requires the
-method author to implement its recovery semantics. This is sufficient for native
-episode recovery or self-contained method state, not a durable generic side-effect
-replay system; the latter arrives with the operation ledger.
+method author to implement its recovery semantics. Native retains its episode
+recovery. New methods can additionally declare `run.journal` and use
+`services.checkpoint(...)` for the durable generic protocol in V1_RECOVERY.
 
 ## Role execution and supported budgets
 
@@ -386,7 +387,8 @@ subject/model settings, evaluator/visibility protocol, execution environment, se
 initial/current state, sequence history/position, dependency lock and implementations.
 P03b **always re-executes**: it defines identity without introducing implicit cache
 reuse. Prediction and grading records are individually durable, but complete method
-recovery and result reuse still require the remaining P04 work. P04a adds durable
+recovery and result reuse were deferred to P04. P04d now reuses committed operations
+on explicit resume; a new evaluation operation still executes afresh. P04a adds durable
 managed-actor accounting and cohort reservations, described below. A failed
 publication closes the session; it cannot silently re-execute or advance sequence state.
 

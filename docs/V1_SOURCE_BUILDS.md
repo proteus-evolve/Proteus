@@ -56,7 +56,9 @@ bitwise reproducibility of a fresh build with network access, clocks or random
 inputs. Set `reuse=false` to bypass both receipt reuse and Docker layer caching.
 Failures and interrupted builds never publish reusable receipts. The client
 process group is terminated on timeout; uncertain daemon work is not declared a
-successful build and generic crash recovery is still pending.
+successful build. P04d restores build accounting together with a settled subject
+result. A crash during build or before the subject result is settled still needs
+explicit reconciliation; resume does not launch another build or trial blindly.
 
 Builds reserve and settle their own ledger entries, including failed attempts.
 Arbitrary build scripts have unknown model/token/cost usage; cache inspection has
