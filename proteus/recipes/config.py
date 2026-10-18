@@ -111,12 +111,15 @@ class ExecutionSpec(Contract):
     environment: EnvironmentSpec
     state_policy: StatePolicy = StatePolicy.INDEPENDENT
     initial_state_hash: str | None = field(default=None, metadata=DIGEST)
+    max_workers: int = field(default=1, metadata={"minimum": 1})
     seed: int = 0
     timeout_seconds: float | None = field(default=None, metadata={"exclusiveMinimum": 0})
 
     def _validate(self):
         expected = {StatePolicy.INDEPENDENT: "trial", StatePolicy.SEQUENCE: "sequence",
                     StatePolicy.WORKER: "worker"}[self.state_policy]
+        require(self.max_workers == 1 or self.state_policy == StatePolicy.INDEPENDENT,
+                "parallel evaluation requires independent task state")
         require(self.environment.lifecycle == expected,
                 "environment lifecycle must match the declared state policy")
 

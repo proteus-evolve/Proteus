@@ -55,6 +55,9 @@ def recovery_status(root):
             if request["kind"] == "stage.map":
                 from proteus.core.parallel import map_status
                 pending["branches"] = map_status(root, request["identity"]["operation_id"])
+            elif request["kind"] == "evaluation.map":
+                from proteus.evaluation.parallel import map_status
+                pending["branches"] = map_status(root, request["identity"]["operation_id"])
             continue
         require(pending is None, "uncommitted operation precedes later operations")
         result = _load(result_path)

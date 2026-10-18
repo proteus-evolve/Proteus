@@ -145,6 +145,7 @@ jobs:
           cd /tmp/proteus-wheel-out
           /tmp/proteus-wheel/bin/python check_combee_package.py gepa
           /tmp/proteus-wheel/bin/python check_combee_gepa_package.py
+          /tmp/proteus-wheel/bin/python check_combee_gepa_package.py --workers 3
           /tmp/proteus-wheel/bin/python -m proteus.examples.gepa_prompt --out gepa-study
           /tmp/proteus-wheel/bin/proteus recipe lock gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --source "proteus=$GITHUB_WORKSPACE" --out gepa-study/lock.json
           /tmp/proteus-wheel/bin/proteus recipe run gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --artifact-store gepa-study/artifact-store --out gepa-study/run
@@ -194,3 +195,4 @@ jobs:
           cd /tmp/proteus-sdist-out
           /tmp/proteus-sdist/bin/python check_combee_package.py gepa
           /tmp/proteus-sdist/bin/python check_combee_gepa_package.py
+          /tmp/proteus-sdist/bin/python check_combee_gepa_package.py --workers 3

@@ -286,6 +286,8 @@ class RunServices:
                 if not any(call["id"] == entry["id"] for call in self.actor_calls):
                     self.actor_calls.append(record)
                 key = (metadata["operation_id"], metadata["attempt_id"], metadata["role"])
+                if metadata.get("trial_id") is not None:
+                    key += (metadata["trial_id"],)
                 self._actor_ordinals[key] = max(self._actor_ordinals.get(key, 0), metadata["ordinal"])
             elif metadata["kind"] == "source_build" and record is not None:
                 receipt = BuildReceipt.from_dict(record["receipt"])
@@ -329,10 +331,12 @@ class RunServices:
         bound = runtime.model_call_bound
         require(bound is None or (type(bound) is int and bound >= 0), "invalid actor call bound")
         limits = {"run": self.recipe.budget, f"role:{stage.role}": spec.budget,
-                  f"stage:{operation.operation_id}": stage.budget}
+                  f"stage:{trial_id or operation.operation_id}": stage.budget}
         for key, budget in limits.items():
             supported_budget(budget, allow_evaluations=key == "run")
         key = (operation.operation_id, operation.attempt_id, stage.role)
+        if trial_id is not None:
+            key += (trial_id,)
         ordinal = self._actor_ordinals.get(key, 0) + 1
         call_id = "actor-" + content_hash([*key, ordinal]).split(":")[1]
         recovering = self._journal is not None and self._journal.recovering
@@ -586,8 +590,11 @@ class RunServices:
     def evaluate(self, candidate: Candidate, evaluation_id: str, *, operation_id: str | None = None, selection=None, inputs=None):
         session = self.open_evaluation(evaluation_id, operation_id=operation_id, selection=selection, inputs=inputs)
         try:
-            for _ in session.batch.tasks:
-                session.step(candidate)
+            if self.recipe.execution.max_workers > 1:
+                session.predict_all(candidate, self.recipe.execution.max_workers)
+            else:
+                for _ in session.batch.tasks:
+                    session.step(candidate)
             return session.finish()
         except RecoveryRequired:
             raise

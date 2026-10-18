@@ -41,6 +41,8 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08c：将固定 batch 的 Combee reflection 接入完整 GEPA 搜索循环，沿用正式候选评估、接纳、隐藏测试与 engine checkpoint；补齐 provider finish_reason 的持久记录和截断提案识别。说明见 [V1_COMBEE_GEPA.md](../V1_COMBEE_GEPA.md)。并行正式评估、combee_ace、动态 batch controller 与真实实验继续属于 P08，不能将 R04 整体标为完成。
 
+- P08d：新增独立任务的并行正式评估，保留整批预留、原始位置/seed、逐 trial 调用编号、反馈权限及有序汇总；恢复先处理已派发工作，再允许预留请求启动。构建缓存事务串行化，实际 trial 可并发执行。说明见 [V1_PARALLEL_EVALUATION.md](../V1_PARALLEL_EVALUATION.md)。ACE 自适应样本循环、动态 batch controller、CORAL worker 和真实实验仍待后续实现。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

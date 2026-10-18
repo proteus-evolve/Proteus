@@ -69,6 +69,8 @@ class PromptStage:
 
 def builtin_registry() -> Registry:
     registry = Registry()
+    from proteus.evaluation.parallel import EvaluationMap
+    registry.register_data("proteus.eval.map@1", EvaluationMap)
     root = Path(__file__).resolve().parents[1]
     digest = implementation_hash({str(path.relative_to(root)): path for path in root.rglob("*.py")})
     registry.register_data("proteus.text@1", Text)
@@ -113,23 +115,24 @@ def builtin_registry() -> Registry:
     add("proteus.json_tasks", "task_suite", JsonSuiteOptions, JsonTaskSuite)
     add("proteus.local_json", "environment", EmptyOptions, lambda options: LocalJsonEnvironment(),
         validate=validate_local, capabilities=("state.independent", "state.sequence", "state.explicit_json", "candidate.exact_tree",
-                                             "environment.code_protocol"))
+                                             "environment.code_protocol", "environment.parallel"))
     add("proteus.harbor_code", "environment", HarborCodeOptions, HarborCodeEnvironment,
         validate=validate_harbor_code, capabilities=("state.independent", "state.sequence", "state.explicit_json",
-            "candidate.exact_tree", "environment.code_protocol", "environment.source_build"))
-    add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python)
+            "candidate.exact_tree", "environment.code_protocol", "environment.source_build", "environment.parallel"))
+    add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python,
+        capabilities=("subject.parallel",))
     add("proteus.code_subject", "subject", CodeOptions, CodeSubject, validate=validate_code,
-        capabilities=("subject.managed_actor", "subject.actor_timeout", "subject.code_protocol"),
+        capabilities=("subject.managed_actor", "subject.actor_timeout", "subject.code_protocol", "subject.parallel"),
         inputs={"memory": "proteus.code.state@1"})
     add("proteus.prompt_subject", "subject", PromptSubjectOptions, PromptSubject, validate=validate_prompt,
-        capabilities=("subject.managed_actor",))
+        capabilities=("subject.managed_actor", "subject.parallel"))
     add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
         capabilities=("evaluator.deterministic",))
     add("proteus.harbor", "environment", HarborEnvironmentOptions, HarborEnvironment,
         validate=validate_harbor_environment,
-        capabilities=("state.independent", "candidate.exact_tree", "environment.source_build"))
+        capabilities=("state.independent", "candidate.exact_tree", "environment.source_build", "environment.parallel"))
     add("proteus.harbor_subject", "subject", HarborSubjectOptions, HarborSubject,
-        validate=validate_harbor_subject, capabilities=(BACKEND_CAPABILITY, "subject.reconcile"))
+        validate=validate_harbor_subject, capabilities=(BACKEND_CAPABILITY, "subject.reconcile", "subject.parallel"))
     add("proteus.harbor_reward", "evaluator", HarborRewardOptions, HarborReward,
         capabilities=(BACKEND_CAPABILITY,))
     add("proteus.sequence", "method", SequenceOptions, SequenceMethod,

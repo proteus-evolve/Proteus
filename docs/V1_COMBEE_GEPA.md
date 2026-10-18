@@ -18,8 +18,10 @@ lock the operator. A reference-profile claim is rejected at configuration time.
 The recipe must state its deviations.
 
 The current engine profile is single mutation, full validation, instance
-frontier, no merge and no evaluation cache. Formal task evaluation is serial;
-the reflection map is concurrent when `batch_reflection=true`. This does not
+frontier, no merge and no evaluation cache. The supplied example uses serial formal task evaluation;
+the reflection map is concurrent when `batch_reflection=true`. The subsequent
+[parallel evaluation service](V1_PARALLEL_EVALUATION.md) can also be enabled with
+`execution.max_workers`; the supplied example defaults to serial evaluation. This does not
 implement the paper's complete parallel evaluation path, dynamic batch sizing,
 profiling or Combee ACE training. It does not establish quality or speedup.
 
