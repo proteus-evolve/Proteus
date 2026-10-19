@@ -256,6 +256,33 @@ managed actor entry. Their token fields and receipt binding appear in
 native recipe's separate accounting channel. See [result export](V1_RESULT_EXPORT.md)
 for private evidence, recovery and coverage semantics.
 
+## Native staged-activation capability boundaries
+
+The native episode controller checks the adapter's `staged_activation` declaration;
+an absent declaration means `False`. When enabled, the controller supplies a frozen
+`EpisodeSpec.active_root` separately from the writable candidate and validates the
+candidate at the episode boundary. Editable surfaces, CLI input records and token
+receipts alone do not enable this protocol.
+
+| Adapter | Core staged-activation declaration | Execution evidence and scope |
+| --- | --- | --- |
+| minimal / llm | Not declared | Policy/HTTP input and usage records; no frozen executable-source activation guarantee |
+| Pi / DSH | `True` | Model-free boundary build/boot validation; successful staged calls require the source/CLI/wrapper startup receipt described below; failed or timed-out calls can lack it |
+| Codex | `True` | Rust boundary validation publishes a source-bound binary pair; phases mount the selected publication read-only and save `traces/epNNN-runtime.json`. The smoke check binds that publication and source hash to the preceding checkpoint |
+| Aki | Not declared | The external supervisor controls its internal execution; Proteus records its invocation and does not claim the staged active/candidate guarantee |
+| Custom adapter | Explicit opt-in required | Must implement the frozen-active/writable-candidate contract and its validation behavior; a declaration is not independent evidence that the backend obeys it |
+
+The [adapter contract](../proteus/core/adapter.py),
+[episode controller](../proteus/core/episode.py),
+[Codex adapter checks](../tests/test_codex_adapter.py) and
+[source-adapter checks](../tests/test_selfcode.py) define these boundaries.
+The accepted [Pi/DSH source integration gate](https://github.com/proteus-evolve/Proteus/pull/100)
+builds and executes those two actual pinned source images with a deterministic
+provider. It does not cover Codex's Rust source image or Aki's supervisor, and
+does not replace the final release's live-backend/model checks. Codex uses its
+separate publication-based smoke assertion; it does not emit the Pi/DSH startup
+receipt format.
+
 ## Pi/DSH source activation
 
 Staged Pi/DSH dispatches prefix the CLI arguments with the controller's hash of

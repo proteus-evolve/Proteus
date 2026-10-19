@@ -245,7 +245,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 ### I03 角色与运行时
 
 - [x] 定义 ActorSpec，分别配置角色的模型、runtime、提示、工具、session 策略与预算（P01/P02；无法兑现的非默认配置提前拒绝）。
-- [ ] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留（P02 已有 chat HTTP transport 和 coding harness bridge；真实模型/容器验收随 M1 进行）。
+- [ ] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留（P02 已有 chat HTTP transport 和 coding harness bridge；P10v 已通过固定 Pi/DSH 源码镜像与真实 CLI 工具的容器验收，provider 使用确定性 fixture。真实模型验收仍待完成）。
 - [x] 将执行能力声明为可检查的 capability，如原生 resume、候选代码加载、归一化轨迹（P02 registry 和 lock；能力由后端实现声明并按配置检查）。
 - [x] 明确 fresh、handoff、native session 三种上下文策略，不做隐式互换（P02/P09b/P09g：能力校验、session 确认、显式 fresh fallback 与代际记录；实际 provider 的最终 live 验收仍单列）。
 
@@ -276,7 +276,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I06 环境与 Harbor
 
-- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b 固定镜像、CPU/内存、任务网络与独立 trial；P04c pinned builder、source build 与独立构建网络；P10r 在 Harbor code 路径补充 PID 资源和内核执行的目录访问范围；其他 provider、资源及完整验收仍需补齐）。
+- [x] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b/P04c/P10r：不可变镜像、源码构建与 runtime pin，CPU/内存及 Harbor code 的 PID/目录 scopes；trial/sequence 与持久 worker 使用各自明确的能力契约。已通过对应 Linux 安装包与真实 Harbor 验收，见 [PR #96](https://github.com/proteus-evolve/Proteus/pull/96)。内置后端对未支持的 provider/resource 配置提前报错；本项不声明所有网络模式或全后端交叉支持）。
 - [x] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本（P04b 独立运行时、版本/源码字节/依赖环境 fingerprint）。
 - [x] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果（P04b 容器内检查完整文件树）。
 - [x] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用（P04b 私有 BackendEvaluation；未报告的用量保持 unknown）。
@@ -311,9 +311,9 @@ P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARE
 
 ### I09 预算事件与恢复
 
-P10w 工程修复：通用 HTTP ChatActor 在响应格式校验失败时保留已报告的 token 用量；失败与重试分别结算，恢复不重复请求已结算的失败调用。缺失或无效计数继续为 unknown，provider 费用扩展不作为实际费用。已增加失败响应、字段独立归一化、硬退出恢复与安装包检查；完整远程验收及 I09 其余范围仍待完成。
+P10w 工程验收：通用 HTTP ChatActor 在响应格式校验失败时保留已报告的 token 用量；失败与重试分别结算，恢复不重复请求已结算的失败调用。缺失或无效计数继续为 unknown，provider 费用扩展不作为实际费用。失败响应、字段独立归一化、硬退出恢复的回归、完整 Python 矩阵及 Linux wheel/sdist 安装检查已通过，见 [PR #101](https://github.com/proteus-evolve/Proteus/pull/101)。这些检查使用确定性 HTTP 服务；实际 provider 用量验收及 I09 其余范围仍待完成。
 
-P10u 开发中：为内置 minimal/单请求 HTTP native recipe 接入 run/actor 两层模型调用预留，调用回执落盘后再结算；未知用量保留预留，恢复补结算或停止不确定调用，不自动补发额度。内置纯 evaluator 为零推理；不透明 backend、benchmark evaluator 和有限费用/时长仍拒绝不支持的限额。导出交叉核验预算账本与逐次回执；此范围不代表 I09 整体完成，详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets)。
+P10u 工程验收：为内置 minimal/单请求 HTTP native recipe 接入 run/actor 两层模型调用预留，调用回执落盘后再结算；未知用量保留预留，恢复补结算或停止不确定调用，不自动补发额度。内置纯 evaluator 为零推理；不透明 backend、benchmark evaluator 和有限费用/时长仍拒绝不支持的限额。导出交叉核验预算账本与逐次回执；完整 Python 矩阵、Linux wheel/sdist 的实际 HTTP/预算/恢复检查及 Harbor 原始证据已通过，见 [PR #99](https://github.com/proteus-evolve/Proteus/pull/99)。此范围不代表 I09 整体完成，详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets)。
 
 - [x] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a–P09h 的受管理 actor、subject、grader、build、cohort、workflow 与 worker 代际；native 不透明调用的完整覆盖仍在下一项）。
 - [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a–P10h 已覆盖受管理角色、build、profiling、并行分支及 worker 代际并去重；native 完整汇总和不透明 backend 用量仍未完成，unknown 不转为零）。
@@ -373,7 +373,7 @@ P10j 工程实现：为通用运行器增加独立于重放日志的控制器计
 - [x] 提供 baseline、模块消融与多 seed 实验配置和汇总（P10d：StudySpec、显式差异、paired seed 和缺失指标传播；各领域另含原始 baseline 配置）。
 - [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果。
 - [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为。
-- [ ] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离（P10s 已接入三类 codec 的显式测量接口、逐 parent edge 和指定 path；需完成安装包及 CI 验证）。
+- [x] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离（P10s 已接入三类 codec 的显式测量接口、逐 parent edge 和指定 path；对应实现已通过 Python 3.10–3.14、wheel/sdist 与 Harbor 原始产物核验，见 [PR #97](https://github.com/proteus-evolve/Proteus/pull/97)。未知 codec/二进制表面保持 unavailable，不代表模型质量结果）。
 
 **验收：** 结果能由已保存的逐任务记录重新汇总；每张结果表能追溯到配置、候选与原始输出；缺失指标明确显示。
 
@@ -457,11 +457,11 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 
 ### R00 Native
 
-P10v 开发中：新增固定 Pi/DSH 上游提交的真实源码镜像 CI，使用本地确定性 provider 驱动真实 CLI 的读写工具，经原 native episode 事务验证编译、下一轮执行、完成后恢复和坏源码拒绝。逐次启动回执与前一 checkpoint、原始 Docker 输出交叉核验。该 workflow 在 release tag 上也触发，发布脚本要求同 tag/SHA 的 Pi、DSH jobs 在同一次运行中全部成功。实际 Docker jobs 和证据验收完成前不勾选 R00；它也不替代 live model 或算法质量实验。
+P10v 工程验收：固定 Pi/DSH 上游提交的真实源码镜像构建与 Docker jobs 已通过，见 [PR #100](https://github.com/proteus-evolve/Proteus/pull/100) 及其绑定的 workflow/artifact 记录。验收使用本地确定性 provider 驱动真实 CLI 的读写工具，经原 native episode 事务验证编译、修改后的下一轮执行、完成后无重复调用的恢复和坏源码拒绝；逐次启动回执与前一 checkpoint、原始 Docker 输出已独立交叉核验。该 workflow 在 release tag 上也触发，发布脚本要求同 tag/SHA 的 Pi、DSH jobs 在同一次运行中全部成功。下面 R00 条目仍需按声明的 adapter 能力核对完整范围；本次通过的工程门禁不替代 live model、算法质量实验或最终发布提交的 release smoke。
 
 - [x] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义（P02 复用原 RunConfig 引擎，旧入口继续可用；live release gates 仍待后续验收）。
 - [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复。
-- [ ] 明确每个 adapter 的能力；没有 staged activation 的 adapter 不获得该保证。
+- [x] 明确每个 adapter 的能力；没有 staged activation 的 adapter 不获得该保证（见 [adapter 能力与证据边界](../V1_NATIVE_INPUTS.md#native-staged-activation-capability-boundaries)：Pi/DSH 使用启动回执，Codex 使用源码绑定的 binary publication 与逐 episode 记录，minimal/llm/Aki 不声明此协议。能力声明、工程验收与最终 live 检查分别记录；完整运行验收仍由上一项和发布清单约束）。
 
 Native 不计入五个外部方法家族的完成数量。
 
