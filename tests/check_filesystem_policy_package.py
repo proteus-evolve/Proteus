@@ -26,7 +26,10 @@ def kernel_check(root):
     (read_only/'visible').write_text('readable but not writable')
     (allowed/'escape').symlink_to(secret)
     denied_write = root/'outside-write'
-    value = fs.policy(tuple(dict.fromkeys(('/usr', sys.base_prefix, str(allowed), str(read_only)))), (str(allowed),))
+    # Re-exec needs both the base stdlib and the current venv's pyvenv.cfg/site
+    # directory. The fixture's secret and read-only trees remain separate scopes.
+    value = fs.policy(tuple(dict.fromkeys(('/usr', sys.base_prefix, sys.prefix,
+                                         str(allowed), str(read_only)))), (str(allowed),))
     encoded = base64.b64encode(json.dumps(value).encode()).decode()
     program = f'''
 import os, subprocess, sys
