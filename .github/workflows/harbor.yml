@@ -39,6 +39,11 @@ jobs:
           PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
           PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
         run: python -m pytest tests/test_v1_harbor.py tests/test_v1_source_build.py tests/test_v1_recovery.py tests/test_v1_harbor_code.py tests/test_v1_workspace.py tests/test_v1_meta_harness.py tests/test_v1_parallel_evaluation.py tests/test_v1_gateway_harbor.py -k 'live_harbor or live_workspace_docker' -q
+      - name: Original CORAL circle packing with independent geometry verification
+        env:
+          PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
+          PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
+        run: python -m pytest tests/test_v1_coral_circle_packing.py -k live_harbor -q
       - name: Collect independent worker evidence without pre-populating the baseline study
         if: always()
         run: |

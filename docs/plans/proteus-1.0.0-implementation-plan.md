@@ -63,6 +63,8 @@ P09g 接入 pinned Codex CLI 的持久 worker bridge，原生 UUID 续接、早�
 
 P09h 开始接入 Harbor 持久研究 worker：每代使用独立容器，仅挂载自己的持久工作区，使用独立清理 guard 并在清理确认后结算；网关增加显式 Docker 可达绑定。配置、边界及待通过的真实 Docker 验收见 [V1_HARBOR_WORKERS.md](../V1_HARBOR_WORKERS.md)。当前仍须完成容器验收、原任务 recipe 与真实模型实验，不将 I11/R05 标记为完成。
 
+- P09i 开发中：接入 CORAL 原始 circle-packing 非训练任务，固定原始 seed/评分参考和数值依赖，提供 baseline、单/双 worker 配置与 agent 可直接调用的评估/知识 CLI。独立容器只验证输出几何，明确最终确认不是 held-out 任务；数值机制对照已通过，真实 Docker 领域验收、真实模型优化与 R05 结果验收仍待完成。详见 [V1_CORAL_CIRCLE_PACKING.md](../V1_CORAL_CIRCLE_PACKING.md)。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
