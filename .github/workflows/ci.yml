@@ -143,6 +143,7 @@ jobs:
           cp tests/check_coral_circle_package.py /tmp/proteus-wheel-out/check_coral_circle_package.py
           cp tests/check_plugin_templates.py /tmp/proteus-wheel-out/check_plugin_templates.py
           cp tests/check_native_inputs_package.py /tmp/proteus-wheel-out/check_native_inputs_package.py
+          cp tests/check_native_budget_package.py /tmp/proteus-wheel-out/check_native_budget_package.py
           cp tests/check_native_pi_package.py /tmp/proteus-wheel-out/check_native_pi_package.py
           cp tests/check_native_evaluator_package.py /tmp/proteus-wheel-out/check_native_evaluator_package.py
           cp tests/check_harness_accounting_package.py /tmp/proteus-wheel-out/check_harness_accounting_package.py
@@ -177,6 +178,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_coral_circle_package.py
           /tmp/proteus-wheel/bin/python check_plugin_templates.py
           /tmp/proteus-wheel/bin/python check_native_inputs_package.py
+          /tmp/proteus-wheel/bin/python check_native_budget_package.py
           /tmp/proteus-wheel/bin/python check_native_pi_package.py
           /tmp/proteus-wheel/bin/python check_native_evaluator_package.py
           /tmp/proteus-wheel/bin/python check_harness_accounting_package.py
@@ -242,6 +244,7 @@ jobs:
           cp tests/check_coral_circle_package.py /tmp/proteus-sdist-out/check_coral_circle_package.py
           cp tests/check_plugin_templates.py /tmp/proteus-sdist-out/check_plugin_templates.py
           cp tests/check_native_inputs_package.py /tmp/proteus-sdist-out/check_native_inputs_package.py
+          cp tests/check_native_budget_package.py /tmp/proteus-sdist-out/check_native_budget_package.py
           cp tests/check_native_pi_package.py /tmp/proteus-sdist-out/check_native_pi_package.py
           cp tests/check_native_evaluator_package.py /tmp/proteus-sdist-out/check_native_evaluator_package.py
           cp tests/check_harness_accounting_package.py /tmp/proteus-sdist-out/check_harness_accounting_package.py
@@ -276,6 +279,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_coral_circle_package.py
           /tmp/proteus-sdist/bin/python check_plugin_templates.py
           /tmp/proteus-sdist/bin/python check_native_inputs_package.py
+          /tmp/proteus-sdist/bin/python check_native_budget_package.py
           /tmp/proteus-sdist/bin/python check_native_pi_package.py
           /tmp/proteus-sdist/bin/python check_native_evaluator_package.py
           /tmp/proteus-sdist/bin/python check_harness_accounting_package.py

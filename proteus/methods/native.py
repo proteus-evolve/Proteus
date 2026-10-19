@@ -61,8 +61,8 @@ def validate_native(recipe, options):
     supported_budget(recipe.budget)
     actor = recipe.actors[options.actor]
     supported_budget(actor.budget)
-    require(recipe.budget.max_model_calls is None and actor.budget.max_model_calls is None,
-            "native recipe uses explicit episode turn budgets, not a generic model-call cap")
+    from proteus.core.native_budget import validate
+    validate(recipe, options)
     require(actor.runtime.plugin.name.startswith("proteus.native."), "native recipe needs a native harness binding")
     require(actor.prompt_hash is None, "native recipe prompts are declared in native phase_prompts")
     from proteus.execution.actors import harness_class
@@ -111,8 +111,10 @@ class NativeMethod:
         cfg = replace(cfg, on_episode_prompts=record_prompts)
         start = completed_episodes(cfg) if services.resume else 0
         from proteus.core.native_inputs import read_native_inputs
+        from proteus.core.native_budget import budget_scope
         try:
-            result = run(cfg, start=start, resume=services.resume)
+            with budget_scope(services, cfg.adapter, evaluators):
+                result = run(cfg, start=start, resume=services.resume)
         finally:
             services.native_inputs = read_native_inputs(cfg.root)
         summary = NativeSummary.from_dict(asdict(result))

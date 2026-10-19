@@ -59,8 +59,8 @@ recipe execution file.
 
 Use `proteus.core.native_inputs.read_native_inputs(native_root)` for checked
 inspection. The helper and raw storage layout are implementation interfaces,
-not additions to `proteus.api.v1`. Generic result exports keep native usage
-separate from managed ledger accounting and its budget enforcement.
+not additions to `proteus.api.v1`. Generic result exports keep a native usage
+view; bounded native recipe calls also appear in ledger accounting as described below.
 
 ## Reported native usage
 
@@ -159,8 +159,56 @@ under `.proteus-records/` appear only with `--include-private`.
 `wall_seconds` measures elapsed time around each instrumented boundary, including
 failed boundaries. It is not end-to-end runtime or provider inference time. These
 totals cover recorded boundaries only: unreported custom evaluators, custom adapters
-and internal harness work can remain outside their coverage. Generic finite native
-cost/model-call caps remain rejected; reporting creates no new enforcement claim.
+and internal harness work can remain outside their coverage. Finite native cost
+caps remain rejected. Call caps have the deliberately narrow support below.
+
+### Finite native recipe model-call budgets
+
+`proteus.native` recipes using the bundled `proteus.native.llm` or
+`proteus.native.minimal` actor may set `budget.max_model_calls` on the recipe,
+the actor, or both. Each limit applies cumulatively across all phases, episodes,
+failures and resumes. The stricter remaining allowance wins. For example:
+
+```toml
+[budget]
+max_model_calls = 8
+[actors.agent.budget]
+max_model_calls = 6
+```
+
+The HTTP adapter has one request per dispatched phase and no internal retry loop.
+Before publishing the input or calling HTTP, the native method reserves one call
+in the existing SQLite ledger under `run` and `role:agent` (or the configured
+actor role). Pure minimal policy and bundled `units`, `tool-calls`, `step` and
+`contains` evaluators reserve zero calls. Evaluator receipt recording still
+includes H0 and failed evaluations. A depleted cap rejects dispatch before an
+input receipt is created. Episode/tool turn limits remain separate controls.
+
+The outcome is fsynced before settlement. A known response settles its reported
+usage; an HTTP failure with no usage keeps `actual.model_calls = null` and the
+one-call reservation remains charged. Native episode rollback or rejection does
+not refund calls. A fresh attempt needs fresh allowance. On recovery:
+
+- A reservation with no start or input is cancelled with zero usage.
+- A started entry with a durable outcome is settled from that exact receipt.
+- A started entry without an outcome retains its allowance and blocks automatic
+  retry, including a crash before the input could be published. No provider
+  reconciliation or response replay is inferred.
+
+`native_accounting.budget_enforced = true` and
+`budget_dimensions = ["model_calls"]` are reported only after checking the
+ledger limits, memberships, input identities, reserved bounds and settlements.
+`ledger_bindings` links the usage rows to `accounting.entries`. These are two
+views of the same attempts: **do not add their totals together**. Exports require
+settled work; unresolved dispatches must first be reconciled through a supported
+backend protocol. This profile currently stops and retains evidence instead.
+
+Pi, DSH, Codex, Aki, custom adapters and benchmark evaluators do not have a
+supported native call bound. Their finite call limits are rejected before the
+run is published. Token, monetary-cost, elapsed-time and evaluation caps remain
+unsupported for native recipes. Old unbounded recipes and the legacy `proteus
+run` entry point keep their prior behavior. These controls do not constitute
+independent provider billing verification or complete I09 acceptance.
 
 ### Native evaluator receipts
 
