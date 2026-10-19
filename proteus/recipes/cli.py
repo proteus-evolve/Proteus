@@ -71,7 +71,9 @@ def _command(args):
         return 0
     if args.recipe_cmd == 'export':
         from proteus.recipes.export import export_run
-        print(export_run(args.run, args.out, include_private=args.include_private))
+        from proteus.measure.artifacts import MeasurementSpec
+        measurement_spec = MeasurementSpec.from_json(Path(args.measurements).read_text()) if args.measurements else None
+        print(export_run(args.run, args.out, include_private=args.include_private, measurement_spec=measurement_spec))
         return 0
     if args.recipe_cmd == 'catalog':
         from proteus.recipes.catalog import describe
@@ -137,6 +139,7 @@ def add_parser(subparsers):
     export.add_argument('run', help='existing settled run directory')
     export.add_argument('--out', required=True, help='new export directory outside the run')
     export.add_argument('--include-private', action='store_true', help='include hidden grades in the offline owner report')
+    export.add_argument('--measurements', help='JSON measurement spec for codec-specific artifact and lineage changes')
     export.set_defaults(func=command)
     catalog = commands.add_parser('catalog', help='discover offline examples and benchmark preparation entry points')
     catalog.add_argument('name', nargs='?')

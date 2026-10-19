@@ -364,7 +364,7 @@ class SavedRun:
                       'additional_attempts': sum(n-1 for n in counts.values()), 'unfinished_requests': len(requests)-len(seen)}
 
 
-def report_run(root, *, include_private=False):
+def report_run(root, *, include_private=False, measurement_spec=None):
     """Export a quiescent run; no plugins, model SDKs or task graders are executed."""
     root = Path(root).resolve()
     require(root.is_dir(), 'run directory is missing')
@@ -399,15 +399,19 @@ def report_run(root, *, include_private=False):
                       'Unknown actual usage stays null even when the budget ledger charged a reservation.',
                       'Native boundary usage is reported separately, without ledger enforcement or complete internal-call coverage.',
                       'Private grades require include_private; raw prompts, predictions and task references are not copied.']}
+        if measurement_spec is not None:
+            from proteus.measure.artifacts import measure_lineage
+            report['measurements'] = measure_lineage(run.candidates.values(),
+                ArtifactStore(root/'artifacts', registry=None), measurement_spec)
         return {**report, 'report_hash': content_hash(report)}
 
 
-def export_run(root, destination, *, include_private=False):
+def export_run(root, destination, *, include_private=False, measurement_spec=None):
     destination = Path(destination).resolve()
     root = Path(root).resolve()
     require(not destination.is_relative_to(root), 'export destination must be outside the run')
     require(not destination.exists(), 'export destination already exists')
-    report = report_run(root, include_private=include_private)
+    report = report_run(root, include_private=include_private, measurement_spec=measurement_spec)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix='.proteus-export-', dir=destination.parent))
     try:
@@ -416,6 +420,10 @@ def export_run(root, destination, *, include_private=False):
                   'costs': report['accounting']['entries'], 'role-stage-costs': report['accounting']['by_role_stage'],
                   'stage-attempts': report['stages'], 'controller-intervals': report['timing']['intervals'],
                   'native-usage': report['native_accounting']['entries']}
+        if 'measurements' in report:
+            tables.update({'artifact-measurements': report['measurements']['artifacts'],
+                           'lineage-edges': report['measurements']['edges'],
+                           'lineage-paths': report['measurements']['paths']})
         for name, rows in tables.items():
             with (temporary/(name+'.csv')).open('w', encoding='utf-8', newline='') as stream:
                 if not rows:

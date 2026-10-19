@@ -19,6 +19,7 @@ from proteus.core.serialization import Contract, ContractError, canonical_json, 
 from proteus.evaluation.records import EvaluationReceipt, Feedback, Grade, SubjectResult, zero_usage
 from proteus.evaluation.runners import Evaluator, SubjectContext, SubjectRunner
 from proteus.evaluation.tasks import StateValue, Task, TaskBatch, TaskDataset, TaskRecord, TaskSelection, TaskSuite
+from proteus.measure.artifacts import MeasurementSpec, MeasurementSurface
 from proteus.recipes.builtins import builtin_registry
 from proteus.recipes.config import (
     ActorSpec, EnvironmentSpec, EvaluationSpec, ExecutionSpec, PluginSpec, RecipeConfig, ReferenceSpec,
@@ -34,7 +35,7 @@ __all__ = (
     'ArtifactComponent', 'ArtifactRef', 'ArtifactStore', 'BudgetLimits', 'Candidate', 'Contract', 'ContractError',
     'DataRef', 'DependencyLock', 'EmptyOptions', 'EnvironmentSpec', 'EvaluationBatch', 'EvaluationReceipt',
     'EvaluationRow', 'EvaluationSpec', 'Evaluator', 'ExecutionSpec', 'Feedback', 'FeedbackVisibility',
-    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'Method', 'MethodResult', 'MethodState',
+    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState',
     'Objective', 'OperationStatus', 'Outcome', 'ParentSelector', 'Plugin', 'PluginLock', 'PluginRef', 'PluginSpec',
     'PluginState', 'PolicyResult', 'RecipeConfig', 'RecordsDelta', 'ReferenceSpec', 'Registry', 'Rollout',
     'RunManifest', 'RunServices', 'RuntimeIdentity', 'SearchDecision', 'SelectionView', 'SessionPolicy', 'SourcePin',

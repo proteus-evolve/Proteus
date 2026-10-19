@@ -107,6 +107,8 @@ P10q 开发中：通用 harness/workspace actor 使用 native 原始回执汇总
 
 P10r 开发中：将容器目录 read/write scopes 和公共 `resources.pids` 接入 Harbor code backend；限制在候选代码和子进程启动前生效，控制器核验 bootstrap 回执后才转发任务输入。旧空 scopes 保留兼容行为，未支持的内核/后端明确拒绝配置。实际 Linux 文件访问、安装包及 Harbor sequence/resume 验收见 [V1_ENVIRONMENT_SCOPES.md](../V1_ENVIRONMENT_SCOPES.md)。其他 provider、资源类型与完整 I06 验收继续保持待完成。
 
+P10s 开发中：保存结果导出支持按 codec/声明表面计算 artifact units、逐 parent edge 变化，以及显式 lineage path 累计；复用原生文件表面测量，文本组件与结构化记录使用独立单位。未知 codec、二进制表面和跨类型比较保持不可用，度量绑定配置、实现和原始产物；不会将 DAG 创建顺序拼成演化路径。详见 [V1_ARTIFACT_MEASUREMENTS.md](../V1_ARTIFACT_MEASUREMENTS.md)。真实模型比较与完整 I14 验收仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -365,7 +367,7 @@ P10j 工程实现：为通用运行器增加独立于重放日志的控制器计
 - [x] 提供 baseline、模块消融与多 seed 实验配置和汇总（P10d：StudySpec、显式差异、paired seed 和缺失指标传播；各领域另含原始 baseline 配置）。
 - [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果。
 - [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为。
-- [ ] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离。
+- [ ] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离（P10s 已接入三类 codec 的显式测量接口、逐 parent edge 和指定 path；需完成安装包及 CI 验证）。
 
 **验收：** 结果能由已保存的逐任务记录重新汇总；每张结果表能追溯到配置、候选与原始输出；缺失指标明确显示。
 

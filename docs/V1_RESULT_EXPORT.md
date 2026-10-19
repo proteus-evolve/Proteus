@@ -15,6 +15,11 @@ The destination must be new and outside the run; existing experiment files are
 not modified. The controller lease prevents exporting while a controller owns the
 run. Unsettled external operations require reconciliation before export.
 
+Optional `--measurements measurements.json` adds codec-specific artifact units,
+parent-edge changes and explicitly selected lineage paths. See
+[artifact measurements](V1_ARTIFACT_MEASUREMENTS.md) for the supported codecs,
+surface declarations and comparison boundaries.
+
 ## What the tables mean
 
 - Tasks preserve rollout identity, task occurrence, candidate and artifact,
