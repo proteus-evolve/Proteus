@@ -329,6 +329,11 @@ entrypoint, with a different source/CLI hash and the marker in its process outpu
 The gate additionally requires a completed resume without new provider requests
 and rejection of an invalid TypeScript candidate by the actual build toolchain.
 
+The workflow also runs on release tags. Publishing requires both source jobs to
+succeed in one complete workflow run for the exact tag and commit, alongside CI,
+Harbor and live release smoke. PR runs, manual runs and separate partial attempts
+cannot supply this release evidence.
+
 The raw Docker commands/results, native input/outcome files, snapshot repository,
 provider request hashes, image metadata and build logs are uploaded for inspection.
 The saved-evidence reader `verify(root, expected_head=...)` independently matches

@@ -1,6 +1,8 @@
 name: Native source integration
 
 on:
+  push:
+    tags: ['v*']
   pull_request:
     paths:
       - '.github/workflows/native-source-integration.yml'

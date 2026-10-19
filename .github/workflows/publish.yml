@@ -32,7 +32,7 @@ jobs:
           if actual != expected:
               raise SystemExit(f"release tag {actual!r} does not match runtime {expected!r}")
           PY
-      - name: Require live smoke, recipe/package CI and Harbor for the exact release tag and commit
+      - name: Require live smoke, recipe/package CI, Harbor and native source checks for the release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
