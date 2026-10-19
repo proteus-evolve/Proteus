@@ -23,6 +23,7 @@ explicit versioned module instead of depending on incidental internal imports.
 | Actors and evaluation | `ActorRuntime`, `ActorRequest`, `ActorResult`, `SubjectRunner`, `SubjectContext`, `SubjectResult`, `Evaluator`, `Grade` |
 | Search | `ParentSelector`, `ArchivePolicy`, `FinalSelector`, `SelectionView`, `PolicyResult`, `SearchDecision`, `ArchiveSnapshot` |
 | Artifacts and tasks | File/text/record values and deltas, `ArtifactStore`, task datasets/batches/selections and `TaskSuite` |
+| Offline measurement | `MeasurementSpec`, `MeasurementSurface`; see [supported artifact units](V1_ARTIFACT_MEASUREMENTS.md) |
 | Experiment setup | Recipe/role/stage/subject/environment/evaluation specs, source/dependency locks, `RunManifest`, `load_recipe`, `run_recipe` |
 
 The exact symbol list is `proteus.api.v1.__all__`. Method-specific optimizer
