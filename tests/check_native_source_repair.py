@@ -139,7 +139,8 @@ def verify(root, *, expected_head=None):
     states = [source_at(root, commit, backend) for commit in checkpoints]
     assert [text for _, text in states] == [initial, initial, modified, modified]
     assert states[0][0] == states[1][0] != states[2][0] == states[3][0]
-    assert source_tree_hash(root/'run/harness/src') == states[3][0]
+    # Uploaded working files can lose executable bits. Hash materialized Git
+    # snapshots above; their source modes survive artifact ZIP transport.
     failed_hash, failed_text = source_at(root, pending['commit'], backend)
     assert failed_text == BROKEN and failed_hash != states[0][0]
     assert pending['commit'] not in checkpoints
@@ -206,6 +207,7 @@ def check(backend, image, root):
             assert not provider.errors, provider.errors
             assert len(provider.requests) == {'first': 3, 'repair': 7, 'complete': 7}[mode]
         rows = read_native_inputs(root/'run')
+        assert source_tree_hash(root/'run/harness/src') == rows[-1]['outcome']['activation']['source_sha256']
         evidence = {'schema_version': 1, 'backend': backend, 'source_revision': PINS[backend],
             'image_id': metadata['Id'], 'proteus_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
             'initial_entry_sha256': hashlib.sha256(provider.initial.encode()).hexdigest(),
