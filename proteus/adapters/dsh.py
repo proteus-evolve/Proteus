@@ -37,6 +37,9 @@ from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surfac
 from proteus.adapters.dsh_resume import DshPhaseResume
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.native_inputs import native_input
+from proteus.core.native_usage import dsh_usage
+from proteus.core.native_dsh_usage import capture_dsh_sources
+from proteus.core.native_pi_usage import fingerprint
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -429,6 +432,8 @@ class DshHarness:
                 continue
             handoff_start = handoffs.begin(spec.episode, phase)
             before = self._session_dirs(state)
+            before_usage = {directory/'session.jsonl.zstd': fingerprint(directory/'session.jsonl.zstd')
+                            for directory in before}
             fired = [False]
 
             def stop_check(before=before, fired=fired, stop_at=stop_at):
@@ -446,18 +451,26 @@ class DshHarness:
                     spec, phase, used, phase_start_used=start_used)]
                 with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
                                   payload=command, model=spec.model or self.model) as receipt:
-                    proc = self.sandbox.run(
-                        run_root,
-                        command,
-                        env={"DEEPSEEK_API_KEY": self.key,
-                             "DSH_PERMISSION_MODE": self.permission_mode},
-                        timeout_s=phase_timeout,
-                        mounts=workspace_mounts + ((str(state), "/state"),
-                                (str(handoffs.root), CONTAINER_ROOT))
-                               + model_mounts + self._task_mount(run_root, spec.readonly_task_paths),
-                        stop_check=stop_check if plan.enabled else None,
-                    )
-                    receipt["returncode"] = proc.returncode
+                    proc = None
+                    try:
+                        proc = self.sandbox.run(
+                            run_root,
+                            command,
+                            env={"DEEPSEEK_API_KEY": self.key,
+                                 "DSH_PERMISSION_MODE": self.permission_mode},
+                            timeout_s=phase_timeout,
+                            mounts=workspace_mounts + ((str(state), "/state"),
+                                    (str(handoffs.root), CONTAINER_ROOT))
+                                   + model_mounts + self._task_mount(run_root, spec.readonly_task_paths),
+                            stop_check=stop_check if plan.enabled else None,
+                        )
+                        receipt["returncode"] = proc.returncode
+                    finally:
+                        paths = [directory/'session.jsonl.zstd' for directory in self._session_dirs(state)-before]
+                        source = capture_dsh_sources(paths, before_usage, root=state)
+                        receipt['usage_source'] = source
+                        receipt['usage'] = dsh_usage(source, transport_complete=
+                            proc is not None and proc.returncode == 0 and not fired[0])
             except subprocess.TimeoutExpired:
                 timed_out = True
                 proc = None

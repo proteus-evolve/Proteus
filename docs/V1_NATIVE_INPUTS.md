@@ -77,7 +77,8 @@ recorded attempts. A completed resume adds neither calls nor zero-filled entries
 | OpenAI-compatible chat | One received response; provider `prompt_tokens` / `completion_tokens` when valid | Unknown |
 | Codex native `exec --json --ephemeral` | Completed fresh-thread token receipt; model-call count remains unknown | Unknown |
 | Pi native fresh v3 sessions | Positive reported token totals, including caches, tools and summaries; ambiguous zeros remain unknown | Unknown |
-| Custom minimal policy, DSH, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
+| DSH native fresh format-0 sessions | Latest per-step tokens and summary receipts, excluding fork seeds; auxiliary/retry gaps remain unknown | Unknown |
+| Custom minimal policy, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
 
 Chat token counts must be nonnegative integers; missing, negative, Boolean,
 fractional or string values become unknown. Cache and reasoning subcounts are
@@ -125,6 +126,30 @@ outside their coverage. Summary entries may combine several requests, and the
 runtime's estimated prices are not billed amounts, so model-call counts and
 monetary costs remain unknown.
 
+For DSH, `ID.usage-source` retains newly created compressed session files with
+their relative paths. Every zstd frame must be complete; live-budget polling's
+tolerance for truncated tails does not apply to accounting. The decoder expands
+the pinned text/reasoning/tool-call storage rows and checks contiguous event
+sequences. Python 3.10–3.13 requires the existing optional `dsh` extra
+(`zstandard>=0.21`); Python 3.14 can use its standard-library decoder.
+
+The [pinned DSH token projection](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/packages/llm/token-meter/src/usage-projection.ts)
+replaces a step's streaming sample with its final sample. Proteus follows that
+rule, adds uncached input plus cache read/write tokens, and includes separate
+compaction-summary receipts. Reasoning is already part of output. Unlike Pi's
+SDK defaults, explicit valid DSH zero counts are accepted. `header.seedLength`
+excludes a new child file's inherited fork history; later process-lifecycle
+markers do not discard work already recorded during the same phase. Each new
+session is counted once, including captured child sessions.
+
+DSH's main-loop projection alone does not cover all calls. Failed retries,
+title/search requests without usage and missing/failed summary receipts keep
+totals unknown. The normalized fields retain known token subtotals and unknown
+sample counts for inspection. Unsupported logs, changed old files, incomplete
+turns and failed transports cannot assert complete totals. Child or extension
+work that does not persist into the captured directory remains outside coverage.
+Calls and cost stay unknown; these receipts do not introduce finite-cost gating.
+
 `proteus recipe export` exposes `native_accounting` and `native-usage.csv` with
 counts, source and completion status, without copying prompts or provider output.
 Unknown components keep `reported` totals `null`; `known_subtotal` is explicitly
@@ -154,8 +179,15 @@ deterministic transport that writes fresh v3 logs. The optional
 hash-verified pinned upstream fold using a Node version with TypeScript stripping;
 four positive-token profiles agree, while ambiguous zero defaults deliberately
 remain unknown. Neither Pi check runs a real Pi CLI or proves live provider usage.
+`tests/check_native_dsh_package.py` checks the actual installed DSH adapter with
+a deterministic compressed-session transport. `tests/check_dsh_usage_reference.py`
+compares three storage shapes and three main-loop usage profiles with the
+hash-verified pinned upstream pure functions. Its Node harness supplies only
+schema/brand imports and rejects execution of the unrelated surface projection;
+it does not run the DSH CLI or validate provider billing. Auxiliary coverage,
+fork exclusion, failed transports and private export/resume are tested separately.
 These checks use no paid inference and do not validate container isolation.
 
 Actual live backend release-smoke gates remain required. Internal provider-message
-coverage for opaque harnesses, DSH usage reconciliation and complete native
+coverage for opaque harnesses, unreported auxiliary work and complete native
 aggregate cost coverage remain separate work.
