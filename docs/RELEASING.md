@@ -1,7 +1,7 @@
 # Releasing Proteus
 
 Proteus releases use a Git tag as the candidate, the pinned-harness `release-smoke`
-workflow as the gate, a GitHub Release as the approval boundary, and PyPI Trusted
+workflow plus recipe/package CI and Harbor as the gates, a GitHub Release as the approval boundary, and PyPI Trusted
 Publishing for the upload. No long-lived PyPI token is stored in GitHub.
 
 ## One-time PyPI setup
@@ -22,7 +22,7 @@ reserve the name before that upload.
 
 ## Release checklist
 
-1. Confirm `main` is clean, pushed, and green in `.github/workflows/ci.yml`.
+1. Complete the release acceptance in the implementation plan, including real-model studies and their declared evaluation splits. Confirm `main` is clean, pushed, and green in CI and Harbor. For 1.0, merge feature PRs into `dev/1.0.0` first; integrate into `main` only after acceptance.
 2. Set the single version source, `proteus.__version__`, in `proteus/__init__.py`; update
    the README badge, install text, and `docs/releases/v<version>.md`. `pyproject.toml`
    reads this value dynamically, and CI verifies installed metadata matches it.
@@ -35,7 +35,7 @@ reserve the name before that upload.
 
 4. Smoke-test both installed distributions outside the checkout. This is also enforced in
    CI and the publishing workflow: the scaffolder must generate a working adapter from the
-   wheel and a working benchmark from the sdist.
+   wheel and a working benchmark from the sdist. The required CI distribution job additionally runs the versioned plugin templates, recipe catalog, native inputs, method/workflow examples, result export and study comparisons outside the checkout.
 5. Before tagging, run `release-smoke` manually against the preparation branch. Configure
    both `DEEPSEEK_API_KEY` (LLM, DSH, Pi) and `CODEX_API_KEY` or `OPENAI_API_KEY` (Codex)
    as repository Actions secrets. `PROTEUS_CODEX_MODEL` is an optional repository variable;
@@ -52,20 +52,32 @@ reserve the name before that upload.
    Allow up to six hours for the complete image build and offline boundary gates.
 
 6. After the preparation PR and its CI are green and merged, push the annotated release
-   tag. The tag automatically starts another `release-smoke` against the exact release:
+   tag. The tag automatically starts `release-smoke`, `ci` and `Harbor integration` against the exact release:
 
    ```bash
-   VERSION=0.4.0
+   VERSION="<accepted-release-version>"
    git tag -a "v$VERSION" -m "Proteus v$VERSION"
    git push origin "v$VERSION"
    ```
 
-7. Do not create the GitHub Release until every `release-smoke` job for that tag passes:
-   offline, minimal, LLM, Pi, DSH, and Codex. A manual run on an older commit does not
-   qualify the tag. Use `docs/releases/v0.4.0.md` as the release body for this candidate.
+7. Wait for all three tag-triggered gates on the exact commit:
+
+   | Workflow | Required successful jobs |
+   | --- | --- |
+   | `release-smoke.yml` | offline, minimal, LLM, Pi, DSH, Codex |
+   | `ci.yml` | Python 3.10–3.14, installed wheel/sdist, pinned AIME/DSPy contract, visualization helpers |
+   | `harbor.yml` | pinned Harbor with real Docker trials, persistent workers and circle packing |
+
+   Missing, skipped, cancelled, failed or still-running required jobs block upload.
+   Branch/PR runs and manual runs do not qualify the release tag. Each workflow
+   needs one complete successful run; successful jobs from separate partial runs
+   cannot be pooled. Live smoke also validates hashed final adapter input evidence
+   for every episode; harness CLI inputs do not claim internal provider-message
+   coverage. Use `docs/releases/v<version>.md` as the release body.
 8. Publish the GitHub Release from the same tag. `.github/workflows/publish.yml` verifies
-   that the tag matches `proteus.__version__` and that a successful tag-triggered smoke run
-   for the exact commit includes every required job, including Codex. It then builds an
+   that the tag matches `proteus.__version__` and that all three tag-triggered workflows
+   pass on the exact commit. Required jobs must independently match that run ID and
+   commit. Unavailable or invalid GitHub evidence blocks upload. It then builds an
    sdist and wheel in a non-publishing
    job, then uploads them through the protected `pypi` environment using OIDC.
 9. Verify `pip install proteus-evolve==<version>` in a fresh environment and check the
@@ -74,3 +86,12 @@ reserve the name before that upload.
 PyPI files and versions cannot be replaced. If upload verification fails after a version
 has reached PyPI, fix the issue and publish a new version; never attempt to reuse the old
 version number.
+
+## Scope of the automated gates
+
+These gates validate implementation, packaging, pinned reference conformance and
+live runtime operation. They do not replace the five method families' real-model
+benchmark results, declared baseline comparisons, CORAL sharing analysis, or the
+release checklist in the implementation plan. The tag is created only after that
+acceptance. Adding these gates does not release 1.0, change its package version,
+create a tag, dispatch paid inference or publish to PyPI.

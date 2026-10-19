@@ -81,6 +81,25 @@ def codex_runtime_matches_checkpoint(adapter, run_root: Path, episode: int) -> b
         return False
 
 
+def native_inputs_cover_run(run_root: Path, harness: str, episodes: int) -> bool:
+    """Check the live adapter boundary, without equating it with provider messages."""
+    from proteus.core.native_inputs import read_native_inputs
+    scopes = {"minimal": "policy_prompt", "llm": "chat_request",
+              "pi": "harness_cli", "dsh": "harness_cli", "codex": "harness_cli"}
+    if harness not in scopes:
+        return False
+    try:
+        records = read_native_inputs(run_root)
+        return (bool(records)
+                and {row["input"]["episode"] for row in records} == set(range(1, episodes+1))
+                and all(row["completion"] == "returned" and row["input"]["backend"] == harness
+                        and row["input"]["scope"] == scopes[harness]
+                        and row["input"]["phase"] in ("observe", "propose", "act", "reflect")
+                        for row in records))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
@@ -115,6 +134,9 @@ def main() -> int:
         check(rec.get("episodes_complete") == episodes and not rec.get("error"),
               f"completed {episodes}/{episodes} with no error",
               str(rec.get("error"))[:120])
+
+        check(native_inputs_cover_run(run_root, args.harness, episodes),
+              "hashed final adapter inputs cover every episode with terminal outcomes")
 
         # 2. trace parses and is non-empty
         try:
