@@ -110,7 +110,11 @@ class NativeMethod:
 
         cfg = replace(cfg, on_episode_prompts=record_prompts)
         start = completed_episodes(cfg) if services.resume else 0
-        result = run(cfg, start=start, resume=services.resume)
+        from proteus.core.native_inputs import read_native_inputs
+        try:
+            result = run(cfg, start=start, resume=services.resume)
+        finally:
+            services.native_inputs = read_native_inputs(cfg.root)
         summary = NativeSummary.from_dict(asdict(result))
         ref = services.values.publish("proteus.native_summary@1", summary)
         return MethodResult(status=OperationStatus.FAILED if result.error or result.episodes_complete < options.episodes

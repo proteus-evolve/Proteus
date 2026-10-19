@@ -54,6 +54,7 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
         services = RunServices(run_id=manifest.run_id, recipe=recipe, registry=registry,
                                root=root, prompts=prompts, resume=resume, lock_hash=manifest.lock_hash)
         services.native_prompts = []
+        services.native_inputs = []
         # Constructor option validation and role prompt hashes precede publication.
         method = registry.create(recipe.method, "method")
         manifest.write(manifest_path)
@@ -115,6 +116,7 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                 "requests": [item.to_dict() for item in services.requests],
                 "results": [item.to_dict() for item in services.results],
                 "actor_calls": services.actor_calls, "native_prompts": services.native_prompts,
+                "native_inputs": services.native_inputs,
                 "candidates": [item.to_dict() for item in services.candidates],
                 "rollouts": [item.to_dict() for item in services.rollouts],
                 "evaluations": [item.to_dict() for item in services.evaluations],

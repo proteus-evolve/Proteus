@@ -75,6 +75,8 @@ P10d 开发中：增加显式条件、多 seed 与 paired baseline 的离线汇�
 
 P10e 开发中：整理 `proteus.api.v1` 公共导入与兼容边界，将四类插件模板切换到该入口并新增外部 ParentSelector 模板。同一父候选/评分下仅替换 parent policy，记录不同子候选谱系与实际输出；补父选择/子创建/最终测试的硬退出恢复，以及相同 stage recipe 的第二 actor runtime 验证。详见 [V1_PUBLIC_API.md](../V1_PUBLIC_API.md) 和 [V1_COMPATIBILITY.md](../V1_COMPATIBILITY.md)。native 最终消息覆盖、真实模型与发布门禁仍待完成。
 
+P10f 开发中：在 minimal/LLM/Pi/DSH/Codex 实际调用前持久记录 adapter 最终输入、协议与内容哈希，区分返回、异常和硬退出后未知完成状态；native recipe 保留累计输入证据。Aki 仅可记录 supervisor 边界，内部提示不可观测，未将其计为完整消息覆盖。详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md)。真实 backend release gates 与 native 全量用量验收继续推进。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

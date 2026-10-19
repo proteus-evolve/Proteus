@@ -122,6 +122,7 @@ jobs:
           /tmp/proteus-wheel/bin/pip install --disable-pip-version-check --no-deps dist/*.whl
           mkdir /tmp/proteus-wheel-out
           cp recipes/examples/p01-contract.toml /tmp/proteus-wheel-out/recipe.toml
+          cp recipes/native/minimal.toml /tmp/proteus-wheel-out/native.toml
           cp recipes/examples/self-evaluation.toml /tmp/proteus-wheel-out/self-evaluation.toml
           cp tests/check_ace_package.py /tmp/proteus-wheel-out/check_ace_package.py
           cp tests/check_ace_formula_package.py /tmp/proteus-wheel-out/check_ace_formula_package.py
@@ -136,6 +137,7 @@ jobs:
           cp tests/check_coral_method_package.py /tmp/proteus-wheel-out/check_coral_method_package.py
           cp tests/check_coral_circle_package.py /tmp/proteus-wheel-out/check_coral_circle_package.py
           cp tests/check_plugin_templates.py /tmp/proteus-wheel-out/check_plugin_templates.py
+          cp tests/check_native_inputs_package.py /tmp/proteus-wheel-out/check_native_inputs_package.py
           cp tests/check_recipe_catalog.py /tmp/proteus-wheel-out/check_recipe_catalog.py
           cp tests/check_result_export.py /tmp/proteus-wheel-out/check_result_export.py
           cp tests/check_study_comparison.py /tmp/proteus-wheel-out/check_study_comparison.py
@@ -163,6 +165,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_coral_method_package.py
           /tmp/proteus-wheel/bin/python check_coral_circle_package.py
           /tmp/proteus-wheel/bin/python check_plugin_templates.py
+          /tmp/proteus-wheel/bin/python check_native_inputs_package.py
           /tmp/proteus-wheel/bin/python check_recipe_catalog.py
           /tmp/proteus-wheel/bin/python check_result_export.py
           /tmp/proteus-wheel/bin/python check_study_comparison.py
@@ -222,6 +225,7 @@ jobs:
           cp tests/check_coral_method_package.py /tmp/proteus-sdist-out/check_coral_method_package.py
           cp tests/check_coral_circle_package.py /tmp/proteus-sdist-out/check_coral_circle_package.py
           cp tests/check_plugin_templates.py /tmp/proteus-sdist-out/check_plugin_templates.py
+          cp tests/check_native_inputs_package.py /tmp/proteus-sdist-out/check_native_inputs_package.py
           cp tests/check_recipe_catalog.py /tmp/proteus-sdist-out/check_recipe_catalog.py
           cp tests/check_result_export.py /tmp/proteus-sdist-out/check_result_export.py
           cp tests/check_study_comparison.py /tmp/proteus-sdist-out/check_study_comparison.py
@@ -249,6 +253,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_coral_method_package.py
           /tmp/proteus-sdist/bin/python check_coral_circle_package.py
           /tmp/proteus-sdist/bin/python check_plugin_templates.py
+          /tmp/proteus-sdist/bin/python check_native_inputs_package.py
           /tmp/proteus-sdist/bin/python check_recipe_catalog.py
           /tmp/proteus-sdist/bin/python check_result_export.py
           /tmp/proteus-sdist/bin/python check_study_comparison.py

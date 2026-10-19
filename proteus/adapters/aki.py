@@ -37,6 +37,7 @@ from typing import Optional, Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.disposition import Disposition
+from proteus.core.native_inputs import native_input
 
 #: Aki phase names -> Proteus phase names.
 _PHASE = {"observe": "observe", "propose": "propose",
@@ -149,7 +150,9 @@ class AkiHarness:
         config = self._run_configs.get(run_root)
         if config is None:
             raise RuntimeError("run_episode before install_disposition for this root")
-        asyncio.run(supervisor.run_episode(config, spec.episode))
+        with native_input(spec, backend=self.name, phase=None, scope='opaque_supervisor',
+                          payload={'episode': spec.episode, 'internal_prompts': 'unavailable'}):
+            asyncio.run(supervisor.run_episode(config, spec.episode))
         # Read the outcome back from the trace — the only channel Proteus trusts.
         status, counters = self._episode_outcome(run_root, spec.episode)
         return EpisodeResult(

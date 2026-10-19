@@ -36,6 +36,7 @@ from typing import Optional, Sequence
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.adapters.dsh_resume import DshPhaseResume
 from proteus.core.budget import budget_plan, phase_prompt
+from proteus.core.native_inputs import native_input
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -441,18 +442,22 @@ class DshHarness:
             phase_timeout = min(self.phase_timeout_s, recovery.timeout_s) \
                 if recovery and phase == recovery.phase else self.phase_timeout_s
             try:
-                proc = self.sandbox.run(
-                    run_root,
-                    ["--profile", "headless", phase_prompt(
-                        spec, phase, used, phase_start_used=start_used)],
-                    env={"DEEPSEEK_API_KEY": self.key,
-                         "DSH_PERMISSION_MODE": self.permission_mode},
-                    timeout_s=phase_timeout,
-                    mounts=workspace_mounts + ((str(state), "/state"),
-                            (str(handoffs.root), CONTAINER_ROOT))
-                           + model_mounts + self._task_mount(run_root, spec.readonly_task_paths),
-                    stop_check=stop_check if plan.enabled else None,
-                )
+                command = ["--profile", "headless", phase_prompt(
+                    spec, phase, used, phase_start_used=start_used)]
+                with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
+                                  payload=command, model=spec.model or self.model) as receipt:
+                    proc = self.sandbox.run(
+                        run_root,
+                        command,
+                        env={"DEEPSEEK_API_KEY": self.key,
+                             "DSH_PERMISSION_MODE": self.permission_mode},
+                        timeout_s=phase_timeout,
+                        mounts=workspace_mounts + ((str(state), "/state"),
+                                (str(handoffs.root), CONTAINER_ROOT))
+                               + model_mounts + self._task_mount(run_root, spec.readonly_task_paths),
+                        stop_check=stop_check if plan.enabled else None,
+                    )
+                    receipt["returncode"] = proc.returncode
             except subprocess.TimeoutExpired:
                 timed_out = True
                 proc = None
