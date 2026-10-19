@@ -138,6 +138,7 @@ jobs:
           cp tests/check_plugin_templates.py /tmp/proteus-wheel-out/check_plugin_templates.py
           cp tests/check_recipe_catalog.py /tmp/proteus-wheel-out/check_recipe_catalog.py
           cp tests/check_result_export.py /tmp/proteus-wheel-out/check_result_export.py
+          cp tests/check_study_comparison.py /tmp/proteus-wheel-out/check_study_comparison.py
           cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
@@ -164,6 +165,7 @@ jobs:
           /tmp/proteus-wheel/bin/python check_plugin_templates.py
           /tmp/proteus-wheel/bin/python check_recipe_catalog.py
           /tmp/proteus-wheel/bin/python check_result_export.py
+          /tmp/proteus-wheel/bin/python check_study_comparison.py
           /tmp/proteus-wheel/bin/python check_code_memory_package.py
           /tmp/proteus-wheel/bin/python check_workspace_package.py
           /tmp/proteus-wheel/bin/python check_meta_harness_package.py
@@ -222,6 +224,7 @@ jobs:
           cp tests/check_plugin_templates.py /tmp/proteus-sdist-out/check_plugin_templates.py
           cp tests/check_recipe_catalog.py /tmp/proteus-sdist-out/check_recipe_catalog.py
           cp tests/check_result_export.py /tmp/proteus-sdist-out/check_result_export.py
+          cp tests/check_study_comparison.py /tmp/proteus-sdist-out/check_study_comparison.py
           cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
           cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
           cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
@@ -248,6 +251,7 @@ jobs:
           /tmp/proteus-sdist/bin/python check_plugin_templates.py
           /tmp/proteus-sdist/bin/python check_recipe_catalog.py
           /tmp/proteus-sdist/bin/python check_result_export.py
+          /tmp/proteus-sdist/bin/python check_study_comparison.py
           /tmp/proteus-sdist/bin/python check_code_memory_package.py
           /tmp/proteus-sdist/bin/python check_workspace_package.py
           /tmp/proteus-sdist/bin/python check_meta_harness_package.py
