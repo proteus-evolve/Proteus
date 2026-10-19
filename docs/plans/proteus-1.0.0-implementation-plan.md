@@ -311,6 +311,8 @@ P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARE
 
 ### I09 预算事件与恢复
 
+P10w 工程修复：通用 HTTP ChatActor 在响应格式校验失败时保留已报告的 token 用量；失败与重试分别结算，恢复不重复请求已结算的失败调用。缺失或无效计数继续为 unknown，provider 费用扩展不作为实际费用。已增加失败响应、字段独立归一化、硬退出恢复与安装包检查；完整远程验收及 I09 其余范围仍待完成。
+
 P10u 开发中：为内置 minimal/单请求 HTTP native recipe 接入 run/actor 两层模型调用预留，调用回执落盘后再结算；未知用量保留预留，恢复补结算或停止不确定调用，不自动补发额度。内置纯 evaluator 为零推理；不透明 backend、benchmark evaluator 和有限费用/时长仍拒绝不支持的限额。导出交叉核验预算账本与逐次回执；此范围不代表 I09 整体完成，详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets)。
 
 - [x] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a–P09h 的受管理 actor、subject、grader、build、cohort、workflow 与 worker 代际；native 不透明调用的完整覆盖仍在下一项）。

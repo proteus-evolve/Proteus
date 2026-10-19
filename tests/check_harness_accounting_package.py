@@ -20,11 +20,13 @@ from proteus.recipes.runner import run_recipe
 
 def check():
     calls = []
+    replies = []
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
             calls.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
-            data = json.dumps({'choices': [{'message': {'content': '[]'}}],
-                               'usage': {'prompt_tokens': 13, 'completion_tokens': 7}}).encode()
+            reply = replies.pop(0) if replies else {'choices': [{'message': {'content': '[]'}}],
+                               'usage': {'prompt_tokens': 13, 'completion_tokens': 7}}
+            data = json.dumps(reply).encode()
             self.send_response(200)
             self.send_header('Content-Length', str(len(data)))
             self.end_headers()
@@ -73,6 +75,32 @@ def check():
             else:
                 raise AssertionError('missing actor receipt was accepted')
             print('installed harness actor: real local HTTP usage, ledger/token export, private receipt validation and unchanged resume passed')
+            # The shared chat runtime must account for a rejected response too.
+            chat = replace(actor, runtime=replace(actor.runtime,
+                plugin=PluginRef(name='proteus.chat', version='1')))
+            recipe = replace(recipe, actors={'optimizer': chat}, budget=BudgetLimits(max_model_calls=2),
+                stages=(replace(recipe.stages[0], failure_policy='retry', max_attempts=2),))
+            lock = registry.make_lock(recipe, [SourcePin(name='proteus', repository='https://example.invalid/fixture', revision='0'*40)])
+            replies.extend([{'choices': [], 'usage': {'prompt_tokens': 13, 'completion_tokens': 7}},
+                {'choices': [{'message': {'content': 'answer'}}],
+                 'usage': {'prompt_tokens': 5, 'completion_tokens': 2}}])
+            chat_root = Path(directory)/'chat-run'
+            completed = run_recipe(recipe, registry=registry, lock=lock, root=chat_root)
+            assert completed.status == OperationStatus.COMPLETED, completed.diagnostic
+            assert not replies and len(calls) == 3
+            report = report_run(chat_root)
+            assert report['accounting']['actual']['model_calls'] == 2
+            assert report['accounting']['actual']['cost_usd'] is None
+            assert report['accounting']['actor_tokens']['reported'] == {'input_tokens': 18., 'output_tokens': 9.}
+            records = json.loads((chat_root/'execution-0001.json').read_text())['actor_calls']
+            assert len(records) == 2 and records[0]['result']['status'] == 'failed'
+            assert records[0]['usage']['input_tokens'] == 13
+            assert run_recipe(recipe, registry=registry, lock=lock, root=chat_root, resume=True) == completed
+            assert len(calls) == 3
+            export_run(chat_root, Path(directory)/'chat-export')
+            costs = (Path(directory)/'chat-export/role-stage-costs.csv').read_text()
+            assert '18.0' in costs and '9.0' in costs
+            print('installed chat actor: failed response usage, retry totals, export and unchanged resume passed')
     finally:
         server.shutdown()
         thread.join()
