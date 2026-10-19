@@ -33,8 +33,8 @@ def test_refuses_other_failed_probes(failure):
 
 
 @pytest.mark.parametrize('reply', [
-    {'role': 'tool', 'content': 'File not found'},
-    {'role': 'assistant', 'content': '#!/usr/bin/env node'},
+    {'role': 'tool', 'tool_call_id': 'call_fixture_0', 'content': 'File not found'},
+    {'role': 'assistant', 'tool_call_id': 'call_fixture_0', 'content': '#!/usr/bin/env node'},
 ])
 def test_fixture_refuses_to_count_failed_or_non_tool_reads(tmp_path, reply):
     source = tmp_path/'entry.ts'
@@ -45,5 +45,38 @@ def test_fixture_refuses_to_count_failed_or_non_tool_reads(tmp_path, reply):
                       for name in ('read', 'write')]}
     provider.response(body)
     body['messages'].append(reply)
+    with pytest.raises(AssertionError):
+        provider.response(body)
+
+
+def provider_request(tmp_path):
+    source = tmp_path/'entry.ts'
+    source.write_text('#!/usr/bin/env node\nconsole.log("fixture");\n')
+    provider = Provider(source, '/workspace/candidate/src/entry.ts')
+    body = {'model': 'fixture', 'stream': True, 'messages': [{'role': 'user', 'content': 'Read source'}],
+            'tools': [{'function': {'name': name, 'parameters': {'properties': {'path': {}, 'content': {}}}}}
+                      for name in ('read', 'write')]}
+    provider.response(body)
+    body['messages'].append({'role': 'tool', 'tool_call_id': 'call_fixture_0', 'content': source.read_text()})
+    return provider, body
+
+
+def test_fixture_finds_the_read_result_before_nested_workspace_instructions(tmp_path):
+    provider, body = provider_request(tmp_path)
+    body['messages'].append({'role': 'user', 'content': 'Additional instructions from: candidate/AGENTS.md'})
+    response, finish = provider.response(body)
+    assert finish == 'tool_calls' and response['tool_calls'][0]['function']['name'] == 'write'
+    assert provider.requests[1]['read_witness_sha256']
+
+
+@pytest.mark.parametrize('change', ['wrong_id', 'duplicate', 'only_in_user'])
+def test_fixture_requires_one_result_bound_to_the_requested_read(tmp_path, change):
+    provider, body = provider_request(tmp_path)
+    if change == 'wrong_id':
+        body['messages'][-1]['tool_call_id'] = 'unrelated_call'
+    elif change == 'duplicate':
+        body['messages'].append(deepcopy(body['messages'][-1]))
+    else:
+        body['messages'][-1]['role'] = 'user'
     with pytest.raises(AssertionError):
         provider.response(body)

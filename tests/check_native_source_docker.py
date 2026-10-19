@@ -61,10 +61,14 @@ class Provider:
                 self.initial = self.source.read_text()
                 self.modified = marked(self.initial)
             else:
-                assert body['messages'][-1]['role'] == 'tool', 'write must follow a real read result'
+                # A harness may append workspace instructions after a tool result.
+                # Bind to our read call instead of assuming it is the last message.
+                reads = [message for message in body['messages'] if message.get('role') == 'tool'
+                         and message.get('tool_call_id') == 'call_fixture_0']
+                assert len(reads) == 1, 'write requires one result for the requested read'
                 witness = next(line for line in self.initial.splitlines() if len(line.strip()) > 8)
                 assert json.dumps(witness, ensure_ascii=False)[1:-1] in json.dumps(
-                    body['messages'][-1]['content'], ensure_ascii=False), 'read result lacks the actual source content'
+                    reads[0]['content'], ensure_ascii=False), 'read result lacks the actual source content'
                 self.requests[-1]['read_witness_sha256'] = hashlib.sha256(witness.encode()).hexdigest()
                 args['content'] = self.modified
             return {'role': 'assistant', 'tool_calls': [{'index': 0, 'id': 'call_fixture_'+str(ordinal),
