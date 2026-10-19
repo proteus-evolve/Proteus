@@ -460,7 +460,7 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 P10v 工程验收：固定 Pi/DSH 上游提交的真实源码镜像构建与 Docker jobs 已通过，见 [PR #100](https://github.com/proteus-evolve/Proteus/pull/100) 及其绑定的 workflow/artifact 记录。验收使用本地确定性 provider 驱动真实 CLI 的读写工具，经原 native episode 事务验证编译、修改后的下一轮执行、完成后无重复调用的恢复和坏源码拒绝；逐次启动回执与前一 checkpoint、原始 Docker 输出已独立交叉核验。该 workflow 在 release tag 上也触发，发布脚本要求同 tag/SHA 的 Pi、DSH jobs 在同一次运行中全部成功。下面 R00 条目仍需按声明的 adapter 能力核对完整范围；本次通过的工程门禁不替代 live model、算法质量实验或最终发布提交的 release smoke。
 
 - [x] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义（P02 复用原 RunConfig 引擎，旧入口继续可用；live release gates 仍待后续验收）。
-- [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复。
+- [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复（P10y 增加真实 Pi/DSH 源码容器的失败候选、独立控制进程恢复、修复及下一轮激活门禁；本条保持待验收，需两套当前提交的 Docker jobs 和原始证据核验，不能用本地 fixture 回归替代）。
 - [x] 明确每个 adapter 的能力；没有 staged activation 的 adapter 不获得该保证（见 [adapter 能力与证据边界](../V1_NATIVE_INPUTS.md#native-staged-activation-capability-boundaries)：Pi/DSH 使用启动回执，Codex 使用源码绑定的 binary publication 与逐 episode 记录，minimal/llm/Aki 不声明此协议。能力声明、工程验收与最终 live 检查分别记录；完整运行验收仍由上一项和发布清单约束）。
 
 Native 不计入五个外部方法家族的完成数量。

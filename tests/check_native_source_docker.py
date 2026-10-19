@@ -120,9 +120,10 @@ class Provider:
 
 class RecordedDocker(DockerSandbox):
     """Record the production sandbox result; never replace commands or transports."""
-    def __init__(self, config, root):
+    def __init__(self, config, root, *, append=False):
         super().__init__(config)
-        self.root, self.calls = root, []
+        self.root = root
+        self.calls = json.loads((root/'docker-calls.json').read_text()) if append else []
 
     def run(self, run_root, command, **kwargs):
         result = super().run(run_root, command, **kwargs)
@@ -143,7 +144,7 @@ def require_compiler_rejection(calls):
         'broken candidate must fail the source compiler, not Docker or an unrelated startup step'
 
 
-def adapter_for(backend, image, root, url):
+def adapter_for(backend, image, root, url, *, resume=False):
     common = dict(image=image, network='host', user=f'{os.getuid()}:{os.getgid()}',
                   mem_limit='6g', cpus='2', env_passthrough=('DEEPSEEK_API_KEY',))
     if backend == 'pi':
@@ -152,27 +153,33 @@ def adapter_for(backend, image, root, url):
         # Keep mutable agent configuration in the adapter's existing state mount;
         # the executable /workspace snapshot remains read-only.
         config = root/'run/.pi-state/agent'
-        config.mkdir(parents=True)
-        (config/'models.json').write_text(json.dumps({'providers': {'proteus_fixture': {
-            'baseUrl': url, 'api': 'openai-completions', 'apiKey': 'fixture',
-            'models': [{'id': 'fixture', 'name': 'Local fixture', 'reasoning': False,
-                        'input': ['text'], 'contextWindow': 128000, 'maxTokens': 2000}]}}}))
-        (config/'settings.json').write_text(json.dumps({'retry': {'enabled': False},
-            'compaction': {'enabled': False}}))
+        if resume:
+            assert json.loads((config/'models.json').read_text())['providers']['proteus_fixture']['baseUrl'] == url
+        else:
+            config.mkdir(parents=True)
+            (config/'models.json').write_text(json.dumps({'providers': {'proteus_fixture': {
+                'baseUrl': url, 'api': 'openai-completions', 'apiKey': 'fixture',
+                'models': [{'id': 'fixture', 'name': 'Local fixture', 'reasoning': False,
+                            'input': ['text'], 'contextWindow': 128000, 'maxTokens': 2000}]}}}))
+            (config/'settings.json').write_text(json.dumps({'retry': {'enabled': False},
+                'compaction': {'enabled': False}}))
         sandbox = RecordedDocker(SandboxConfig(**common,
-            env={'PI_CODING_AGENT_DIR': '/state/agent', 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0'}), root)
+            env={'PI_CODING_AGENT_DIR': '/state/agent', 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0'}), root, append=resume)
         return PiHarness(image=image, provider='proteus_fixture', model='fixture', key='fixture',
                          sandbox=sandbox, phase_timeout_s=600), sandbox
     from proteus.adapters.dsh import DshHarness
     state = root/'run/.dsh-state'
-    state.mkdir(parents=True)
-    (state/'settings.yaml').write_text(json.dumps({
-        'agent-default-model': {'provider': 'deepseek-official', 'model': 'fixture'},
-        'llm-deepseek': {'baseURL': url, 'apiKeyEnv': 'DEEPSEEK_API_KEY', 'thinking': 'disabled',
-                       'reasoningEffort': 'off', 'maxTokens': 2000, 'streamIdleTimeoutMs': 10000}}))
-    (state/'cordis.patch.yml').write_text('[{"id":"session-title-llm","disabled":true}]\n')
+    if resume:
+        assert json.loads((state/'settings.yaml').read_text())['llm-deepseek']['baseURL'] == url
+    else:
+        state.mkdir(parents=True)
+        (state/'settings.yaml').write_text(json.dumps({
+            'agent-default-model': {'provider': 'deepseek-official', 'model': 'fixture'},
+            'llm-deepseek': {'baseURL': url, 'apiKeyEnv': 'DEEPSEEK_API_KEY', 'thinking': 'disabled',
+                           'reasoningEffort': 'off', 'maxTokens': 2000, 'streamIdleTimeoutMs': 10000}}))
+        (state/'cordis.patch.yml').write_text('[{"id":"session-title-llm","disabled":true}]\n')
     sandbox = RecordedDocker(SandboxConfig(**common, env={
-        'DSH_PERMISSION_MODE': 'workspace-write', 'DSH_TELEMETRY_MODE': 'DISABLED'}), root)
+        'DSH_PERMISSION_MODE': 'workspace-write', 'DSH_TELEMETRY_MODE': 'DISABLED'}), root, append=resume)
     # model=None preserves the explicitly prepared native settings file.
     return DshHarness(image=image, key='fixture', sandbox=sandbox, phase_timeout_s=600), sandbox
 
