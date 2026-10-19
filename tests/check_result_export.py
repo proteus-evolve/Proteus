@@ -19,6 +19,10 @@ def check(root):
     report = json.loads((root/'export/report.json').read_text())
     assert len(report['tasks']) == 7 and len(report['candidates']) == 3
     assert next(row['score'] for row in report['tasks'] if row['visibility'] == 'hidden') == .8
+    assert report['timing']['continuous_run_seconds'] > 0
+    assert report['timing']['controller_seconds'] == report['timing']['continuous_run_seconds']
+    assert report['timing']['replayed_invocations'] == 1
+    assert (root/'export/controller-intervals.csv').is_file()
     assert report['accounting']['actual']['evaluations'] == 7
     assert report['accounting']['actual']['model_calls'] is None
     public = report_run(run)

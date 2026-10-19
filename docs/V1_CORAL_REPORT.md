@@ -24,6 +24,7 @@ entire run. It does not independently execute a task grader.
 | `knowledge.revisions` | Published notes, skills and formal attempts, including revision history and declared source references. |
 | `knowledge.declared_sources` | A cross-worker edge means a write declared another worker's revision as a source. This is provenance, not a causal benefit estimate. |
 | `knowledge.snapshot_captures` | Revisions available in an operation's captured snapshot. The current store does not save a receipt for every knowledge GET; availability does not establish file delivery or use. |
+| `timing` | Durable controller intervals and uninterrupted run duration, with explicit missing coverage after a hard exit. This does not measure workers that remain alive while the controller is stopped. |
 | `accounting` | Formal evaluations, model calls, actual costs and budget charges, including role/stage attribution from the common ledger. Unknown cost is not zero. |
 | `final_cohorts`, `baseline_cohorts` | Saved final confirmations and initial seed evaluations, bound to selected candidates. Private final scores are hidden unless `--include-private` is supplied. |
 

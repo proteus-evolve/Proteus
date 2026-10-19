@@ -63,7 +63,12 @@ validation rounds. The result retains each manifest/report hash, selected cohort
 reference profile and declared variation hashes. Baseline differences are paired
 by seed. Cost and time statistics retain the semantics of
 [V1_RESULT_EXPORT.md](V1_RESULT_EXPORT.md): summed operation time and ledger event
-span are distinct from measured active study runtime.
+span are distinct from measured controller intervals. `continuous_run_seconds`
+is available only for one completed uninterrupted initial invocation; completed
+result replays do not add time. `controller_seconds` sums measured controller
+intervals only when coverage is complete. Missing intervals and legacy prefixes
+keep these totals unknown; the same rule applies to seed aggregates. See
+[V1_CONTROLLER_TIMING.md](V1_CONTROLLER_TIMING.md).
 
 The comparison does not upgrade reference status, regrade metrics, or assert that
 all controlled experiments use equal budgets when budget is an explicitly varied

@@ -5,9 +5,9 @@ proteus recipe export /path/to/run --out /path/to/new-export
 proteus recipe export /path/to/run --out /path/to/private-export --include-private
 ```
 
-The exporter reads a settled recipe run and writes `report.json` plus six CSV
+The exporter reads a settled recipe run and writes `report.json` plus seven CSV
 files: `tasks.csv`, `cohorts.csv`, `candidates.csv`, `costs.csv`,
-`role-stage-costs.csv`, and `stage-attempts.csv`. No model, method plugin or grader
+`role-stage-costs.csv`, `stage-attempts.csv`, and `controller-intervals.csv`. No model, method plugin or grader
 is imported or executed. It works with the standard records produced by the five
 method families, including third-party value schemas and optional GEPA recipes.
 The destination must be new and outside the run; existing experiment files are
@@ -39,8 +39,11 @@ ledger or task rows; missing coverage is reported rather than inferred from text
 
 `wall_seconds` in accounting sums operation durations, which can overlap.
 `ledger_span_seconds` is the span between the first and last ledger events and
-includes pauses or recovery downtime. Neither claims active study runtime. Use
-the dedicated Combee study's measured wall-clock report for that comparison.
+includes pauses or recovery downtime. The separate `timing` object and
+`controller-intervals.csv` contain measured controller intervals; see
+[V1_CONTROLLER_TIMING.md](V1_CONTROLLER_TIMING.md) for coverage and interruption
+semantics. The dedicated Combee study retains its outer study timer, which starts
+before invoking the runner and therefore has a different measurement boundary.
 
 ## Integrity and private results
 

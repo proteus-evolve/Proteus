@@ -26,6 +26,7 @@ from proteus.evaluation.records import EvaluationReceipt, Grade, TrialRecord
 from proteus.evaluation.tasks import TaskBatch
 from proteus.recipes.config import EvaluationSpec
 from proteus.recipes.manifest import RunManifest
+from proteus.recipes.controller_timing import report_timing
 
 
 def _total(rows, key):
@@ -296,6 +297,7 @@ def report_run(root, *, include_private=False):
     with run_lock(root):
         run = SavedRun(root)
         accounting = run.accounting()
+        timing = report_timing(run)
         tasks, cohorts, unreported = run.evaluations(include_private)
         stages, attempts = run.stages()
         candidates = [{'candidate_id': item.id, 'artifact_hash': item.artifact.content_hash,
@@ -311,7 +313,7 @@ def report_run(root, *, include_private=False):
                 and 'run.journal' in item.capabilities for item in run.manifest.lock.plugins) else 'latest_invocation_only',
             'verification': 'saved evidence identities and aggregation; evaluator semantics are not re-executed',
             'source_run': str(root),
-            'candidates': candidates, 'tasks': tasks, 'cohorts': cohorts, 'accounting': accounting,
+            'candidates': candidates, 'tasks': tasks, 'cohorts': cohorts, 'accounting': accounting, 'timing': timing,
             'stages': stages, 'attempts': attempts, 'unreported_rollout_ids': unreported,
             'evidence': {path: digest for path, digest in run.evidence.items()
                          if include_private or not (path.startswith('private/') or '/private/' in path)},
@@ -333,7 +335,7 @@ def export_run(root, destination, *, include_private=False):
         (temporary/'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False)+'\n')
         tables = {'tasks': report['tasks'], 'cohorts': report['cohorts'], 'candidates': report['candidates'],
                   'costs': report['accounting']['entries'], 'role-stage-costs': report['accounting']['by_role_stage'],
-                  'stage-attempts': report['stages']}
+                  'stage-attempts': report['stages'], 'controller-intervals': report['timing']['intervals']}
         for name, rows in tables.items():
             with (temporary/(name+'.csv')).open('w', encoding='utf-8', newline='') as stream:
                 if not rows:

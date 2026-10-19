@@ -19,6 +19,7 @@ from proteus.events.service import intervention_prompt
 from proteus.gateway.records import GatewayClosure, GatewayIdentity, GatewayResult, GatewayTicket
 from proteus.knowledge.records import KnowledgeIdentity, KnowledgeOutcome, KnowledgeRevision, KnowledgeSnapshot
 from proteus.methods.coral.records import CoralMethodOptions, CoralSummary
+from proteus.recipes.controller_timing import report_timing
 from proteus.recipes.export import SavedRun, _total
 from proteus.workers.records import WorkerCompletion, WorkerIdentity, WorkerLaunch
 
@@ -368,6 +369,7 @@ def report_coral(root, *, include_private=False):
         knowledge = next(item for item in run.recipe.knowledge if item.id == gateway.knowledge_space)
         policy = next(item for item in run.recipe.event_policies if item.id == options.event_policy)
         accounting = run.accounting()
+        timing = report_timing(run)
         require(accounting['actual'] is not None, 'CORAL report needs managed accounting')
         tasks, cohorts, missing = run.evaluations(include_private)
         run.stages()
@@ -422,7 +424,7 @@ def report_coral(root, *, include_private=False):
             'workers':workers,'generations':generations,'submissions':submissions,'events':events,'knowledge':shared,
             'selected_candidates':sorted(selected),'final_cohorts':finals,
             'baseline_cohorts':[row for row in cohorts if row.get('operation_id')=='coral:baseline'],
-            'accounting':accounting,
+            'accounting':accounting,'timing':timing,
             'evidence':{path:digest for path,digest in run.evidence.items()
                         if include_private or not (path.startswith('private/') or '/private/' in path)},
             'notes':['Only persisted generation usage is summed; cumulative session counters are shown separately.',

@@ -32,6 +32,8 @@ def check(root):
                     '--include-private', '--out', str(output)], check=True, capture_output=True)
     report = json.loads(output.read_text())
     assert len(report['rows']) == 4
+    assert all(row['continuous_run_seconds'] > 0 and row['controller_seconds'] == row['continuous_run_seconds']
+               and row['timing_coverage'] == 'complete_controller_intervals' for row in report['rows'])
     assert report['paired_deltas'][0]['quality_delta']['mean'] == -.4
     assert all(row['reference']['status'] == 'experimental' for row in report['rows'])
     print('Installed multi-seed study: four real runs, controlled comparison and paired deltas passed')

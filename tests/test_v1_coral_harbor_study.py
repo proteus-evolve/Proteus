@@ -149,6 +149,11 @@ def test_live_harbor_full_coral_packing_search_and_report(tmp_path,workers):
         assert result.status.value=='completed',result.diagnostic
         report=report_packing(root/'run',include_private=True)
         assert report['cooperation']['worker_count']==workers
+        timing=report['cooperation']['timing']
+        assert timing['unknown_intervals']==(1 if workers==2 else 0)
+        assert (timing['continuous_run_seconds'] is None)==(workers==2)
+        assert (timing['controller_seconds'] is None)==(workers==2)
+        assert timing['known_controller_seconds']>0
         assert report['cooperation']['events']['counts']['interventions']==2
         assert len(report['cooperation']['generations'])==workers+2
         assert report['cooperation']['knowledge']['counts']['cross_worker_source_edges']==(1 if workers==2 else 0)
@@ -160,6 +165,8 @@ def test_live_harbor_full_coral_packing_search_and_report(tmp_path,workers):
         assert run_recipe(recipe,registry=registry,lock=lock,root=root/'run',resume=True)==result
         assert ledger.events()==before
         after=report_packing(root/'run',include_private=True)
+        assert after['cooperation']['timing']['continuous_run_seconds']==timing['continuous_run_seconds']
+        assert after['cooperation']['timing']['controller_seconds']==timing['controller_seconds']
         assert after['geometry']==report['geometry'] and after['cooperation']['accounting']==report['cooperation']['accounting']
         (root/'private-report.json').write_text(json.dumps(after,indent=2))
         output=root/'public-report.json'

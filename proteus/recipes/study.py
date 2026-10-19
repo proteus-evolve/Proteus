@@ -153,6 +153,9 @@ def compare_runs(spec, *, base='.', include_private=False):
             'cost_usd': actual.get('cost_usd'), 'model_calls': actual.get('model_calls'),
             'evaluations': actual.get('evaluations'), 'summed_operation_seconds': actual.get('wall_seconds'),
             'ledger_span_seconds': accounting['ledger_span_seconds'],
+            'continuous_run_seconds': report['timing']['continuous_run_seconds'],
+            'controller_seconds': report['timing']['controller_seconds'],
+            'timing_coverage': report['timing']['coverage'],
             'configuration_fingerprint': condition_hash, 'declared_variations': variation_hashes}
         rows.append(row)
     for name, values in conditions.items():
@@ -174,7 +177,8 @@ def compare_runs(spec, *, base='.', include_private=False):
                 require(key not in plugins or plugins[key] == plugin, 'shared plugin implementation differs')
                 plugins[key] = plugin
         require(len(sources) == len(packages) == 1, 'controlled comparison uses different source/package pins')
-    metrics = ('quality', 'cost_usd', 'model_calls', 'evaluations', 'summed_operation_seconds', 'ledger_span_seconds')
+    metrics = ('quality', 'cost_usd', 'model_calls', 'evaluations', 'summed_operation_seconds', 'ledger_span_seconds',
+               'continuous_run_seconds', 'controller_seconds')
     summaries = []
     for condition in sorted(conditions):
         group = [row for row in rows if row['condition'] == condition]
@@ -199,6 +203,7 @@ def compare_runs(spec, *, base='.', include_private=False):
         'notes': ['Quality aggregates only the explicitly selected final-test cohorts.',
                   'Incomplete/hidden scores and unknown costs keep the whole aggregate unavailable.',
                   'Ledger event span includes pauses; summed operation time can overlap.',
+                  'Continuous run time requires an uninterrupted initial controller invocation. Missing intervals keep total controller time unknown; background-worker activity is not measured by controller time.',
                   'Reference status and deviations are retained, not promoted by this report.']}
     return {**payload, 'comparison_hash': content_hash(payload)}
 

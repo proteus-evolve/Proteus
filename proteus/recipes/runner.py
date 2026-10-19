@@ -11,6 +11,7 @@ from proteus.core.run_lock import run_lock
 from proteus.core.recovery import Journal, RecoveryRequired
 from proteus.core.serialization import content_hash
 from proteus.recipes.manifest import RunManifest
+from proteus.recipes.controller_timing import ControllerInvocation
 
 
 def _write(path, data):
@@ -58,77 +59,82 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
         # Constructor option validation and role prompt hashes precede publication.
         method = registry.create(recipe.method, "method")
         manifest.write(manifest_path)
-        restored = None
-        finished = None
-        previous = root / "result.json"
-        if "run.journal" in definition.capabilities:
-            require(definition.state_schema is not None, "journal methods require a state schema")
-            services._journal = Journal(services, manifest_hash=manifest.manifest_hash, validate_state=validate_state)
-            restored, finished = services._journal.initialize()
-        elif resume and previous.is_file():
-            restored = MethodResult.from_json(previous.read_text(encoding="utf-8")).state
-            validate_state(restored)
-        result = None
-        uncertain = False
-        try:
-            if artifact_source is not None:
-                from proteus.artifacts.store import ArtifactStore
-                require(recipe.subject is not None, "artifact import requires a subject")
-                services.artifacts.copy_from(ArtifactStore(artifact_source, registry),
-                                             recipe.subject.initial_artifact)
-            result = MethodResult.from_dict(finished) if finished is not None else method.run(services, restored)
-            require(type(result) is MethodResult, "method must return MethodResult")
-            from proteus.workers.service import require_terminal
-            require_terminal(services)
-            require(all(session.closed for session in services._evaluation_service.sessions),
-                    "method left an incomplete evaluation cohort")
-            for ref in result.outputs.values():
-                services.values.get(ref)
-            validate_state(result.state)
-        except RecoveryRequired as exc:
-            uncertain = True
-            result = MethodResult(status=OperationStatus.FAILED, diagnostic=f"RecoveryRequired: {exc}")
-        except StageFailed as exc:
-            result = MethodResult(status=OperationStatus.FAILED, diagnostic=str(exc))
-        except (Exception, SystemExit) as exc:
-            result = MethodResult(status=OperationStatus.FAILED,
-                                  diagnostic=f"{type(exc).__name__}: {exc}")
-        finally:
-            uncertain = uncertain or (services._journal is not None and services._journal.pending)
-            if recipe.workers and not uncertain and result is not None and result.status != OperationStatus.COMPLETED:
+        with ControllerInvocation(root, manifest.manifest_hash, resume=resume) as timing:
+            restored = None
+            finished = None
+            previous = root / "result.json"
+            if "run.journal" in definition.capabilities:
+                require(definition.state_schema is not None, "journal methods require a state schema")
+                services._journal = Journal(services, manifest_hash=manifest.manifest_hash, validate_state=validate_state)
+                restored, finished = services._journal.initialize()
+                timing.replayed_result = finished is not None
+            elif resume and previous.is_file():
+                restored = MethodResult.from_json(previous.read_text(encoding="utf-8")).state
+                validate_state(restored)
+            result = None
+            uncertain = False
+            try:
+                if artifact_source is not None:
+                    from proteus.artifacts.store import ArtifactStore
+                    require(recipe.subject is not None, "artifact import requires a subject")
+                    services.artifacts.copy_from(ArtifactStore(artifact_source, registry),
+                                                 recipe.subject.initial_artifact)
+                result = MethodResult.from_dict(finished) if finished is not None else method.run(services, restored)
+                require(type(result) is MethodResult, "method must return MethodResult")
                 from proteus.workers.service import require_terminal
-                try:
-                    require_terminal(services)
-                except RecoveryRequired as exc:
-                    uncertain = True
-                    result = MethodResult(status=OperationStatus.FAILED,
-                        diagnostic=f"{result.diagnostic or 'Method failed'}; RecoveryRequired: {exc}")
-            if not uncertain and (services._journal is None or result is not None):
-                services._evaluation_service.finalize_incomplete()
-            if services._journal is not None and result is not None and not uncertain and finished is None:
-                result = services._journal.finish(result)
-            # Keep separate attempt files on native resume; never erase prior evidence.
-            attempt = 1
-            while (root / f"execution-{attempt:04d}.json").exists():
-                attempt += 1
-            _write(root / f"execution-{attempt:04d}.json", {
-                "manifest_hash": manifest.manifest_hash,
-                "requests": [item.to_dict() for item in services.requests],
-                "results": [item.to_dict() for item in services.results],
-                "actor_calls": services.actor_calls, "native_prompts": services.native_prompts,
-                "native_inputs": services.native_inputs,
-                "candidates": [item.to_dict() for item in services.candidates],
-                "rollouts": [item.to_dict() for item in services.rollouts],
-                "evaluations": [item.to_dict() for item in services.evaluations],
-                "reserved_evaluations": services._evaluation_service.reserved,
-                # Native opaque episodes still do not claim coverage by this service ledger.
-                "ledger": {"path": "private/ledger.sqlite3",
-                           "coverage": ["managed_actor_calls", "evaluation_cohort_reservations",
-                                        "subject_calls", "grader_calls", "backend_verifiers", "source_builds",
-                                        "candidate_code_calls"]}
-                          if services._ledger is not None else None,
-                "values": services.values.export(), "values_hash": content_hash(services.values.export()),
-            })
-            if result is not None:
-                _write(previous, result.to_dict())
-        return result
+                require_terminal(services)
+                require(all(session.closed for session in services._evaluation_service.sessions),
+                        "method left an incomplete evaluation cohort")
+                for ref in result.outputs.values():
+                    services.values.get(ref)
+                validate_state(result.state)
+            except RecoveryRequired as exc:
+                uncertain = True
+                result = MethodResult(status=OperationStatus.FAILED, diagnostic=f"RecoveryRequired: {exc}")
+            except StageFailed as exc:
+                result = MethodResult(status=OperationStatus.FAILED, diagnostic=str(exc))
+            except (Exception, SystemExit) as exc:
+                result = MethodResult(status=OperationStatus.FAILED,
+                                      diagnostic=f"{type(exc).__name__}: {exc}")
+            finally:
+                uncertain = uncertain or (services._journal is not None and services._journal.pending)
+                if recipe.workers and not uncertain and result is not None and result.status != OperationStatus.COMPLETED:
+                    from proteus.workers.service import require_terminal
+                    try:
+                        require_terminal(services)
+                    except RecoveryRequired as exc:
+                        uncertain = True
+                        result = MethodResult(status=OperationStatus.FAILED,
+                            diagnostic=f"{result.diagnostic or 'Method failed'}; RecoveryRequired: {exc}")
+                if not uncertain and (services._journal is None or result is not None):
+                    services._evaluation_service.finalize_incomplete()
+                if services._journal is not None and result is not None and not uncertain and finished is None:
+                    result = services._journal.finish(result)
+                # Keep separate attempt files on native resume; never erase prior evidence.
+                attempt = 1
+                while (root / f"execution-{attempt:04d}.json").exists():
+                    attempt += 1
+                _write(root / f"execution-{attempt:04d}.json", {
+                    "manifest_hash": manifest.manifest_hash,
+                    "controller_timing": timing.reference,
+                    "requests": [item.to_dict() for item in services.requests],
+                    "results": [item.to_dict() for item in services.results],
+                    "actor_calls": services.actor_calls, "native_prompts": services.native_prompts,
+                    "native_inputs": services.native_inputs,
+                    "candidates": [item.to_dict() for item in services.candidates],
+                    "rollouts": [item.to_dict() for item in services.rollouts],
+                    "evaluations": [item.to_dict() for item in services.evaluations],
+                    "reserved_evaluations": services._evaluation_service.reserved,
+                    # Native opaque episodes still do not claim coverage by this service ledger.
+                    "ledger": {"path": "private/ledger.sqlite3",
+                               "coverage": ["managed_actor_calls", "evaluation_cohort_reservations",
+                                            "subject_calls", "grader_calls", "backend_verifiers", "source_builds",
+                                            "candidate_code_calls"]}
+                              if services._ledger is not None else None,
+                    "values": services.values.export(), "values_hash": content_hash(services.values.export()),
+                })
+                timing.snapshot = f"execution-{attempt:04d}.json"
+                if result is not None:
+                    _write(previous, result.to_dict())
+                    timing.status = result.status.value
+            return result
