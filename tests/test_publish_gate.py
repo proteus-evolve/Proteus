@@ -57,13 +57,35 @@ class GateEvidence:
         return _module.verify_workflows(self.fetch, tag='v1.0.0', sha='a'*40)
 
 
-def test_release_requires_all_three_workflows_with_all_required_jobs():
+def test_missing_native_source_workflow_blocks_otherwise_successful_release():
     evidence = GateEvidence()
-    assert set(evidence.verify()) == {'release-smoke.yml', 'ci.yml', 'harbor.yml'}
-    assert len(evidence.calls) == 6
+    evidence.runs['native-source-integration.yml'] = []
+    with pytest.raises(ValueError, match='native-source-integration.yml'):
+        evidence.verify()
 
 
-@pytest.mark.parametrize('workflow', ['release-smoke.yml', 'ci.yml', 'harbor.yml'])
+@pytest.mark.parametrize('backend', ['pi', 'dsh'])
+def test_each_native_source_backend_is_required_for_release(backend):
+    evidence = GateEvidence()
+    workflow = 'native-source-integration.yml'
+    evidence.runs[workflow] = [{**evidence.runs['ci.yml'][0], 'id': 800}]
+    evidence.jobs[800] = [
+        {'name': f'Pinned native source ({name})', 'status': 'completed',
+         'conclusion': 'skipped' if name == backend else 'success',
+         'head_sha': 'a'*40, 'run_id': 800} for name in ('pi', 'dsh')]
+    with pytest.raises(ValueError, match=workflow):
+        evidence.verify()
+
+
+def test_release_requires_all_four_workflows_with_all_required_jobs():
+    evidence = GateEvidence()
+    assert set(evidence.verify()) == {'release-smoke.yml', 'ci.yml', 'harbor.yml',
+                                      'native-source-integration.yml'}
+    assert len(evidence.calls) == 8
+
+
+@pytest.mark.parametrize('workflow', ['release-smoke.yml', 'ci.yml', 'harbor.yml',
+                                      'native-source-integration.yml'])
 @pytest.mark.parametrize('changed', [
     {'head_sha': 'b'*40}, {'head_branch': 'dev/1.0.0'}, {'event': 'pull_request'},
     {'status': 'in_progress'}, {'conclusion': 'cancelled'},
@@ -79,6 +101,8 @@ def test_other_workflow_success_cannot_replace_missing_exact_release_run(workflo
     ('release-smoke.yml', 'codex'), ('ci.yml', 'Installed wheel and sdist'),
     ('ci.yml', 'test (3.14)'), ('ci.yml', 'Pinned AIME data and DSPy contract'),
     ('harbor.yml', 'Pinned Harbor and real Docker trials'),
+    ('native-source-integration.yml', 'Pinned native source (pi)'),
+    ('native-source-integration.yml', 'Pinned native source (dsh)'),
 ])
 @pytest.mark.parametrize('changed', [
     {'conclusion': 'skipped'}, {'conclusion': 'failure'}, {'status': 'in_progress'},
@@ -92,29 +116,33 @@ def test_required_job_must_finish_successfully_on_its_exact_run(workflow, job_na
         evidence.verify()
 
 
-def test_partial_runs_cannot_pool_jobs_to_certify_a_workflow():
+@pytest.mark.parametrize('workflow', ['ci.yml', 'native-source-integration.yml'])
+def test_partial_runs_cannot_pool_jobs_to_certify_a_workflow(workflow):
     evidence = GateEvidence()
-    original = evidence.runs['ci.yml'][0]
-    evidence.runs['ci.yml'].append({**original, 'id': 500})
-    evidence.jobs[500] = [dict(job, run_id=500) for job in evidence.jobs[original['id']][4:]]
-    evidence.jobs[original['id']] = evidence.jobs[original['id']][:4]
-    with pytest.raises(ValueError, match='ci.yml'):
+    original = evidence.runs[workflow][0]
+    evidence.runs[workflow].append({**original, 'id': 500})
+    split = len(evidence.jobs[original['id']]) // 2
+    evidence.jobs[500] = [dict(job, run_id=500) for job in evidence.jobs[original['id']][split:]]
+    evidence.jobs[original['id']] = evidence.jobs[original['id']][:split]
+    with pytest.raises(ValueError, match=workflow):
         evidence.verify()
 
 
-def test_a_complete_later_attempt_can_pass_without_pooling_previous_jobs():
+@pytest.mark.parametrize('workflow', ['ci.yml', 'native-source-integration.yml'])
+def test_a_complete_later_attempt_can_pass_without_pooling_previous_jobs(workflow):
     evidence = GateEvidence()
-    original = evidence.runs['ci.yml'][0]
-    evidence.runs['ci.yml'].append({**original, 'id': 500})
+    original = evidence.runs[workflow][0]
+    evidence.runs[workflow].append({**original, 'id': 500})
     evidence.jobs[500] = [dict(job, run_id=500) for job in evidence.jobs[original['id']]]
     evidence.jobs[original['id']][0]['conclusion'] = 'skipped'
-    assert len(evidence.verify()) == 3
+    assert len(evidence.verify()) == 4
 
 
-def test_lookup_errors_do_not_return_partial_gate_approval():
+@pytest.mark.parametrize('workflow', ['harbor.yml', 'native-source-integration.yml'])
+def test_lookup_errors_do_not_return_partial_gate_approval(workflow):
     evidence = GateEvidence()
     def unavailable(path):
-        if 'harbor.yml' in path:
+        if workflow in path:
             raise OSError('unavailable')
         return evidence.fetch(path)
     with pytest.raises(OSError):

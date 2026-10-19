@@ -383,7 +383,7 @@ P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 p
 - [x] 保留旧 CLI 的兼容入口；记录旧 run 的读取、续跑与迁移支持边界（native 原入口、兼容 recipe 和 V1_COMPATIBILITY.md）。
 - [x] 不改写旧实验记录；不兼容的续跑要求原版本完成或新建 run（只读导出、锁校验及明确拒绝未知 schema/state；不隐式原地迁移）。
 - [x] 更新架构、recipe、扩展、Harbor、结果解释、迁移与发布文档（P10k：统一入口与支持矩阵；README 的 prepare/check/lock/run/resume/export 在新安装环境实际执行；1.0 release notes 标为 unreleased）。
-- [x] 保留既有 runtime 发布检查，并增加新 recipe 的端到端检查（P10g 绑定同一 tag/SHA 的 CI、Harbor、live smoke；实际发布提交仍须全部通过）。
+- [x] 保留既有 runtime 发布检查，并增加新 recipe 的端到端检查（P10g/P10v 绑定同一 tag/SHA 的 CI、Harbor、live smoke 和 Pi/DSH 源码集成验收；每个 workflow 必须有一次完整成功运行，实际发布提交仍须全部通过）。
 - [ ] 验证 wheel、sdist、可选依赖、离线模板与真实 backend 的安装路径。
 
 **验收：** 新环境能按文档安装、运行、查看结果、恢复和导出；发布产物与验证的同一提交一致。
@@ -454,6 +454,8 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 **依赖：** I01–I09、I11、I12、I14。**完成定义：** 真实异步协作、共享知识、触发干预和中断恢复都有运行记录；不能仅以成功启动多个进程作为完成。
 
 ### R00 Native
+
+P10v 开发中：新增固定 Pi/DSH 上游提交的真实源码镜像 CI，使用本地确定性 provider 驱动真实 CLI 的读写工具，经原 native episode 事务验证编译、下一轮执行、完成后恢复和坏源码拒绝。逐次启动回执与前一 checkpoint、原始 Docker 输出交叉核验。该 workflow 在 release tag 上也触发，发布脚本要求同 tag/SHA 的 Pi、DSH jobs 在同一次运行中全部成功。实际 Docker jobs 和证据验收完成前不勾选 R00；它也不替代 live model 或算法质量实验。
 
 - [x] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义（P02 复用原 RunConfig 引擎，旧入口继续可用；live release gates 仍待后续验收）。
 - [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复。

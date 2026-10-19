@@ -1,4 +1,4 @@
-"""Require live, recipe/package and Harbor gates for the exact release tag and commit."""
+"""Require live, recipe/package, Harbor and native source gates for the release."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +15,7 @@ REQUIRED_WORKFLOWS = {
                          "Installed wheel and sdist", *(f"test ({version})" for version in
                          ("3.10", "3.11", "3.12", "3.13", "3.14"))}),
     "harbor.yml": frozenset({"Pinned Harbor and real Docker trials"}),
+    "native-source-integration.yml": frozenset({"Pinned native source (pi)", "Pinned native source (dsh)"}),
 }
 
 

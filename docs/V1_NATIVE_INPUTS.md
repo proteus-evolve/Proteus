@@ -318,6 +318,42 @@ startup, Python/Node source-hash agreement, pre-CLI rejection and adapter receip
 The installed package check covers persistence and tampering rejection. These are
 bootstrap/control tests, not builds of the actual upstream Pi/DSH source images.
 
+`Native source integration` adds an independent, credential-free Docker gate for
+the actual source images. Its Pi/DSH upstream commits are fixed in the workflow
+and `tests/check_native_source_docker.py`. The workflow builds the production
+Dockerfiles and wrappers, records the image identity, and runs the normal native
+episode transaction with the production `DockerSandbox`. A loopback SSE provider
+requests actual `read` and `write` tools; the tool writes an observable marker into
+the candidate's real CLI entrypoint. The second episode must execute that modified
+entrypoint, with a different source/CLI hash and the marker in its process output.
+The gate additionally requires a completed resume without new provider requests
+and rejection of an invalid TypeScript candidate by the actual build toolchain.
+
+The workflow also runs on release tags. Publishing requires both source jobs to
+succeed in one complete workflow run for the exact tag and commit, alongside CI,
+Harbor and live release smoke. PR runs, manual runs and separate partial attempts
+cannot supply this release evidence.
+
+The raw Docker commands/results, native input/outcome files, snapshot repository,
+provider request hashes, image metadata and build logs are uploaded for inspection.
+The saved-evidence reader `verify(root, expected_head=...)` independently matches
+each startup receipt against its **preceding** source checkpoint and the raw
+process output. It does not run Docker, a provider or method plugins.
+
+Run the gate with an image built from the declared source revision and labelled
+`org.opencontainers.image.revision` accordingly:
+
+```bash
+python tests/check_native_source_docker.py \
+  --backend pi --image proteus-native-source:pi --out /tmp/native-pi-check
+```
+
+The host must support Linux Docker host networking. The output directory may
+contain build logs but must not contain a previous run. This is a fixed-response
+engineering check, not a model's ability to invent useful edits or an algorithm
+benchmark. Creating the workflow does not count as passing it: both current-head
+Docker jobs and their raw evidence must pass before this acceptance is recorded.
+
 Actual live backend release-smoke gates remain required. Internal provider-message
 coverage for opaque harnesses, unreported auxiliary work and complete native
 aggregate cost coverage remain separate work.

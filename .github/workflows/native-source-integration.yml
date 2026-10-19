@@ -1,0 +1,90 @@
+name: Native source integration
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - '.github/workflows/native-source-integration.yml'
+      - 'environments/pi-src/**'
+      - 'environments/dsh-src/**'
+      - 'proteus/adapters/pi.py'
+      - 'proteus/adapters/dsh.py'
+      - 'proteus/core/native_activation.py'
+      - 'proteus/core/native_inputs.py'
+      - 'proteus/core/episode*.py'
+      - 'proteus/sandbox/**'
+      - 'tests/check_native_source_docker.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source:
+    name: Pinned native source (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [pi, dsh]
+    env:
+      BACKEND: ${{ matrix.backend }}
+      IMAGE: proteus-native-source:${{ matrix.backend }}
+      OUT: /tmp/proteus-native-source-${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install controller and session reader
+        run: pip install -e '.[dsh]'
+      - name: Fetch exact upstream source and build production image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          if [ "$BACKEND" = pi ]; then
+            REPOSITORY=https://github.com/badlogic/pi-mono
+            REVISION=914cf1472e715297caa30db4b9535d534a9eb718
+          else
+            REPOSITORY=https://github.com/deepseek-ai/deepseek-harness
+            REVISION=99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+          fi
+          git init /tmp/native-source
+          git -C /tmp/native-source remote add origin "$REPOSITORY"
+          git -C /tmp/native-source fetch --depth 1 origin "$REVISION"
+          git -C /tmp/native-source checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/native-source rev-parse HEAD)" = "$REVISION"
+          git -C /tmp/native-source show -s --format=fuller HEAD > "$OUT/upstream.txt"
+          if [ "$BACKEND" = pi ]; then
+            docker run --rm -v /tmp/native-source:/opt/src -w /opt/src \
+              -v "$PWD/environments/pi-src/hydrate-model-data.sh:/hydrate-model-data.sh:ro" \
+              node:24-slim sh /hydrate-model-data.sh 2>&1 | tee "$OUT/hydrate.log"
+          fi
+          cp "environments/$BACKEND-src/boot.sh" /tmp/native-source/.proteus-boot.sh
+          docker build --label "org.opencontainers.image.revision=$REVISION" \
+            -f "environments/$BACKEND-src/Dockerfile" -t "$IMAGE" /tmp/native-source \
+            2>&1 | tee "$OUT/build.log"
+          docker image inspect "$IMAGE" > "$OUT/image.json"
+          pip freeze > "$OUT/python-packages.txt"
+      - name: Real coding tools, next-episode activation and broken-source rejection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tests/check_native_source_docker.py --backend "$BACKEND" --image "$IMAGE" --out "$OUT" \
+            2>&1 | tee "$OUT/check.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-source-${{ matrix.backend }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: /tmp/proteus-native-source-${{ matrix.backend }}/
+          include-hidden-files: true
+          if-no-files-found: error
