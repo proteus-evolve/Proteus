@@ -356,6 +356,19 @@ entrypoint, with a different source/CLI hash and the marker in its process outpu
 The gate additionally requires a completed resume without new provider requests
 and rejection of an invalid TypeScript candidate by the actual build toolchain.
 
+The same source jobs also run `tests/check_native_source_repair.py`. Its first
+controller writes invalid TypeScript through the real native tool and exits after
+the boundary compiler rejects it. A second controller reconstructs the adapter
+from saved state, reads and repairs that exact rejected candidate while executing
+the last valid source snapshot, then runs the repaired source in the next episode.
+A third controller resumes the completed run without another provider request or
+native phase record. Saved evidence under `repair/` includes all three process
+results, the rejected Git snapshot, the repair notice, and raw Docker calls.
+`check_native_source_repair.verify(root / "repair", expected_head=...)` checks
+these against the accepted checkpoint history and startup receipts. This extends
+the earlier separate broken-source probe to the complete repair transaction;
+it uses the same deterministic provider and makes no model-quality claim.
+
 The workflow also runs on release tags. Publishing requires both source jobs to
 succeed in one complete workflow run for the exact tag and commit, alongside CI,
 Harbor and live release smoke. PR runs, manual runs and separate partial attempts
@@ -373,6 +386,8 @@ Run the gate with an image built from the declared source revision and labelled
 ```bash
 python tests/check_native_source_docker.py \
   --backend pi --image proteus-native-source:pi --out /tmp/native-pi-check
+python tests/check_native_source_repair.py \
+  --backend pi --image proteus-native-source:pi --out /tmp/native-pi-check/repair
 ```
 
 The host must support Linux Docker host networking. The output directory may

@@ -15,6 +15,7 @@ on:
       - 'proteus/core/episode*.py'
       - 'proteus/sandbox/**'
       - 'tests/check_native_source_docker.py'
+      - 'tests/check_native_source_repair.py'
   workflow_dispatch:
 
 permissions:
@@ -81,6 +82,12 @@ jobs:
           set -euo pipefail
           python tests/check_native_source_docker.py --backend "$BACKEND" --image "$IMAGE" --out "$OUT" \
             2>&1 | tee "$OUT/check.log"
+      - name: Failed candidate repair across controller restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tests/check_native_source_repair.py --backend "$BACKEND" --image "$IMAGE" --out "$OUT/repair" \
+            2>&1 | tee "$OUT/repair-check.log"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
