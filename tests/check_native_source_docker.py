@@ -126,6 +126,15 @@ class RecordedDocker(DockerSandbox):
         return result
 
 
+def require_compiler_rejection(calls):
+    rejected = [call for call in calls if call['command'] == ['--version']
+                and any('/broken/' in mount[0] for mount in call['mounts'])]
+    assert len(rejected) == 1, 'expected one broken-source build probe'
+    call = rejected[0]
+    assert call['returncode'] == 97 and 'self-edited source does not build' in call['stderr'], \
+        'broken candidate must fail the source compiler, not Docker or an unrelated startup step'
+
+
 def adapter_for(backend, image, root, url):
     common = dict(image=image, network='host', user=f'{os.getuid()}:{os.getgid()}',
                   mem_limit='6g', cpus='2', env_passthrough=('DEEPSEEK_API_KEY',))
@@ -197,12 +206,11 @@ def verify(root, *, expected_head=None):
     assert activations == evidence['activation']
     assert [a['mode'] for a in activations] == ['pristine', 'cache']
     assert activations[0]['cli_sha256'] != activations[1]['cli_sha256']
-    assert MARKER not in phases[0]['stderr'] and MARKER in phases[1]['stderr']
+    assert MARKER not in phases[0]['stderr'].splitlines() and MARKER in phases[1]['stderr'].splitlines()
     provider = json.loads((root/'provider.json').read_text())
     assert not provider['errors'] and provider['requests'] == evidence['requests']
     assert len(provider['requests']) == 4
-    assert any(call['returncode'] != 0 and call['command'] == ['--version']
-               and any('/broken/' in mount[0] for mount in call['mounts']) for call in calls)
+    require_compiler_rejection(calls)
     return evidence
 
 
@@ -234,7 +242,7 @@ def check(backend, image, root):
         assert activation[1]['source_sha256'] == source_tree_hash(cfg.root/'harness/src')
         phases = [call for call in sandbox.calls if call['command'][0] == '--proteus-expect-source']
         assert len(phases) == 2 and all(call['returncode'] == 0 for call in phases)
-        assert MARKER not in phases[0]['stderr'] and MARKER in phases[1]['stderr']
+        assert MARKER not in phases[0]['stderr'].splitlines() and MARKER in phases[1]['stderr'].splitlines()
         assert all(any(mount[1:] == ('/workspace', 'ro') for mount in call['mounts']) for call in phases)
         assert all(item['accepted'] for item in result.eval_history)
         before = read_native_inputs(cfg.root)
@@ -247,6 +255,7 @@ def check(backend, image, root):
         (broken/'src'/ENTRY[backend]).write_text('this is deliberately invalid TypeScript !!!\n')
         error = adapter.validate_candidate(broken)
         assert error and 'does not boot' in error, error
+        require_compiler_rejection(sandbox.calls)
         assert source_tree_hash(cfg.root/'harness/src') == activation[1]['source_sha256']
         assert len(provider.requests) == 4
         evidence = {'schema_version': 1, 'backend': backend, 'source_revision': PINS[backend],
