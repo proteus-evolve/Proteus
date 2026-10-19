@@ -97,6 +97,8 @@ P10l 开发中：native 调用回执加入版本化用量证据，先接入 Open
 
 P10m 开发中：将已验证的 Codex JSON stream parser 复用于 native fresh/ephemeral 调用；逐 attempt 保存原始流、摘要和 token 回执，重试覆盖普通 trace 后仍可核验。非零退出、超时、截断及缺失终结事件保持 unknown；模型调用数和费用不根据 CLI 启动次数推断。通过本地 Responses fixture 验证实际 Codex CLI，不调用付费模型。Pi/DSH/Aki、native evaluator 完整用量、有限成本约束与真实模型实验继续保持待验收。
 
+P10n 开发中：Pi native 调用按 attempt 固化新增 v3 session 的原始日志 bundle，汇总 assistant、带用量的 tool result、compaction 与 branch summary；缓存输入只计一次，缺失值及 SDK 无法区分的默认零值保持 unknown。旧 session 被改写、继承历史、截断、异常退出与重复 session identity 不得形成完整用量声明。已用固定上游 TypeScript 汇总函数核对四组正 token 样本；安装包检查使用确定性 transport，尚未宣称真实 Pi CLI/provider 用量验收。DSH/Aki、native evaluator 完整覆盖、有限成本约束与真实模型实验仍待完成，I09 未完成项保持不变。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

@@ -45,8 +45,8 @@ but are not signatures against a party able to rewrite all controller records.
 Input/outcome metadata excludes environment mappings, authentication headers and
 exception text. Recorded model input itself can contain task data, so these files
 remain controller records rather than automatically shared public reports. The
-separate Codex raw usage source retains CLI output, including model/tool text or
-provider errors; exports never copy those bytes.
+separate CLI raw usage sources retain model/tool text, summaries or provider
+errors; exports never copy those bytes.
 
 ## Recipe runs
 
@@ -76,7 +76,8 @@ recorded attempts. A completed resume adds neither calls nor zero-filled entries
 | Built-in minimal mock policy | Zero; only the exact bundled local policy qualifies | Zero inference cost |
 | OpenAI-compatible chat | One received response; provider `prompt_tokens` / `completion_tokens` when valid | Unknown |
 | Codex native `exec --json --ephemeral` | Completed fresh-thread token receipt; model-call count remains unknown | Unknown |
-| Custom minimal policy, Pi, DSH, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
+| Pi native fresh v3 sessions | Positive reported token totals, including caches, tools and summaries; ambiguous zeros remain unknown | Unknown |
+| Custom minimal policy, DSH, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
 
 Chat token counts must be nonnegative integers; missing, negative, Boolean,
 fractional or string values become unknown. Cache and reasoning subcounts are
@@ -104,6 +105,26 @@ totals unknown, even if a partial log contains a completed receipt. Model-call
 counts and monetary cost remain unknown. This reports the harness's recorded
 tokens, not independently audited billing or usage of unreported internal agents.
 
+For Pi, the adapter freezes newly created v3 session logs into a private
+`ID.usage-source` bundle before publishing its outcome. Readback validates the
+bundle hash and re-parses every captured file. Changes to pre-existing sessions,
+inherited histories, duplicate identities, unsupported entries, truncated logs,
+unfinished assistant turns and failed transports cannot produce complete totals.
+Fresh attempts cannot reuse a session ID. A retry cannot replace an earlier
+attempt's captured source.
+
+The projection follows the [Pi v0.84.2 usage fold](https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/usage-totals.ts):
+assistant messages, tool results with usage, compaction and branch summaries.
+Input is `input + cacheRead + cacheWrite`; output is `output`. Reasoning and
+one-hour cache-write subsets are not added again. Missing summary usage remains
+unknown, even though upstream's display skips it. Pi providers can initialize
+usage to zero and retain it when a response omits usage, so a zero aggregate in
+either dimension is also unknown. Each dimension is validated independently.
+These are recorded-session totals; unreported extension/subagent work can remain
+outside their coverage. Summary entries may combine several requests, and the
+runtime's estimated prices are not billed amounts, so model-call counts and
+monetary costs remain unknown.
+
 `proteus recipe export` exposes `native_accounting` and `native-usage.csv` with
 counts, source and completion status, without copying prompts or provider output.
 Unknown components keep `reported` totals `null`; `known_subtotal` is explicitly
@@ -127,8 +148,14 @@ resume without new evidence, and read back a captured Codex protocol fixture.
 `tests/check_codex_cli.py` additionally exercises the real selected CLI against a
 local Responses stub: persistent-worker continuation plus two fresh native phases.
 It verifies actual token receipts and excludes previous-phase model history.
+`tests/check_native_pi_package.py` exercises the installed Pi adapter with a
+deterministic transport that writes fresh v3 logs. The optional
+`tests/check_pi_usage_reference.py --source /path/to/usage-totals.ts` runs the
+hash-verified pinned upstream fold using a Node version with TypeScript stripping;
+four positive-token profiles agree, while ambiguous zero defaults deliberately
+remain unknown. Neither Pi check runs a real Pi CLI or proves live provider usage.
 These checks use no paid inference and do not validate container isolation.
 
 Actual live backend release-smoke gates remain required. Internal provider-message
-coverage for opaque harnesses, Pi/DSH usage reconciliation and complete native
+coverage for opaque harnesses, DSH usage reconciliation and complete native
 aggregate cost coverage remain separate work.
