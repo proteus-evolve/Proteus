@@ -82,6 +82,15 @@ not promises of a precise number or cost of model calls. This batch does not
 establish live provider performance or new hard-exit cleanup guarantees for
 the native adapters.
 
+Generic coding actors now consume the same immutable usage receipts as native
+recipes. Available Codex, Pi and DSH token counts reach the role/stage actor
+ledger record and [result export](V1_RESULT_EXPORT.md), even when legacy episode
+counters omit tokens. Reported receipts take precedence over those counters;
+missing or incomplete source usage remains unknown. Raw receipts are stored
+outside the disposable task workspace and hash-bound to the settled actor result.
+Completed recovery verifies them without rerunning the coding agent. Calls and
+cost remain unknown wherever the underlying source cannot establish them.
+
 The DSH workspace provider binds the requested model through the pinned
 [`dsh-v0.1.0-rc.7` `agent-default-model` settings section](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.1.0-rc.7/packages/core/agent-default-model/src/index.ts), mounted read-only at
 `/state/settings.yaml`. It uses the `deepseek-official` provider route and the

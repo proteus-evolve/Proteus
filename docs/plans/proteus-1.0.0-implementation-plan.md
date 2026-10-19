@@ -103,6 +103,8 @@ P10o 开发中：DSH native 固化新增压缩 session，严格验证完整 zstd
 
 P10p 开发中：native evaluator 在实际调度时保存独立调用/用量回执，覆盖 H0、稀疏评估、legacy goal、失败与中断重试；完成后的恢复复用已有证据。内置纯测量确认零推理，自定义 evaluator 通过 `GoalContext.report_usage` 报告未被 adapter 回执覆盖的额外消耗，缺失值或异常保持 unknown。旧评分格式不变，隐藏 trace/结果不进入用量回执。自报告不等于独立计费验证，也不新增有限预算执行能力；Aki 内部覆盖、真实 provider 验收与 I09 剩余项继续保留。
 
+P10q 开发中：通用 harness/workspace actor 使用 native 原始回执汇总已报告用量，补上 coding actor 旧 counters 未提供 token 的缺口；同一 actor 仅通过既有账本计数，角色/阶段报告增加 actor token 列。私有证据位于可丢弃工作区之外，恢复与导出重新核对回执绑定；普通异常可保留已观察用量，同时保持阶段失败。缺失、未覆盖调用、有限预算限制和真实 provider 验收仍按原边界处理，不以 token 可读取替代 I09 完整验收。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

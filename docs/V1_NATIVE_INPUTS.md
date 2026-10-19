@@ -202,6 +202,12 @@ Nested boundary times may overlap and must not be interpreted as run duration.
 no-write behavior; usage reporting requires an active instrumented evaluation.
 This interface does not reserve budget or enforce finite call/cost caps.
 
+Generic harness/workspace actors consume these receipts through their existing
+managed actor entry. Their token fields and receipt binding appear in
+`accounting`, not additionally in `native_accounting`; the latter remains the
+native recipe's separate accounting channel. See [result export](V1_RESULT_EXPORT.md)
+for private evidence, recovery and coverage semantics.
+
 ## Validation and remaining acceptance
 
 Offline tests compare records with an actual local HTTP server's request body,
