@@ -271,3 +271,21 @@ def test_custom_adapter_cannot_inherit_a_zero_call_claim(tmp_path):
         with budget_scope(services, MinimalHarness(policy=lambda *args: []), ()):
             pytest.fail('custom adapter admitted')
     assert current() is None
+
+
+@pytest.mark.parametrize('status', ['completed', 'cancelled'])
+def test_export_and_resume_reject_unrelated_bounded_ledger_work(tmp_path, status):
+    from proteus.core.ledger import Amounts
+    recipe = config(run_cap=0, episodes=1)
+    assert execute(recipe, tmp_path).status.value == 'completed'
+    book = ledger(tmp_path)
+    book.reserve('unrelated-operation',
+                 scopes={'run': recipe.budget, 'role:agent': recipe.actors['agent'].budget},
+                 reservation=Amounts.zero(), metadata={'kind': 'build'}, request={})
+    if status == 'completed':
+        book.start('unrelated-operation')
+    book.settle('unrelated-operation', actual=Amounts.zero(), status=status)
+    with pytest.raises(ContractError, match='unrelated ledger work'):
+        report_run(tmp_path)
+    resumed = execute(recipe, tmp_path, resume=True)
+    assert resumed.status.value == 'failed' and 'unrelated ledger work' in resumed.diagnostic

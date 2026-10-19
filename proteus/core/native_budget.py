@@ -74,9 +74,13 @@ def verify_scopes(recipe, db):
 
 def verify(recipe, entries, records):
     """Bind saved accounting to every immutable boundary, without plugin execution."""
+    entries = list(entries)
+    bounded = enabled(recipe)
+    require(not bounded or all(entry['identity']['metadata'].get('kind') == 'native_boundary' for entry in entries),
+            'bounded native run contains unrelated ledger work')
     entries = {entry['id']: entry for entry in entries if entry['identity']['metadata'].get('kind') == 'native_boundary'}
-    require(enabled(recipe) or not entries, 'unexpected native budget ledger')
-    if not enabled(recipe):
+    require(bounded or not entries, 'unexpected native budget ledger')
+    if not bounded:
         return []
     from proteus.methods.native import NativeOptions
     validate(recipe, NativeOptions.from_dict(recipe.method.options))
