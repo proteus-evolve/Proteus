@@ -69,3 +69,5 @@ cancellation, unchanged counting after resume, single/multi-worker comparisons
 and rejection of corrupted worker, ledger, gateway, knowledge and event records.
 Installed wheel/sdist checks run the actual CLI outside the checkout. Five-family
 real-model studies and the full I14/R05 release acceptance remain outstanding.
+
+For saved original-task geometry and complete controller/container acceptance, see [CORAL container study and domain regrade](V1_CORAL_CONTAINER_STUDY.md).

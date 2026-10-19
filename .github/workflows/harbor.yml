@@ -10,7 +10,7 @@ jobs:
   docker:
     name: Pinned Harbor and real Docker trials
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,6 +45,11 @@ jobs:
           PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
           PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
         run: python -m pytest tests/test_v1_coral_circle_packing.py -k live_harbor -q
+      - name: Complete CORAL controller with container workers and original packing task
+        env:
+          PROTEUS_HARBOR_PYTHON: ${{ runner.temp }}/proteus-harbor/bin/python
+          PROTEUS_HARBOR_STUDY: ${{ runner.temp }}/proteus-harbor-study
+        run: python -m pytest tests/test_v1_coral_harbor_study.py -k live_harbor -q
       - name: Collect independent worker evidence without pre-populating the baseline study
         if: always()
         run: |

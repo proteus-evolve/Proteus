@@ -124,3 +124,5 @@ Numeric conformance tests execute the pinned upstream grader in a separate
 Python process. The live Docker gate compares original, valid-grid and invalid
 forged candidates, including confirmation trials and no-repeat recovery. Model
 quality, single/multi-worker tradeoffs and full R05 acceptance remain unfinished.
+
+For saved original-task geometry and complete controller/container acceptance, see [CORAL container study and domain regrade](V1_CORAL_CONTAINER_STUDY.md).

@@ -81,6 +81,8 @@ P10g 开发中：将既有 live release-smoke、新 recipe/安装包 CI 与真�
 
 P10h 开发中：加入单空间 CORAL 的离线实验报告，核对 worker 代际与用量、网关关闭、正式评估、知识发布/来源和实际干预；复用共同 StudySpec 比较单/多 worker 条件。共享快照可用性与声明来源不等于 GET 交付或因果收益，未知成本保持为空。详见 [V1_CORAL_REPORT.md](../V1_CORAL_REPORT.md)。真实模型效果、完整运行耗时与 R05 验收仍待完成。
 
+P10i 开发中：补齐完整 CORAL 控制器、Harbor 持久研究 worker 与原始 circle-packing 任务的组合验收。单/双 worker 使用同一总正式提交额度，核对共享知识、原生干预、关闭与无重复恢复；领域报告从保存的几何输出独立重算评分并核验容器/构建证据。详见 [V1_CORAL_CONTAINER_STUDY.md](../V1_CORAL_CONTAINER_STUDY.md)。脚本 provider 不代表模型优化，真实模型和完整发布验收仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
