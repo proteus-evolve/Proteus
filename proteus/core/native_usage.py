@@ -48,6 +48,10 @@ def chat_usage(raw):
     return usage_evidence('openai_chat_response', fields)
 
 
+def evaluator_usage(reports, *, complete):
+    return usage_evidence('evaluator_report', {'complete': complete, 'reports': reports})
+
+
 def usage_evidence(source='unreported', fields=None, *, wall_seconds=None):
     fields = {} if fields is None else fields
     require(type(fields) is dict, 'native usage fields must be an object')
@@ -64,9 +68,19 @@ def usage_evidence(source='unreported', fields=None, *, wall_seconds=None):
     elif source == 'dsh_sessions_v0':
         from proteus.core.native_dsh_usage import dsh_reported
         usage = dsh_reported(fields, wall_seconds=wall_seconds)
+    elif source == 'evaluator_report':
+        require(set(fields) == {'complete', 'reports'} and type(fields['complete']) is bool
+                and type(fields['reports']) is list, 'invalid native evaluator usage fields')
+        dimensions = DIMENSIONS[:-1]
+        for report in fields['reports']:
+            require(type(report) is dict and set(report) == set(dimensions), 'invalid evaluator usage report')
+            Usage.from_dict(report)
+        totals = {key: sum_known(report[key] for report in fields['reports'])
+                  if fields['complete'] and fields['reports'] else None for key in dimensions}
+        usage = Usage(**totals, wall_seconds=wall_seconds)
     else:
-        require(source in ('unreported', 'local_mock') and not fields, 'unsupported native usage source')
-        zero = 0 if source == 'local_mock' else None
+        require(source in ('unreported', 'local_mock', 'local_evaluator') and not fields, 'unsupported native usage source')
+        zero = 0 if source in ('local_mock', 'local_evaluator') else None
         usage = Usage(model_calls=zero, input_tokens=zero, output_tokens=zero,
                       cost_usd=zero, wall_seconds=wall_seconds)
     return {'version': 1, 'source': source, 'fields': fields, 'reported': usage.to_dict()}
@@ -81,7 +95,8 @@ def validate_usage(value, request=None):
     if request is not None:
         permitted = {'openai_chat_response': 'chat_request', 'local_mock': 'policy_prompt',
                      'codex_exec_jsonl': 'harness_cli', 'pi_sessions_v3': 'harness_cli',
-                     'dsh_sessions_v0': 'harness_cli'}
+                     'dsh_sessions_v0': 'harness_cli', 'local_evaluator': 'native_evaluator',
+                     'evaluator_report': 'native_evaluator'}
         require(value['source'] not in permitted or
                 request['scope'] == permitted[value['source']],
                 'native usage source does not match adapter boundary')
@@ -103,6 +118,10 @@ def validate_usage(value, request=None):
             argv = request['payload']
             require(type(argv) is list and len(argv) == 3 and all(type(item) is str for item in argv)
                     and argv[:2] == ['--profile', 'headless'], 'DSH usage requires a fresh headless invocation')
+        elif value['source'] in ('local_evaluator', 'evaluator_report'):
+            require(type(request['payload']) is dict and type(request['payload'].get('model_free')) is bool
+                    and request['payload']['model_free'] == (value['source'] == 'local_evaluator'),
+                    'evaluator usage source differs from its dispatch')
     return value
 
 
@@ -139,10 +158,12 @@ def summarize_native_inputs(records):
         'unknown_entries': {key: sum(row[key] is None for row in rows) for key in DIMENSIONS},
         'budget_enforced': False,
         'semantics': 'Cumulative recorded boundaries only; empty evidence is not zero usage. '
-            'Reported model_calls counts chat responses, not harness launches or tool turns; '
+            'Reported model_calls uses chat responses and explicit evaluator reports, not harness launches or tool turns; '
             'Codex tokens cover its completed fresh-thread JSON receipt; '
             'Pi tokens cover reported usage in newly created v3 session logs. '
             'DSH tokens cover fresh format-0 logs after fork seeds, with unknown auxiliary/retry gaps. '
+            'Evaluator reports cover only usage not already recorded by adapter boundaries; '
+            'custom reports are evaluator-supplied, not independently observed billing. '
             'wall_seconds sums boundary elapsed time, not total run time. '
             'Unknown components keep totals null; known_subtotal is incomplete. '
-            'Native evaluators and uninstrumented internal calls may be outside this coverage.'}
+            'Unreported evaluator usage and uninstrumented internal calls remain unknown.'}

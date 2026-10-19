@@ -502,7 +502,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
     elif not start and any(s.due(0) for s in cfg.goal.evaluators):
         baseline_results = cfg.goal.evaluate(
-            [], GoalContext(str(harness), 0, grader_sandbox=cfg.grader_sandbox))
+            [], GoalContext(str(harness), 0, grader_sandbox=cfg.grader_sandbox, native_root=str(cfg.root)))
         baseline = {"episode": 0, "accepted": True,
                     "candidate_commit": snapshot.commit_for_episode(harness, 0),
                     "results": [r.__dict__ for r in baseline_results]}
@@ -692,7 +692,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         if not viability_error:
             try:
                 results = cfg.goal.evaluate(
-                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox, native_root=str(cfg.root))
                 )
             except Exception as exc:  # noqa: BLE001
                 results = [EvalResult(name=name, score=None, status="error",

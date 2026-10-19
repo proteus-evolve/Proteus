@@ -29,24 +29,24 @@ def check():
         assert result.status.value=='completed',result.diagnostic
         first=json.loads((root/'execution-0001.json').read_text())
         records=read_native_inputs(root/'workspace')
-        assert len(records)==8 and records==first['native_inputs']
+        assert len(records)==10 and records==first['native_inputs']
         assert all(row['completion']=='returned' for row in records)
         assert all(row['input']['payload']!=first['native_prompts'][row['input']['episode']-1]['prompts'][row['input']['phase']]
-                   for row in records)
+                   for row in records if row['input']['scope'] == 'policy_prompt')
         before={path.name:path.read_bytes() for path in input_directory(root/'workspace').glob('*.json')}
         resumed=run_recipe(recipe,registry=registry,lock=lock,root=root,resume=True)
         assert resumed.status.value=='completed'
         assert json.loads((root/'execution-0002.json').read_text())['native_inputs']==records
         assert before=={path.name:path.read_bytes() for path in input_directory(root/'workspace').glob('*.json')}
         usage=report_run(root)['native_accounting']
-        assert usage['boundary_count']==8 and usage['reported']['model_calls']==0
+        assert usage['boundary_count']==10 and usage['reported']['model_calls']==0
         assert usage['reported']['input_tokens']==usage['reported']['output_tokens']==0
         assert usage['reported']['cost_usd']==0 and usage['reported']['wall_seconds']>=0
         assert usage['unknown_entries']['model_calls']==0 and not usage['budget_enforced']
         export_run(root,Path(directory)/'export')
-        assert len((Path(directory)/'export/native-usage.csv').read_text().splitlines())==9
+        assert len((Path(directory)/'export/native-usage.csv').read_text().splitlines())==11
         assert before=={path.name:path.read_bytes() for path in input_directory(root/'workspace').glob('*.json')}
-        print('installed native recipe: eight immutable inputs/usage receipts, zero mock inference, unchanged resume and CSV export passed')
+        print('installed native recipe: ten immutable adapter/evaluator receipts, zero mock inference, unchanged resume and CSV export passed')
         native=Path(directory)/'codex'
         source=('\n'.join(json.dumps(event) for event in [
             {'type':'thread.started','thread_id':'12345678-1234-4234-8234-123456789abc'},
