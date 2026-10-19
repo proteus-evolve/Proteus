@@ -148,8 +148,11 @@ def adapter_for(backend, image, root, url):
                   mem_limit='6g', cpus='2', env_passthrough=('DEEPSEEK_API_KEY',))
     if backend == 'pi':
         from proteus.adapters.pi import PiHarness
-        config = root/'fixture-config'
-        config.mkdir()
+        # Pi creates settings locks and its credential store during startup.
+        # Keep mutable agent configuration in the adapter's existing state mount;
+        # the executable /workspace snapshot remains read-only.
+        config = root/'run/.pi-state/agent'
+        config.mkdir(parents=True)
         (config/'models.json').write_text(json.dumps({'providers': {'proteus_fixture': {
             'baseUrl': url, 'api': 'openai-completions', 'apiKey': 'fixture',
             'models': [{'id': 'fixture', 'name': 'Local fixture', 'reasoning': False,
@@ -157,8 +160,7 @@ def adapter_for(backend, image, root, url):
         (config/'settings.json').write_text(json.dumps({'retry': {'enabled': False},
             'compaction': {'enabled': False}}))
         sandbox = RecordedDocker(SandboxConfig(**common,
-            env={'PI_CODING_AGENT_DIR': '/proteus-fixture', 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0'},
-            extra_args=('--mount', f'type=bind,src={config},dst=/proteus-fixture,readonly')), root)
+            env={'PI_CODING_AGENT_DIR': '/state/agent', 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0'}), root)
         return PiHarness(image=image, provider='proteus_fixture', model='fixture', key='fixture',
                          sandbox=sandbox, phase_timeout_s=600), sandbox
     from proteus.adapters.dsh import DshHarness
