@@ -22,6 +22,7 @@ import threading
 import time
 
 if __package__:
+    from proteus.execution.filesystem_policy import MAX_RECEIPT, validate_receipt
     from proteus.execution.harbor_worker import (
         VERIFY_TREE, canonical, checked_environment, cleanup_owned_resources, digest, docker, runtime_identity, write_json,
     )
@@ -33,6 +34,10 @@ else:
     _helper = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_helper)
     VERIFY_TREE = _helper.VERIFY_TREE
+    _policy_spec = importlib.util.spec_from_file_location('proteus_filesystem_policy', Path(__file__).with_name('filesystem_policy.py'))
+    _policy = importlib.util.module_from_spec(_policy_spec)
+    _policy_spec.loader.exec_module(_policy)
+    MAX_RECEIPT, validate_receipt = _policy.MAX_RECEIPT, _policy.validate_receipt
     canonical, checked_environment = _helper.canonical, _helper.checked_environment
     cleanup_owned_resources, digest = _helper.cleanup_owned_resources, _helper.digest
     docker, runtime_identity, write_json = _helper.docker, _helper.runtime_identity, _helper.write_json
@@ -217,6 +222,11 @@ async def run(path, channel, request):
                 raise ValueError('container candidate verification failed')
             await environment.upload_file(source_path=Path(request['code_worker']), target_path='/opt/proteus/code_worker.py')
             worker_hash = 'sha256:' + hashlib.sha256(Path(request['code_worker']).read_bytes()).hexdigest()
+            if request.get('filesystem_policy') is not None:
+                helper = Path(request['filesystem_helper'])
+                if 'sha256:' + hashlib.sha256(helper.read_bytes()).hexdigest() != request['filesystem_helper_hash']:
+                    raise ValueError('filesystem policy helper changed before dispatch')
+                await environment.upload_file(source_path=helper, target_path='/opt/proteus/filesystem_policy.py')
             execution_root = '/opt/proteus/build' if built else '/opt/proteus/candidate'
             # CAP_CHOWN is deliberately absent. The root-owned upload can be
             # made writable without granting a capability to candidate processes.
@@ -226,7 +236,8 @@ async def run(path, channel, request):
             proof = {**json.loads(witness.stdout), **actual, **isolation,
                 'request_hash': digest(request), 'code_worker_hash': worker_hash,
                 'build_receipt_hash': digest(request['build_receipt']) if built else None}
-            write_json(root / 'loaded.json', proof)
+            if request.get('filesystem_policy') is None:
+                write_json(root / 'loaded.json', proof)
             return proof, execution_root
 
         proof, execution_root = await asyncio.wait_for(setup(), min(request['setup_timeout_seconds'],
@@ -234,10 +245,25 @@ async def run(path, channel, request):
         # Lifecycle, source upload and witness use Harbor. Its buffered exec API
         # has no bidirectional stream, so only this transport uses docker exec.
         remaining = max(.001, request['deadline'] - time.monotonic())
+        command = ['python3', '-I', '/opt/proteus/code_worker.py', '--stdio', str(request['max_frame_bytes']), str(remaining)]
+        access = request.get('filesystem_policy')
+        if access is not None:
+            command = ['python3', '-I', '/opt/proteus/filesystem_policy.py',
+                       base64.b64encode(canonical(access).encode()).decode(), '--', *command]
         process = subprocess.Popen(['docker', 'exec', '-i', '--user', '65534:65534', '--workdir', execution_root,
-            proof['container_id'], 'env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', 'python3', '-I',
-            '/opt/proteus/code_worker.py', '--stdio', str(request['max_frame_bytes']), str(remaining)],
+            proof['container_id'], 'env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', *command],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+        if access is not None:
+            line = await asyncio.wait_for(asyncio.to_thread(process.stdout.readline, MAX_RECEIPT + 1), remaining)
+            if not line.endswith(b'\n') or len(line) > MAX_RECEIPT:
+                await asyncio.wait_for(asyncio.to_thread(process.wait),
+                                       max(.001, request['deadline'] - time.monotonic()))
+                detail = process.stderr.read(4096).decode('utf-8', errors='replace')
+                raise ValueError('filesystem policy bootstrap did not confirm enforcement: ' + detail)
+            receipt = validate_receipt(json.loads(line), access, uid=65534, gid=65534)
+            proof.update(filesystem_policy=receipt, filesystem_helper_hash=request['filesystem_helper_hash'])
+            write_json(root / 'loaded.json', proof)
+            remaining = max(.001, request['deadline'] - time.monotonic())
         threads = relay(process, channel)
         code = await asyncio.wait_for(asyncio.to_thread(process.wait), remaining)
         for thread in threads[1:]:

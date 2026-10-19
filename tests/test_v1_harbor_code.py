@@ -229,7 +229,7 @@ def evidence(root, expected):
             assert proof['request_hash'] == content_hash(request)
             assert proof['loaded_artifact_hash'] == request['artifact']['content_hash']
             assert proof['network_mode'] == 'none' and not proof['mount_destinations']
-            assert proof['candidate_user'] == '65534:65534' and proof['pids_limit'] == 64
+            assert proof['candidate_user'] == '65534:65534' and proof['pids_limit'] == request['max_pids']
     return paths
 
 

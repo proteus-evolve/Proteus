@@ -105,6 +105,8 @@ P10p 开发中：native evaluator 在实际调度时保存独立调用/用量回
 
 P10q 开发中：通用 harness/workspace actor 使用 native 原始回执汇总已报告用量，补上 coding actor 旧 counters 未提供 token 的缺口；同一 actor 仅通过既有账本计数，角色/阶段报告增加 actor token 列。私有证据位于可丢弃工作区之外，恢复与导出重新核对回执绑定；普通异常可保留已观察用量，同时保持阶段失败。缺失、未覆盖调用、有限预算限制和真实 provider 验收仍按原边界处理，不以 token 可读取替代 I09 完整验收。
 
+P10r 开发中：将容器目录 read/write scopes 和公共 `resources.pids` 接入 Harbor code backend；限制在候选代码和子进程启动前生效，控制器核验 bootstrap 回执后才转发任务输入。旧空 scopes 保留兼容行为，未支持的内核/后端明确拒绝配置。实际 Linux 文件访问、安装包及 Harbor sequence/resume 验收见 [V1_ENVIRONMENT_SCOPES.md](../V1_ENVIRONMENT_SCOPES.md)。其他 provider、资源类型与完整 I06 验收继续保持待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
@@ -270,7 +272,7 @@ P03b 已验证本地可信插件的 API/数据流及显式 JSON 状态边界。�
 
 ### I06 环境与 Harbor
 
-- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b 固定镜像、CPU/内存、任务网络与独立 trial；P04c pinned builder、source build 与独立构建网络；其他资源/访问范围仍需补齐）。
+- [ ] 定义 EnvironmentSpec，声明镜像或构建定义、工具链、资源、网络、访问范围和状态生命周期（P04b 固定镜像、CPU/内存、任务网络与独立 trial；P04c pinned builder、source build 与独立构建网络；P10r 在 Harbor code 路径补充 PID 资源和内核执行的目录访问范围；其他 provider、资源及完整验收仍需补齐）。
 - [x] 实现 HarborSubjectRunner 与 candidate-aware agent adapter，使用锁定的 Harbor 版本（P04b 独立运行时、版本/源码字节/依赖环境 fingerprint）。
 - [x] 将 candidate ID、内容 hash、Harbor trial ID、task checksum 和实际加载版本关联到同一结果（P04b 容器内检查完整文件树）。
 - [x] 映射 Harbor 的 reward、轨迹、用量、超时和异常；保留原始结果引用（P04b 私有 BackendEvaluation；未报告的用量保持 unknown）。
