@@ -208,6 +208,36 @@ managed actor entry. Their token fields and receipt binding appear in
 native recipe's separate accounting channel. See [result export](V1_RESULT_EXPORT.md)
 for private evidence, recovery and coverage semantics.
 
+## Pi/DSH source activation
+
+Staged Pi/DSH dispatches prefix the CLI arguments with the controller's hash of
+the frozen `src/` tree. The source-image wrapper compares that hash before
+running the CLI. Missing source or missing `packages/` (Pi) / `apps/` (DSH)
+fails instead of using the baked CLI. Rebuild both source images when updating
+Proteus: older wrappers cannot supply the required startup receipt.
+
+Immediately before `exec`, the wrapper emits a bounded first-line receipt:
+source hash, CLI entrypoint byte hash, wrapper byte hash, backend, format version
+and `pristine`/`build`/`cache` mode. The adapter validates it against the prepared
+dispatch and saves it in the immutable native outcome. Successful staged calls
+without this evidence are rejected. Nonzero exits retain a valid startup receipt
+when available, including processes stopped by a turn cap; build failures can
+have none. Timeouts or incomplete transport do not gain an activation claim.
+
+The source identity includes file boundaries, paths, executable bits and symlink
+targets, excluding `node_modules`. This is startup evidence from the trusted
+wrapper/image, not independent attestation of all compiled dependencies, a proof
+that every source edit changes behavior, or provider-message evidence. The CLI
+hash identifies the entrypoint only. Existing non-staged direct transports remain
+readable but cannot satisfy this staged activation gate.
+
+`smoke_check.py --require-self-edit` compares every final-episode harness receipt
+to the **preceding** checkpoint and requires its source to differ from episode 0.
+Evaluator receipts are checked by the journal reader but are separate from
+harness phases. Missing, mismatched or unknown startup evidence fails the gate;
+post-run builds and cache files alone cannot pass. Episode success and budgets
+remain separate smoke assertions.
+
 ## Validation and remaining acceptance
 
 Offline tests compare records with an actual local HTTP server's request body,
@@ -233,6 +263,12 @@ schema/brand imports and rejects execution of the unrelated surface projection;
 it does not run the DSH CLI or validate provider billing. Auxiliary coverage,
 fork exclusion, failed transports and private export/resume are tested separately.
 These checks use no paid inference and do not validate container isolation.
+
+`tests/test_native_activation.py` executes both actual wrapper scripts with
+temporary filesystem paths and tiny local Node CLIs. It covers pristine/build/cache
+startup, Python/Node source-hash agreement, pre-CLI rejection and adapter receipts.
+The installed package check covers persistence and tampering rejection. These are
+bootstrap/control tests, not builds of the actual upstream Pi/DSH source images.
 
 Actual live backend release-smoke gates remain required. Internal provider-message
 coverage for opaque harnesses, unreported auxiliary work and complete native

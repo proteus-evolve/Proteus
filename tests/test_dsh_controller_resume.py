@@ -37,13 +37,19 @@ class FakeContainer:
             assert "calls already used before this phase: 3" in command[-1]
             assert "cumulative call 9 (6 calls available now)" in command[-1]
             candidate.write_text(candidate.read_text() + "continued act edits\n")
-        return subprocess.CompletedProcess(command, 0, "", "")
+        from proteus.core.native_activation import FLAG, PREFIX, source_tree_hash
+        assert command[:2] == [FLAG, source_tree_hash(active/'src')]
+        stdout = PREFIX+json.dumps({'version': 1, 'backend': 'dsh', 'mode': 'pristine',
+            'source_sha256': command[1], 'cli_sha256': 'b'*64, 'boot_sha256': 'c'*64})+'\n'
+        return subprocess.CompletedProcess(command, 0, stdout, "")
 
 
 class LocalDsh(DshHarness):
     def seed(self, harness_root, rng_seed=0):
         harness_root.mkdir(parents=True)
         (harness_root / "AGENTS.md").write_text("A synthetic fixture.")
+        (harness_root / "src/apps").mkdir(parents=True)
+        (harness_root / "src/apps/fixture.js").write_text('// source fixture\n')
 
     def validate_candidate(self, harness_root):
         return ""

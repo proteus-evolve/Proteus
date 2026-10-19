@@ -28,6 +28,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - name: install
         run: pip install -e '.[dev,dsh,pi]'
       - name: Install exact optional GEPA reference for conformance tests
@@ -317,4 +320,10 @@ jobs:
             /tmp/proteus-$distribution/bin/pip install --disable-pip-version-check 'zstandard==0.25.0'
             cp tests/check_native_dsh_package.py /tmp/proteus-$distribution-out/check_native_dsh_package.py
             (cd /tmp/proteus-$distribution-out && /tmp/proteus-$distribution/bin/python check_native_dsh_package.py)
+          done
+      - name: Installed native source activation receipts outside the checkout
+        run: |
+          for distribution in wheel sdist; do
+            cp tests/check_native_activation_package.py /tmp/proteus-$distribution-out/check_native_activation_package.py
+            (cd /tmp/proteus-$distribution-out && /tmp/proteus-$distribution/bin/python check_native_activation_package.py)
           done

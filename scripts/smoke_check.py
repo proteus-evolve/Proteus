@@ -81,6 +81,41 @@ def codex_runtime_matches_checkpoint(adapter, run_root: Path, episode: int) -> b
         return False
 
 
+def source_runtime_matches_checkpoint(adapter, run_root: Path, episode: int) -> bool:
+    """Require startup receipts for the edited checkpoint, not post-run build caches."""
+    from proteus.core import snapshot
+    from proteus.core.native_activation import source_tree_hash, validate_activation
+    from proteus.core.native_inputs import read_native_inputs
+
+    if adapter.name not in ("pi", "dsh"):
+        return False
+    harness = run_root / "harness"
+    checkpoint = snapshot.commit_for_episode(harness, episode - 1)
+    initial = snapshot.commit_for_episode(harness, 0)
+    if checkpoint is None or initial is None:
+        return False
+    try:
+        with tempfile.TemporaryDirectory(prefix="proteus-source-smoke-") as temporary:
+            active, seeded = Path(temporary) / "active", Path(temporary) / "seeded"
+            snapshot.materialize(harness, checkpoint, active)
+            snapshot.materialize(harness, initial, seeded)
+            expected = source_tree_hash(active / "src")
+            if expected == source_tree_hash(seeded / "src"):
+                return False
+        records = [row for row in read_native_inputs(run_root)
+                   if row["input"]["episode"] == episode
+                   and not (row["input"]["backend"] == "evaluator"
+                            and row["input"]["scope"] == "native_evaluator")]
+        return bool(records) and all(
+            row["input"]["backend"] == adapter.name
+            and row["completion"] == "returned"
+            and type(row["outcome"].get("returncode")) is int
+            and validate_activation(row["outcome"].get("activation"), row["input"])["source_sha256"] == expected
+            for row in records)
+    except (OSError, ValueError, RuntimeError, KeyError, TypeError):
+        return False
+
+
 def native_inputs_cover_run(run_root: Path, harness: str, episodes: int) -> bool:
     """Check the live adapter boundary, without equating it with provider messages."""
     from proteus.core.native_inputs import read_native_inputs
@@ -89,7 +124,10 @@ def native_inputs_cover_run(run_root: Path, harness: str, episodes: int) -> bool
     if harness not in scopes:
         return False
     try:
-        records = read_native_inputs(run_root)
+        # Evaluator receipts share the journal but are not harness phase dispatches.
+        records = [row for row in read_native_inputs(run_root)
+                   if not (row["input"]["backend"] == "evaluator"
+                           and row["input"]["scope"] == "native_evaluator")]
         return (bool(records)
                 and {row["input"]["episode"] for row in records} == set(range(1, episodes+1))
                 and all(row["completion"] == "returned" and row["input"]["backend"] == harness
@@ -107,8 +145,7 @@ def main() -> int:
     ap.add_argument("--max-turns", type=int, default=10)
     ap.add_argument("--require-self-edit", action="store_true",
                     help="fail unless the agent edited its own src/ during the run AND "
-                         "the boot used the rebuilt copy (dist cache keyed by the "
-                         "current source hash)")
+                         "the final episode recorded activation of the edited checkpoint")
     args = ap.parse_args()
 
     from proteus.cli import _adapter_factory
@@ -209,33 +246,14 @@ def main() -> int:
                           if line.strip() and "node_modules" not in line]
                 check(bool(edited), "the agent edited its own source before the last episode",
                       "no src/ change between episode 0 and the second-to-last snapshot")
-                # 2) machine evidence the edited source was rebuilt and booted: the boot
-                # wrapper writes a dist cache tar only when it builds a non-pristine
-                # source, and a boot right now must hit that cache rather than rebuild.
-                # Since v0.2.0 framework continuity adds `.proteus-state` beside the
-                # adapter's own `*-state` dir, and iterdir() order is arbitrary — union
-                # the glob over every adapter state dir instead of trusting `next()`.
-                state_dirs = [d for d in run_root.iterdir()
-                              if d.is_dir() and d.name.endswith("-state")
-                              and d.name != ".proteus-state"]
-
-                def _dist_tars() -> set:
-                    return {t for d in state_dirs for t in d.glob("dist-*.tar")}
-
+                # 2) runtime evidence is tied to the immutable preceding checkpoint.
+                # A later viability probe or a leftover cache cannot establish this.
                 if args.harness == "codex":
                     check(codex_runtime_matches_checkpoint(adapter, run_root, episodes),
                           "the final episode loaded the validated binary pair for the edited checkpoint")
                 else:
-                    tars_before = _dist_tars()
-                    check(bool(tars_before),
-                          "a rebuild happened during the run (dist cache exists)",
-                          f"no dist-*.tar under {[d.name for d in state_dirs]}")
-                    boot_msg = adapter.check_boot(run_root / "harness")
-                    tars_after = _dist_tars()
-                    check(boot_msg == "" and bool(tars_before) and tars_after == tars_before,
-                          "booting the final source hits the cache (it was built and "
-                          "loaded during the run)",
-                          boot_msg or f"new tars: {[t.name for t in tars_after - tars_before]}")
+                    check(source_runtime_matches_checkpoint(adapter, run_root, episodes),
+                          "the final episode recorded startup from the edited checkpoint")
             victims = [v for pat in patterns for v in sorted(src.glob(pat))]
             check(bool(victims), "a compiled source file is available for the rejection probe")
             if victims:

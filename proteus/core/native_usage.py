@@ -115,7 +115,8 @@ def validate_usage(value, request=None):
                     set(args).intersection(('--resume', '-r', '--continue', '-c', '--session', '--no-session')),
                     'Pi usage requires new persisted sessions')
         elif value['source'] == 'dsh_sessions_v0':
-            argv = request['payload']
+            from proteus.core.native_activation import split_source_command
+            argv, _ = split_source_command(request['payload'])
             require(type(argv) is list and len(argv) == 3 and all(type(item) is str for item in argv)
                     and argv[:2] == ['--profile', 'headless'], 'DSH usage requires a fresh headless invocation')
         elif value['source'] in ('local_evaluator', 'evaluator_report'):

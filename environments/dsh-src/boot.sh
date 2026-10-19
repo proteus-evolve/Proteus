@@ -97,14 +97,26 @@ if [ "${1:-}" = "--proteus-dependency-hash" ]; then
 fi
 
 # the container may run as an arbitrary host uid: give npm a writable HOME
+PROTEUS_EXPECTED_SOURCE=''
+if [ "${1:-}" = "--proteus-expect-source" ]; then
+    PROTEUS_EXPECTED_SOURCE=${2:-}
+    case "$PROTEUS_EXPECTED_SOURCE" in ''|*[!0-9a-f]*) exit 2;; esac
+    [ "${#PROTEUS_EXPECTED_SOURCE}" -eq 64 ] || exit 2
+    shift 2
+    [ -d /workspace/src ] || { echo "expected source surface is missing" >&2; exit 97; }
+fi
 export HOME=/tmp
 export COREPACK_ENABLE_NETWORK=0
 SRC=/opt/src
 CLI=$SRC/apps/cli/lib/bin.js
 PNPM_STORE=/opt/pnpm-store
 
-if [ -d /workspace/src/apps ]; then
+if [ -e /workspace/src ] || [ -L /workspace/src ]; then
+    [ -d /workspace/src/apps ] || { echo "source application tree is missing; refusing baked fallback" >&2; exit 97; }
     HASH=$(tree_hash /workspace/src)
+    [ -z "$PROTEUS_EXPECTED_SOURCE" ] || [ "$HASH" = "$PROTEUS_EXPECTED_SOURCE" ] \
+        || { echo "source differs from the controller dispatch" >&2; exit 97; }
+    PROTEUS_BOOT_MODE=pristine
     if [ "$HASH" = "$(cat /opt/pristine-hash)" ]; then
         :   # untouched source: the baked tree and build are exactly this source
     else
@@ -155,8 +167,10 @@ if [ -d /workspace/src/apps ]; then
             fi
         fi
         if [ -f "/state/dist-$HASH.tar" ]; then
+            PROTEUS_BOOT_MODE=cache
             tar -xf "/state/dist-$HASH.tar" -m --no-same-permissions -C "$SRC"
         else
+            PROTEUS_BOOT_MODE=build
             if ! (cd "$SRC" && npm run build:lib >/state/last-build.log 2>&1); then
                 echo "self-edited source does not build; tail of the build log:" >&2
                 tail -20 /state/last-build.log >&2
@@ -200,5 +214,14 @@ if [ "${1:-}" = "--proteus-headless-smoke" ]; then
     tail -40 "$PROBE_ROOT/stderr" >&2
     tail -20 "$PROBE_ROOT/stdout" >&2
     exit 98
+fi
+if [ -n "$PROTEUS_EXPECTED_SOURCE" ]; then
+    node - "$HASH" "$CLI" "$0" "$PROTEUS_BOOT_MODE" <<'JS'
+const fs = require('fs'), crypto = require('crypto');
+const digest = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+process.stdout.write('PROTEUS_RUNTIME_V1 '+JSON.stringify({version:1, backend:'dsh',
+    source_sha256:process.argv[2], cli_sha256:digest(process.argv[3]),
+    boot_sha256:digest(process.argv[4]), mode:process.argv[5]})+'\n');
+JS
 fi
 exec node "$CLI" "$@"

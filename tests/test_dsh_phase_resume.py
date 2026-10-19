@@ -43,6 +43,8 @@ def failed_attempt(root):
 
 def spec(root):
     (root / "active").mkdir(exist_ok=True)
+    (root / "active/src/apps").mkdir(parents=True, exist_ok=True)
+    (root / "active/src/apps/fixture.js").write_text('// source fixture\n')
     (root / "harness").mkdir(exist_ok=True)
     return EpisodeSpec(root=root, episode=1, model="synthetic",
         phase_prompts={phase: "MARKER:" + phase for phase in ("observe", "propose", "act", "reflect")},

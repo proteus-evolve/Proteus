@@ -37,6 +37,7 @@ from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surfac
 from proteus.adapters.dsh_resume import DshPhaseResume
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.native_inputs import native_input
+from proteus.core.native_activation import capture_activation, source_command
 from proteus.core.native_usage import dsh_usage
 from proteus.core.native_dsh_usage import capture_dsh_sources
 from proteus.core.native_pi_usage import fingerprint
@@ -274,6 +275,8 @@ class DshHarness:
         be absent from the cached outputs or runtime links used by episode N+1.
         """
         harness = Path(harness_root)
+        if not (harness / "src").is_dir():
+            return "self-edited source does not boot: source surface is missing"
         state = harness.parent / ".dsh-state"
         state.mkdir(exist_ok=True)
         mounts = ((str(harness), "/workspace"), (str(state), "/state"))
@@ -449,6 +452,7 @@ class DshHarness:
             try:
                 command = ["--profile", "headless", phase_prompt(
                     spec, phase, used, phase_start_used=start_used)]
+                command = source_command(spec, active, command)
                 with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
                                   payload=command, model=spec.model or self.model) as receipt:
                     proc = None
@@ -465,6 +469,8 @@ class DshHarness:
                             stop_check=stop_check if plan.enabled else None,
                         )
                         receipt["returncode"] = proc.returncode
+                        receipt['activation'] = capture_activation(
+                            proc.stdout, command, self.name, required=proc.returncode == 0)
                     finally:
                         paths = [directory/'session.jsonl.zstd' for directory in self._session_dirs(state)-before]
                         source = capture_dsh_sources(paths, before_usage, root=state)
