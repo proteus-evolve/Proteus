@@ -10,6 +10,7 @@ import uuid
 
 from proteus.core.contracts import require
 from proteus.core.episode_protocol import DEFAULT_EPISODE_PROTOCOL_VERSION
+from proteus.core.native_usage import usage_evidence, validate_usage
 from proteus.core.serialization import canonical_json, content_hash
 
 
@@ -48,7 +49,7 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
     root = input_directory(spec.root)
     root.mkdir(parents=True, exist_ok=True)
     identity = uuid.uuid4().hex
-    request = {'version': 1, 'id': identity, 'backend': backend, 'episode': spec.episode,
+    request = {'version': 2, 'id': identity, 'backend': backend, 'episode': spec.episode,
         'phase': phase, 'model': model, 'scope': scope,
         'protocol_version': DEFAULT_EPISODE_PROTOCOL_VERSION,
         'prepared_ns': time.time_ns(), 'payload': json.loads(canonical_json(payload)),
@@ -56,21 +57,27 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
     request['hash'] = content_hash(request)
     _publish(root/(identity+'.input.json'), request)
     receipt = {}
+    started = time.monotonic()
+
+    def publish_outcome(**status):
+        # A fixed usage projection is the only additional receipt payload allowed.
+        evidence = validate_usage(receipt.get('usage', usage_evidence()), request)
+        evidence = usage_evidence(evidence['source'], evidence['fields'],
+                                  wall_seconds=time.monotonic()-started)
+        _publish(root/(identity+'.outcome.json'), {'version': 2, 'id': identity,
+            'input_hash': request['hash'], 'finished_ns': time.time_ns(), 'usage': evidence, **status})
+
     try:
         yield receipt
     except BaseException as exc:
-        _publish(root/(identity+'.outcome.json'), {'version': 1, 'id': identity,
-            'input_hash': request['hash'], 'status': 'raised', 'error_type': type(exc).__name__,
-            'finished_ns': time.time_ns()})
+        publish_outcome(status='raised', error_type=type(exc).__name__)
         raise
     else:
         # Explicitly whitelist the optional transport exit code. No response,
         # traceback, URL, authentication header or arbitrary receipt is persisted.
         code = receipt.get('returncode')
         require(code is None or type(code) is int, 'native transport return code must be an integer')
-        _publish(root/(identity+'.outcome.json'), {'version': 1, 'id': identity,
-            'input_hash': request['hash'], 'status': 'returned', 'returncode': code,
-            'finished_ns': time.time_ns()})
+        publish_outcome(status='returned', returncode=code)
 
 
 def read_native_inputs(root):
@@ -82,7 +89,8 @@ def read_native_inputs(root):
         require(re.fullmatch('[0-9a-f]{32}', identity) is not None and not path.is_symlink(),
                 'invalid native input path')
         request = json.loads(path.read_text(encoding='utf-8'))
-        require(request.get('version') == 1 and request.get('id') == identity,
+        require(type(request.get('version')) is int and request['version'] in (1, 2)
+                and request.get('id') == identity,
                 'unsupported native input identity/version')
         digest = request.get('hash')
         require(digest == content_hash({key: value for key, value in request.items() if key != 'hash'})
@@ -95,9 +103,12 @@ def read_native_inputs(root):
             outcome = json.loads(outcome_path.read_text(encoding='utf-8'))
             require(outcome.get('hash') == content_hash({key: value for key, value in outcome.items() if key != 'hash'}),
                     'native outcome hash mismatch')
-            require(outcome.get('version') == 1 and outcome.get('id') == identity
+            require(type(outcome.get('version')) is int and outcome['version'] == request['version']
+                    and outcome.get('id') == identity
                     and outcome.get('input_hash') == digest
                     and outcome.get('status') in ('returned', 'raised'), 'native outcome identity mismatch')
+            if request['version'] == 2:
+                validate_usage(outcome.get('usage'), request)
         result.append({'input': request, 'outcome': outcome,
                        'completion': outcome['status'] if outcome else 'unknown'})
     return sorted(result, key=lambda row: (row['input']['prepared_ns'], row['input']['id']))

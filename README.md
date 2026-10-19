@@ -108,7 +108,7 @@ proteus recipe resume "$PROTEUS_EXAMPLE/recipe.json" \
 proteus recipe export "$PROTEUS_EXAMPLE/run" --out "$PROTEUS_EXAMPLE/export"
 ```
 
-`export/report.json` and seven CSV files contain task/cohort records, candidate
+`export/report.json` and eight CSV files contain task/cohort records, candidate
 lineage, role/stage costs, attempts and controller intervals. Hidden final scores
 require a separate owner-side export with `--include-private`. A completed resume
 does not repeat formal trials; interrupted external work uses its declared recovery

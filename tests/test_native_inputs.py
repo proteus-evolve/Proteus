@@ -12,6 +12,7 @@ import pytest
 
 from proteus.core.adapter import EpisodeSpec
 from proteus.core.native_inputs import input_directory, read_native_inputs
+from proteus.core.native_usage import summarize_native_inputs
 from proteus.core.serialization import ContractError, content_hash
 
 
@@ -113,6 +114,10 @@ def test_container_boundary_exact_argv_and_failed_attempts(tmp_path, monkeypatch
         assert rows[0]['outcome']['returncode']==(23 if failure else 0)
     assert 'PRIVATE-TRANSPORT-KEY' not in json.dumps(rows)
 
+    usage = summarize_native_inputs(rows)['reported']
+    assert all(usage[key] is None for key in ('model_calls', 'input_tokens', 'output_tokens', 'cost_usd'))
+    assert usage['wall_seconds'] >= 0
+
 
 def test_hard_exit_keeps_unknown_input_and_retry_is_a_new_attempt(tmp_path):
     program = '''import os,sys
@@ -140,6 +145,10 @@ assert result.ok
     assert rows[0]['input']['payload_hash']==rows[1]['input']['payload_hash']
     assert (tmp_path/'harness/notes/saved.md').exists()
     assert all((input_directory(tmp_path)/name).read_bytes()==data for name,data in before.items())
+    usage = summarize_native_inputs(rows)
+    assert usage['boundary_count']==2 and usage['reported']['wall_seconds'] is None
+    assert usage['unknown_entries']['wall_seconds']==1 and usage['known_subtotal']['wall_seconds']>=0
+    assert usage['reported']['model_calls'] is None
 
 
 def test_minimal_policy_stays_lazy_and_corruption_is_rejected(tmp_path):
