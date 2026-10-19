@@ -455,6 +455,8 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 
 ### R00 Native
 
+P10v 开发中：新增固定 Pi/DSH 上游提交的真实源码镜像 CI，使用本地确定性 provider 驱动真实 CLI 的读写工具，经原 native episode 事务验证编译、下一轮执行、完成后恢复和坏源码拒绝。逐次启动回执与前一 checkpoint、原始 Docker 输出交叉核验。实际 Docker jobs 和证据验收完成前不勾选 R00；它也不替代 live model 或算法质量实验。
+
 - [x] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义（P02 复用原 RunConfig 引擎，旧入口继续可用；live release gates 仍待后续验收）。
 - [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复。
 - [ ] 明确每个 adapter 的能力；没有 staged activation 的 adapter 不获得该保证。
