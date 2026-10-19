@@ -259,12 +259,18 @@ def test_dsh_workspace_binds_requested_model_without_changing_legacy_selection(t
                 assert selection_mounts == [(str(root/'.dsh-state/settings.yaml'), '/state/settings.yaml', 'ro')]
                 settings = json.loads(Path(selection_mounts[0][0]).read_text())
                 assert settings == {'agent-default-model': {'provider':'deepseek-official', 'model':self.expected}}
-            assert command[:2] == ['--profile', 'headless'] and len(command) == 3
-            return subprocess.CompletedProcess(command, 0, '', '')
+            from proteus.core.native_activation import FLAG, PREFIX, source_tree_hash
+            assert command[:2] == [FLAG, source_tree_hash(root/'active/src')]
+            assert command[2:4] == ['--profile', 'headless'] and len(command) == 5
+            stdout = PREFIX+json.dumps({'version': 1, 'backend': 'dsh', 'mode': 'pristine',
+                'source_sha256': command[1], 'cli_sha256': 'b'*64, 'boot_sha256': 'c'*64})+'\n'
+            return subprocess.CompletedProcess(command, 0, stdout, '')
 
     for index, model in enumerate((None, spec.model)):
         root = tmp_path/str(index)
         (root/'active').mkdir(parents=True)
+        (root/'active/src/apps').mkdir(parents=True)
+        (root/'active/src/apps/fixture.js').write_text('// source fixture\n')
         (root/'harness').mkdir()
         sandbox = Container(model)
         adapter = DshHarness(key='fixture', sandbox=sandbox, model=model)

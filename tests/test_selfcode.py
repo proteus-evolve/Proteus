@@ -39,7 +39,13 @@ class FakeSandbox:
             rc = self.cold_rc
         else:
             rc = 0
-        return subprocess.CompletedProcess(command, rc, "ok", "boom" if rc else "")
+        stdout = "ok"
+        if command[:1] == ['--proteus-expect-source']:
+            import json
+            stdout = 'PROTEUS_RUNTIME_V1 '+json.dumps({'version': 1,
+                'backend': self.backend, 'source_sha256': command[1],
+                'cli_sha256': 'b'*64, 'boot_sha256': 'c'*64, 'mode': 'pristine'})+'\n'
+        return subprocess.CompletedProcess(command, rc, stdout, "boom" if rc else "")
 
 
 def _seed_with_fake_src(adapter, harness: Path, pieces):
@@ -221,7 +227,8 @@ def test_staged_episode_mounts_frozen_active_read_only_and_candidate_writable(tm
         harness = root / "harness"
         active = tmp_path / f"private-active-{i}"
         root.mkdir()
-        _seed_with_fake_src(adapter, harness, ())
+        sandbox.backend = adapter.name
+        _seed_with_fake_src(adapter, harness, ("packages", "apps"))
         shutil.copytree(harness, active)
 
         adapter.run_episode(EpisodeSpec(

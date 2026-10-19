@@ -74,6 +74,9 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
                 _publish_bytes(root/(identity+'.usage-source'), source)
         evidence = usage_evidence(evidence['source'], evidence['fields'],
                                   wall_seconds=time.monotonic()-started)
+        if receipt.get('activation') is not None:
+            from proteus.core.native_activation import validate_activation
+            status['activation'] = validate_activation(receipt['activation'], request)
         _publish(root/(identity+'.outcome.json'), {'version': 2, 'id': identity,
             'input_hash': request['hash'], 'finished_ns': time.time_ns(), 'usage': evidence, **status})
 
@@ -125,6 +128,14 @@ def read_native_inputs(root):
                     expected_source = outcome['usage']['fields']['source_hash'] is not None
                     require(source_path.is_file() == expected_source, 'native usage source is missing or unexpected')
                     verify_usage_source(outcome['usage'], source_path.read_bytes() if expected_source else None)
+            if 'activation' in outcome:
+                from proteus.core.native_activation import validate_activation
+                validate_activation(outcome['activation'], request)
+            if request['backend'] in ('pi','dsh') and request['scope'] == 'harness_cli':
+                from proteus.core.native_activation import split_source_command
+                _, expected = split_source_command(request['payload'])
+                if expected is not None and outcome['status'] == 'returned' and outcome.get('returncode') == 0:
+                    require('activation' in outcome, 'successful native source dispatch lacks activation evidence')
         result.append({'input': request, 'outcome': outcome,
                        'completion': outcome['status'] if outcome else 'unknown'})
     return sorted(result, key=lambda row: (row['input']['prepared_ns'], row['input']['id']))

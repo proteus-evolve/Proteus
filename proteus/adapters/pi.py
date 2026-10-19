@@ -29,6 +29,7 @@ from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.native_inputs import native_input
+from proteus.core.native_activation import capture_activation, source_command
 from proteus.core.native_usage import pi_usage
 from proteus.core.native_pi_usage import capture_pi_sources, fingerprint
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
@@ -159,6 +160,8 @@ class PiHarness:
         into its own source surfaces here as a legible build failure (exit 97 with the
         build log tail), before any API spend."""
         harness = Path(harness_root)
+        if not (harness/'src').is_dir():
+            return 'self-edited source does not boot: source surface is missing'
         state = harness.parent / ".pi-state"
         state.mkdir(exist_ok=True)
         proc = self.sandbox.run(
@@ -288,6 +291,7 @@ class PiHarness:
                 command = ["--provider", self.provider, "--model", spec.model or self.model,
                            "--session-dir", "/state", "--skill", "/workspace/skills",
                            "-p", phase_prompt(spec, phase, used)]
+                command = source_command(spec, active, command)
                 with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
                                   payload=command, model=spec.model or self.model) as receipt:
                     proc = None
@@ -303,6 +307,8 @@ class PiHarness:
                             stop_check=stop_check if plan.enabled else None,
                         )
                         receipt["returncode"] = proc.returncode
+                        receipt['activation'] = capture_activation(
+                            proc.stdout, command, self.name, required=proc.returncode == 0)
                     finally:
                         source = capture_pi_sources(self._sessions(state)-before, before_usage)
                         receipt['usage_source'] = source

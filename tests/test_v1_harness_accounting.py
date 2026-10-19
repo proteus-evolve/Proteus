@@ -118,14 +118,20 @@ def test_real_coding_adapters_use_session_receipts_despite_absent_legacy_token_c
     from check_native_pi_package import entries, raw as pi_raw
     from check_native_dsh_package import Sandbox as DshSandbox
     from test_native_codex_usage import raw as codex_raw, stream
+    from proteus.core.native_activation import PREFIX
     class Sandbox:
         def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
             if name == 'pi':
                 events = entries()
                 (root/'.pi-state'/(events[0]['id']+'.jsonl')).write_bytes(pi_raw(events))
+            elif name == 'dsh':
+                DshSandbox().run(root, command, env, timeout_s, mounts, stop_check)
             else:
                 (root/'.codex-state/sessions'/Path(command[1]).name).write_bytes(codex_raw(stream()))
-            return subprocess.CompletedProcess(command, 0, '', '')
+            stdout = '' if name == 'codex' else PREFIX+json.dumps({
+                'version': 1, 'backend': name, 'mode': 'pristine', 'source_sha256': command[1],
+                'cli_sha256': 'b'*64, 'boot_sha256': 'c'*64})+'\n'
+            return subprocess.CompletedProcess(command, 0, stdout, '')
     if name == 'codex':
         auth = tmp_path/'auth.json'
         auth.write_text('{}')
@@ -139,8 +145,8 @@ def test_real_coding_adapters_use_session_receipts_despite_absent_legacy_token_c
         adapter = PiHarness(key='fixture', sandbox=Sandbox())
     else:
         pytest.importorskip('zstandard')
-        adapter = DshHarness(key='fixture', sandbox=DshSandbox())
-    monkeypatch.setattr(adapter, 'seed', lambda root, seed: (root/'src').mkdir() if name == 'codex' else None)
+        adapter = DshHarness(key='fixture', sandbox=Sandbox())
+    monkeypatch.setattr(adapter, 'seed', lambda root, seed: (root/'src').mkdir())
     monkeypatch.setattr(HarnessActor, 'adapter', lambda self, spec: adapter)
     result, snapshot = execute(tmp_path/'run', configured(name))
     assert result.status == OperationStatus.COMPLETED, result.diagnostic

@@ -109,6 +109,8 @@ P10r 开发中：将容器目录 read/write scopes 和公共 `resources.pids` �
 
 P10s 开发中：保存结果导出支持按 codec/声明表面计算 artifact units、逐 parent edge 变化，以及显式 lineage path 累计；复用原生文件表面测量，文本组件与结构化记录使用独立单位。未知 codec、二进制表面和跨类型比较保持不可用，度量绑定配置、实现和原始产物；不会将 DAG 创建顺序拼成演化路径。详见 [V1_ARTIFACT_MEASUREMENTS.md](../V1_ARTIFACT_MEASUREMENTS.md)。真实模型比较与完整 I14 验收仍待完成。
 
+P10t 开发中：Pi/DSH staged dispatch 将固定源码哈希交给 source-image wrapper，启动前核对并记录源码、CLI 入口和 wrapper 的哈希；源码缺失不得退回 baked CLI。Release self-edit gate 对照最后一轮开始前的 checkpoint，不再以事后缓存作为启动证明；允许保留被 turn cap 终止前的有效启动回执。离线验证覆盖真实 wrapper 控制流及小型本地 CLI，不代表真实上游构建或模型验收。需要重建 source images，R00 和 live release gates 继续待验收。详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#pidsh-source-activation)。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力
