@@ -30,8 +30,9 @@ The packaged stdlib `codex_bridge.py` is also uploaded at
 `/opt/proteus/codex_bridge.py`. A prepared image containing the pinned Codex CLI
 can invoke it with an explicit bridge specification and corresponding container
 file hashes. The host's Python or Codex executable paths are not automatically
-valid inside that image. A complete CORAL original-task recipe and real provider
-experiment remain subsequent acceptance work.
+valid inside that image. The [CORAL original-task recipe](V1_CORAL_CIRCLE_PACKING.md) and
+[full controller/container checks](V1_CORAL_CONTAINER_STUDY.md) compose these
+interfaces. Real provider experiments and final release acceptance remain required.
 
 ## Filesystem and network boundary
 
