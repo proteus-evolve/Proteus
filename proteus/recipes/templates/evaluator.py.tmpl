@@ -4,10 +4,8 @@ from dataclasses import dataclass, field
 import math
 from pathlib import Path
 
-from proteus.core.contracts import Outcome, PluginRef
-from proteus.core.plugins import Plugin, implementation_hash
-from proteus.core.serialization import Contract
-from proteus.evaluation.records import Feedback, Grade, zero_usage
+
+from proteus.api.v1 import Outcome, PluginRef, Plugin, implementation_hash, Contract, Feedback, Grade, zero_usage
 
 
 @dataclass(frozen=True, kw_only=True)

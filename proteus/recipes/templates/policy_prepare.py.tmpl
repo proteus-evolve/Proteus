@@ -1,0 +1,22 @@
+"""Prepare the external parent's offline recipe, using the public v1 API."""
+
+import argparse
+from pathlib import Path
+
+from proteus.api.v1 import builtin_registry, load_recipe
+from proteus.examples.parent_selection import prepare as prepare_parent
+from {{NAME}} import register
+
+
+def prepare(root):
+    path = prepare_parent(root, parent_policy='{{NAME}}.parent')
+    registry = builtin_registry()
+    register(registry)
+    path.write_text(registry.resolve(load_recipe(path)).to_json()+'\n')
+    return path
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--out', type=Path, default=Path('study'))
+    print(prepare(parser.parse_args().out))

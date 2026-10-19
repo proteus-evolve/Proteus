@@ -73,6 +73,8 @@ P10c 开发中：加入通用离线结果导出，核对标准保存记录中的
 
 P10d 开发中：增加显式条件、多 seed 与 paired baseline 的离线汇总，受控比较核验声明差异、实际任务/评分协议与代码依赖身份；参考设置单独作描述性汇总。提供双条件、双 seed 的可执行搜索策略消融配置，详见 [V1_STUDY_COMPARISON.md](../V1_STUDY_COMPARISON.md)。实际模型实验、完整耗时/共享行为报告与发布验收仍待完成。
 
+P10e 开发中：整理 `proteus.api.v1` 公共导入与兼容边界，将四类插件模板切换到该入口并新增外部 ParentSelector 模板。同一父候选/评分下仅替换 parent policy，记录不同子候选谱系与实际输出；补父选择/子创建/最终测试的硬退出恢复，以及相同 stage recipe 的第二 actor runtime 验证。详见 [V1_PUBLIC_API.md](../V1_PUBLIC_API.md) 和 [V1_COMPATIBILITY.md](../V1_COMPATIBILITY.md)。native 最终消息覆盖、真实模型与发布门禁仍待完成。
+
 ## 1 目标与范围
 
 ### 1.1 发布必须实现的能力

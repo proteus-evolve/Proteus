@@ -7,12 +7,12 @@ import sys
 
 from proteus.core.contracts import require
 
-KINDS = ('method', 'stage', 'evaluator', 'subject')
+KINDS = ('method', 'stage', 'evaluator', 'subject', 'policy')
 TEMPLATES = Path(__file__).with_name('templates')
 
 
 def scaffold(kind, name, destination):
-    require(kind in KINDS, 'choose method, stage, evaluator or subject')
+    require(kind in KINDS, 'choose method, stage, evaluator, subject or policy')
     require(type(name) is str and re.fullmatch(r'[a-z][a-z0-9_]{2,47}', name) is not None
             and not keyword.iskeyword(name), 'name must be a lowercase Python identifier, 3–48 characters')
     require(name not in {*sys.stdlib_module_names, 'proteus', 'prepare', 'check'},
@@ -21,6 +21,9 @@ def scaffold(kind, name, destination):
     require(not root.exists() and not root.is_symlink(), 'scaffold destination already exists')
     files = {name+'.py': TEMPLATES/(kind+'.py.tmpl'), 'prepare.py': TEMPLATES/'prepare.py.tmpl',
              'README.md': TEMPLATES/'README.md.tmpl', 'check.py': TEMPLATES/'check.py.tmpl'}
+    if kind == 'policy':
+        files['prepare.py'] = TEMPLATES/'policy_prepare.py.tmpl'
+        files['check.py'] = TEMPLATES/'policy_check.py.tmpl'
     rendered = {target: source.read_text().replace('{{NAME}}', name).replace('{{KIND}}', kind)
                 for target, source in files.items()}
     rendered['.gitignore'] = '__pycache__/\nstudy/\nrun/\nlock.json\n'

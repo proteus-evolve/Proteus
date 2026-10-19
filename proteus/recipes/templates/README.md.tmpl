@@ -27,7 +27,7 @@ PYTHONPATH=. python -m proteus.cli recipe run study/recipe.json --plugin {{NAME}
   --lock lock.json --out run
 ```
 
-For **method, evaluator and subject** projects, append
+For **method, evaluator, subject and policy** projects, append
 `--artifact-store study/artifact-store` to the run command. The **stage** project
 has no candidate artifact and omits that option. To resume, use the same command
 with `resume` in place of `run`; keep the same recipe, lock and run directory.
@@ -50,3 +50,9 @@ editing, generate a new lock and a fresh run directory; an old run is resumed
 with its original implementation. When adding helper modules, include them in
 `implementation_hash`. Extend the example's tests before declaring additional
 resume, parallel, session or backend capabilities.
+
+Plugin implementations use the versioned `proteus.api.v1` imports. The policy
+project compares an editable worst-task parent selector with scalar-best selection.
+Both see identical parent candidates and validation scores, apply the same update,
+and evaluate the resulting child. Its check also exports public/private results.
+These are deterministic API demonstrations, not benchmark-quality evidence.
