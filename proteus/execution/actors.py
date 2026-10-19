@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from proteus.core.adapter import EpisodeSpec
 from proteus.core.contracts import TEXT, OperationStatus, RuntimeIdentity, Usage, require
 from proteus.core.methods import ActorFailed, ActorResult
+from proteus.core.native_usage import chat_usage
 from proteus.core.serialization import Contract, json_value, read_json
 
 
@@ -63,17 +64,34 @@ class ChatActor:
         timeout = min(self.options.timeout_seconds, request.timeout_seconds or self.options.timeout_seconds)
         with urllib.request.urlopen(wire, timeout=timeout) as response:
             body = read_json(response.read().decode("utf-8"))
-        message = body["choices"][0]["message"]
-        require(not message.get("tool_calls"), "chat response requested unsupported tools")
-        text = message["content"]
-        require(isinstance(text, str), "chat response content must be text")
-        usage = body.get("usage") or {}
-        return ActorResult(text=text, runtime=RuntimeIdentity(runtime=spec.runtime.plugin,
-            model=body.get("model"), settings={"requested_model": spec.model, **spec.model_settings}),
-            usage=Usage(model_calls=1, input_tokens=usage.get("prompt_tokens"),
-                        output_tokens=usage.get("completion_tokens"),
-                        wall_seconds=time.monotonic() - started),
-            finish_reason=body["choices"][0].get("finish_reason"))
+        # A response can report billable work even when its answer cannot be used.
+        # Normalize each count independently before validating the answer envelope.
+        usage = Usage.from_dict(chat_usage(body.get('usage') if isinstance(body, dict) else None)['reported'])
+        runtime = RuntimeIdentity(runtime=spec.runtime.plugin,
+            settings={"requested_model": spec.model, **spec.model_settings})
+        try:
+            require(isinstance(body, dict), "chat response must be an object")
+            model = body.get('model')
+            require(model is None or (isinstance(model, str) and bool(model)),
+                    "chat response model must be a nonempty string")
+            runtime = replace(runtime, model=model)
+            choices = body.get('choices')
+            require(isinstance(choices, list) and choices and isinstance(choices[0], dict),
+                    "chat response needs an assistant choice")
+            message = choices[0].get('message')
+            require(isinstance(message, dict), "chat response needs an assistant message")
+            require(not message.get("tool_calls"), "chat response requested unsupported tools")
+            text = message.get('content')
+            require(isinstance(text, str), "chat response content must be text")
+            finish_reason = choices[0].get('finish_reason')
+            require(finish_reason is None or (isinstance(finish_reason, str) and bool(finish_reason)),
+                    "chat finish_reason must be a nonempty string")
+            return ActorResult(text=text, runtime=runtime,
+                usage=replace(usage, wall_seconds=time.monotonic() - started), finish_reason=finish_reason)
+        except Exception as exc:
+            raise ActorFailed(ActorResult(text='', runtime=runtime, status=OperationStatus.FAILED,
+                usage=replace(usage, wall_seconds=time.monotonic() - started),
+                diagnostic=f'{type(exc).__name__}: {exc}')) from exc
 
 
 @dataclass(frozen=True, kw_only=True)

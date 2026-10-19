@@ -33,6 +33,17 @@ scores across experiments or reuse an evaluation merely because its candidate is
 similar. The same ledger retains every reservation, actual usage, unknown usage
 and violation; resume neither creates a new budget nor settles work twice.
 
+The built-in HTTP chat actor preserves reported token counts even when a complete
+JSON response has unusable content, unsupported tool calls, or invalid response
+metadata. These calls remain failed, with their known usage settled before a
+stage retry. Each nonnegative integral token total is validated independently;
+missing or invalid counts remain unknown, and cache/reasoning subsets are not
+added again. Provider cost extensions do not establish monetary cost. A transport
+or JSON-decoding failure without usable evidence keeps usage unknown and retains
+its call reservation. Recovery reuses a settled failure rather than issuing that
+attempt again, including after a process exit between settlement and the stage
+journal commit.
+
 ## Implement a resumable method
 
 Register `state_schema=YourState` and capabilities `("run.resume", "run.journal")`.
