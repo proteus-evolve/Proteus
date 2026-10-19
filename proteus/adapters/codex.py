@@ -25,6 +25,7 @@ from proteus.adapters import instructions
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.core.budget import budget_plan, phase_prompt
 from proteus.core.native_inputs import native_input
+from proteus.core.native_usage import codex_usage
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore, _redact
 from proteus.core.disposition import Disposition
 
@@ -546,26 +547,42 @@ class CodexHarness:
             try:
                 with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
                                   payload=command, model=spec.model or self.model) as receipt:
-                    proc = self.sandbox.run(
-                        run_root, command,
-                        env={k: v for k, v in {
-                            "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
-                            "CODEX_API_KEY": os.environ.get("CODEX_API_KEY", ""),
-                            "OPENAI_BASE_URL": os.environ.get("OPENAI_BASE_URL", ""),
-                            # Some hosts have no direct route to the Codex/OpenAI API and
-                            # need an outbound proxy; forward it if the host has one set.
-                            "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
-                            "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
-                            "NO_PROXY": os.environ.get("NO_PROXY", ""),
-                        }.items() if v},
-                        timeout_s=self.phase_timeout_s,
-                        mounts=workspace_mounts + ((str(state), "/state"),
-                                (str(publication), "/opt/proteus-bin", "ro"),
-                                (str(handoffs.root), CONTAINER_ROOT))
-                               + self._task_mount(run_root, spec.readonly_task_paths),
-                        stop_check=stop_check if plan.enabled else None,
-                    )
-                    receipt["returncode"] = proc.returncode
+                    proc = None
+                    try:
+                        proc = self.sandbox.run(
+                            run_root, command,
+                            env={k: v for k, v in {
+                                "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
+                                "CODEX_API_KEY": os.environ.get("CODEX_API_KEY", ""),
+                                "OPENAI_BASE_URL": os.environ.get("OPENAI_BASE_URL", ""),
+                                # Some hosts have no direct route to the Codex/OpenAI API and
+                                # need an outbound proxy; forward it if the host has one set.
+                                "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
+                                "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
+                                "NO_PROXY": os.environ.get("NO_PROXY", ""),
+                            }.items() if v},
+                            timeout_s=self.phase_timeout_s,
+                            mounts=workspace_mounts + ((str(state), "/state"),
+                                    (str(publication), "/opt/proteus-bin", "ro"),
+                                    (str(handoffs.root), CONTAINER_ROOT))
+                                   + self._task_mount(run_root, spec.readonly_task_paths),
+                            stop_check=stop_check if plan.enabled else None,
+                        )
+                        receipt["returncode"] = proc.returncode
+                    finally:
+                        # Freeze the exact observed stream before publishing the
+                        # outcome: a later native retry can overwrite the phase log.
+                        source = None
+                        try:
+                            if not log.is_symlink():
+                                source = log.read_bytes()
+                                if not source and proc is not None and proc.stdout:
+                                    source = proc.stdout.encode('utf-8') if isinstance(proc.stdout, str) else proc.stdout
+                        except OSError:
+                            pass
+                        receipt['usage_source'] = source
+                        receipt['usage'] = codex_usage(source, transport_complete=
+                            proc is not None and proc.returncode == 0 and not fired[0])
             except subprocess.TimeoutExpired:
                 timed_out = True
                 proc = None

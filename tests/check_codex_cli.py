@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import threading
 import time
@@ -111,6 +112,50 @@ def check(executable):
                        and item.usage.model_calls is None for item in (completed, resumed)), (completed.usage, resumed.usage)
             assert ledger.balance()['active_slots'] == 0
             print('Real Codex CLI: local API, native thread/history continuation and token receipts passed.')
+            from proteus.adapters.codex import CodexHarness
+            from proteus.core.adapter import EpisodeSpec
+            from proteus.core.native_inputs import input_directory, read_native_inputs
+            from proteus.core.native_usage import summarize_native_inputs
+
+            class LocalNativeSandbox:
+                def run(self, run_root, command, env, timeout_s, mounts=(), stop_check=None):
+                    # Test transport only: replace container mount paths with this
+                    # temporary workspace, retain the native fresh exec arguments.
+                    args = list(command[2:])
+                    args[args.index('-C')+1] = str(run_root/'harness')
+                    configs = {'model_provider': '"local-fixture"',
+                        'model_providers.local-fixture.name': '"Local fixture"',
+                        'model_providers.local-fixture.base_url': json.dumps(f'http://127.0.0.1:{server.server_port}/v1'),
+                        'model_providers.local-fixture.wire_api': '"responses"',
+                        'model_providers.local-fixture.env_key': '"PROTEUS_CODEX_FIXTURE_KEY"',
+                        'agents.enabled': 'false'}
+                    flags = [part for key, value in configs.items() for part in ('-c', key+'='+value)]
+                    environment = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+                    (run_root/'cli-home').mkdir(exist_ok=True)
+                    environment.update(CODEX_HOME=str(run_root/'cli-home'), PROTEUS_CODEX_FIXTURE_KEY='local-stub-only')
+                    return subprocess.run([str(executable), '--no-daemon', *args[:-1], *flags, args[-1]],
+                        cwd=run_root, env=environment, capture_output=True, text=True, timeout=40)
+
+            native = (root/'native').resolve()
+            (native/'harness/src').mkdir(parents=True)
+            auth = native/'auth.json'
+            auth.write_text('{}')
+            publication = native/'fixture-publication'
+            publication.mkdir()
+            adapter = CodexHarness(auth_file=auth, sandbox=LocalNativeSandbox())
+            adapter._ensure_validated = lambda *args: ('', publication)
+            result = adapter.run_episode(EpisodeSpec(root=native, episode=1, model='local-protocol-fixture',
+                phases=('observe','act'), phase_prompts={'observe':'Reply briefly without tools.', 'act':'Reply briefly without tools.'}))
+            assert result.ok, result.error
+            records = read_native_inputs(native)
+            totals = summarize_native_inputs(records)
+            assert len(records) == 2 and len(requests) == 4
+            assert totals['reported']['input_tokens'] == 26 and totals['reported']['output_tokens'] == 14
+            assert totals['reported']['model_calls'] is None and totals['reported']['cost_usd'] is None
+            assert len({row['outcome']['usage']['fields']['session_id'] for row in records}) == 2
+            assert len(list(input_directory(native).glob('*.usage-source'))) == 2
+            assert 'LOCAL_STUB_RESPONSE_3' not in json.dumps(requests[3]['input'])
+            print('Real native Codex adapter: two fresh ephemeral sessions, four total local API requests, raw streams and 26/14 native tokens passed.')
     finally:
         server.shutdown()
         server.server_close()
