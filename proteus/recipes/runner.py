@@ -125,11 +125,11 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                     "rollouts": [item.to_dict() for item in services.rollouts],
                     "evaluations": [item.to_dict() for item in services.evaluations],
                     "reserved_evaluations": services._evaluation_service.reserved,
-                    # Native opaque episodes still do not claim coverage by this service ledger.
                     "ledger": {"path": "private/ledger.sqlite3",
                                "coverage": ["managed_actor_calls", "evaluation_cohort_reservations",
                                             "subject_calls", "grader_calls", "backend_verifiers", "source_builds",
-                                            "candidate_code_calls"]}
+                                            "candidate_code_calls"] +
+                                           (["bounded_native_calls"] if recipe.method.plugin.name == "proteus.native" else [])}
                               if services._ledger is not None else None,
                     "values": services.values.export(), "values_hash": content_hash(services.values.export()),
                 })

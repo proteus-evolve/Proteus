@@ -101,7 +101,9 @@ def harness_class(name):
 def validate_harness(name, spec, options):
     require(not spec.tools, "legacy harnesses cannot enforce a restricted actor tool allowlist")
     require(not spec.model_settings, "legacy harnesses do not accept generic model_settings")
-    require(spec.budget.max_model_calls is None, "legacy harness call accounting has no hard global bound")
+    require(spec.budget.max_model_calls is None or spec.runtime.plugin.name in
+            ('proteus.native.minimal', 'proteus.native.llm'),
+            "legacy harness call accounting has no hard global bound")
     require(name == "minimal" or spec.model is not None, "live harness recipes require an explicit model")
     if name not in ("codex", "dsh", "pi"):
         require(options.image is None and options.network == "host"

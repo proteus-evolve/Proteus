@@ -24,7 +24,7 @@ can be implemented solely through configuration.
 | --- | --- | --- |
 | Existing native sweep/episode records | Existing `proteus report`, measurement and history tools | Existing `proteus run ... --on-existing resume`, retaining its original runtime/configuration constraints |
 | Version-1 recipe manifest and journal | `proteus recipe export RUN --out NEW_DIRECTORY`; supported schema and evidence identities must validate | `proteus recipe resume CONFIG --lock LOCK --out RUN`, loading the original plugins/source/runtime |
-| Native compatibility recipe | Recipe metadata plus the underlying native records; generic export declares unavailable managed coverage | The same native recipe/lock and original adapter recovery rules |
+| Native compatibility recipe | Recipe metadata, native receipts and reported usage; bounded minimal/HTTP call profiles additionally verify ledger coverage | The same recipe/lock and adapter recovery rules; finite profiles retain reservations and stop unresolved dispatches ([details](V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets)) |
 | Unknown/incompatible record or plugin-state version | Use the original environment or an explicitly implemented offline reader | Finish with the original implementation or create a new run; no automatic in-place migration |
 
 An existing native sweep is not converted into a recipe run by adding a manifest

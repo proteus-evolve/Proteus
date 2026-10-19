@@ -311,6 +311,8 @@ P09a 的 method/stage 接口、历史快照恢复与安装包示例见 [V1_SHARE
 
 ### I09 预算事件与恢复
 
+P10u 开发中：为内置 minimal/单请求 HTTP native recipe 接入 run/actor 两层模型调用预留，调用回执落盘后再结算；未知用量保留预留，恢复补结算或停止不确定调用，不自动补发额度。内置纯 evaluator 为零推理；不透明 backend、benchmark evaluator 和有限费用/时长仍拒绝不支持的限额。导出交叉核验预算账本与逐次回执；此范围不代表 I09 整体完成，详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets)。
+
 - [x] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a–P09h 的受管理 actor、subject、grader、build、cohort、workflow 与 worker 代际；native 不透明调用的完整覆盖仍在下一项）。
 - [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a–P10h 已覆盖受管理角色、build、profiling、并行分支及 worker 代际并去重；native 完整汇总和不透明 backend 用量仍未完成，unknown 不转为零）。
 - [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a/P08/P09 已接入 stage/workflow、并行评测和持久 worker 的共享预留与结算；native 和不透明 backend 的完整成本限制仍须补齐，不支持的有限限额必须拒绝）。

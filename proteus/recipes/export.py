@@ -225,6 +225,9 @@ class SavedRun:
             require(len(identities) == 1 and read_json(identities[0][0]) == {'schema_version': 1,
                 'run_id': self.manifest.run_id, 'config_hash': self.manifest.config_hash,
                 'lock_hash': self.manifest.lock_hash}, 'ledger identity differs')
+            from proteus.core.native_budget import enabled, verify_scopes
+            if enabled(self.recipe):
+                verify_scopes(self.recipe, db)
             entries = [Ledger._row(row) for row in db.execute('SELECT * FROM entries ORDER BY id')]
             self.ledger_entries = {entry['id']: entry for entry in entries}
             charged, unknown, active, count = Ledger._balance(db, 'run')
@@ -339,7 +342,17 @@ class SavedRun:
                         and (row['outcome'] is None or saved['outcome'] == row['outcome']),
                         'native input history is missing or changed')
         self._native_evidence(native_root, records)
-        return summarize_native_inputs(records)
+        from proteus.core.native_budget import enabled, verify
+        bindings = verify(self.recipe, self.ledger_entries.values(), records)
+        summary = summarize_native_inputs(records)
+        if enabled(self.recipe):
+            require(self.records.get('ledger') is not None and (self.root/'private/ledger.sqlite3').is_file(),
+                    'bounded native run is missing its ledger')
+            summary.update(budget_enforced=True, budget_dimensions=['model_calls'], ledger_bindings=bindings)
+            summary['semantics'] += (' Each bounded native attempt is already included in accounting; '
+                'do not add these usage tables together. Unknown model-call usage retains its reservation. '
+                'This enforces call caps, not token, cost or elapsed-time limits.')
+        return summary
 
     def stages(self):
         requests, rows = {}, []
@@ -397,7 +410,7 @@ def report_run(root, *, include_private=False, measurement_spec=None):
                              or '/private/' in path or '/.proteus-records/' in path)},
             'notes': ['Only the latest execution snapshot is used; journal methods restore cumulative history, while other methods cover the latest invocation. Resume snapshots are not additional trials.',
                       'Unknown actual usage stays null even when the budget ledger charged a reservation.',
-                      'Native boundary usage is reported separately, without ledger enforcement or complete internal-call coverage.',
+                      'Native boundary usage is reported separately; budget_enforced and budget_dimensions identify any verified ledger coverage. These views must not be added together.',
                       'Private grades require include_private; raw prompts, predictions and task references are not copied.']}
         if measurement_spec is not None:
             from proteus.measure.artifacts import measure_lineage

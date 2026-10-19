@@ -25,6 +25,7 @@ def _publish(path, value):
     value = dict(value)
     value.setdefault('hash', content_hash(value))
     _publish_bytes(path, (canonical_json(value)+'\n').encode('utf-8'))
+    return value
 
 
 def _publish_bytes(path, data):
@@ -59,6 +60,10 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
         'prepared_ns': time.time_ns(), 'payload': json.loads(canonical_json(payload)),
         'payload_hash': content_hash(payload)}
     request['hash'] = content_hash(request)
+    from proteus.core.native_budget import current
+    budget = current()
+    if budget is not None:
+        budget.prepare(spec.root, request)
     _publish(root/(identity+'.input.json'), request)
     receipt = {}
     started = time.monotonic()
@@ -77,8 +82,10 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
         if receipt.get('activation') is not None:
             from proteus.core.native_activation import validate_activation
             status['activation'] = validate_activation(receipt['activation'], request)
-        _publish(root/(identity+'.outcome.json'), {'version': 2, 'id': identity,
+        outcome = _publish(root/(identity+'.outcome.json'), {'version': 2, 'id': identity,
             'input_hash': request['hash'], 'finished_ns': time.time_ns(), 'usage': evidence, **status})
+        if budget is not None:
+            budget.finish(outcome)
 
     try:
         yield receipt
