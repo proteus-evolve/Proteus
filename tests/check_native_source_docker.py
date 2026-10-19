@@ -62,6 +62,10 @@ class Provider:
                 self.modified = marked(self.initial)
             else:
                 assert body['messages'][-1]['role'] == 'tool', 'write must follow a real read result'
+                witness = next(line for line in self.initial.splitlines() if len(line.strip()) > 8)
+                assert json.dumps(witness, ensure_ascii=False)[1:-1] in json.dumps(
+                    body['messages'][-1]['content'], ensure_ascii=False), 'read result lacks the actual source content'
+                self.requests[-1]['read_witness_sha256'] = hashlib.sha256(witness.encode()).hexdigest()
                 args['content'] = self.modified
             return {'role': 'assistant', 'tool_calls': [{'index': 0, 'id': 'call_fixture_'+str(ordinal),
                 'type': 'function', 'function': {'name': name, 'arguments': json.dumps(args)}}]}, 'tool_calls'
@@ -210,6 +214,10 @@ def verify(root, *, expected_head=None):
     provider = json.loads((root/'provider.json').read_text())
     assert not provider['errors'] and provider['requests'] == evidence['requests']
     assert len(provider['requests']) == 4
+    initial = (root/'initial-entry.ts').read_text()
+    witness = next(line for line in initial.splitlines() if len(line.strip()) > 8)
+    assert hashlib.sha256(initial.encode()).hexdigest() == evidence['initial_entry_sha256']
+    assert provider['requests'][1]['read_witness_sha256'] == hashlib.sha256(witness.encode()).hexdigest()
     require_compiler_rejection(calls)
     return evidence
 
