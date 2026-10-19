@@ -49,6 +49,7 @@ namespaces = false  # do not crawl large run artefacts as implicit namespace pac
 version = {attr = "proteus.__version__"}
 
 [tool.setuptools.package-data]
+"proteus.recipes" = ["templates/*.tmpl"]
 "proteus.visualize.static" = ["*.html", "*.css", "*.js", "package.json"]
 "proteus.methods.ace" = ["LICENSE-ACE.txt", "NOTICE.md"]
 "proteus.operators.combee" = ["LICENSE-GEPA.txt", "NOTICE.md", "reference.json"]

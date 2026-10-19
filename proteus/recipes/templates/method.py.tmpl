@@ -1,0 +1,76 @@
+"""An editable method that evaluates one candidate and checkpoints each cohort."""
+
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Mapping
+
+from proteus.core.contracts import DataRef, PluginRef, require
+from proteus.core.methods import MethodResult
+from proteus.core.plugins import Plugin, implementation_hash
+from proteus.core.serialization import Contract
+
+
+@dataclass(frozen=True, kw_only=True)
+class Options(Contract):
+    evaluations: tuple[str, ...] = field(
+        default=("validation", "test"), metadata={"minItems": 1, "uniqueItems": True}
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class State(Contract):
+    position: int = field(default=0, metadata={"minimum": 0})
+    outputs: Mapping[str, DataRef] = field(default_factory=dict)
+
+
+def validate(recipe, options):
+    require(
+        recipe.subject is not None and recipe.execution is not None,
+        "method needs a candidate and execution",
+    )
+    require(
+        not recipe.stages and not recipe.search and recipe.tasks is None,
+        "this example consumes only the declared evaluations",
+    )
+    require(
+        set(options.evaluations) <= {item.id for item in recipe.evaluations}, "unknown evaluation"
+    )
+
+
+class Method:
+    def __init__(self, options):
+        self.options = options
+
+    def run(self, services, restored_state):
+        state = State() if restored_state is None else State.from_dict(restored_state.state.payload)
+        candidate = (
+            services.initial_candidate()
+            if restored_state is None
+            else next(item for item in services.candidates if item.id == "initial")
+        )
+        checkpoint = services.checkpoint(state)
+        for index in range(state.position, len(self.options.evaluations)):
+            evaluation = self.options.evaluations[index]
+            receipt = services.evaluate(candidate, evaluation, operation_id=f"evaluate-{index}")
+            output = services.values.publish("proteus.eval.receipt@1", receipt)
+            state = replace(
+                state, position=index + 1, outputs={**state.outputs, evaluation: output}
+            )
+            checkpoint = services.checkpoint(state)
+        return MethodResult(outputs=state.outputs, state=checkpoint)
+
+
+def register(registry):
+    registry.register(
+        Plugin(
+            ref=PluginRef(name="{{NAME}}.method", version="1"),
+            kind="method",
+            options=Options,
+            factory=Method,
+            validate=validate,
+            source="{{NAME}}",
+            implementation_hash=implementation_hash({"{{NAME}}.py": Path(__file__)}),
+            state_schema=State,
+            capabilities=("run.resume", "run.journal"),
+        )
+    )
