@@ -1,5 +1,11 @@
 # Frozen full single-seed experiment recipes
 
+For the original method papers, official code repositories, exact upstream
+commits and adaptation boundaries, see [method references](../../../docs/METHOD_REFERENCES.md)
+and [references.bib](../../../references.bib). The [family guides](../../README.md)
+include citations for each experiment; Combee/Formula cites both Combee and ACE,
+and Native Pi credits the upstream software.
+
 These are the actual controls for **15 experimental profiles / 16 recipe files**
 started on 20 October 2026 and accepted by the final 23 October evidence cut.
 GEPA has separate baseline and optimized recipes; Meta-Harness covers three

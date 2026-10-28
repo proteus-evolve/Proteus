@@ -5,6 +5,9 @@ method recipes, reusable components, execution and evaluation services, and
 inspectable experiment records. The initial scope covers GEPA, ACE, Meta-Harness,
 Combee and CORAL, alongside the existing native evolution protocol.
 
+For original papers, official repositories, exact upstream commits and citation
+entries, see [method references](METHOD_REFERENCES.md) and [references.bib](../references.bib).
+
 This describes the implementation in this source tree. **1.0 is not released.**
 The five original-domain catalog entries are generic preparation templates and
 retain `model_results_pending`; they do not identify a frozen model run. The

@@ -1,5 +1,10 @@
 # Recipes
 
+Original papers, official repositories, exact upstream commits and attribution
+are listed in [method references](../docs/METHOD_REFERENCES.md), with
+[BibTeX entries](../references.bib). Each family guide links its sources and
+states the boundary between our adapted experiment and the original paper.
+
 Use the [frozen single-seed experiment recipes](experiments/single-seed-20261020/README.md)
 for the actual October 2026 results: GEPA/AIME, standalone ACE, all eight Combee
 conditions, Meta-Harness, CORAL with one/two proposers, and Native Pi.

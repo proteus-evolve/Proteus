@@ -1,5 +1,16 @@
 # Standalone ACE / Formula
 
+## Sources and citation
+
+Original method: Zhang et al., [Agentic Context Engineering: Evolving Contexts
+for Self-Improving Language Models](https://arxiv.org/abs/2510.04618v3).
+Official code: [ace-agent/ace](https://github.com/ace-agent/ace), pinned to
+[`82709de050e1db6e6ef2f07bcb0393560b94992a`](https://github.com/ace-agent/ace/tree/82709de050e1db6e6ef2f07bcb0393560b94992a).
+Use `zhang2026agenticcontextengineeringevolving` from [references.bib](../../../references.bib).
+See [source attribution and deviations](../../../docs/METHOD_REFERENCES.md).
+
+## Experiment setup
+
 Two accepted profiles use the pinned upstream 500/300/200 Formula files, one training epoch and three refinement rounds. Offline H0/selected are 141/200 and 173/200; selection occurs at 200 training examples and differs from the final playbook. Online H0/stream accuracy are 141/200 and 163/200. Online predictions are evaluated before learning each window; this is not a held-out final-playbook score.
 
 ## Actual configurations

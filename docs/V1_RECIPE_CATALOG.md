@@ -1,5 +1,8 @@
 # Recipe discovery and search-policy experiments
 
+For original method papers, official code and exact source pins, see
+[method references](METHOD_REFERENCES.md) and [references.bib](../references.bib).
+
 The catalog lists eight offline mechanism examples and five original-domain study
 entry points. Discovery imports no optional optimizer or container backend and makes
 no model calls. `recipe list` continues to list registered plugins and schemas.

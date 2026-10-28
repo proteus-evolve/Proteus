@@ -399,6 +399,18 @@ Where help is wanted, in one line each — the full list with difficulty tags is
 See [CITATION.cff](CITATION.cff). A paper reference will be added when the preprint is
 public.
 
+For the integrated methods, cite the original papers and credit their official
+repositories: [GEPA](https://arxiv.org/abs/2507.19457v2) ([code](https://github.com/gepa-ai/gepa)),
+[ACE](https://arxiv.org/abs/2510.04618v3) ([code](https://github.com/ace-agent/ace)),
+[Combee](https://arxiv.org/abs/2604.04247v2) ([code](https://github.com/gepa-ai/gepa)),
+[Meta-Harness](https://arxiv.org/abs/2603.28052v1) ([code](https://github.com/stanford-iris-lab/meta-harness)),
+and [CORAL](https://arxiv.org/abs/2604.01658v3) ([code](https://github.com/Human-Agent-Society/CORAL)).
+The Native integration also credits [Pi](https://github.com/earendil-works/pi) as software.
+See [upstream references and exact source revisions](docs/METHOD_REFERENCES.md)
+and [references.bib](references.bib) for citation entries, licenses and adaptation
+boundaries. Combee/Formula builds on ACE and should cite both papers.
+
 ## License
 
-MIT.
+Proteus is MIT-licensed. Reused upstream components retain their own licenses and
+notices; see [method source attribution](docs/METHOD_REFERENCES.md#exact-code-sources-and-adaptation-boundaries).
