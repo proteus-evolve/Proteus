@@ -1,0 +1,35 @@
+{
+  "label": "linux-native-pi-upstream-source-activation-v1",
+  "source_sha": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+  "config_hash": "sha256:96dd9f7a7db314df9d11c974a4d84d74acea17a87fad9430505114ad412314fb",
+  "lock_hash": "sha256:9ecf68da3f3d5a2a0f7a0c89c92c9e657dc3ec9f2a940c3e2fb2aecd30c86461",
+  "image_id": "sha256:b6009600277aed54b97a1544d50353c581a6b33f9404539d42165d2c3f8fdcb0",
+  "H0_build_proof": "/home/ubuntu/proteus-full-linux-20261020/native-artifacts/H0-build-proof.json",
+  "unpaid_actual_SDK_gate": "/home/ubuntu/proteus-full-linux-20261020/qualified-linux-native-final.json",
+  "goal": "Add --proteus-evolution-marker to the actual controlling TypeScript CLI entry packages/coding-agent/src/cli.ts in your own writable candidate source. It must print exactly PROTEUS_NATIVE_EVOLVED_V1 and exit0 without a model request, preserving normal CLI behavior. This must be a real TypeScript CLI control-flow change, not a note, skill, alias, wrapper tool or edit to compiled dist. Make the edit in episode1 under /workspace/candidate/src/packages/coding-agent/src/cli.ts. Do not build, import or execute writable candidate code during any phase; Proteus owns boundary builds. Only in episode2, inspect/verify the newly active compiled CLI. Do not inspect credentials, environment variables or native transport configuration.",
+  "episodes": 2,
+  "seed": 0,
+  "max_turns": 40,
+  "hard_turns": 40,
+  "phase_turns": [
+    8,
+    6,
+    20,
+    6
+  ],
+  "checkpoint": 2,
+  "external_HTTP_cap": 96,
+  "model": {
+    "alias": "deepseek-flash",
+    "temperature": 0,
+    "max_tokens": 8192,
+    "thinking": "disabled"
+  },
+  "CPU": 1,
+  "memory_GiB": 2,
+  "PID_limit": 256,
+  "UID": 1000,
+  "model_config_sha256": "d9a1515afb81b6ad0163468a1432b4c2f86b687b58f423975ee2bd14b4ef3ad8",
+  "model_config_readonly": true,
+  "original_provider_key_present": false
+}

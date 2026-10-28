@@ -1,0 +1,133 @@
+{
+  "label": "linux-coral-circle-2-workers-v5-1",
+  "source_sha": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+  "original_source_sha": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+  "workers": 2,
+  "total_model_proposals": 20,
+  "per_worker_proposals": 10,
+  "seed": 0,
+  "same_original_H0": true,
+  "same_original_H0_file_bytes": {
+    "RESEARCH.md": "37e46bcb175b51bc14c15bc70041280a19d7c40d36814b54fb2207efcd59a4bc",
+    "initial_program.py": "3baecab4898f223f645e2746f405a53b24bf9eeadc5314ca2bde51c3b2907155",
+    "main.py": "78eb40f5a68c03a2fc9e9c2192d339a6d4df5574cdb60653ea43efeb65ad3351",
+    "research.py": "4450841c5a787c2cdc205c4fc06954703f84bf87d4a655c6a07ce6a841d0c61e"
+  },
+  "same_original_task_bytes": {
+    "instruction.md": "e4bd9f81c0ec86f15d6c0cacd269657e27e0278566bde7d9a306ecfc9b8276ae",
+    "task.toml": "03e5e0531e40e229d0dac0eaa1d195698baa4ea780c2464263b63a0bf4962ac4",
+    "tests/verify.py": "a010ce8d90b005878be4a3750a1e7ffdee8c7e6f759c7c0e172e44f3e17ed239",
+    "tests/test.sh": "4e7a89fb339996593ff11618d0604833707b6d6eaf169416f4d5e3a9668785c1"
+  },
+  "full_normalized_scientific_recipe_equals_old_except_runtime_identity_and_explicit_infra_deviation": true,
+  "normalized_scientific_comparison": {
+    "old_label": "linux-coral-circle-2-workers-v4-1",
+    "new_label": "linux-coral-circle-2-workers-v5-1",
+    "complete_raw_config_differences": [
+      {
+        "path": "/evaluations/0/tasks/dataset_hash",
+        "before": "sha256:59ddfdc68fa72c0f0a3017871e637713171bd3a5b33e5bad1b4ba81290414823",
+        "after": "sha256:57f8b81e95f86f4ab827a77dfff8ff6b915d127595cd1a56c491e95b6b74c7ee"
+      },
+      {
+        "path": "/evaluations/0/tasks/suite/options/path",
+        "before": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v4-1/tasks.json",
+        "after": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v5-1/tasks.json"
+      },
+      {
+        "path": "/evaluations/1/tasks/dataset_hash",
+        "before": "sha256:59ddfdc68fa72c0f0a3017871e637713171bd3a5b33e5bad1b4ba81290414823",
+        "after": "sha256:57f8b81e95f86f4ab827a77dfff8ff6b915d127595cd1a56c491e95b6b74c7ee"
+      },
+      {
+        "path": "/evaluations/1/tasks/suite/options/path",
+        "before": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v4-1/tasks.json",
+        "after": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v5-1/tasks.json"
+      },
+      {
+        "path": "/reference/deviations/16",
+        "before": null,
+        "after": "New isolated framework source7ca7742 captures original candidate stdout/stderr in separate files, retains raw transport diagnostics and implementation/argv witnesses and preserves formal null for non-success rollouts while validating raw backend evidence. It supersedes previous core-source identity annotations, not the model/controller/geometry/budget recipe. No old candidate, model reply, failure history or private score warm start; original H0 and full20proposals perarm."
+      },
+      {
+        "path": "/workers/0/runtime/options/command/4",
+        "before": "linux-coral-circle-2-workers-v4-1",
+        "after": "linux-coral-circle-2-workers-v5-1"
+      },
+      {
+        "path": "/workers/1/runtime/options/command/4",
+        "before": "linux-coral-circle-2-workers-v4-1",
+        "after": "linux-coral-circle-2-workers-v5-1"
+      }
+    ],
+    "only_allowed_semantic_change": "new transport runtime identity plus one explicit infrastructure deviation",
+    "normalized_scientific_differences": []
+  },
+  "complete_method_options_preserved": true,
+  "same_v4_1_model_output_instructions_worker_and_feedback": true,
+  "worker_sha256": "2ab9ba3e043c19967b2218bb614b64ae0bc9c81ce892c77c6517005dd309e031",
+  "feedback_helper_sha256": "2df07d4d6ab5169f16f7e51385ba29278ba9edfff149e102d9b9e8590c6e3250",
+  "old_failed_replies_candidates_costs_nulls_not_warm_started_or_changed": true,
+  "framework_source_fixes_only": [
+    "capture original candidate stdout/stderr separately before SDK merging; retain raw diagnostics and implementation/argv witnesses",
+    "do not promote backend rewards to formal scores for non-success rollout"
+  ],
+  "gate_sha256": "77c9c8125b4441f3f7317213bf64d6472522952e4c34fef0d1efee5e2ba66065",
+  "preparation_helper_sha256": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+  "source": {
+    "schema_version": 1,
+    "name": "proteus",
+    "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+    "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+    "dirty_patch_hash": null
+  },
+  "config_hash": "sha256:b1a9056f0f82d8ed0c78482b09e1b2d92bfd0388c11438ed7906c8495fa6139f",
+  "lock_hash": "sha256:5215ae3538b751de9f7c49d1d5cb0b5b65029a68b112007ff1b06d6fb807cbd3",
+  "initial_H0": {
+    "schema_version": 1,
+    "content_hash": "sha256:0991f8ff72215ee85f77c94e331066b1647ff2d264a97a6a7730f2c6f6241a40",
+    "codec": {
+      "schema_version": 1,
+      "name": "proteus.file_tree",
+      "version": "1"
+    },
+    "components": [
+      {
+        "schema_version": 1,
+        "path": "RESEARCH.md",
+        "content_hash": "sha256:37e46bcb175b51bc14c15bc70041280a19d7c40d36814b54fb2207efcd59a4bc",
+        "size_bytes": 2003,
+        "executable": false
+      },
+      {
+        "schema_version": 1,
+        "path": "initial_program.py",
+        "content_hash": "sha256:3baecab4898f223f645e2746f405a53b24bf9eeadc5314ca2bde51c3b2907155",
+        "size_bytes": 2865,
+        "executable": false
+      },
+      {
+        "schema_version": 1,
+        "path": "main.py",
+        "content_hash": "sha256:78eb40f5a68c03a2fc9e9c2192d339a6d4df5574cdb60653ea43efeb65ad3351",
+        "size_bytes": 980,
+        "executable": false
+      },
+      {
+        "schema_version": 1,
+        "path": "research.py",
+        "content_hash": "sha256:4450841c5a787c2cdc205c4fc06954703f84bf87d4a655c6a07ce6a841d0c61e",
+        "size_bytes": 4293,
+        "executable": false
+      }
+    ],
+    "runtime": null,
+    "environment_hash": null
+  },
+  "model": "deepseek-flash",
+  "max_tokens": 8192,
+  "temperature": 0,
+  "calibration_calls_required": 0,
+  "final_confirmation_same_task_not_generalization": true,
+  "model_calls_or_private_selection_by_preparation": 0
+}

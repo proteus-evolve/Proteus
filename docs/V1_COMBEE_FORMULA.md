@@ -1,5 +1,9 @@
 # Combee and ACE on Formula (P08h)
 
+For the accepted October configurations, actual launch scripts and result boundaries,
+see the [frozen experiment guide](../recipes/combee/formula/README.md).
+This page documents the general builder rather than a complete frozen run.
+
 `python -m proteus.examples.combee_formula` prepares, runs, resumes and audits a
 common-condition study over the pinned [ACE Formula dataset](V1_ACE_FORMULA.md).
 The four configurable variants share actors, initial playbook, task order,

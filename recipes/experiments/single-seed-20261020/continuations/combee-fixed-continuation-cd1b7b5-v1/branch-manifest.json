@@ -1,0 +1,1217 @@
+{
+  "schema": "proteus.continuation.branch.v1",
+  "mode": "append-only lineage, NOT native same-runtime resume",
+  "parent_label": "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+  "parent_run": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_fixed-v5-ledger-io/runs/seed-0-offline-combee_fixed",
+  "parent_manifest_sha256": "df8033b915e9eea3823eb4055297ee0553de402e48024f45925ff4c30b189ecf",
+  "parent_scientific_config_hash": "sha256:649e3bae030aa82eea5c555a83b11164bb47081a0e44b84c9151b518e7a09497",
+  "parent_scientific_lock_hash": "sha256:83acd53b9d9fc69c3a9ae0b086963ea2d7698f3b0b7e4ad9c7e64b27f3381c6a",
+  "parent_scientific_source_bindings": [
+    {
+      "schema_version": 1,
+      "name": "proteus",
+      "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "dirty_patch_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "unpaid-api-serialized-io-full-replacement-preparation-v1",
+      "repository": "local-content-addressed:prepare_combee_serialized_io_replacements_v1.py",
+      "revision": "ac35dd9e966be167601d4a7dfeb09e75cda0ce04d0a526b3173ae48a19dd0cf0",
+      "dirty_patch_hash": null
+    }
+  ],
+  "executor_operator_source": {
+    "repository": "local-unpublished:/home/ubuntu/proteus-full-linux-20261020/continuation-operators/cd1b7b55e05f1a6ece33f56bc0848bc299ada84c",
+    "revision": "cd1b7b55e05f1a6ece33f56bc0848bc299ada84c"
+  },
+  "scientific_library": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+    "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9"
+  },
+  "root_prefix_cut": 82,
+  "workflow_map_parent": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_fixed-v5-ledger-io/runs/seed-0-offline-combee_fixed/private/workflows/9b11fb35d66eebc22595ada673b55a949516a753c18d039ff31d9bf75bf54433",
+  "failed_actor_frontier": [
+    {
+      "actor_id": "actor-a29551b2aa7f232743721dfb068e55312c378162b3f25ec8ff2e1e8a344d41b8",
+      "stable_id": "662a86cc99448c9b8bb3552bb4cd3f44052860659f9488fb8101d18a3d7a6d74",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-77fdc5f8e6a4dc6911380c2ea7260307e4b3e261dd98d1c813080cf6dbe3d612:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-77fdc5f8e6a4dc6911380c2ea7260307e4b3e261dd98d1c813080cf6dbe3d612:op-000919:rollout-1",
+        "worker_id": "workflow-77fdc5f8e6a4dc6911380c2ea7260307e4b3e261dd98d1c813080cf6dbe3d612"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "bfeafa4a0689b68b090fad3c350b7f8c3ae7a95da4808a76a88bf3b5ca2f1591",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "bfeafa4a0689b68b090fad3c350b7f8c3ae7a95da4808a76a88bf3b5ca2f1591"
+    },
+    {
+      "actor_id": "actor-3b4c2942b534e13bb3c9f1da891fa71c797f74013be12cbc3bc039d16ddc49ea",
+      "stable_id": "a2fa09717fbd4dc69a489ff63277c3aab2b33370ce01ea9db460795080381fb6",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-90b3945992be022df32475d8790d6bc821f4a36d5609187e09396cf3488f1be2:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-90b3945992be022df32475d8790d6bc821f4a36d5609187e09396cf3488f1be2:op-000919:rollout-1",
+        "worker_id": "workflow-90b3945992be022df32475d8790d6bc821f4a36d5609187e09396cf3488f1be2"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "8714acc8499e80fd0895650f0077a8650fd8777fa4795e2807a8f3c39a9e2930",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "8714acc8499e80fd0895650f0077a8650fd8777fa4795e2807a8f3c39a9e2930"
+    },
+    {
+      "actor_id": "actor-275fa946fad7a9d3ecd331fa794d23acb17909c02b6088003ecb0dbedea1d59a",
+      "stable_id": "bba923719b609c1bd2a1848a3fb521e09f6bd38740dcb2c5d62df2cd0deed072",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-0fac93648b2e1726cbb27cf6867c37895343cae1a96e768036b9d103d5488603:op-000920",
+        "ordinal": 1,
+        "role": "reflector",
+        "stage": "reflect",
+        "trial_id": null,
+        "worker_id": "workflow-0fac93648b2e1726cbb27cf6867c37895343cae1a96e768036b9d103d5488603"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "58189b4e66b4d689233688b84ed3aa226af17d693380b7507202d6c0d08f8b5c",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "58189b4e66b4d689233688b84ed3aa226af17d693380b7507202d6c0d08f8b5c"
+    },
+    {
+      "actor_id": "actor-c626d9913560df235774610d4b889b3e3ff7426881feb35db4fb3a55a98f2257",
+      "stable_id": "0ddd8ef3198e1a884d7fef21b270db7a7b4eafeb0e3538621d146dbceefaf39b",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-1900939ba6cf1db4bae6be5c03dca9cf361ad033295da0db22d33d09a53f53f8:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-1900939ba6cf1db4bae6be5c03dca9cf361ad033295da0db22d33d09a53f53f8:op-000919:rollout-1",
+        "worker_id": "workflow-1900939ba6cf1db4bae6be5c03dca9cf361ad033295da0db22d33d09a53f53f8"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "6d21d56817e380521c313e0aa0b669e0d60636b71789ccc7e1e721d956e1b8e9",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "6d21d56817e380521c313e0aa0b669e0d60636b71789ccc7e1e721d956e1b8e9"
+    },
+    {
+      "actor_id": "actor-d410fae982282083b608545f305afe6a0871d9236e4b7e8e8de66c9a5926262d",
+      "stable_id": "6f1c8feef2f6a797bdb2e244fc19e8f0f1edc5b841fc49264bef055a790441e2",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-e4630a5435c4d4335d619cdbf9b518e4ab7e2b75643535c615073e0ef5132ad9:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-e4630a5435c4d4335d619cdbf9b518e4ab7e2b75643535c615073e0ef5132ad9:op-000919:rollout-1",
+        "worker_id": "workflow-e4630a5435c4d4335d619cdbf9b518e4ab7e2b75643535c615073e0ef5132ad9"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "0b71f364cc61421f924b1fec554a8393a4fae747396dea6e9ce41e5761534baa",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "0b71f364cc61421f924b1fec554a8393a4fae747396dea6e9ce41e5761534baa"
+    },
+    {
+      "actor_id": "actor-7e3b7a9441d85f52f3054ea82e81878026da065e761dcfcdfa989fd1121b5bbd",
+      "stable_id": "bfc4c507db47b406e622e70a54c2ad988e998229380d778bd9d8723bb1bf0923",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-4c706a1c8c40e15376dddea3e58b329a4e789d5124209c15e58484e193d17c89:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-4c706a1c8c40e15376dddea3e58b329a4e789d5124209c15e58484e193d17c89:op-000919:rollout-1",
+        "worker_id": "workflow-4c706a1c8c40e15376dddea3e58b329a4e789d5124209c15e58484e193d17c89"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "4da0bba4b7c9f2fe5025a0dcd564d406a7207d3db6aa8d3bdd89d20429d1eb26",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "4da0bba4b7c9f2fe5025a0dcd564d406a7207d3db6aa8d3bdd89d20429d1eb26"
+    },
+    {
+      "actor_id": "actor-29a41aaf4e10955891f72d4cc7aeabb483818f78743aecdbba2b54bc31437efd",
+      "stable_id": "bdf8cee975d7c2f3f11ccbeecb6e749ae60c8c211dcc418c4358d6f57e4e9915",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-237f7a367022d4670a829fb9d2f35310e4b97ac4590c7021ad265183bb152ab3:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-237f7a367022d4670a829fb9d2f35310e4b97ac4590c7021ad265183bb152ab3:op-000919:rollout-1",
+        "worker_id": "workflow-237f7a367022d4670a829fb9d2f35310e4b97ac4590c7021ad265183bb152ab3"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "a0d5d3933e3226cc5cee46e675635ed7003d7b838462ac9e6c4e7bc11e1bccad",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "a0d5d3933e3226cc5cee46e675635ed7003d7b838462ac9e6c4e7bc11e1bccad"
+    },
+    {
+      "actor_id": "actor-11cb86e932b1bfc6a6d75ca9ada922cbe7de56ecaca228527c6533d7857ca610",
+      "stable_id": "7f9025306775e4ad184919d068e8ad2608efd2f3558dac1228a8ff403ce99fe4",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-e637ff622e111686a36db50d5d1ada9d81d7dda1c8799375827ff08365cd1e30:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-e637ff622e111686a36db50d5d1ada9d81d7dda1c8799375827ff08365cd1e30:op-000919:rollout-1",
+        "worker_id": "workflow-e637ff622e111686a36db50d5d1ada9d81d7dda1c8799375827ff08365cd1e30"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "6e3a94285f39224e66c59df1120c604e78672d0af60dedf2e615c86f89599c2a",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "6e3a94285f39224e66c59df1120c604e78672d0af60dedf2e615c86f89599c2a"
+    },
+    {
+      "actor_id": "actor-481bb78fec684465e5fdd950fc8cf2ce844944500a3799e9fd15984290fdfe8d",
+      "stable_id": "7760f6336a1efad8af2771fcd91c1b371da9a250060beb5cf5dc4a92ca722f2b",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-920e5546cf022699d0464bbafb9b41b315728d0a3c9b86d79913e2d982e97463:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-920e5546cf022699d0464bbafb9b41b315728d0a3c9b86d79913e2d982e97463:op-000919:rollout-1",
+        "worker_id": "workflow-920e5546cf022699d0464bbafb9b41b315728d0a3c9b86d79913e2d982e97463"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "67cca36447d17b6e2ca0b104ab9cc99de58a83463d35067ae48f568862d75e0d",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "67cca36447d17b6e2ca0b104ab9cc99de58a83463d35067ae48f568862d75e0d"
+    },
+    {
+      "actor_id": "actor-c60ea3b10ea1ccdcad718891265b956cd3c75a41ff42cb791d2f8816259cd44a",
+      "stable_id": "9be48e7defc32b765c9be2abc288b8a2f9a694916f5232c5af8d8a3d76a29525",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-c83d8fe74893eef30e9c4bb04ebf0d3e89272b3361a7401e418688052dc7236f:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-c83d8fe74893eef30e9c4bb04ebf0d3e89272b3361a7401e418688052dc7236f:op-000919:rollout-1",
+        "worker_id": "workflow-c83d8fe74893eef30e9c4bb04ebf0d3e89272b3361a7401e418688052dc7236f"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "017f12b4a6cbf03cd713a531b86ccceebd7ac8b2d6a4f69cc65a6232ba08909d",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "017f12b4a6cbf03cd713a531b86ccceebd7ac8b2d6a4f69cc65a6232ba08909d"
+    },
+    {
+      "actor_id": "actor-f12fd1c1dc7a64ac297b84d6e0e09d67dbc9d3446cc3ad4d75cda5b026002549",
+      "stable_id": "bad188ec026b1df5d939d948878e06caf9a095234117fa9d8a9b289ebcbfbf5e",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-544e512d3f53f313fc1428d1f51b1133a5ba60065297db38923cec9998038886:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-544e512d3f53f313fc1428d1f51b1133a5ba60065297db38923cec9998038886:op-000919:rollout-1",
+        "worker_id": "workflow-544e512d3f53f313fc1428d1f51b1133a5ba60065297db38923cec9998038886"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "ebe249357a1d0aa24b0d1bf0b2199f151e867ae468694ef987e67bc31f62cf9e",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "ebe249357a1d0aa24b0d1bf0b2199f151e867ae468694ef987e67bc31f62cf9e"
+    },
+    {
+      "actor_id": "actor-7aabe192705f0a2d9842a81dafaba111a0cbd158f7445a704320c6416552e57e",
+      "stable_id": "937f389630c1e0c6acb90f547536d612932e56b9fee2a8cd0df42b57d9a3594f",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-b9ed5f28542bf84d351d95a70f8cdc4b772f4f5366719c86d0a5a13e1c665384:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-b9ed5f28542bf84d351d95a70f8cdc4b772f4f5366719c86d0a5a13e1c665384:op-000919:rollout-1",
+        "worker_id": "workflow-b9ed5f28542bf84d351d95a70f8cdc4b772f4f5366719c86d0a5a13e1c665384"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "a7d9e1f49c6e5589c6d292e583f60b7a8fb6ac3611ce79809976fd9b38cd8e72",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "a7d9e1f49c6e5589c6d292e583f60b7a8fb6ac3611ce79809976fd9b38cd8e72"
+    },
+    {
+      "actor_id": "actor-d6182db0c63bf16a7131b8f7e7ef693900c96865e88f32a340bfb30afa19de5c",
+      "stable_id": "c5a8fca55e6856583be570956b8a3bae060cf8f12a77bc074d0e54335dc12850",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-d69fde3ad47feedca7bd4a9217e0813ed1981d139105397f20e5ea5d00455bcf:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-d69fde3ad47feedca7bd4a9217e0813ed1981d139105397f20e5ea5d00455bcf:op-000919:rollout-1",
+        "worker_id": "workflow-d69fde3ad47feedca7bd4a9217e0813ed1981d139105397f20e5ea5d00455bcf"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "5b5e956862750f8b17b21759695430251a257469a293833d3f558ce877e68724",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "5b5e956862750f8b17b21759695430251a257469a293833d3f558ce877e68724"
+    },
+    {
+      "actor_id": "actor-5756604abcbd19540e1719c722c4559866c5a8ec6ae2194935442933349b1341",
+      "stable_id": "f93eef7b223353abe284956f641341f6c89da4dfe66cb42b7e15a42d8e11a167",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-42f171892127647ae09574413c457e5dfe7c42ff0c597f505daad212fcc5132b:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-42f171892127647ae09574413c457e5dfe7c42ff0c597f505daad212fcc5132b:op-000919:rollout-1",
+        "worker_id": "workflow-42f171892127647ae09574413c457e5dfe7c42ff0c597f505daad212fcc5132b"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "4c9fa63ccefc1ffc7a1185a532f8d125f3ed89c81381248aaefd10143032447a",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "4c9fa63ccefc1ffc7a1185a532f8d125f3ed89c81381248aaefd10143032447a"
+    },
+    {
+      "actor_id": "actor-831af8d0d8e8fcf3a8c735b6f08d017d8c8330f195918c0f169b56492976be5c",
+      "stable_id": "a45c57085666932afda0f1bc4fd86b01f9745732287e962dd011186700f23dce",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-aaf774096171776a2e9cd7f52c91d5a2793e24be771c5783d61b769659743c5e:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-aaf774096171776a2e9cd7f52c91d5a2793e24be771c5783d61b769659743c5e:op-000919:rollout-1",
+        "worker_id": "workflow-aaf774096171776a2e9cd7f52c91d5a2793e24be771c5783d61b769659743c5e"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "61f4fd73c6e04c9fd4e5b192afaa88e3e8fda73c9524d995d4033cffeb5bbf46",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "61f4fd73c6e04c9fd4e5b192afaa88e3e8fda73c9524d995d4033cffeb5bbf46"
+    },
+    {
+      "actor_id": "actor-bb5f0478c2a2af0d3a3a88d401ef6bf860e87076e12022058e32fbcda229c12a",
+      "stable_id": "fc4acaffd51eee638a984a7dc851b21fc494c7303d495bad468a626586068c36",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-e7e22ad48170fd79b11e977cd6a9eae10cdd9513316c9e7f2edf7e8ede366430:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-e7e22ad48170fd79b11e977cd6a9eae10cdd9513316c9e7f2edf7e8ede366430:op-000919:rollout-1",
+        "worker_id": "workflow-e7e22ad48170fd79b11e977cd6a9eae10cdd9513316c9e7f2edf7e8ede366430"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "6e5fd2d6454aedb2261d1bfc8afee9190be5379503d5b35f83096ba983e91d51",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "6e5fd2d6454aedb2261d1bfc8afee9190be5379503d5b35f83096ba983e91d51"
+    },
+    {
+      "actor_id": "actor-afd8b7beca88cf3e36c721763efb0da6a12bbae0b6dd84397480f313cf0c29b7",
+      "stable_id": "18918755543da750620861273aa693fdd272001847786df0826067eab48846d2",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-f213176a07f6557acfff33d38cb13a700429951b45b1a57b76486fc5ae4eb2bd:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-f213176a07f6557acfff33d38cb13a700429951b45b1a57b76486fc5ae4eb2bd:op-000919:rollout-1",
+        "worker_id": "workflow-f213176a07f6557acfff33d38cb13a700429951b45b1a57b76486fc5ae4eb2bd"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "0c9574a91c81844b14e6a1d5946aab0be9f570b246b7f6e9a21cbdc9b7cbf5c4",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "0c9574a91c81844b14e6a1d5946aab0be9f570b246b7f6e9a21cbdc9b7cbf5c4"
+    },
+    {
+      "actor_id": "actor-a3e2586625a07078bc7127a045b5eba559e24be763dd2bbf2f6600fc3421754a",
+      "stable_id": "f26a1b974adff62aad57799b1a58d5d8e29158d2e29d17129efdeea0243ff371",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-c1b904b76fcea3474bacd1943632d81892c0e3ebfa54b7e92a538a883a4f84c6:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-c1b904b76fcea3474bacd1943632d81892c0e3ebfa54b7e92a538a883a4f84c6:op-000919:rollout-1",
+        "worker_id": "workflow-c1b904b76fcea3474bacd1943632d81892c0e3ebfa54b7e92a538a883a4f84c6"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "638bd9856677e508775e82ff23b8a1a57a11d25a3a54c5a40e1b4736a5bb4126",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "638bd9856677e508775e82ff23b8a1a57a11d25a3a54c5a40e1b4736a5bb4126"
+    },
+    {
+      "actor_id": "actor-87515f0052fad8aef6d4c7bbdc59660fbdd9d82feb4d9eaa19ebe2d0914b5ce7",
+      "stable_id": "929abc8551ddc0e98c0f60a7742704267b6f79ef00082203a16afd5170096941",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-0c6b7bbd96343699d171477097352af1be8f8dfb5b82b10ab394d4560be03332:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-0c6b7bbd96343699d171477097352af1be8f8dfb5b82b10ab394d4560be03332:op-000919:rollout-1",
+        "worker_id": "workflow-0c6b7bbd96343699d171477097352af1be8f8dfb5b82b10ab394d4560be03332"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "2da74639e9b9be3786101c5b56bddd6935f26d9e40ae68d56534dd4013202722",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "2da74639e9b9be3786101c5b56bddd6935f26d9e40ae68d56534dd4013202722"
+    },
+    {
+      "actor_id": "actor-410fedfa138d5be0a23678122e19ac1d642e1a96bb08f1567d2a23e9352e1848",
+      "stable_id": "b28b34196f209f8cb3e7d091761f330f8aefc9d05ec33299f747043bdab897f4",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-02893230e0be77b6f9600209f755a39ccfa8115eb0e1a6f65a8fc6f1965f8cde:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-02893230e0be77b6f9600209f755a39ccfa8115eb0e1a6f65a8fc6f1965f8cde:op-000919:rollout-1",
+        "worker_id": "workflow-02893230e0be77b6f9600209f755a39ccfa8115eb0e1a6f65a8fc6f1965f8cde"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "99d15c74e919da5edc4f14f1626a757cfef823319ae281229ca2eef281b955e2",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "99d15c74e919da5edc4f14f1626a757cfef823319ae281229ca2eef281b955e2"
+    },
+    {
+      "actor_id": "actor-d74cca196cee17ccf353cb34499eabf358bbba786630c592bf646c571480bfbf",
+      "stable_id": "b40f09d7887f333e93fc661bd2b1a41b5ffbf9ab305e0778a7d9a6b71b9aa009",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-36b90e243810134e8892f4f6f80a89994fd844810b724b548da6b696d7114461:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-36b90e243810134e8892f4f6f80a89994fd844810b724b548da6b696d7114461:op-000919:rollout-1",
+        "worker_id": "workflow-36b90e243810134e8892f4f6f80a89994fd844810b724b548da6b696d7114461"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "f47ed601fd9a0910a726212a07506387c4ee051ab3f68c656ea065456dbc0aa4",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "f47ed601fd9a0910a726212a07506387c4ee051ab3f68c656ea065456dbc0aa4"
+    },
+    {
+      "actor_id": "actor-106efe03d0fd823627a16ca9699a33272dcce197f3b87f9a4d0898b244f24d06",
+      "stable_id": "d72e06acb41ca77db190005d0e9a584b9039e0402de7bf71313bf43eef21075e",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-4fcf8719bc69f5c227a9d0bed5be95732c4bb84730d40d643033442a4e46eaf0:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-4fcf8719bc69f5c227a9d0bed5be95732c4bb84730d40d643033442a4e46eaf0:op-000919:rollout-1",
+        "worker_id": "workflow-4fcf8719bc69f5c227a9d0bed5be95732c4bb84730d40d643033442a4e46eaf0"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "bf116af03f8f43ded1d20ae98ff3badc2242f06b7ac8361ba2d32601ef79f4c8",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "bf116af03f8f43ded1d20ae98ff3badc2242f06b7ac8361ba2d32601ef79f4c8"
+    },
+    {
+      "actor_id": "actor-bf06fc2042c9b94a51bfe27995c643102d79b6465bf5f173854943f43abcbcaf",
+      "stable_id": "de65f1a0ce5cd69f7dd3ff4609384b9a2bda15f88b5db3b58ebf71e7e0100179",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-e6dc21dbfd1690059b90d86973ac5ad241c695392273c0993b49923cf6a3bcda:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-e6dc21dbfd1690059b90d86973ac5ad241c695392273c0993b49923cf6a3bcda:op-000919:rollout-1",
+        "worker_id": "workflow-e6dc21dbfd1690059b90d86973ac5ad241c695392273c0993b49923cf6a3bcda"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "194226cfaa00ac672a6e43120daee49749954059f044ac35202a64f5675b9baa",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "194226cfaa00ac672a6e43120daee49749954059f044ac35202a64f5675b9baa"
+    },
+    {
+      "actor_id": "actor-08764a11c5bb00f1b7e76e870405d0aa0fefcfdc93b705b6763c59feada3ab3e",
+      "stable_id": "c69eb024fd291eae4a124bef02b9ad44374054eaf9d0b2ad408638186dc6f150",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-dea876be2f9939a9bb7dd121dc67b23887cd95d73cbce66ef62ee6b59ec9e05a:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-dea876be2f9939a9bb7dd121dc67b23887cd95d73cbce66ef62ee6b59ec9e05a:op-000919:rollout-1",
+        "worker_id": "workflow-dea876be2f9939a9bb7dd121dc67b23887cd95d73cbce66ef62ee6b59ec9e05a"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "4b037e2e4393976f33fd12e68002390f4a7ef91e0f0b5fdfde6e558429974097",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "4b037e2e4393976f33fd12e68002390f4a7ef91e0f0b5fdfde6e558429974097"
+    },
+    {
+      "actor_id": "actor-987a215144e55ffabffc00fe0ff49b4f9d42f43bb8cd7e9a7846266ed66eee54",
+      "stable_id": "d5663c9959c70672f337c55724cb3c2d1703b06fba0f89e30888be37f1119107",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-b0da5fbb38569a9bb43e0940daea9be1a3e7fb43447dd5d61717617bae5dbd3f:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-b0da5fbb38569a9bb43e0940daea9be1a3e7fb43447dd5d61717617bae5dbd3f:op-000919:rollout-1",
+        "worker_id": "workflow-b0da5fbb38569a9bb43e0940daea9be1a3e7fb43447dd5d61717617bae5dbd3f"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "3cd93b22a29fdc7f35e89edd9122ee16220f6fcc1d9e59daa8c760c0a3371044",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "3cd93b22a29fdc7f35e89edd9122ee16220f6fcc1d9e59daa8c760c0a3371044"
+    },
+    {
+      "actor_id": "actor-3b3b8a0214d7e9edcd0899366f2ba3a7495579c58f0b216c205ac6fb6f2df2fe",
+      "stable_id": "0540b4a4f529da1185b0db469a8cdc6b53bbba660316222b5f71b2b500d909d4",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-bc51622bd73c452f6c1b3ce18913a8e292fc8d4212dba0d9261edc3b6bb4c0db:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-bc51622bd73c452f6c1b3ce18913a8e292fc8d4212dba0d9261edc3b6bb4c0db:op-000919:rollout-1",
+        "worker_id": "workflow-bc51622bd73c452f6c1b3ce18913a8e292fc8d4212dba0d9261edc3b6bb4c0db"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "18e9fd833d1db187e4ac36cdcd9efa74bb09ea6604cca9af56e4406287f19ffb",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "18e9fd833d1db187e4ac36cdcd9efa74bb09ea6604cca9af56e4406287f19ffb"
+    },
+    {
+      "actor_id": "actor-1973d93747c7f02cf1623523b9cf79d682c6565c64f1ff4b344619dbfc3e99cf",
+      "stable_id": "b285e2fcc68aad342b52f7c78875d7b0f05b038937ff0896ef0a85a03f7c91a0",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-cbe10659f86bb0bec88f3081218931f41e0c98c0b703374747e95845e1307904:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-cbe10659f86bb0bec88f3081218931f41e0c98c0b703374747e95845e1307904:op-000919:rollout-1",
+        "worker_id": "workflow-cbe10659f86bb0bec88f3081218931f41e0c98c0b703374747e95845e1307904"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "b9a8cc85b6a51f5e47db4af880006d95d84627396c3a41a9070912ceddce8b65",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "b9a8cc85b6a51f5e47db4af880006d95d84627396c3a41a9070912ceddce8b65"
+    },
+    {
+      "actor_id": "actor-68931df4ca0ac30041084f5571b0ff98d8a0439341e6ea32b7a18bc66376beb9",
+      "stable_id": "41d5fd3a67fb8821157d5bf567e640ec9ad68351f5b9b2116d25501ee8d2e760",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-a660c6ec5b685dda0bcc3e23285f89eb298c6a25b3e7907a657fd490b45d7c16:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-a660c6ec5b685dda0bcc3e23285f89eb298c6a25b3e7907a657fd490b45d7c16:op-000919:rollout-1",
+        "worker_id": "workflow-a660c6ec5b685dda0bcc3e23285f89eb298c6a25b3e7907a657fd490b45d7c16"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "c832825e4a66d90c3e0eb3f7ea00ec85aeef0d2081e8dc8ab54c373da248f454",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "c832825e4a66d90c3e0eb3f7ea00ec85aeef0d2081e8dc8ab54c373da248f454"
+    },
+    {
+      "actor_id": "actor-66a4f6b26aaadda2b11c30d1f7635ee0573d548f0dbcb9371c2b643a7ab066e2",
+      "stable_id": "5d58af3b748a9ff0db4b30d3a5fe309d33fb977ac2846d84efbefad8d22ef39e",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-f64cf52ab9eb356e27271b5ce4c0eeb1b8932eeb11f9b8bc38cd619aca73c264:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-f64cf52ab9eb356e27271b5ce4c0eeb1b8932eeb11f9b8bc38cd619aca73c264:op-000919:rollout-1",
+        "worker_id": "workflow-f64cf52ab9eb356e27271b5ce4c0eeb1b8932eeb11f9b8bc38cd619aca73c264"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "90012ff444fbb5799386e3c65b54a82fc4ba0e1195bb1c523acf8febb45eb0a6",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "90012ff444fbb5799386e3c65b54a82fc4ba0e1195bb1c523acf8febb45eb0a6"
+    },
+    {
+      "actor_id": "actor-08260f0cafd1abe9c3cbc8aa097e0e1b50fd65345f12b041610c52041ed7a0e5",
+      "stable_id": "10bb83c5297b4c3fbc6670c55e218cf96407c29106ec50e4a892ee36166ee704",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-7eac742f379bf15ea59792527b772bb77d3264e1dc064f4121bc15e122878458:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-7eac742f379bf15ea59792527b772bb77d3264e1dc064f4121bc15e122878458:op-000919:rollout-1",
+        "worker_id": "workflow-7eac742f379bf15ea59792527b772bb77d3264e1dc064f4121bc15e122878458"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "228b5f3a86ce5950ff55458e680f937ec79577458078b7951c9cef51d9413e42",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "228b5f3a86ce5950ff55458e680f937ec79577458078b7951c9cef51d9413e42"
+    },
+    {
+      "actor_id": "actor-753dfe0b3e104bb301387a4026041de6786525ce832eb6ef4a5502001ab1554a",
+      "stable_id": "61cd531a92c8c2f2306da123e2497631e7a461723311e2a1b9242f7b8d68392b",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-81461572d204fe916067fddfe3f8490c86a0b6575c431919491c1a4604ad7b31:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-81461572d204fe916067fddfe3f8490c86a0b6575c431919491c1a4604ad7b31:op-000919:rollout-1",
+        "worker_id": "workflow-81461572d204fe916067fddfe3f8490c86a0b6575c431919491c1a4604ad7b31"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "80271d07111d6388223b3fa312ffb2f7265e87bba26d4c938e9c802097ff5da1",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "80271d07111d6388223b3fa312ffb2f7265e87bba26d4c938e9c802097ff5da1"
+    },
+    {
+      "actor_id": "actor-3ced845aeb768dd8c53a85997248f111496868484708420e5a04da399d37726e",
+      "stable_id": "97e01845e8e5199cca7fd5775193337e7b36312278b97306981cb816afe09718",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-03b3af127600d94611c226aa12be5364b25fb4647604d494167a2e787afe5148:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-03b3af127600d94611c226aa12be5364b25fb4647604d494167a2e787afe5148:op-000919:rollout-1",
+        "worker_id": "workflow-03b3af127600d94611c226aa12be5364b25fb4647604d494167a2e787afe5148"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "a68b85d0641fb37f811cdfec8322a21db3889417c802cadcb5eed08b847a34ae",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "a68b85d0641fb37f811cdfec8322a21db3889417c802cadcb5eed08b847a34ae"
+    },
+    {
+      "actor_id": "actor-79d7cb0fd3cd1a85e1d46385e479b272fa251a15b83b3ab9e7999313214be289",
+      "stable_id": "bd4a26d4a2b136583523e32afb90d88f55ee7ac4f4af05b7d7d7e45d9dce7588",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-24d420f1fb306c7dcf53dfaf71462f9dc61165fe385c185324696ee73c945266:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-24d420f1fb306c7dcf53dfaf71462f9dc61165fe385c185324696ee73c945266:op-000919:rollout-1",
+        "worker_id": "workflow-24d420f1fb306c7dcf53dfaf71462f9dc61165fe385c185324696ee73c945266"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "3e96e3e7ddf2136587942d28a07eff1a1b7617529f750108c9f46a3b52f0faa2",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "3e96e3e7ddf2136587942d28a07eff1a1b7617529f750108c9f46a3b52f0faa2"
+    },
+    {
+      "actor_id": "actor-75a44f43b879710d23917328fc2e0743feccfa1234977c44e6f1979ab25b27de",
+      "stable_id": "dda892ce9240aed52b1f244986adbe3986f2b68fa4a83ae6415cb211228a739d",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-9a8ca180c8f33d745ec39302708b381e3e37403607b2062475484dbd0809e497:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-9a8ca180c8f33d745ec39302708b381e3e37403607b2062475484dbd0809e497:op-000919:rollout-1",
+        "worker_id": "workflow-9a8ca180c8f33d745ec39302708b381e3e37403607b2062475484dbd0809e497"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "e383aab22d47bb2b4dbede0eb62c3cc36e833d6cfa7b0a1f82bee6ef361e0393",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "e383aab22d47bb2b4dbede0eb62c3cc36e833d6cfa7b0a1f82bee6ef361e0393"
+    },
+    {
+      "actor_id": "actor-29e3c4e40b57ecdcc3fbd9c68d805ff234a0fecd1e3561a879f683275dfb60da",
+      "stable_id": "0289eb18f6431e03571f10757b90a368af9eb1b5cbe884e650dcac58f23342de",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-ea98bbdab38a3b68d1e0c9154a69bb01875c265588c4ade38454f74654d1df5c:op-000919",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-ea98bbdab38a3b68d1e0c9154a69bb01875c265588c4ade38454f74654d1df5c:op-000919:rollout-1",
+        "worker_id": "workflow-ea98bbdab38a3b68d1e0c9154a69bb01875c265588c4ade38454f74654d1df5c"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "618f0e8bc155157f0e82d7a797624c77c982b05a10acb12565d4df081bab7db9",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "618f0e8bc155157f0e82d7a797624c77c982b05a10acb12565d4df081bab7db9"
+    }
+  ],
+  "retired_failed_entry_ids": [
+    "subject-1bc16fda56bc3e475dde8ef4f6881fec8416a3747684156d073977d48b26394e",
+    "actor-a29551b2aa7f232743721dfb068e55312c378162b3f25ec8ff2e1e8a344d41b8",
+    "subject-6e9e2d8a687ac9b76c0e4b7f1c9b5244c597f797921f5437779042923824a8d6",
+    "subject-f8c6ec4e577e4bdf37b6fae9d4570632811fae10fd3a669439f27d35725a350e",
+    "subject-6cb512a17a123caf3dd520dd8eb9b638d5c883576da7ae35e8f168ed43673916",
+    "subject-bc3bdaeb969d519e61a6d2cc0419ec5ef1e634cab25cc5ed88d0396699117d6b",
+    "subject-9850454925acf047f7563b0381e4c59505ed7265674719423a0d3d3d8e28af0d",
+    "subject-915f2bbbbbc12b8d8789ea8937d3c2d9ff7e80a3dcc3fec917299ec22261c3b6",
+    "actor-3b4c2942b534e13bb3c9f1da891fa71c797f74013be12cbc3bc039d16ddc49ea",
+    "actor-275fa946fad7a9d3ecd331fa794d23acb17909c02b6088003ecb0dbedea1d59a",
+    "actor-c626d9913560df235774610d4b889b3e3ff7426881feb35db4fb3a55a98f2257",
+    "actor-d410fae982282083b608545f305afe6a0871d9236e4b7e8e8de66c9a5926262d",
+    "actor-7e3b7a9441d85f52f3054ea82e81878026da065e761dcfcdfa989fd1121b5bbd",
+    "actor-29a41aaf4e10955891f72d4cc7aeabb483818f78743aecdbba2b54bc31437efd",
+    "actor-11cb86e932b1bfc6a6d75ca9ada922cbe7de56ecaca228527c6533d7857ca610",
+    "grader-1bc16fda56bc3e475dde8ef4f6881fec8416a3747684156d073977d48b26394e",
+    "grader-6e9e2d8a687ac9b76c0e4b7f1c9b5244c597f797921f5437779042923824a8d6",
+    "grader-f8c6ec4e577e4bdf37b6fae9d4570632811fae10fd3a669439f27d35725a350e",
+    "grader-bc3bdaeb969d519e61a6d2cc0419ec5ef1e634cab25cc5ed88d0396699117d6b",
+    "grader-6cb512a17a123caf3dd520dd8eb9b638d5c883576da7ae35e8f168ed43673916",
+    "grader-915f2bbbbbc12b8d8789ea8937d3c2d9ff7e80a3dcc3fec917299ec22261c3b6",
+    "grader-9850454925acf047f7563b0381e4c59505ed7265674719423a0d3d3d8e28af0d",
+    "subject-f3714b6ea78b93b2266c6e4fd05f2ad83f1c8fc9adbb5609a13450264b4c12f5",
+    "subject-4892ac85470b3b9f74b6b5a318f062219cddf7d327065728296eb97f7e31ee34",
+    "subject-5bbc039a64f43313c27c41e110ed14f0400dfebba5fdb3f9087e7eb77feb00d7",
+    "subject-f063f58e8b59a585ddada302494346512a9328d39e26162cc2fe24626e2de800",
+    "subject-f4b4d7cd579ad2341a0ae90a66af0a98e8f74958fc67b654e09977ca2e4b6d34",
+    "subject-cc1a4d4fc34741ff82bb67e3b7ac18e3e6e480f44119161bbe558149b67de238",
+    "subject-abe3d235c0d92aa063234d5b58466852d2d2ef9db8b24aeed3a80be1ea67188a",
+    "actor-481bb78fec684465e5fdd950fc8cf2ce844944500a3799e9fd15984290fdfe8d",
+    "subject-284aa286a670e6e69999f28aa5bb19dd66940f53383e3c099785d2cf4dfd522d",
+    "actor-c60ea3b10ea1ccdcad718891265b956cd3c75a41ff42cb791d2f8816259cd44a",
+    "actor-f12fd1c1dc7a64ac297b84d6e0e09d67dbc9d3446cc3ad4d75cda5b026002549",
+    "actor-7aabe192705f0a2d9842a81dafaba111a0cbd158f7445a704320c6416552e57e",
+    "actor-d6182db0c63bf16a7131b8f7e7ef693900c96865e88f32a340bfb30afa19de5c",
+    "actor-5756604abcbd19540e1719c722c4559866c5a8ec6ae2194935442933349b1341",
+    "actor-831af8d0d8e8fcf3a8c735b6f08d017d8c8330f195918c0f169b56492976be5c",
+    "actor-bb5f0478c2a2af0d3a3a88d401ef6bf860e87076e12022058e32fbcda229c12a",
+    "grader-f3714b6ea78b93b2266c6e4fd05f2ad83f1c8fc9adbb5609a13450264b4c12f5",
+    "grader-f063f58e8b59a585ddada302494346512a9328d39e26162cc2fe24626e2de800",
+    "grader-4892ac85470b3b9f74b6b5a318f062219cddf7d327065728296eb97f7e31ee34",
+    "grader-5bbc039a64f43313c27c41e110ed14f0400dfebba5fdb3f9087e7eb77feb00d7",
+    "grader-f4b4d7cd579ad2341a0ae90a66af0a98e8f74958fc67b654e09977ca2e4b6d34",
+    "grader-cc1a4d4fc34741ff82bb67e3b7ac18e3e6e480f44119161bbe558149b67de238",
+    "grader-284aa286a670e6e69999f28aa5bb19dd66940f53383e3c099785d2cf4dfd522d",
+    "grader-abe3d235c0d92aa063234d5b58466852d2d2ef9db8b24aeed3a80be1ea67188a",
+    "subject-da490bada09c2271670350a8aaa8780a6d6e0a823e17ded5fbc2ac188085b8d8",
+    "subject-26c2a4bff4f838a7593eefc0a489ea61c621729ee0b49978b839b993edc49c41",
+    "subject-fc775731720c9aaf7b9d6b9a19e806a4e22122d23aa39865624442389690d3d8",
+    "subject-112d07b86790a750f655925643d17eae3b1c86070ddf8ce87f94fe5f3ff70e3b",
+    "subject-5a5f5533289366c010c3b89575c81550b11697944f286c368c99d9cf1f7b3803",
+    "subject-f99a03f8f9921167d6c1c4022843c36d6cc318400df1a073e5be42536d6af25e",
+    "subject-6e35daab1798b862fc236ecda955a8ae3355aa871d602807f0bb21f170319a5a",
+    "subject-91b9716d78f75453a522fac21ec0f0285362128596522370fef2e3ff3d61c9d8",
+    "actor-afd8b7beca88cf3e36c721763efb0da6a12bbae0b6dd84397480f313cf0c29b7",
+    "actor-a3e2586625a07078bc7127a045b5eba559e24be763dd2bbf2f6600fc3421754a",
+    "actor-87515f0052fad8aef6d4c7bbdc59660fbdd9d82feb4d9eaa19ebe2d0914b5ce7",
+    "actor-410fedfa138d5be0a23678122e19ac1d642e1a96bb08f1567d2a23e9352e1848",
+    "actor-d74cca196cee17ccf353cb34499eabf358bbba786630c592bf646c571480bfbf",
+    "actor-106efe03d0fd823627a16ca9699a33272dcce197f3b87f9a4d0898b244f24d06",
+    "actor-bf06fc2042c9b94a51bfe27995c643102d79b6465bf5f173854943f43abcbcaf",
+    "actor-08764a11c5bb00f1b7e76e870405d0aa0fefcfdc93b705b6763c59feada3ab3e",
+    "grader-da490bada09c2271670350a8aaa8780a6d6e0a823e17ded5fbc2ac188085b8d8",
+    "grader-26c2a4bff4f838a7593eefc0a489ea61c621729ee0b49978b839b993edc49c41",
+    "grader-fc775731720c9aaf7b9d6b9a19e806a4e22122d23aa39865624442389690d3d8",
+    "grader-112d07b86790a750f655925643d17eae3b1c86070ddf8ce87f94fe5f3ff70e3b",
+    "grader-5a5f5533289366c010c3b89575c81550b11697944f286c368c99d9cf1f7b3803",
+    "grader-f99a03f8f9921167d6c1c4022843c36d6cc318400df1a073e5be42536d6af25e",
+    "grader-6e35daab1798b862fc236ecda955a8ae3355aa871d602807f0bb21f170319a5a",
+    "grader-91b9716d78f75453a522fac21ec0f0285362128596522370fef2e3ff3d61c9d8",
+    "subject-767a4d93b26bcde20375658af15351dbeed3536661d1e8191b29d16f10d3ad5d",
+    "subject-affec05a1a3d521787da0248289989bd9a0432139a51bca7f0fd6aed78ee6b83",
+    "subject-df5fb4a9a9212cb9b167d1b16243b09a1b80e0184cfece6b4e2be2ca6fdd58e6",
+    "subject-5974e4aaba64985285da4e2fdb38af95734e1020fa26e7cc044aeb6088c99352",
+    "subject-4c9869ba4814e53bae2dbb875143894ac08456e149e5706f8806b09a7acbabd0",
+    "subject-2c1d23c52849a4a9cd68f1003af3b08ba142cac3388faa6b55141e83db7ac12c",
+    "subject-509b6b49fefb2faf9750441e76571e6f2d760c7205c797798df0fdd642898292",
+    "subject-b0dbfdb2513fe79a92c4eb537f811b05f45fadc38be50f99c0c31c06306bd28d",
+    "actor-987a215144e55ffabffc00fe0ff49b4f9d42f43bb8cd7e9a7846266ed66eee54",
+    "actor-3b3b8a0214d7e9edcd0899366f2ba3a7495579c58f0b216c205ac6fb6f2df2fe",
+    "actor-1973d93747c7f02cf1623523b9cf79d682c6565c64f1ff4b344619dbfc3e99cf",
+    "actor-68931df4ca0ac30041084f5571b0ff98d8a0439341e6ea32b7a18bc66376beb9",
+    "actor-66a4f6b26aaadda2b11c30d1f7635ee0573d548f0dbcb9371c2b643a7ab066e2",
+    "actor-08260f0cafd1abe9c3cbc8aa097e0e1b50fd65345f12b041610c52041ed7a0e5",
+    "actor-753dfe0b3e104bb301387a4026041de6786525ce832eb6ef4a5502001ab1554a",
+    "actor-3ced845aeb768dd8c53a85997248f111496868484708420e5a04da399d37726e",
+    "grader-767a4d93b26bcde20375658af15351dbeed3536661d1e8191b29d16f10d3ad5d",
+    "grader-affec05a1a3d521787da0248289989bd9a0432139a51bca7f0fd6aed78ee6b83",
+    "grader-df5fb4a9a9212cb9b167d1b16243b09a1b80e0184cfece6b4e2be2ca6fdd58e6",
+    "grader-5974e4aaba64985285da4e2fdb38af95734e1020fa26e7cc044aeb6088c99352",
+    "grader-4c9869ba4814e53bae2dbb875143894ac08456e149e5706f8806b09a7acbabd0",
+    "grader-2c1d23c52849a4a9cd68f1003af3b08ba142cac3388faa6b55141e83db7ac12c",
+    "grader-509b6b49fefb2faf9750441e76571e6f2d760c7205c797798df0fdd642898292",
+    "grader-b0dbfdb2513fe79a92c4eb537f811b05f45fadc38be50f99c0c31c06306bd28d",
+    "subject-04e51fb1d752fd68109f183f5310b689d581d8a865e1aeda5ab7fc8eb94fe32e",
+    "subject-d0b1ee40350c4776ff2497579a7c615799089f9c7298d5cfc343b4d5cf69400f",
+    "actor-79d7cb0fd3cd1a85e1d46385e479b272fa251a15b83b3ab9e7999313214be289",
+    "actor-75a44f43b879710d23917328fc2e0743feccfa1234977c44e6f1979ab25b27de",
+    "subject-734bf8b4bed984f4d2df532ddf9b426868d957da24384c2441a2fbdfed092545",
+    "actor-29e3c4e40b57ecdcc3fbd9c68d805ff234a0fecd1e3561a879f683275dfb60da",
+    "grader-04e51fb1d752fd68109f183f5310b689d581d8a865e1aeda5ab7fc8eb94fe32e",
+    "grader-d0b1ee40350c4776ff2497579a7c615799089f9c7298d5cfc343b4d5cf69400f",
+    "grader-734bf8b4bed984f4d2df532ddf9b426868d957da24384c2441a2fbdfed092545"
+  ],
+  "tainted_cohorts": [
+    {
+      "entry_id": "evaluation-e88e8bcf5ad7f569512956cd4ba85c1b9aa25e94b19d3d4cb759c4709a9bd624",
+      "parent_settlement_hash": "sha256:e9c5bc06604566c2b9ac31b6c3aed432071b7cbdb2ecf591893e1aa9f21e7096",
+      "parent_receipt_hash": "sha256:3f31903499de97d2e7afd6eb8a95eba194322ca62b11cfb530f780a91891327e",
+      "causal_failed_actor_ids": [
+        "actor-a29551b2aa7f232743721dfb068e55312c378162b3f25ec8ff2e1e8a344d41b8"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-77fdc5f8e6a4dc6911380c2ea7260307e4b3e261dd98d1c813080cf6dbe3d612:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-8496f37fd127cc94c6d921e10c288e702c710f313e39faadfe0536545a2615b4",
+      "parent_settlement_hash": "sha256:c59f197a6ba007ca6383e2862b3164ee914b5f3b562445f573ea064c1696b6b5",
+      "parent_receipt_hash": "sha256:e281f06ea5b77f9768c7ba691c79092aba52ab3785463df9dd7b4ff69559adcf",
+      "causal_failed_actor_ids": [
+        "actor-3b4c2942b534e13bb3c9f1da891fa71c797f74013be12cbc3bc039d16ddc49ea"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-90b3945992be022df32475d8790d6bc821f4a36d5609187e09396cf3488f1be2:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-7015282ff853bf80932aed8746a5b9b0439bd496566048cd687df32ddb4d40fd",
+      "parent_settlement_hash": "sha256:64a885c20992e17ed9fd78cc67b87e6fb545425d1a481444e7fe67e79dffc0da",
+      "parent_receipt_hash": "sha256:1f358d36703f937e98ec2cb7eb3b41beeaa63f72f1b1d22cfc4b4f830bd708b8",
+      "causal_failed_actor_ids": [
+        "actor-c626d9913560df235774610d4b889b3e3ff7426881feb35db4fb3a55a98f2257"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-1900939ba6cf1db4bae6be5c03dca9cf361ad033295da0db22d33d09a53f53f8:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-eee78212be1dbb85f6715f45c4cf8f9d26dc7e62a7592a03f1dbcc5e268a0b1f",
+      "parent_settlement_hash": "sha256:9534265609a1f2be3b53c402af6bcf4790a9cb17b99b9134fc6868651caa83f4",
+      "parent_receipt_hash": "sha256:459d9355662b934747d6358c99bbd639de7baddf5deddcb6e869460e6bd1511a",
+      "causal_failed_actor_ids": [
+        "actor-d410fae982282083b608545f305afe6a0871d9236e4b7e8e8de66c9a5926262d"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-e4630a5435c4d4335d619cdbf9b518e4ab7e2b75643535c615073e0ef5132ad9:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-7ee2360eb0bbd6b01bac5b2181bb6db5cb8e52eeb4e1d24188692a4caac3b334",
+      "parent_settlement_hash": "sha256:5bc72f5105c2f3a0195be46c80d37a371fb948fc1caf52e05771404efbcff0e4",
+      "parent_receipt_hash": "sha256:2721703104ba22c52cc87b453f934384435b37a06ba8fb2768d562cad5442859",
+      "causal_failed_actor_ids": [
+        "actor-7e3b7a9441d85f52f3054ea82e81878026da065e761dcfcdfa989fd1121b5bbd"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-4c706a1c8c40e15376dddea3e58b329a4e789d5124209c15e58484e193d17c89:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-72f740c957fe001c89804f4ca1ca812478642f240c68ee1953d6df28761dea84",
+      "parent_settlement_hash": "sha256:be38b273678d84f741a6ee6556e2869f6e5727c603f3f4edd39bd16aa61f3606",
+      "parent_receipt_hash": "sha256:81bd47ba1fc532bb609ff8b7f490f6ff5eccff691c27cb3571bffa72acaf7782",
+      "causal_failed_actor_ids": [
+        "actor-29a41aaf4e10955891f72d4cc7aeabb483818f78743aecdbba2b54bc31437efd"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-237f7a367022d4670a829fb9d2f35310e4b97ac4590c7021ad265183bb152ab3:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-cf3f9b0d5d8b1bb4498c39ebd59826509c461c4ee47d8e724921828ebc8742b7",
+      "parent_settlement_hash": "sha256:97bb884b0dc9ec821fa92f604e7ac815b2e7ae3c253535390e64d66aa8ff7cc4",
+      "parent_receipt_hash": "sha256:caa77fb9134ff01e24e5fdb4240dc9241b602fd7d5918c39c9b5c40d36e4ca81",
+      "causal_failed_actor_ids": [
+        "actor-11cb86e932b1bfc6a6d75ca9ada922cbe7de56ecaca228527c6533d7857ca610"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-e637ff622e111686a36db50d5d1ada9d81d7dda1c8799375827ff08365cd1e30:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-a3067580a24ad70216335cc338d21dfb8f03d66ec1c9b7842d693ecb01d54575",
+      "parent_settlement_hash": "sha256:d26593f634c002f0ba69a6bbc9aa352e8504d1b0b59e2d8c4d657a24d2793372",
+      "parent_receipt_hash": "sha256:a5b71025a8ae301aa18f0899990f58027530103698a0f9110c3e4fb3c33c2659",
+      "causal_failed_actor_ids": [
+        "actor-481bb78fec684465e5fdd950fc8cf2ce844944500a3799e9fd15984290fdfe8d"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-920e5546cf022699d0464bbafb9b41b315728d0a3c9b86d79913e2d982e97463:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-47abd68006bae13aa74e81fefaca1118f00537cc79f2bccf7baa550861c1604a",
+      "parent_settlement_hash": "sha256:009ef99240711bae3d7394119bac08e23db5223e18c8df036da0ae1ca8ee32ec",
+      "parent_receipt_hash": "sha256:c3e6588eaa95fc371860c2eec26ef613d7a7e8f34f41b23664ecea82f594d011",
+      "causal_failed_actor_ids": [
+        "actor-c60ea3b10ea1ccdcad718891265b956cd3c75a41ff42cb791d2f8816259cd44a"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-c83d8fe74893eef30e9c4bb04ebf0d3e89272b3361a7401e418688052dc7236f:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-58724b01041e4a547245b0234cf4a9e997db330a86639e0942c8da238a3ad2b8",
+      "parent_settlement_hash": "sha256:8f11e2a8715ca109a1e90396ac66a25136a8b00dd2246786dd266f866f983a04",
+      "parent_receipt_hash": "sha256:19ed62347288a009814461c9bdfc48dd54266dcdd915e53aa8376d001ab8627f",
+      "causal_failed_actor_ids": [
+        "actor-f12fd1c1dc7a64ac297b84d6e0e09d67dbc9d3446cc3ad4d75cda5b026002549"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-544e512d3f53f313fc1428d1f51b1133a5ba60065297db38923cec9998038886:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-22b03dd8fc5e9fe8baf568ba21074dce94a19dfb711f5b8b5c71ed0de7da80e8",
+      "parent_settlement_hash": "sha256:4fd8dc75e68403754e7470ac9b64cb6655496762dae545603d7ae45db0127a2b",
+      "parent_receipt_hash": "sha256:9137687d578a988165b3a082c15113f59daf474d8f52b1ec955d8fb1611430b1",
+      "causal_failed_actor_ids": [
+        "actor-7aabe192705f0a2d9842a81dafaba111a0cbd158f7445a704320c6416552e57e"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-b9ed5f28542bf84d351d95a70f8cdc4b772f4f5366719c86d0a5a13e1c665384:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-66f927c28b91d1d03ac9c415f90305f694ff8d6f97976a10e5d0a5b0418d8511",
+      "parent_settlement_hash": "sha256:f2696cea80b02e39e90abc3b8fb9abc83c161b3cc12dc0fd317f8d6f08245c1d",
+      "parent_receipt_hash": "sha256:a24b00a093aba1f38e2d37e17827baea885dafdb912410d48bcbede0ea4556ec",
+      "causal_failed_actor_ids": [
+        "actor-d6182db0c63bf16a7131b8f7e7ef693900c96865e88f32a340bfb30afa19de5c"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-d69fde3ad47feedca7bd4a9217e0813ed1981d139105397f20e5ea5d00455bcf:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-8958470fc76539442618d836dc847074ed1ca5d71afd4997c661e263dde645bf",
+      "parent_settlement_hash": "sha256:e44cbadcc33aa1dbce31c41313ad6327bff7f8b82c607aac8237a5a76135a964",
+      "parent_receipt_hash": "sha256:881940c00ed905aec5b95d3f3e5b197995defc793f226043b40167118240e410",
+      "causal_failed_actor_ids": [
+        "actor-5756604abcbd19540e1719c722c4559866c5a8ec6ae2194935442933349b1341"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-42f171892127647ae09574413c457e5dfe7c42ff0c597f505daad212fcc5132b:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-2d93ab4a816597c849be72e8de5f9a190762658dd5d903cd52cf609dfcccb930",
+      "parent_settlement_hash": "sha256:82a2734f56ed67ebc149bf9ef1e2850145a3c8818fc65fd49d39218426d4c3b1",
+      "parent_receipt_hash": "sha256:c9c916f04070e6d2a270e2335df1e8fdc2d5b6cd328bc89d8eff176ef1248bee",
+      "causal_failed_actor_ids": [
+        "actor-831af8d0d8e8fcf3a8c735b6f08d017d8c8330f195918c0f169b56492976be5c"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-aaf774096171776a2e9cd7f52c91d5a2793e24be771c5783d61b769659743c5e:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-f4046efed949673628f2737681d77a8370286d1e3f64034da207d66f5a3eb989",
+      "parent_settlement_hash": "sha256:784aecbe5ccb072f5790bf59142efda7d1284aeed55793cb6e2e62758db31274",
+      "parent_receipt_hash": "sha256:f6c9213a0377d326ca2c2cfbbac2ce7778cd0208ee9f1c89e8b3bc57428ff948",
+      "causal_failed_actor_ids": [
+        "actor-bb5f0478c2a2af0d3a3a88d401ef6bf860e87076e12022058e32fbcda229c12a"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-e7e22ad48170fd79b11e977cd6a9eae10cdd9513316c9e7f2edf7e8ede366430:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-f77eea009ad4272a954c1140404e13da99a860bae6804db740c21c8c8400e28b",
+      "parent_settlement_hash": "sha256:a59471cb424a9763d64ad34fa6454369d9e23edfe1ec95188803910b7b910f95",
+      "parent_receipt_hash": "sha256:06d3fb12bf5739327ce00d9cfd43cd8cbf3547590bb525d3a8e6a988adc072fd",
+      "causal_failed_actor_ids": [
+        "actor-106efe03d0fd823627a16ca9699a33272dcce197f3b87f9a4d0898b244f24d06"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-4fcf8719bc69f5c227a9d0bed5be95732c4bb84730d40d643033442a4e46eaf0:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-6f195f4a8518abd64a544c7397cc3d8ed83f17f452dc29656e194ac0c761eeac",
+      "parent_settlement_hash": "sha256:d55eda47f5f9f9282662c7896914f8ad727e6be42489ac0a0408d0b9bc39ce03",
+      "parent_receipt_hash": "sha256:639b401f4cbb6b04b68fd47efe9ef39e055bc79da288d5674c4d19cb53bc8c70",
+      "causal_failed_actor_ids": [
+        "actor-afd8b7beca88cf3e36c721763efb0da6a12bbae0b6dd84397480f313cf0c29b7"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-f213176a07f6557acfff33d38cb13a700429951b45b1a57b76486fc5ae4eb2bd:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-d509a58817610179d586b47a541f36870e819c380136d9494969662fb16b373f",
+      "parent_settlement_hash": "sha256:8ce830e7e52cfe4212a9ad74f1cd63a43a8848cf38936dd96c8ac7cce93a2acd",
+      "parent_receipt_hash": "sha256:0f00106fbb2627163639b22b93d0a1a0a796356669e01ff48178252dff2f42f4",
+      "causal_failed_actor_ids": [
+        "actor-87515f0052fad8aef6d4c7bbdc59660fbdd9d82feb4d9eaa19ebe2d0914b5ce7"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-0c6b7bbd96343699d171477097352af1be8f8dfb5b82b10ab394d4560be03332:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-5b28a8ac688bd2182cd0d8b2b3263e2edbf74f68d40eea017eb24ffd78ae463d",
+      "parent_settlement_hash": "sha256:a3c0fb645799962dccee67b6ee5352b7fbc29c7cadbf1aa849669b2a7a4b1562",
+      "parent_receipt_hash": "sha256:50204db38394357d6e426cd6929d22cb9065aa305d0df156b845bb15da6fc50d",
+      "causal_failed_actor_ids": [
+        "actor-a3e2586625a07078bc7127a045b5eba559e24be763dd2bbf2f6600fc3421754a"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-c1b904b76fcea3474bacd1943632d81892c0e3ebfa54b7e92a538a883a4f84c6:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-041df1558369a2edf38ea1ee38dbf439871ef8526213137897cc4a2cbc5963f8",
+      "parent_settlement_hash": "sha256:f559bb0da6af6d397c056cdb68f5098acb74f0249174cf386fb4b07f519e4cbf",
+      "parent_receipt_hash": "sha256:688306f8320471dfe2d910b2d2fb404744e59b0ab53230e552db91bc9ee01dc0",
+      "causal_failed_actor_ids": [
+        "actor-410fedfa138d5be0a23678122e19ac1d642e1a96bb08f1567d2a23e9352e1848"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-02893230e0be77b6f9600209f755a39ccfa8115eb0e1a6f65a8fc6f1965f8cde:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-aa64a17da6b64331b1070a53f718c1ec4f665ce7f404972b6f095759d5b3f75f",
+      "parent_settlement_hash": "sha256:bd3737aba25387d72e90d90679b6d01a87bd842e82f4fd07641f9789bce816f3",
+      "parent_receipt_hash": "sha256:474f0a864f8b86024b0bef534e52a34677032e893098583d3f35b28e360e1680",
+      "causal_failed_actor_ids": [
+        "actor-d74cca196cee17ccf353cb34499eabf358bbba786630c592bf646c571480bfbf"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-36b90e243810134e8892f4f6f80a89994fd844810b724b548da6b696d7114461:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-3de4717c5b11a5ac9d75f3b17ab38746106d4ad3f8affc8e57b073148ed22315",
+      "parent_settlement_hash": "sha256:69f517f692ee741610aa0d150d50450ee251e90c107b4f82cb9938cdabe48091",
+      "parent_receipt_hash": "sha256:23fcf41ddc8c7b3126e5b0ec89c62cf283f94e5aa366775c5429c68b1273bbb5",
+      "causal_failed_actor_ids": [
+        "actor-bf06fc2042c9b94a51bfe27995c643102d79b6465bf5f173854943f43abcbcaf"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-e6dc21dbfd1690059b90d86973ac5ad241c695392273c0993b49923cf6a3bcda:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-4eef72199a4906457102d7d3188dd17b18bedc2f31ff003b05b951ff0a341399",
+      "parent_settlement_hash": "sha256:fe23badde21f6e2387234278568e5c94ccb8e3f73b7d4d4dedadae8e7ece5982",
+      "parent_receipt_hash": "sha256:cc20df3eaf46d9fc56dd78a3c979695ff364f94638d9df9ce063d735e9678695",
+      "causal_failed_actor_ids": [
+        "actor-08764a11c5bb00f1b7e76e870405d0aa0fefcfdc93b705b6763c59feada3ab3e"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-dea876be2f9939a9bb7dd121dc67b23887cd95d73cbce66ef62ee6b59ec9e05a:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-6ea7be9aaff7504e399365e16a56caf9b097910204771cac726377d09471d6ba",
+      "parent_settlement_hash": "sha256:7a79760f842b99bcea30e8955faf455f2d716bad57d51dcc0936f632be285702",
+      "parent_receipt_hash": "sha256:5d1c0a87328e6db2501828bfc523266ef98880f0081f56a77a68987c036b111f",
+      "causal_failed_actor_ids": [
+        "actor-08260f0cafd1abe9c3cbc8aa097e0e1b50fd65345f12b041610c52041ed7a0e5"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-7eac742f379bf15ea59792527b772bb77d3264e1dc064f4121bc15e122878458:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-364204ddb69f0737eccc02761de190d4a3304f0dc6db2e5c9b18d4e2cb9a9d03",
+      "parent_settlement_hash": "sha256:4b1445ea556e844a1dee00ba08a7f183db23f8ede4f729726c93204b102d3023",
+      "parent_receipt_hash": "sha256:f3413a5e57dd4bb67b1dc46cb9dc95bbbb58a492b8f54e43485ee32906521258",
+      "causal_failed_actor_ids": [
+        "actor-987a215144e55ffabffc00fe0ff49b4f9d42f43bb8cd7e9a7846266ed66eee54"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-b0da5fbb38569a9bb43e0940daea9be1a3e7fb43447dd5d61717617bae5dbd3f:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-d0a064dec2d4ff0f40ace02648ea39e9d8d4928d51ba049a24d4820063f1c6fd",
+      "parent_settlement_hash": "sha256:fadc3f292d99dd653b0f90368a6cbf42fa12748427ab59f15bd233cde3288594",
+      "parent_receipt_hash": "sha256:7660907c093a1845adae0c49a8b05d92d48db51862cf25bdc4284ea0e2f755e0",
+      "causal_failed_actor_ids": [
+        "actor-3b3b8a0214d7e9edcd0899366f2ba3a7495579c58f0b216c205ac6fb6f2df2fe"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-bc51622bd73c452f6c1b3ce18913a8e292fc8d4212dba0d9261edc3b6bb4c0db:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-3a5f7a8b447eccce4509fdb59c29e8960bc470ae0011dd1704c3f48ea690f7bd",
+      "parent_settlement_hash": "sha256:4ec3a4d58db9bdc2831bb87234e0f2a6505693c7b0ba3a16c4936591c346679a",
+      "parent_receipt_hash": "sha256:32be2a6ba0dd9579a5a721e3b6e592061b4a76295c623bc9fea81ea455557ab4",
+      "causal_failed_actor_ids": [
+        "actor-1973d93747c7f02cf1623523b9cf79d682c6565c64f1ff4b344619dbfc3e99cf"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-cbe10659f86bb0bec88f3081218931f41e0c98c0b703374747e95845e1307904:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-9b209aed1187aad60f9dc54daabb69bfd7f446e581c07337ff4341b935538ebb",
+      "parent_settlement_hash": "sha256:ced67dd8d5d7a4335a77c03a3caf5ce4d2cb6873e6332f1230a3db8a18e17a8c",
+      "parent_receipt_hash": "sha256:6b66cd3693deaa17c5711d83478b45e624247c21ab1e8b5a270a7d4af967f78b",
+      "causal_failed_actor_ids": [
+        "actor-68931df4ca0ac30041084f5571b0ff98d8a0439341e6ea32b7a18bc66376beb9"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-a660c6ec5b685dda0bcc3e23285f89eb298c6a25b3e7907a657fd490b45d7c16:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-7bf3972072d803572f6cf6cca78a82fe7e822857f51c6f8d593ebb2156bad6bf",
+      "parent_settlement_hash": "sha256:167ab2baf8c49a1354cd917d8ef0b02b00bddeac7a90dceb214a08812ced177f",
+      "parent_receipt_hash": "sha256:6320144a1e42f41b4b445c0d58f304dd80a2a77fe3592082581d6502985b2a53",
+      "causal_failed_actor_ids": [
+        "actor-66a4f6b26aaadda2b11c30d1f7635ee0573d548f0dbcb9371c2b643a7ab066e2"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-f64cf52ab9eb356e27271b5ce4c0eeb1b8932eeb11f9b8bc38cd619aca73c264:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-e2f5fc72dcf2c59c0e88fd260db310d754fe8e291141df0cef5d8896d02093e6",
+      "parent_settlement_hash": "sha256:98b73c1fac08d9ce4e24948707336eaf20eb1d1d4f986cebe3c7eb687549fcf2",
+      "parent_receipt_hash": "sha256:fc5ab8b58f2c0eae4f6d52e4448d99c5c5f677c05574e28252b640826c7f54bd",
+      "causal_failed_actor_ids": [
+        "actor-753dfe0b3e104bb301387a4026041de6786525ce832eb6ef4a5502001ab1554a"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-81461572d204fe916067fddfe3f8490c86a0b6575c431919491c1a4604ad7b31:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-35cf21d5a7a97d9303371ce3f68543eb3d1f23c46e6cbc1466b5b294636dc9ba",
+      "parent_settlement_hash": "sha256:484f61b650ea8e3e2236cac552823f96d6cfb8705ef2fe963ed95f7205c760d8",
+      "parent_receipt_hash": "sha256:0eb87b99a53e9c820891e5ab23b9d2f98096303bd45a562774d8c459c865b115",
+      "causal_failed_actor_ids": [
+        "actor-3ced845aeb768dd8c53a85997248f111496868484708420e5a04da399d37726e"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-03b3af127600d94611c226aa12be5364b25fb4647604d494167a2e787afe5148:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-5413720a9f024e87eb5a344d0c710e75a7bed7775a466e7f136c32828cd00ce1",
+      "parent_settlement_hash": "sha256:c2389ad521ea5ff59d16779fe3491078cc995b0ade3456451d5d9789efcccdd1",
+      "parent_receipt_hash": "sha256:d25a21a01f4aa54ebba1ca88de0d878b1e241a1a6271ce764baf16bce2321a7f",
+      "causal_failed_actor_ids": [
+        "actor-29e3c4e40b57ecdcc3fbd9c68d805ff234a0fecd1e3561a879f683275dfb60da"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-ea98bbdab38a3b68d1e0c9154a69bb01875c265588c4ade38454f74654d1df5c:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-4d1df363d6f56e680ac685335b146a29aae6256bd55520558aef9c743dd64c99",
+      "parent_settlement_hash": "sha256:46f6218763b4263b4eb7950839c904e8bc0850561136dd14c9045608dc0820ac",
+      "parent_receipt_hash": "sha256:d21da58d9cd5615d4ceb7488208ead4900259f3e61e7f86c702927ab9a474d57",
+      "causal_failed_actor_ids": [
+        "actor-79d7cb0fd3cd1a85e1d46385e479b272fa251a15b83b3ab9e7999313214be289"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-24d420f1fb306c7dcf53dfaf71462f9dc61165fe385c185324696ee73c945266:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    },
+    {
+      "entry_id": "evaluation-d9b055ab2080af731e0919be0204aba8e4a26bf8ac739607596074409b11391e",
+      "parent_settlement_hash": "sha256:7e4dcbc97051ce1ad38bf2f16d886f96bd9743f4e5edf9d36dc9b3b3d19c04db",
+      "parent_receipt_hash": "sha256:800ad706f8756e8987e0e3343936e41139507e99dd816256cd0548f7293d26d8",
+      "causal_failed_actor_ids": [
+        "actor-75a44f43b879710d23917328fc2e0743feccfa1234977c44e6f1979ab25b27de"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-9a8ca180c8f33d745ec39302708b381e3e37403607b2062475484dbd0809e497:op-000919:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    }
+  ],
+  "independent_expected_closed_actor_count": 1433,
+  "independent_expectations": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/continuation-root-acceptance-expectations-20261021.json",
+    "sha256": "3a360cf247975f631906665fb3f4f6bbf6a8d97a7c9690ca57c5c6cede231ee9"
+  },
+  "physical_branch_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/combee-fixed-continuation-cd1b7b5-v1",
+  "provider_calls_during_prepare": 0,
+  "no_parent_financial_or_scientific_ledger_copy": true,
+  "independently_released_for_science": false,
+  "parent_unique_claim_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/parent-claims",
+  "operational_overrides": [
+    "RunServices constructor/configuration",
+    "actor pre-dispatch disposition gate",
+    "PrefixJournal read-through/cut and appended records",
+    "read-only parent plus combined-budget delta ledger",
+    "exact tainted framework cohort successors with retained original charge",
+    "owned started managed-subject shell reentry without clearing its reservation",
+    "uncertain actor/subject settlements deferred pending original receipt reconciliation",
+    "exact sealed generic-chat response adoption into an owned started actor",
+    "append authenticated no-dispatch reentry proof; same started actor row/reservation/slot/stable ID retained",
+    "reconcile owned pending actors before workflow preflight; admitted unknowns remain held"
+  ],
+  "preview_only_overrides": [
+    "collect every exact sealed snapshot/cache actor record",
+    "stop before joining a partial workflow map once preview frontiers reached"
+  ],
+  "workflow_prefix_materialization": "closed valid child sessions plus exact open-snapshot protocol/dataset-ref and proven valid prediction/grade/update prefix ONLY; exclude later failed outputs",
+  "journal_scope_ownership": "inherit only declared old scope; missing known origin is fatal; genuinely absent old child scope uses native fresh/own journal initialization",
+  "dynamic_interrupted_attempt": null,
+  "readonly_prefix_refs_sha256": "9dac6ba6ba6ae53e2541e498167f5b72a3311e1d674c6506189c82f972a9e1e6",
+  "protected_parent_files": {
+    "manifest.json": "df8033b915e9eea3823eb4055297ee0553de402e48024f45925ff4c30b189ecf",
+    "private/ledger.sqlite3": "b8b3ad1ad077ddf050aa8d3adc04b9b88a52573a24fb1714fb660fcdbdfb4a1f",
+    "result.json": "0d68a3a545f126e66d87d265d05f158ee91f8c78a17f3530b1e0f6255b3698fa"
+  },
+  "scientific_manifest_is_inherited_not_current_executor_identity": true
+}

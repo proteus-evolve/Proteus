@@ -1,0 +1,151 @@
+{
+  "batch_size": 50,
+  "budget": {
+    "max_concurrency": 8,
+    "max_cost_usd": null,
+    "max_evaluations": 1400,
+    "max_model_calls": 2400,
+    "max_wall_seconds": null,
+    "schema_version": 1
+  },
+  "curator": {
+    "budget": {
+      "max_concurrency": 8,
+      "max_cost_usd": null,
+      "max_evaluations": null,
+      "max_model_calls": null,
+      "max_wall_seconds": null,
+      "schema_version": 1
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "max_tokens": 4096,
+      "temperature": 0,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "runtime": {
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-combee-formula-online-naive_parallel-v5-ledger-io/v1",
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-combee-formula-online-naive_parallel-v5-ledger-io.json",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "schema_version": 1,
+        "timeout_seconds": 600.0
+      },
+      "plugin": {
+        "name": "proteus.chat",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "session": "fresh",
+    "tools": []
+  },
+  "curator_frequency": 1,
+  "dynamic_batch": {
+    "max_batch_size": 100,
+    "min_batch_size": 1,
+    "profile_batch_sizes": null,
+    "schema_version": 1,
+    "slope_threshold": 0.016
+  },
+  "eval_steps": 500,
+  "generator": {
+    "budget": {
+      "max_concurrency": 8,
+      "max_cost_usd": null,
+      "max_evaluations": null,
+      "max_model_calls": null,
+      "max_wall_seconds": null,
+      "schema_version": 1
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "max_tokens": 4096,
+      "temperature": 0,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "runtime": {
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-combee-formula-online-naive_parallel-v5-ledger-io/v1",
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-combee-formula-online-naive_parallel-v5-ledger-io.json",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "schema_version": 1,
+        "timeout_seconds": 600.0
+      },
+      "plugin": {
+        "name": "proteus.chat",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "session": "fresh",
+    "tools": []
+  },
+  "json_mode": false,
+  "max_num_rounds": 3,
+  "max_workers": 8,
+  "modes": [
+    "online"
+  ],
+  "no_ground_truth": false,
+  "num_epochs": 1,
+  "online_eval_frequency": 15,
+  "reflector": {
+    "budget": {
+      "max_concurrency": 8,
+      "max_cost_usd": null,
+      "max_evaluations": null,
+      "max_model_calls": null,
+      "max_wall_seconds": null,
+      "schema_version": 1
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "max_tokens": 4096,
+      "temperature": 0,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "runtime": {
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-combee-formula-online-naive_parallel-v5-ledger-io/v1",
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-combee-formula-online-naive_parallel-v5-ledger-io.json",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "schema_version": 1,
+        "timeout_seconds": 600.0
+      },
+      "plugin": {
+        "name": "proteus.chat",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "session": "fresh",
+    "tools": []
+  },
+  "schema_version": 1,
+  "seeds": [
+    0
+  ],
+  "token_budget": 80000,
+  "variants": [
+    "naive_parallel"
+  ]
+}

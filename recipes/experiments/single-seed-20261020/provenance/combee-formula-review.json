@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-26",
+  "rows": [
+    {
+      "profile": "Combee ACE online",
+      "baseline_correct": 139,
+      "optimized_correct": 160,
+      "tasks": 200,
+      "physical_calls": 1255,
+      "API_upper_USD_not_invoice": 1.7377083119999999,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-online-ACE-final-independent-acceptance.json",
+      "receipt_sha256": "15c6eba79112bfe0d7b71e8385254e33e3112b8c11201a02f3f4642a455b6b95"
+    },
+    {
+      "profile": "Combee Naive online",
+      "baseline_correct": 137,
+      "optimized_correct": 157,
+      "tasks": 200,
+      "physical_calls": 1071,
+      "API_upper_USD_not_invoice": 0.705109362,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-online-naive-212-final-independent-acceptance.json",
+      "receipt_sha256": "994dfb1c68d367cea691648d8a54001c0c320883b434605b33b4b06d0b9c2b51"
+    },
+    {
+      "profile": "Combee Fixed online",
+      "baseline_correct": 140,
+      "optimized_correct": 159,
+      "tasks": 200,
+      "physical_calls": 1116,
+      "API_upper_USD_not_invoice": 0.7716085140000003,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-online-fixed-v6-final-independent-acceptance.json",
+      "receipt_sha256": "d07bcdc4d69d54e8bc58f17ecee8b62e5156129723d7f8b10e08a55c9bb0a778"
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "baseline_correct": 137,
+      "optimized_correct": 162,
+      "tasks": 200,
+      "physical_calls": 1115,
+      "API_upper_USD_not_invoice": 0.7421233079999985,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-online-dynamic-v6-final-independent-acceptance.json",
+      "receipt_sha256": "1166f85dcb0bfe0bc9ac4e2643ce8cf3a363bf258bec7dc73342ed17850804ac"
+    },
+    {
+      "profile": "linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+      "baseline_correct": 139,
+      "optimized_correct": 168,
+      "tasks": 200,
+      "physical_calls": 2344,
+      "API_upper_USD_not_invoice": 1.49794242,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-Naive-offline-final-independent-acceptance-20261022.json",
+      "receipt_sha256": "660284e07eba8497b8e1b418dbfc87adf8cda9722475ce5d535c7cc38568d1e1"
+    },
+    {
+      "profile": "linux-combee-formula-offline-ace-v2",
+      "baseline_correct": 136,
+      "optimized_correct": 174,
+      "tasks": 200,
+      "physical_calls": 2784,
+      "API_upper_USD_not_invoice": 5.503515372,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-ACE-offline-final-independent-acceptance-20261022.json",
+      "receipt_sha256": "ae43e79181dde4799fa9f09968db0bcb36b91d1188c8748fdcc18b80943a9748"
+    },
+    {
+      "profile": "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+      "baseline_correct": 138,
+      "optimized_correct": 174,
+      "tasks": 200,
+      "physical_calls": 2695,
+      "API_upper_USD_not_invoice": 2.975843886,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-Dynamic-offline-final-independent-acceptance-20261022.json",
+      "receipt_sha256": "1b002b61bec4a0222565fcf4b7d23883f9efe274623f1594182e91d62cbd8301"
+    },
+    {
+      "profile": "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+      "baseline_correct": 139,
+      "optimized_correct": 170,
+      "tasks": 200,
+      "physical_calls": 2404,
+      "API_upper_USD_not_invoice": 1.632558642,
+      "receipt": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/Combee-Fixed-offline-final-independent-acceptance-20261022.json",
+      "receipt_sha256": "9927889b1a7630f6c643f4a503a52b73551bf1c69d97bccfed677097cdacc57c"
+    }
+  ],
+  "new_provider_calls": 0,
+  "not_a_matched_official_reproduction": true,
+  "no_speedup_claim": true
+}

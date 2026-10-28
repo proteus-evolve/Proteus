@@ -1,0 +1,21 @@
+{
+  "label": "linux-combee-formula-online-ace-v2",
+  "historical_prepare_commands_DO_NOT_RUN": [
+    "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family combee --mode online --variant ace --prepare-only"
+  ],
+  "historical_run_commands_DO_NOT_RUN": [
+    "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family combee --mode online --variant ace --execute-prepared"
+  ],
+  "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+  "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+    "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-ace-v2/runs/seed-0-online-ace\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-online-ace-v2/seed-0-online-ace\""
+  ],
+  "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+    "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+  ],
+  "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+    "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+  ],
+  "special_profile_portability_gap": null,
+  "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+}

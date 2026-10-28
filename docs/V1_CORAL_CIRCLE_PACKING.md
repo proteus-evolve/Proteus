@@ -1,5 +1,9 @@
 # CORAL circle-packing recipe
 
+For the accepted October configurations, actual launch scripts and result boundaries,
+see the [frozen experiment guide](../recipes/coral/circle-packing/README.md).
+This page documents the general builder rather than a complete frozen run.
+
 This experimental domain adapter uses the original 26-circle packing seed and
 task from CORAL `0123dfb939b35228cf2c1fde224cd0561e727408`. It prepares an
 unmodified-seed baseline or the same optimization task with one or two persistent

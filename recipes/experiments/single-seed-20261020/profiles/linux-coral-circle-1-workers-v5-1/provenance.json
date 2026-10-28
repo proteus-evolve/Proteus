@@ -1,0 +1,111 @@
+{
+  "profile": "linux-coral-circle-1-workers-v5-1",
+  "bindings": [
+    {
+      "recipe": "recipe.json",
+      "lock": "lock.json",
+      "config_hash": "sha256:7980b093bc14198eb9c0659d83a32bc414f7f1f3c26d992ddaa57c354ad85ae3",
+      "lock_hash": "sha256:5215ae3538b751de9f7c49d1d5cb0b5b65029a68b112007ff1b06d6fb807cbd3",
+      "sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "proteus",
+          "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+          "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "full-coral-channel-profiles-v5-1",
+          "repository": "local-content-addressed:prepare_coral_output_channels_v5_1.py",
+          "revision": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+          "schema_version": 1
+        }
+      ]
+    }
+  ],
+  "original_H0": [
+    {
+      "ref": {
+        "codec": {
+          "name": "proteus.file_tree",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "components": [
+          {
+            "content_hash": "sha256:37e46bcb175b51bc14c15bc70041280a19d7c40d36814b54fb2207efcd59a4bc",
+            "executable": false,
+            "path": "RESEARCH.md",
+            "schema_version": 1,
+            "size_bytes": 2003
+          },
+          {
+            "content_hash": "sha256:3baecab4898f223f645e2746f405a53b24bf9eeadc5314ca2bde51c3b2907155",
+            "executable": false,
+            "path": "initial_program.py",
+            "schema_version": 1,
+            "size_bytes": 2865
+          },
+          {
+            "content_hash": "sha256:78eb40f5a68c03a2fc9e9c2192d339a6d4df5574cdb60653ea43efeb65ad3351",
+            "executable": false,
+            "path": "main.py",
+            "schema_version": 1,
+            "size_bytes": 980
+          },
+          {
+            "content_hash": "sha256:4450841c5a787c2cdc205c4fc06954703f84bf87d4a655c6a07ce6a841d0c61e",
+            "executable": false,
+            "path": "research.py",
+            "schema_version": 1,
+            "size_bytes": 4293
+          }
+        ],
+        "content_hash": "sha256:0991f8ff72215ee85f77c94e331066b1647ff2d264a97a6a7730f2c6f6241a40",
+        "environment_hash": null,
+        "runtime": null,
+        "schema_version": 1
+      },
+      "manifest": "initial-artifacts/manifests/0991f8ff72215ee85f77c94e331066b1647ff2d264a97a6a7730f2c6f6241a40.json",
+      "components": [
+        {
+          "content_hash": "sha256:37e46bcb175b51bc14c15bc70041280a19d7c40d36814b54fb2207efcd59a4bc",
+          "executable": false,
+          "path": "RESEARCH.md",
+          "schema_version": 1,
+          "size_bytes": 2003,
+          "bundle_blob": "initial-artifacts/blobs/37e46bcb175b51bc14c15bc70041280a19d7c40d36814b54fb2207efcd59a4bc"
+        },
+        {
+          "content_hash": "sha256:3baecab4898f223f645e2746f405a53b24bf9eeadc5314ca2bde51c3b2907155",
+          "executable": false,
+          "path": "initial_program.py",
+          "schema_version": 1,
+          "size_bytes": 2865,
+          "bundle_blob": "initial-artifacts/blobs/3baecab4898f223f645e2746f405a53b24bf9eeadc5314ca2bde51c3b2907155"
+        },
+        {
+          "content_hash": "sha256:78eb40f5a68c03a2fc9e9c2192d339a6d4df5574cdb60653ea43efeb65ad3351",
+          "executable": false,
+          "path": "main.py",
+          "schema_version": 1,
+          "size_bytes": 980,
+          "bundle_blob": "initial-artifacts/blobs/78eb40f5a68c03a2fc9e9c2192d339a6d4df5574cdb60653ea43efeb65ad3351"
+        },
+        {
+          "content_hash": "sha256:4450841c5a787c2cdc205c4fc06954703f84bf87d4a655c6a07ce6a841d0c61e",
+          "executable": false,
+          "path": "research.py",
+          "schema_version": 1,
+          "size_bytes": 4293,
+          "bundle_blob": "initial-artifacts/blobs/4450841c5a787c2cdc205c4fc06954703f84bf87d4a655c6a07ce6a841d0c61e"
+        }
+      ],
+      "is_original_pre_run_H0_not_generated_search_result": true
+    }
+  ],
+  "historical_builder": "proteus/benchmarks/coral_circle_packing/recipe.py",
+  "accepted_evidence_cut_UTC": "2026-10-23T13:57:55.553727+00:00",
+  "portability": "Frozen historical controls; absolute paths and host-bound runtime configuration are intentional. Use README for new-run preparation; do not reuse original locks after relocation."
+}

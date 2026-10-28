@@ -1,5 +1,11 @@
 # Recipes
 
+For the accepted October 2026 experiments, use the
+[frozen recipe index](../recipes/README.md): actual settings, recipe/lock files,
+historical launchers, source reconstruction and recorded results for all 15
+profiles. The builder catalog and native examples below are separate from those
+specific frozen runs.
+
 For the 1.0 method framework, start with the [recipe quick start](../README.md#recipe-quick-start),
 [method support matrix](V1_OVERVIEW.md#included-method-profiles), and
 [catalog](V1_RECIPE_CATALOG.md). Those commands require the development checkout;

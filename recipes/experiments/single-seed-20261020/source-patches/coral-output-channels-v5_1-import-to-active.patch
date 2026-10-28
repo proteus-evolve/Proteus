@@ -1,0 +1,185 @@
+diff --git a/proteus/benchmarks/coral_circle_packing/report.py b/proteus/benchmarks/coral_circle_packing/report.py
+index d517a12..884cc8f 100644
+--- a/proteus/benchmarks/coral_circle_packing/report.py
++++ b/proteus/benchmarks/coral_circle_packing/report.py
+@@ -9,7 +9,7 @@ from proteus.artifacts.store import ArtifactStore, _read
+ from proteus.benchmarks.coral_circle_packing import ROOT, reference
+ from proteus.benchmarks.coral_circle_packing.recipe import INSTRUCTION, build_spec
+ from proteus.benchmarks.coral_circle_packing.verify import BENCHMARK, TOLERANCE, grade
+-from proteus.core.contracts import require
++from proteus.core.contracts import Outcome, require
+ from proteus.core.run_lock import run_lock
+ from proteus.core.serialization import content_hash
+ from proteus.evaluation.records import TrialRecord
+@@ -158,10 +158,13 @@ def report_packing(root, *, include_private=False):
+             if response is not None:
+                 require(response['request_hash']==content_hash(request), 'packing response request differs')
+                 reward=(response['result'].get('verifier_result') or {}).get('rewards') or {}
+-                score=reward.get('reward')
++                raw_score=reward.get('reward')
++                # A backend verifier may finish even when subject transport or
++                # execution failed. Preserve its evidence, not an accepted score.
++                score=raw_score if trial.rollout.status==Outcome.SUCCEEDED else None
+                 loaded=response.get('loaded_proof')
+                 verifier=response.get('verifier_proof')
+-                if score is not None:
++                if raw_score is not None:
+                     require(loaded is not None and verifier is not None, 'scored packing trial has no container proof')
+                     require(loaded['candidate_id']==task['candidate_id'] and loaded['loaded_artifact_hash']==task['artifact_hash']
+                             and loaded['task_hash']==request['task_hash'] and loaded['build_receipt_hash']==content_hash(build)
+@@ -175,10 +178,10 @@ def report_packing(root, *, include_private=False):
+                     trial_prefix=prefix+'/trials/'+name
+                     independent=geometry_at(run,trial_prefix)
+                     recorded=run.read(trial_prefix+'/verifier/packing-verification.json')
+-                    require(independent==recorded and math.isclose(score,independent['score'],rel_tol=0,abs_tol=1e-12)
+-                            and float(raw(run,trial_prefix+'/verifier/reward.txt'))==score,
++                    require(independent==recorded and math.isclose(raw_score,independent['score'],rel_tol=0,abs_tol=1e-12)
++                            and float(raw(run,trial_prefix+'/verifier/reward.txt'))==raw_score,
+                             'saved packing reward differs from independent geometry')
+-                    status='regraded'
++                    status='regraded' if score is not None else 'unavailable_non_success_rollout'
+             require(score==task['score'], 'packing domain reward differs from formal grade')
+             visible=include_private or task['visibility']=='observed'
+             rows.append({'rollout_id':task['rollout_id'],'candidate_id':task['candidate_id'],
+diff --git a/proteus/execution/actors.py b/proteus/execution/actors.py
+index 9b8563e..7c05664 100644
+--- a/proteus/execution/actors.py
++++ b/proteus/execution/actors.py
+@@ -50,6 +50,8 @@ class ChatActor:
+     def execute(self, spec, request, workspace: Path) -> ActorResult:
+         validate_chat(spec, self.options)
+         waited = 0.0
++        bridge_request_id = None
++        guard = None
+         if self.options.dispatch_guard_path is not None:
+             # Experimental scheduling guard: wait before opening any provider
+             # connection, never turn a paused budget into a failed HTTP call.
+@@ -57,7 +59,30 @@ class ChatActor:
+             guard_started = time.monotonic()
+             while True:
+                 guard = read_json(Path(self.options.dispatch_guard_path).read_text())
+-                require(guard.get("version") == 1, "unknown dispatch guard version")
++                require(guard.get("version") in (1, 2), "unknown dispatch guard version")
++                if guard["version"] == 2:
++                    # New Linux-only infrastructure profile: authenticated admission
++                    # against original Mac authority, outside provider HTTP timeout.
++                    token = os.environ.get(guard["token_env"], "")
++                    require(bool(token), "missing scoped relay credential")
++                    check = urllib.request.Request(guard["admission_url"],
++                        headers={"Authorization": "Bearer " + token})
++                    for admission_attempt in range(5):
++                        try:
++                            with urllib.request.urlopen(check, timeout=10) as response:
++                                admission = read_json(response.read().decode("utf-8"))
++                            break
++                        except OSError as exc:
++                            if (getattr(exc, "code", 503) not in (408, 429, 500, 502, 503, 504)
++                                    or admission_attempt == 4):
++                                raise
++                            time.sleep(min(2 ** admission_attempt, 8))
++                    if admission.get("allowed") is True:
++                        import hashlib
++                        bridge_request_id = hashlib.sha256(str(workspace.resolve()).encode()).hexdigest()
++                        break
++                    time.sleep(1)
++                    continue
+                 legacy = read_json(Path(guard["legacy_handle"]).read_text())
+                 if legacy["status"] not in ("running", "preparing"):
+                     break
+@@ -78,7 +103,8 @@ class ChatActor:
+         payload = {**json_value(spec.model_settings), "model": spec.model, "messages": messages}
+         wire = urllib.request.Request(self.options.base_url.rstrip("/") + "/chat/completions",
+             data=json.dumps(payload, allow_nan=False).encode("utf-8"), method="POST",
+-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
++            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}",
++                **({"X-Proteus-Request-ID": bridge_request_id} if bridge_request_id else {})})
+         started = time.monotonic()
+         # A single request: retries, if requested, belong to the stage/attempt service.
+         timeout = min(self.options.timeout_seconds, request.timeout_seconds or self.options.timeout_seconds)
+@@ -107,7 +133,10 @@ class ChatActor:
+             require(finish_reason is None or (isinstance(finish_reason, str) and bool(finish_reason)),
+                     "chat finish_reason must be a nonempty string")
+             return ActorResult(text=text, runtime=runtime,
+-                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason)
++                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason,
++                trace=({"kind":"linux-scoped-relay", "request_id":bridge_request_id,
++                    "provider_response_id":body.get("id"), "guard_wait_seconds":waited},)
++                    if bridge_request_id else ())
+         except Exception as exc:
+             raise ActorFailed(ActorResult(text='', runtime=runtime, status=OperationStatus.FAILED,
+                 usage=replace(usage, wall_seconds=time.monotonic() - started),
+diff --git a/proteus/execution/harbor_worker.py b/proteus/execution/harbor_worker.py
+index 1dbe117..cb9dbb0 100644
+--- a/proteus/execution/harbor_worker.py
++++ b/proteus/execution/harbor_worker.py
+@@ -17,6 +17,7 @@ import platform
+ import re
+ import shlex
+ import signal
++import stat
+ import subprocess
+ import sys
+ import time
+@@ -211,6 +212,22 @@ def resource_environment_class():
+     from harbor.environments.docker.docker import DockerEnvironment
+ 
+     class ResourceDockerEnvironment(DockerEnvironment):
++        async def _run_docker_compose_command(self, command, *args, **kwargs):
++            # Structured protocols require separate stdout/stderr, never an
++            # implicit pseudo-TTY. Preserve diagnostics; do not mine inner JSON.
++            if command and command[0] == "exec":
++                command = list(command)
++                if "-T" not in command and "--no-tty" not in command:
++                    command.insert(1, "--no-tty")
++                # Record only a redacted transport witness; credentials, if any,
++                # must not become trace content.
++                witness = list(command)
++                for index, value in enumerate(witness[:-1]):
++                    if value == "-e":
++                        witness[index + 1] = witness[index + 1].split("=", 1)[0] + "=<redacted>"
++                self._proteus_last_exec_command = witness
++            return await super()._run_docker_compose_command(command, *args, **kwargs)
++
+         async def _write_resources_compose_file(self):
+             return compose_cpu_limit(await super()._write_resources_compose_file())
+ 
+@@ -299,12 +316,36 @@ def candidate_agent_class():
+             write_json(input_path, payload)
+             await environment.upload_file(source_path=input_path, target_path="/opt/proteus/input.json")
+             execution_root = "/opt/proteus/build" if self.request["build_receipt"] else "/opt/proteus/candidate"
++            # Harbor's pinned Compose wrapper merges host stderr into stdout,
++            # even without a TTY. Capture candidate channels at their origin;
++            # never strip diagnostics or search combined text for an inner JSON.
++            stdout_path = self.logs_dir / "proteus-candidate-stdout.txt"
++            stderr_path = self.logs_dir / "proteus-candidate-stderr.txt"
+             command = shlex.join(["python3", execution_root + "/" + self.request["entrypoint"],
+-                                  *self.request["arguments"]]) + " < /opt/proteus/input.json"
++                                  *self.request["arguments"]]) + (
++                " < /opt/proteus/input.json"
++                " > /logs/agent/proteus-candidate-stdout.txt"
++                " 2> /logs/agent/proteus-candidate-stderr.txt")
+             result = await environment.exec(command, cwd=execution_root,
+                 env={key: os.environ[key] for key in self.request["credential_env"]})
+-            self.execution = {"stdout": result.stdout or "", "stderr": result.stderr or "",
+-                              "return_code": result.return_code}
++
++            def read_channel(path):
++                descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
++                with os.fdopen(descriptor, "rb") as stream:
++                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
++                        raise ValueError("candidate output channel is not a regular file")
++                    return stream.read().decode(errors="replace")
++
++            self.execution = {"stdout": read_channel(stdout_path), "stderr": read_channel(stderr_path),
++                "return_code": result.return_code,
++                "transport_stdout": result.stdout or "", "transport_stderr": result.stderr or "",
++                "output_protocol": {
++                    "worker_path": str(Path(__file__).resolve()),
++                    "worker_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
++                    "environment_class": type(environment).__module__ + "." + type(environment).__qualname__,
++                    "exec_hook_source_path": type(environment)._run_docker_compose_command.__code__.co_filename,
++                    "actual_redacted_compose_exec_arguments": getattr(environment, "_proteus_last_exec_command", None),
++                    "candidate_channels": "separate original files, no text stripping or inner-JSON extraction"}}
+             write_json(self.logs_dir / "proteus-execution.json", self.execution)
+             context.metadata = {"proteus_loaded_artifact": self.loaded_proof["loaded_artifact_hash"]}
+             # Arbitrary candidate programs do not have a defensible token/call count.

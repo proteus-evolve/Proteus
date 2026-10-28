@@ -1,5 +1,9 @@
 # ACE Formula study (P06c)
 
+For the accepted October configurations, actual launch scripts and result boundaries,
+see the [frozen experiment guide](../recipes/ace/formula/README.md).
+This page documents the general builder rather than a complete frozen run.
+
 The Formula recipe runs the [ACE method](V1_ACE_METHOD.md) against its upstream
 finance dataset. It prepares immutable studies, runs/resumes independent
 replicates, and audits every prediction and score before returning a report.

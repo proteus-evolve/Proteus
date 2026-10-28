@@ -1,0 +1,48 @@
+{
+  "qualified_on": "2026-10-28",
+  "source_reconstructions": [
+    {
+      "core": "api",
+      "expected_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "verified_tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4"
+    },
+    {
+      "core": "api-ledger-serialized-io-v1",
+      "expected_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "verified_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80"
+    },
+    {
+      "core": "mce",
+      "expected_revision": "c4664e486c13d35fb2a86438040bf132ed9df428",
+      "verified_tree": "68357b084f41508442fe1d09ac8dea2229237ae3"
+    },
+    {
+      "core": "coral",
+      "expected_revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+      "verified_tree": "dd20b1145741a7fa3494f73d64e4c0067d435e1f"
+    },
+    {
+      "core": "coral-output-channels-v5_1",
+      "expected_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "verified_tree": "9fe4a04b1d5437a6fd291a5585953bc9bfcda57a"
+    }
+  ],
+  "new_study_prepare_profiles": [
+    "linux-aime-full-seed-0-v2",
+    "linux-ace-formula-offline-v2",
+    "linux-ace-formula-online-v3",
+    "linux-combee-formula-offline-ace-v2",
+    "linux-combee-formula-online-ace-v2",
+    "linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+    "linux-combee-formula-online-naive_parallel-v5-ledger-io",
+    "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+    "linux-combee-formula-online-combee_fixed-v6-ledger-io",
+    "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+    "linux-combee-formula-online-combee_dynamic-v6-ledger-io"
+  ],
+  "new_study_prepare_profile_count": 11,
+  "endpoint_used_for_preparation": "https://example.invalid/v1",
+  "model_runs_executed": 0,
+  "container_runs_executed": 0,
+  "verification_scope": "Byte/tree/config/lock binding and data-backed preparation only; container reruns, quality scores and historical continuation replay were not executed."
+}

@@ -1,0 +1,93 @@
+diff --git a/proteus_continuation/cli.py b/proteus_continuation/cli.py
+index 7645c97..08092fa 100644
+--- a/proteus_continuation/cli.py
++++ b/proteus_continuation/cli.py
+@@ -122,6 +122,7 @@ def prepare(args):
+             'reconcile owned pending actors before workflow preflight; admitted unknowns remain held'],
+         'preview_only_overrides':['collect every exact sealed snapshot/cache actor record',
+             'stop before joining a partial workflow map once preview frontiers reached'],
++        'workflow_prefix_materialization':'closed valid child sessions plus exact open-snapshot protocol/dataset-ref and proven valid prediction/grade/update prefix ONLY; exclude later failed outputs',
+         'dynamic_interrupted_attempt':'preserve original timing-start reference and all completed measurements; only interrupted in-flight duration remains UNKNOWN per original TimingService' if manifest.recipe.method.options.get('dynamic_batch') else None}
+     context=Context(plan,out,registry,oracle=None,allow_paid=False)
+     refs=context.prepare_immutable_inputs()
+@@ -200,7 +201,7 @@ def preview(args):
+         'tainted_cohort_successors':[{'id':i,'state':context.ledger._own(i)['state']} for i in context.ledger.tainted],
+         'provider_calls_enabled':False,'preview_scratch_must_NEVER_be_launched':True}
+     receipt['actual_scientific_state_preview_passed']=(set(context.frontiers)=={r['actor_id'] for r in plan['failed_actor_frontier']}
+-        and len(actual)==plan['independent_expected_closed_actor_count'] and journal.pending)
++        and len(actual)==plan['independent_expected_closed_actor_count'] and preserved['root_journal_pending'])
+     once(context.root/'preview-receipt.json',receipt)
+     print(json.dumps({'receipt':str(context.root/'preview-receipt.json'),'stop':stop,
+         'frontier_count':len(context.frontiers),'expected':len(plan['failed_actor_frontier'])}))
+diff --git a/proteus_continuation/execution.py b/proteus_continuation/execution.py
+index b0886b1..7f0e8cf 100644
+--- a/proteus_continuation/execution.py
++++ b/proteus_continuation/execution.py
+@@ -133,6 +133,7 @@ def execute(args):
+                         'ledger':{'parent_read_only':str(context.ledger.parent.path),'delta':str(context.ledger.path),
+                             'combined_balance':context.ledger.balance(),'not_a_copied_or_reset_ledger':True}})
+                     timing.snapshot=f'execution-{count:04d}.json'
++            pending_at_exit=journal.pending
+         if result is not None and status!='deferred':once(invocation.with_suffix('.method-result.json'),result.to_dict())
+         if status=='completed':
+             final=root/'result.json'
+@@ -142,7 +143,7 @@ def execute(args):
+         protected_after={name:sha((parent/name).read_bytes()) for name in plan['protected_parent_files']}
+         assert protected_after==plan['protected_parent_files'],'original parent mutated'
+         receipt={'schema':'proteus.continuation.invocation.v1',**identity,'PID':os.getpid(),
+-            'status':status,'diagnostic':diagnostic,'journal_pending':journal.pending,
++            'status':status,'diagnostic':diagnostic,'journal_pending':pending_at_exit,
+             'method_result':str(invocation.with_suffix('.method-result.json')) if result is not None and status!='deferred' else None,
+             'combined_budget':context.ledger.balance(),'old_parent_untouched':True,
+             'protected_parent_sha256_after':protected_after,
+diff --git a/proteus_continuation/runtime.py b/proteus_continuation/runtime.py
+index 9a07dd6..a6cee0d 100644
+--- a/proteus_continuation/runtime.py
++++ b/proteus_continuation/runtime.py
+@@ -94,6 +94,7 @@ class Context:
+                 for path in sorted((child/'journal/operations').glob('*.json')):
+                     if int(path.name.split('.')[0])<=cut:self.link(path)
+                 cached=child/'result.json'
++                snapshot=None
+                 if cached.exists():
+                     raw=json.loads(cached.read_text())['value']
+                     if raw['result']['status']=='completed':
+@@ -101,12 +102,32 @@ class Context:
+                         # Stock join checks saved trial/protocol/grade files for
+                         # precisely these completed workflow sessions.
+                         snapshot=original_load(cached)['snapshot']
+-                        namespace=raw['result']['operation_id']
+-                        for session in snapshot['sessions']:
+-                            if not session['operation_id'].startswith(namespace+':'):continue
+-                            evaluation=self.parent/'evaluations'/content_hash(session['operation_id']).split(':')[1]
+-                            for path in sorted(evaluation.rglob('*')):
+-                                if path.is_file():self.link(path)
++                if snapshot is None:
++                    prefix=child/'journal/operations'/f'{cut:08d}.result.json' if cut else child/'journal/origin.json'
++                    snapshot=original_load(prefix)['snapshot']
++                namespace=child.name
++                for session in snapshot['sessions']:
++                    if not session['operation_id'].startswith(namespace+':'):continue
++                    evaluation=self.parent/'evaluations'/content_hash(session['operation_id']).split(':')[1]
++                    if session['closed']:
++                        require(all(o['rollout']['status'] in ('succeeded','task_failed') for o in session['observations']),
++                            'cannot materialize a closed invalid session as a valid prefix')
++                        paths=[p for p in sorted(evaluation.rglob('*')) if p.is_file()]
++                    else:
++                        # Restore does NOT republish protocol. A repaired child
++                        # must pass ORIGINAL WorkflowMap.read_result after join.
++                        # Keep ONLY files proven by the open snapshot, never its
++                        # later invalid prediction/grades/receipt/batch files.
++                        names=['protocol.json','private/dataset-ref.json']
++                        for i in range(len(session['observations'])):
++                            names.append(f'predictions/{i:06d}.json')
++                            if str(i) in session['grades']:names.append(f'private/grades/{i:06d}.json')
++                        names.extend(f'updates/{i:06d}.json' for i in range(len(session['updates'])))
++                        paths=[evaluation/name for name in names]
++                    for path in paths:
++                        dest=self.root/path.relative_to(self.parent)
++                        if not dest.exists():self.link(path)
++                        else:require(sha(dest.read_bytes())==sha(path.read_bytes()),'prefix materialization differs')
+         return self.read_refs
+     def before_actor(self,services,stage,operation,prompt,session_id,handoff,**kwargs):
+         role=stage.role;key=(operation.operation_id,operation.attempt_id,role)

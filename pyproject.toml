@@ -59,6 +59,9 @@ version = {attr = "proteus.__version__"}
 
 [tool.ruff]
 line-length = 100
+# Historical experiment launchers are byte-preserved evidence, bound by SHA256SUMS.
+# Keep the new inspection/reconstruction/preparation tools under normal lint.
+extend-exclude = ["recipes/experiments/single-seed-20261020/historical-builders"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

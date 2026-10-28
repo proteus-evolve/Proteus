@@ -14,8 +14,11 @@ proteus recipe example ace --out /tmp/ace-example
 
 Each entry states whether it is an offline fixture or a benchmark preparation
 entry point, its requirements, plugin hooks, preparation command and documentation.
-Benchmark entries currently report `model_results_pending`; listing a runnable
-method is not evidence of reproduced model quality. Their commands require explicit
+The catalog's `model_results_pending` status applies to its generic preparation
+templates, not the separately frozen October studies. The
+[experiment recipe index](../recipes/README.md) supplies all 15 accepted profiles,
+their exact configurations, launchers, source overlays and recorded results.
+Listing a runnable method is not evidence of reproduced model quality. Commands require explicit
 data, actor settings or worker/runtime configuration. `recipe example` accepts only
 offline examples and does not supply a benchmark's missing inputs.
 
@@ -87,5 +90,6 @@ and [V1_PLUGIN_SCAFFOLDS.md](V1_PLUGIN_SCAFFOLDS.md) for typed self-evaluator pr
 
 Catalog discovery and this tutorial accompany recipe check/lock/run/resume,
 [saved-run export](V1_RESULT_EXPORT.md), and [study comparison](V1_STUDY_COMPARISON.md).
-Complete real-model and release acceptance remain outstanding; the
-[architecture guide](V1_OVERVIEW.md) summarizes current support boundaries.
+Matched original-paper reproduction and release acceptance remain separate from
+the accepted adapted single-seed studies. The [architecture guide](V1_OVERVIEW.md)
+summarizes current support boundaries.

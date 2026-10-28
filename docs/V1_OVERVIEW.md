@@ -6,7 +6,10 @@ inspectable experiment records. The initial scope covers GEPA, ACE, Meta-Harness
 Combee and CORAL, alongside the existing native evolution protocol.
 
 This describes the implementation in this source tree. **1.0 is not released.**
-The five original-domain catalog entries remain `model_results_pending`.
+The five original-domain catalog entries are generic preparation templates and
+retain `model_results_pending`; they do not identify a frozen model run. The
+[October experiment recipes](../recipes/README.md) separately record all 15
+accepted adapted single-seed profiles and the source/runtime differences.
 Runnable fixtures and reference conformance checks establish mechanisms; they do
 not establish reproduced paper scores, collaboration gains or recursive returns.
 The [implementation plan](plans/proteus-1.0.0-implementation-plan.md) retains the
