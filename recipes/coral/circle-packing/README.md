@@ -1,5 +1,17 @@
 # CORAL-inspired circle packing
 
+## Sources and citation
+
+Original method: Qu et al., [CORAL: Towards Autonomous Multi-Agent Evolution for
+Open-Ended Discovery](https://arxiv.org/abs/2604.01658v3).
+Official code: [Human-Agent-Society/CORAL](https://github.com/Human-Agent-Society/CORAL),
+pinned to [`0123dfb939b35228cf2c1fde224cd0561e727408`](https://github.com/Human-Agent-Society/CORAL/tree/0123dfb939b35228cf2c1fde224cd0561e727408).
+Use `qu2026coralautonomousmultiagentevolution` from [references.bib](../../../references.bib),
+which preserves the full author list.
+See [method/task attribution and deviations](../../../docs/METHOD_REFERENCES.md).
+
+## Experiment setup
+
 Both final arms optimize the original 26-circle objective from the same H0, with exactly 20 proposals: one worker × 20 or two workers × 10. There is one evaluation worker. Independent geometry checks confirm selected radius sums of 2.4480910215 and 2.3729279721. Proposal outcomes include 8/20 and 9/20 timeouts, respectively; missing scores are not zero. Confirmation is the same public problem with a fresh trial seed, not held-out generalization. The runtime uses archived JSON chat workers and released feedback, not the paper's persistent native coding agents.
 
 ## Actual configurations
