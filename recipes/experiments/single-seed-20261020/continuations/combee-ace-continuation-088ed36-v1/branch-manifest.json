@@ -1,0 +1,92 @@
+{
+  "schema": "proteus.continuation.branch.v1",
+  "mode": "append-only lineage, NOT native same-runtime resume",
+  "parent_label": "linux-combee-formula-offline-ace-v2",
+  "parent_run": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-ace-v2/runs/seed-0-offline-ace",
+  "parent_manifest_sha256": "1ce92a7fdc30923b971490821611135bab1154f0a9a75265aacc34a3058f0894",
+  "parent_scientific_config_hash": "sha256:361ebd11c44826cce01d384e25fef7eee7c9c46ebae9d15d3b3d757feaec2602",
+  "parent_scientific_lock_hash": "sha256:61421766ec341e558b4ba6c25782eec15c4951bebf87b6d6d060f6b80ac96a57",
+  "parent_scientific_source_bindings": [
+    {
+      "schema_version": 1,
+      "name": "proteus",
+      "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "dirty_patch_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "linux-launcher",
+      "repository": "local-content-addressed:run_api_formal_v2.py",
+      "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+      "dirty_patch_hash": null
+    }
+  ],
+  "executor_operator_source": {
+    "repository": "local-unpublished:/home/ubuntu/proteus-full-linux-20261020/continuation-operators/088ed363a69279667fa8c7552db0f7f070c3183a",
+    "revision": "088ed363a69279667fa8c7552db0f7f070c3183a"
+  },
+  "scientific_library": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+    "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5"
+  },
+  "root_prefix_cut": 5059,
+  "workflow_map_parent": null,
+  "failed_actor_frontier": [
+    {
+      "actor_id": "actor-0b99301a57485593a8d1f883047636d5c69b7dba59a8cedc55ed2af125878f65",
+      "stable_id": "c9f408b54df7464067d4b2b5f1b73404d38b345b2473eb0dcdff27c3a17a9a20",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "op-002565",
+        "ordinal": 1,
+        "role": "curator",
+        "stage": "curate",
+        "trial_id": null,
+        "worker_id": null
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "199ed07732eeb474ffc385b96d7d41fede63990569b1414119bbfa70b5236194",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "199ed07732eeb474ffc385b96d7d41fede63990569b1414119bbfa70b5236194"
+    }
+  ],
+  "retired_failed_entry_ids": [
+    "actor-0b99301a57485593a8d1f883047636d5c69b7dba59a8cedc55ed2af125878f65"
+  ],
+  "tainted_cohorts": [],
+  "independent_expected_closed_actor_count": 2005,
+  "independent_expectations": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/continuation-root-acceptance-expectations-20261021.json",
+    "sha256": "3a360cf247975f631906665fb3f4f6bbf6a8d97a7c9690ca57c5c6cede231ee9"
+  },
+  "physical_branch_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/combee-ace-continuation-088ed36-v1",
+  "provider_calls_during_prepare": 0,
+  "no_parent_financial_or_scientific_ledger_copy": true,
+  "independently_released_for_science": false,
+  "parent_unique_claim_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/parent-claims",
+  "operational_overrides": [
+    "RunServices constructor/configuration",
+    "actor pre-dispatch disposition gate",
+    "PrefixJournal read-through/cut and appended records",
+    "read-only parent plus combined-budget delta ledger",
+    "exact tainted framework cohort successors with retained original charge",
+    "owned started managed-subject shell reentry without clearing its reservation",
+    "uncertain actor/subject settlements deferred pending original receipt reconciliation",
+    "exact sealed generic-chat response adoption into an owned started actor",
+    "append authenticated no-dispatch reentry proof; same started actor row/reservation/slot/stable ID retained",
+    "reconcile owned pending actors before workflow preflight; admitted unknowns remain held"
+  ],
+  "preview_only_overrides": [
+    "collect every exact sealed snapshot/cache actor record",
+    "stop before joining a partial workflow map once preview frontiers reached"
+  ],
+  "dynamic_interrupted_attempt": null,
+  "readonly_prefix_refs_sha256": "3e5b22d79c7f3a6343a8405176d2feb6ca1de462c1bf757663f8c5ca33c54ebd",
+  "protected_parent_files": {
+    "manifest.json": "1ce92a7fdc30923b971490821611135bab1154f0a9a75265aacc34a3058f0894",
+    "private/ledger.sqlite3": "e6ed45c599c1cf7cd93c04149cfc0af2bceb2fef1f8f74055dce07456dd4b300",
+    "result.json": "f08e25942fdf70dc14e21d238c88a37c506275b75ca42a386e6e4def446fb05b"
+  },
+  "scientific_manifest_is_inherited_not_current_executor_identity": true
+}

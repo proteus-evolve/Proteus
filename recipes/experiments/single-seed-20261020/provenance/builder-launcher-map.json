@@ -1,0 +1,635 @@
+{
+  "conditions": [
+    {
+      "label": "linux-aime-full-seed-0-v2",
+      "family": "gepa",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "actual_AWS_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "generated_recipe_builder_entry": "proteus/examples/gepa_aime.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/gepa_aime.py",
+          "git_blob_sha1": "393ffaa913beb710ce718e3018f1ae6b6b168f60",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/gepa_aime.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api/proteus/examples/gepa_aime.py",
+      "historical_prepare_and_run": {
+        "label": "linux-aime-full-seed-0-v2",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family aime --prepare-only"
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family aime --execute-prepared"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-aime-full-seed-0-v2/runs/seed-0-baseline\" --out \"$NEW_REPORT_ROOT/linux-aime-full-seed-0-v2/seed-0-baseline\"",
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-aime-full-seed-0-v2/runs/seed-0-optimized\" --out \"$NEW_REPORT_ROOT/linux-aime-full-seed-0-v2/seed-0-optimized\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.gepa_aime prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/aime\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.gepa_aime run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/gepa_aime.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-ace-formula-offline-v2",
+      "family": "ace",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "actual_AWS_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "generated_recipe_builder_entry": "proteus/examples/ace_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/ace_formula.py",
+          "git_blob_sha1": "8c657b7d032602a4fe6727b119c897057dc3f1ec",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/ace_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api/proteus/examples/ace_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-ace-formula-offline-v2",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family ace --mode offline --prepare-only"
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family ace --mode offline --execute-prepared"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-offline-v2/runs/seed-0-offline\" --out \"$NEW_REPORT_ROOT/linux-ace-formula-offline-v2/seed-0-offline\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.ace_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.ace_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/ace_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-ace-formula-online-v3",
+      "family": "ace",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "actual_AWS_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "generated_recipe_builder_entry": "proteus/examples/ace_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/ace_formula.py",
+          "git_blob_sha1": "8c657b7d032602a4fe6727b119c897057dc3f1ec",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/ace_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api/proteus/examples/ace_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-ace-formula-online-v3",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_ace_online_fresh_v3.py\" --prepare-only"
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_ace_online_fresh_v3.py\" --launch-once"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-online-v3/runs/seed-0-online\" --out \"$NEW_REPORT_ROOT/linux-ace-formula-online-v3/seed-0-online\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.ace_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.ace_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/ace_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-offline-ace-v2",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "actual_AWS_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-offline-ace-v2",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family combee --mode offline --variant ace --prepare-only"
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family combee --mode offline --variant ace --execute-prepared"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-ace-v2/runs/seed-0-offline-ace\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-offline-ace-v2/seed-0-offline-ace\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-online-ace-v2",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "actual_AWS_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-online-ace-v2",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family combee --mode online --variant ace --prepare-only"
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_api_formal_v2.py\" --family combee --mode online --variant ace --execute-prepared"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-ace-v2/runs/seed-0-online-ace\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-online-ace-v2/seed-0-online-ace\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-offline-naive_parallel-v5-ledger-io",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "actual_AWS_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-offline-naive_parallel-v5-ledger-io",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_combee_serialized_io_replacements_v1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_combee_serialized_io_once_v2.py\" --launch-once --label linux-combee-formula-offline-naive_parallel-v5-ledger-io"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-naive_parallel-v5-ledger-io/runs/seed-0-offline-naive_parallel\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-offline-naive_parallel-v5-ledger-io/seed-0-offline-naive_parallel\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-online-naive_parallel-v5-ledger-io",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "actual_AWS_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-online-naive_parallel-v5-ledger-io",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_combee_serialized_io_replacements_v1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_combee_serialized_io_once_v1.py\" --launch-once --label linux-combee-formula-online-naive_parallel-v5-ledger-io"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-naive_parallel-v5-ledger-io/runs/seed-0-online-naive_parallel\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-online-naive_parallel-v5-ledger-io/seed-0-online-naive_parallel\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "actual_AWS_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_combee_serialized_io_replacements_v1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_combee_serialized_io_once_v2.py\" --launch-once --label linux-combee-formula-offline-combee_fixed-v5-ledger-io"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_fixed-v5-ledger-io/runs/seed-0-offline-combee_fixed\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-offline-combee_fixed-v5-ledger-io/seed-0-offline-combee_fixed\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-online-combee_fixed-v6-ledger-io",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "actual_AWS_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-online-combee_fixed-v6-ledger-io",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_combee_lookup_failed_replacements_v1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_combee_lookup_replacements_once_v1.py\" --launch-once --label linux-combee-formula-online-combee_fixed-v6-ledger-io"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-combee_fixed-v6-ledger-io/runs/seed-0-online-combee_fixed\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-online-combee_fixed-v6-ledger-io/seed-0-online-combee_fixed\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "actual_AWS_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_combee_lookup_failed_replacements_v1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_combee_lookup_replacements_once_v1.py\" --launch-once --label linux-combee-formula-offline-combee_dynamic-v6-ledger-io"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_dynamic-v6-ledger-io/runs/seed-0-offline-combee_dynamic\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-offline-combee_dynamic-v6-ledger-io/seed-0-offline-combee_dynamic\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+      "family": "combee",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "actual_AWS_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "generated_recipe_builder_entry": "proteus/examples/combee_formula.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py",
+      "historical_prepare_and_run": {
+        "label": "linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_combee_lookup_failed_replacements_v1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_combee_lookup_replacements_once_v1.py\" --launch-once --label linux-combee-formula-online-combee_dynamic-v6-ledger-io"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-combee_dynamic-v6-ledger-io/runs/seed-0-online-combee_dynamic\" --out \"$NEW_REPORT_ROOT/linux-combee-formula-online-combee_dynamic-v6-ledger-io/seed-0-online-combee_dynamic\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula prepare --out \"$NEW_STUDY_ROOT\" --data \"$NEW_DATA_ROOT/formula\" --source \"$EXACT_SOURCE\" --settings \"$MATERIALIZED_SETTINGS\""
+        ],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus.examples.combee_formula run --out \"$NEW_STUDY_ROOT\""
+        ],
+        "special_profile_portability_gap": null,
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "builder registry() hook for proteus/examples/combee_formula.py",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-mce-full-three-domains-seed42-v1",
+      "family": "mce",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/mce",
+      "actual_AWS_revision": "c4664e486c13d35fb2a86438040bf132ed9df428",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/mce",
+      "generated_recipe_builder_entry": "proteus/examples/meta_harness.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/examples/meta_harness.py",
+          "git_blob_sha1": "4f8ea622c839476acf0d57329a35dfe66fe2cf5e",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/meta_harness.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/mce/proteus/examples/meta_harness.py",
+      "historical_prepare_and_run": {
+        "label": "linux-mce-full-three-domains-seed42-v1",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "No prepare-only mode in historical driver: prepare and run occur in one invocation."
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_mce_formal.py\""
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/run\" --out \"$NEW_REPORT_ROOT/linux-mce-full-three-domains-seed42-v1/run\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [],
+        "special_profile_portability_gap": "Requires explicit new preparation driver reviewed against frozen recipe: exact runtime identity, custom plugin registration and paths must be regenerated; historical monolithic driver is not a portable prepare-only command.",
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "live_workspace_actor:register plus proteus.methods.meta_harness.method:register",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-coral-circle-1-workers-v5-1",
+      "family": "coral",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5_1",
+      "actual_AWS_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+      "generated_recipe_builder_entry": "proteus/benchmarks/coral_circle_packing/recipe.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "git_blob_sha1": "96b8db9823c97ee3b71cb069b5ebd4382370bf29",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/benchmarks/coral_circle_packing/recipe.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/coral-output-channels-v5_1/proteus/benchmarks/coral_circle_packing/recipe.py",
+      "historical_prepare_and_run": {
+        "label": "linux-coral-circle-1-workers-v5-1",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_coral_output_channels_v5_1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_coral_output_channels_v5_1.py\" --launch-once --label linux-coral-circle-1-workers-v5-1"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-1-workers-v5-1/run\" --out \"$NEW_REPORT_ROOT/linux-coral-circle-1-workers-v5-1/run\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [],
+        "special_profile_portability_gap": "Requires explicit new preparation driver reviewed against frozen recipe: exact runtime identity, custom plugin registration and paths must be regenerated; historical monolithic driver is not a portable prepare-only command.",
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "proteus.benchmarks.coral_circle_packing.recipe:register plus exact pinned command worker/helpers",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-coral-circle-2-workers-v5-1",
+      "family": "coral",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5_1",
+      "actual_AWS_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+      "generated_recipe_builder_entry": "proteus/benchmarks/coral_circle_packing/recipe.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "git_blob_sha1": "96b8db9823c97ee3b71cb069b5ebd4382370bf29",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/benchmarks/coral_circle_packing/recipe.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/coral-output-channels-v5_1/proteus/benchmarks/coral_circle_packing/recipe.py",
+      "historical_prepare_and_run": {
+        "label": "linux-coral-circle-2-workers-v5-1",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_coral_output_channels_v5_1.py\""
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_coral_output_channels_v5_1.py\" --launch-once --label linux-coral-circle-2-workers-v5-1"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v5-1/run\" --out \"$NEW_REPORT_ROOT/linux-coral-circle-2-workers-v5-1/run\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [],
+        "special_profile_portability_gap": "Requires explicit new preparation driver reviewed against frozen recipe: exact runtime identity, custom plugin registration and paths must be regenerated; historical monolithic driver is not a portable prepare-only command.",
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "proteus.benchmarks.coral_circle_packing.recipe:register plus exact pinned command worker/helpers",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    },
+    {
+      "label": "linux-native-pi-upstream-source-activation-v1",
+      "family": "native",
+      "actual_AWS_source": "/home/ubuntu/proteus-full-linux-20261020/sources/coral",
+      "actual_AWS_revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+      "source_pin_repository_metadata_may_differ_from_actual_import_path": true,
+      "source_pin_repository_metadata": "file:///home/ubuntu/proteus-full-linux-20261020/sources/coral",
+      "generated_recipe_builder_entry": "proteus/methods/native.py",
+      "public_entrypoints": {
+        "main": null,
+        "dev/1.0.0": {
+          "path": "proteus/methods/native.py",
+          "git_blob_sha1": "9a615716068cda27dd86dde8d27b6e54df5a0653",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/methods/native.py"
+        }
+      },
+      "native_entrypoint_not_in_exported_public_path_allowlist": false,
+      "public_blob_link_does_not_claim_AWS_file_bytes_are_identical": true,
+      "local_actual_entrypoint": "source-entrypoints/coral/proteus/methods/native.py",
+      "historical_prepare_and_run": {
+        "label": "linux-native-pi-upstream-source-activation-v1",
+        "historical_prepare_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_native_upstream.py\" # image preparation only"
+        ],
+        "historical_run_commands_DO_NOT_RUN": [
+          "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/run_native_formal.py\" # includes recipe preparation and run"
+        ],
+        "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+        "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+          "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-native-pi-upstream-source-activation-v1/run\" --out \"$NEW_REPORT_ROOT/linux-native-pi-upstream-source-activation-v1/run\""
+        ],
+        "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [],
+        "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [],
+        "special_profile_portability_gap": "Requires explicit new preparation driver reviewed against frozen recipe: exact runtime identity, custom plugin registration and paths must be regenerated; historical monolithic driver is not a portable prepare-only command.",
+        "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+      },
+      "custom_helper_registration": "native_linux_binding_v2 adapter registration in run_native_formal.py plus local SSE bridge",
+      "intended_output_root_and_original_resumability": "Frozen original paths are audit-only; relocate by NEW preparation, NEW source/runtime/plugin lock and NEW run."
+    }
+  ],
+  "why_only_gepa_in_top_level_recipes": "Other families have Python builders. Top-level AIME settings are illustrative, not this actual full DeepSeek matrix."
+}

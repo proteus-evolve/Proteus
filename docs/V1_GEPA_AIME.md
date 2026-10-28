@@ -1,5 +1,9 @@
 # GEPA AIME study recipe (1.0 development)
 
+For the accepted October seed-0 configuration, launchers and 23/30 → 24/30
+result, see the [frozen experiment guide](../recipes/gepa/aime/README.md).
+This page documents the general builder, not that run's complete configuration.
+
 This recipe adapts the AIME example at GEPA commit
 `8b0ce6cd99a234f6b74daf37558a2ac0ce18f975`. It supplies the complete pinned data,
 solver format, mathematical feedback, reflective data, baseline and optimized

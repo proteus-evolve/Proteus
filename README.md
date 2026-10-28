@@ -52,8 +52,11 @@ RSI research** where methods can be implemented, compared and extended in one pl
 
 **1.0 is in development.** This source tree includes GEPA, ACE, Meta-Harness,
 Combee and CORAL integrations with explicit profiles and deviations. Their
-original-domain catalog entries still report `model_results_pending`. Runnable
-mechanisms do not establish reproduced paper scores or recursive improvement.
+original-domain catalog entries describe builders rather than a particular model run.
+The [frozen experiment recipes and results](recipes/README.md) now record all 15
+accepted October single-seed profiles, including their actual settings, source
+overlays and limitations. Those adapted runs do not establish matched paper
+reproduction or recursive improvement.
 The published `0.4.0` package and the native workflow remain available; the new
 recipe commands below require the corresponding development checkout.
 

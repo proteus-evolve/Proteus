@@ -1,0 +1,46 @@
+{
+  "base_commit": "6a718611973c261f0b661ee3dd3b8a3505d74586",
+  "profiles": {
+    "api": {
+      "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "patches": [
+        "public-dev-to-original-api.patch",
+        "api-import-to-active.patch"
+      ]
+    },
+    "api-ledger-serialized-io-v1": {
+      "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "patches": [
+        "public-dev-to-original-api.patch",
+        "api-ledger-serialized-io-v1-import-to-active.patch"
+      ]
+    },
+    "mce": {
+      "revision": "c4664e486c13d35fb2a86438040bf132ed9df428",
+      "tree": "68357b084f41508442fe1d09ac8dea2229237ae3",
+      "patches": [
+        "public-dev-to-original-mce.patch",
+        "mce-import-to-active.patch"
+      ]
+    },
+    "coral": {
+      "revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+      "tree": "dd20b1145741a7fa3494f73d64e4c0067d435e1f",
+      "patches": [
+        "public-dev-to-original-coral.patch",
+        "coral-import-to-active.patch"
+      ]
+    },
+    "coral-output-channels-v5_1": {
+      "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "tree": "9fe4a04b1d5437a6fd291a5585953bc9bfcda57a",
+      "patches": [
+        "public-dev-to-original-coral.patch",
+        "coral-output-channels-v5_1-import-to-active.patch"
+      ]
+    }
+  },
+  "identity": "Reconstruction verifies exact Git tree bytes/modes, not historical commit identity or completed-run replay."
+}

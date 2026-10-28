@@ -1,0 +1,615 @@
+{
+  "public_branches": [
+    {
+      "branch": "main",
+      "observed_revision": "69f766e73460f67d96a3ce965a5c3f9adaab2f85",
+      "checked_utc": "2026-10-21T04:02:25.916155+00:00",
+      "entry_points": [
+        {
+          "path": "pyproject.toml",
+          "git_blob_sha1": "b51818d20b2b4785b0b82f0ae0ae6382796ea99c",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/69f766e73460f67d96a3ce965a5c3f9adaab2f85/pyproject.toml"
+        }
+      ],
+      "top_level_recipe_files": [],
+      "explicit_missing_entry_points": [
+        "proteus/methods/native.py"
+      ]
+    },
+    {
+      "branch": "dev/1.0.0",
+      "observed_revision": "6a718611973c261f0b661ee3dd3b8a3505d74586",
+      "checked_utc": "2026-10-21T04:02:27.062217+00:00",
+      "entry_points": [
+        {
+          "path": "proteus/benchmarks/ace_formula_data.py",
+          "git_blob_sha1": "a6883e4f5d8d65bb8a960a990733f7ea403d16a9",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/benchmarks/ace_formula_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/aime_data.py",
+          "git_blob_sha1": "06eb49334a2bf9bee577bd90ed1f4257b454db18",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/benchmarks/aime_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "git_blob_sha1": "96b8db9823c97ee3b71cb069b5ebd4382370bf29",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/benchmarks/coral_circle_packing/recipe.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/report.py",
+          "git_blob_sha1": "d517a12affa91c13c985f15a30ece93290d5ef83",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/benchmarks/coral_circle_packing/report.py"
+        },
+        {
+          "path": "proteus/examples/ace_formula.py",
+          "git_blob_sha1": "8c657b7d032602a4fe6727b119c897057dc3f1ec",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/ace_formula.py"
+        },
+        {
+          "path": "proteus/examples/combee_formula.py",
+          "git_blob_sha1": "a40b8977695fdf1899a5129e2ed3e1dd22877ae1",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/combee_formula.py"
+        },
+        {
+          "path": "proteus/examples/gepa_aime.py",
+          "git_blob_sha1": "393ffaa913beb710ce718e3018f1ae6b6b168f60",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/gepa_aime.py"
+        },
+        {
+          "path": "proteus/examples/meta_harness.py",
+          "git_blob_sha1": "4f8ea622c839476acf0d57329a35dfe66fe2cf5e",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/examples/meta_harness.py"
+        },
+        {
+          "path": "proteus/methods/coral/report.py",
+          "git_blob_sha1": "87bd4539861f1e795f8a433deded34d6cbbfea2f",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/methods/coral/report.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/data.py",
+          "git_blob_sha1": "975e0093fe1d915538d88f77a1dd8caf50174039",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/methods/meta_harness/data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/records.py",
+          "git_blob_sha1": "af198f69b125cf70b5cd35cd575fe7e1b0a9f32c",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/methods/meta_harness/records.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/report.py",
+          "git_blob_sha1": "a6cb52b7c0ac4d8d58f3d66048ab7591e2503f18",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/methods/meta_harness/report.py"
+        },
+        {
+          "path": "proteus/recipes/cli.py",
+          "git_blob_sha1": "8ec079858fa69147c44b22254a824748b36484e5",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/recipes/cli.py"
+        },
+        {
+          "path": "proteus/recipes/export.py",
+          "git_blob_sha1": "483539fedcec92298022f06e102ff2f30a4f185c",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/recipes/export.py"
+        },
+        {
+          "path": "pyproject.toml",
+          "git_blob_sha1": "f0f2b0a9feb58764ddb8e14cd7b3035050de1b9f",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/pyproject.toml"
+        },
+        {
+          "path": "proteus/methods/native.py",
+          "git_blob_sha1": "9a615716068cda27dd86dde8d27b6e54df5a0653",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/6a718611973c261f0b661ee3dd3b8a3505d74586/proteus/methods/native.py"
+        }
+      ],
+      "top_level_recipe_files": [
+        "recipes/examples/p01-contract.toml",
+        "recipes/examples/self-evaluation.toml",
+        "recipes/examples/stages.toml",
+        "recipes/gepa/aime/settings.json",
+        "recipes/native/minimal.toml"
+      ]
+    }
+  ],
+  "original_local_trees": {
+    "api": "5d8b51c5557c684f6eafb94da09057abc8c3e859",
+    "mce": "17e5a7f32ac7288efd5abff199562fec616daa54",
+    "coral": "f92c8cf30bf7e792ed118e8d82e171aa5ed5cab6"
+  },
+  "active_AWS_sources": [
+    {
+      "name": "api",
+      "root": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "tree_hash": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "status_porcelain": "",
+      "history": [
+        "d0a9dc848e8978f14fac2e70e57a22998fdf07f5 Linux-only authenticated remote admission and exact response identity; no scientific method changes",
+        "c0013c3674978134633ece7e60bc3767fca15050 Import exact original tree 5d8b51c5557c684f6eafb94da09057abc8c3e859 for distinct Linux profile"
+      ],
+      "import_root_revision": "c0013c3674978134633ece7e60bc3767fca15050",
+      "import_root_tree": "8e738fed2e13860d92c1b96d3cb0eb6d83fc5581",
+      "import_root_subject": "Import exact original tree 5d8b51c5557c684f6eafb94da09057abc8c3e859 for distinct Linux profile",
+      "overlay_patch": "source-patches/api-import-to-active.patch",
+      "entry_points": [
+        {
+          "path": "proteus/examples/gepa_aime.py",
+          "file_sha256": "7fea7dc66afd5c2e38819fde18203c738348dad80eb68a3340dec77474adf43e",
+          "bundle_path": "source-entrypoints/api/proteus/examples/gepa_aime.py"
+        },
+        {
+          "path": "proteus/examples/ace_formula.py",
+          "file_sha256": "f624683c79535535f20feddc9cb7195728cc2a37383e72946b97b3340a86f898",
+          "bundle_path": "source-entrypoints/api/proteus/examples/ace_formula.py"
+        },
+        {
+          "path": "proteus/examples/combee_formula.py",
+          "file_sha256": "9a578b2e1c79ba591d84837da7047b3ee03635c7cebee04c67bcac73904a7d38",
+          "bundle_path": "source-entrypoints/api/proteus/examples/combee_formula.py"
+        },
+        {
+          "path": "proteus/examples/meta_harness.py",
+          "file_sha256": "969903b185db50a70b61c9b6056be96e53c3648232c053a968d7afdbe2d278ad",
+          "bundle_path": "source-entrypoints/api/proteus/examples/meta_harness.py"
+        },
+        {
+          "path": "proteus/benchmarks/aime_data.py",
+          "file_sha256": "3d49bbe5f6983383a330d8511e79bc6939941ae0ecf84a50151872b89c8d0661",
+          "bundle_path": "source-entrypoints/api/proteus/benchmarks/aime_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/ace_formula_data.py",
+          "file_sha256": "20a50d7a950bcc592ff59e577a71f7e0a1203740837a571ebb1557f51fe098be",
+          "bundle_path": "source-entrypoints/api/proteus/benchmarks/ace_formula_data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/data.py",
+          "file_sha256": "a848b62e134072258edf3e66133ed226adeeba66e5983670463af80480e51940",
+          "bundle_path": "source-entrypoints/api/proteus/methods/meta_harness/data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/records.py",
+          "file_sha256": "d5348b9dd94ebc3c7352b64c54efff2135629488cca462f026dc18b1de81451c",
+          "bundle_path": "source-entrypoints/api/proteus/methods/meta_harness/records.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/report.py",
+          "file_sha256": "3f3dad19bf612a2281ad68c3065ec4ff809af4fe2139ec3185a68eedb1612fec",
+          "bundle_path": "source-entrypoints/api/proteus/methods/meta_harness/report.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "file_sha256": "cf02411434d788273699b43934cb888cc919d117b6e64cde47a5e3b373ebdece",
+          "bundle_path": "source-entrypoints/api/proteus/benchmarks/coral_circle_packing/recipe.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/report.py",
+          "file_sha256": "77eee1fdb3d3c84e376042af248b6bff1aabb51bae849ce3a3e8e89b82d26def",
+          "bundle_path": "source-entrypoints/api/proteus/benchmarks/coral_circle_packing/report.py"
+        },
+        {
+          "path": "proteus/methods/coral/report.py",
+          "file_sha256": "120b78011d6098a4d5d8f1ddfa9766a765c3646124d974a8f24b6c411b592a26",
+          "bundle_path": "source-entrypoints/api/proteus/methods/coral/report.py"
+        },
+        {
+          "path": "proteus/recipes/cli.py",
+          "file_sha256": "fbe73db8adeea548393b68a6ebef3b9651a2d0f1864fdec17f2fdb9133a5ff0f",
+          "bundle_path": "source-entrypoints/api/proteus/recipes/cli.py"
+        },
+        {
+          "path": "proteus/recipes/export.py",
+          "file_sha256": "ecd8d6e3d6d7ddd4f78b2c33e9329781c4f5b310c0ad9a72a4e7d7bfd6e0f53d",
+          "bundle_path": "source-entrypoints/api/proteus/recipes/export.py"
+        },
+        {
+          "path": "pyproject.toml",
+          "file_sha256": "54a5657fa81429409dd448ff6521b0808952abf7953a5eb524d8c634e4af794c",
+          "bundle_path": "source-entrypoints/api/pyproject.toml"
+        }
+      ]
+    },
+    {
+      "name": "api-ledger-serialized-io-v1",
+      "root": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+      "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "tree_hash": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "status_porcelain": "",
+      "history": [
+        "21205d1dcdcff2a39dba31998629d22fd1ae94f9 runtime: serialize same-process canonical ledger I/O outside SQLite busy waits",
+        "927afb593cb8e6ae88f163ecc83da5c196c4d948 perf(ledger): cache validated operation lookup rows on API base",
+        "d0a9dc848e8978f14fac2e70e57a22998fdf07f5 Linux-only authenticated remote admission and exact response identity; no scientific method changes",
+        "c0013c3674978134633ece7e60bc3767fca15050 Import exact original tree 5d8b51c5557c684f6eafb94da09057abc8c3e859 for distinct Linux profile"
+      ],
+      "import_root_revision": "c0013c3674978134633ece7e60bc3767fca15050",
+      "import_root_tree": "8e738fed2e13860d92c1b96d3cb0eb6d83fc5581",
+      "import_root_subject": "Import exact original tree 5d8b51c5557c684f6eafb94da09057abc8c3e859 for distinct Linux profile",
+      "overlay_patch": "source-patches/api-ledger-serialized-io-v1-import-to-active.patch",
+      "entry_points": [
+        {
+          "path": "proteus/examples/gepa_aime.py",
+          "file_sha256": "7fea7dc66afd5c2e38819fde18203c738348dad80eb68a3340dec77474adf43e",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/gepa_aime.py"
+        },
+        {
+          "path": "proteus/examples/ace_formula.py",
+          "file_sha256": "f624683c79535535f20feddc9cb7195728cc2a37383e72946b97b3340a86f898",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/ace_formula.py"
+        },
+        {
+          "path": "proteus/examples/combee_formula.py",
+          "file_sha256": "9a578b2e1c79ba591d84837da7047b3ee03635c7cebee04c67bcac73904a7d38",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/combee_formula.py"
+        },
+        {
+          "path": "proteus/examples/meta_harness.py",
+          "file_sha256": "969903b185db50a70b61c9b6056be96e53c3648232c053a968d7afdbe2d278ad",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/examples/meta_harness.py"
+        },
+        {
+          "path": "proteus/benchmarks/aime_data.py",
+          "file_sha256": "3d49bbe5f6983383a330d8511e79bc6939941ae0ecf84a50151872b89c8d0661",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/benchmarks/aime_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/ace_formula_data.py",
+          "file_sha256": "20a50d7a950bcc592ff59e577a71f7e0a1203740837a571ebb1557f51fe098be",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/benchmarks/ace_formula_data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/data.py",
+          "file_sha256": "a848b62e134072258edf3e66133ed226adeeba66e5983670463af80480e51940",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/methods/meta_harness/data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/records.py",
+          "file_sha256": "d5348b9dd94ebc3c7352b64c54efff2135629488cca462f026dc18b1de81451c",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/methods/meta_harness/records.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/report.py",
+          "file_sha256": "3f3dad19bf612a2281ad68c3065ec4ff809af4fe2139ec3185a68eedb1612fec",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/methods/meta_harness/report.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "file_sha256": "cf02411434d788273699b43934cb888cc919d117b6e64cde47a5e3b373ebdece",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/benchmarks/coral_circle_packing/recipe.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/report.py",
+          "file_sha256": "77eee1fdb3d3c84e376042af248b6bff1aabb51bae849ce3a3e8e89b82d26def",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/benchmarks/coral_circle_packing/report.py"
+        },
+        {
+          "path": "proteus/methods/coral/report.py",
+          "file_sha256": "120b78011d6098a4d5d8f1ddfa9766a765c3646124d974a8f24b6c411b592a26",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/methods/coral/report.py"
+        },
+        {
+          "path": "proteus/recipes/cli.py",
+          "file_sha256": "fbe73db8adeea548393b68a6ebef3b9651a2d0f1864fdec17f2fdb9133a5ff0f",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/recipes/cli.py"
+        },
+        {
+          "path": "proteus/recipes/export.py",
+          "file_sha256": "ecd8d6e3d6d7ddd4f78b2c33e9329781c4f5b310c0ad9a72a4e7d7bfd6e0f53d",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/proteus/recipes/export.py"
+        },
+        {
+          "path": "pyproject.toml",
+          "file_sha256": "54a5657fa81429409dd448ff6521b0808952abf7953a5eb524d8c634e4af794c",
+          "bundle_path": "source-entrypoints/api-ledger-serialized-io-v1/pyproject.toml"
+        }
+      ]
+    },
+    {
+      "name": "mce",
+      "root": "/home/ubuntu/proteus-full-linux-20261020/sources/mce",
+      "revision": "c4664e486c13d35fb2a86438040bf132ed9df428",
+      "tree_hash": "68357b084f41508442fe1d09ac8dea2229237ae3",
+      "status_porcelain": "",
+      "history": [
+        "c4664e486c13d35fb2a86438040bf132ed9df428 Linux-only authenticated remote admission and exact response identity; no scientific method changes",
+        "d7328940f17ba57b8ff92eba8ac6da5d08d47488 Import exact original tree 17e5a7f32ac7288efd5abff199562fec616daa54 for distinct Linux profile"
+      ],
+      "import_root_revision": "d7328940f17ba57b8ff92eba8ac6da5d08d47488",
+      "import_root_tree": "110c4239298ce243a7c80aed07ba903796cc9277",
+      "import_root_subject": "Import exact original tree 17e5a7f32ac7288efd5abff199562fec616daa54 for distinct Linux profile",
+      "overlay_patch": "source-patches/mce-import-to-active.patch",
+      "entry_points": [
+        {
+          "path": "proteus/examples/gepa_aime.py",
+          "file_sha256": "7fea7dc66afd5c2e38819fde18203c738348dad80eb68a3340dec77474adf43e",
+          "bundle_path": "source-entrypoints/mce/proteus/examples/gepa_aime.py"
+        },
+        {
+          "path": "proteus/examples/ace_formula.py",
+          "file_sha256": "f624683c79535535f20feddc9cb7195728cc2a37383e72946b97b3340a86f898",
+          "bundle_path": "source-entrypoints/mce/proteus/examples/ace_formula.py"
+        },
+        {
+          "path": "proteus/examples/combee_formula.py",
+          "file_sha256": "9a578b2e1c79ba591d84837da7047b3ee03635c7cebee04c67bcac73904a7d38",
+          "bundle_path": "source-entrypoints/mce/proteus/examples/combee_formula.py"
+        },
+        {
+          "path": "proteus/examples/meta_harness.py",
+          "file_sha256": "969903b185db50a70b61c9b6056be96e53c3648232c053a968d7afdbe2d278ad",
+          "bundle_path": "source-entrypoints/mce/proteus/examples/meta_harness.py"
+        },
+        {
+          "path": "proteus/benchmarks/aime_data.py",
+          "file_sha256": "3d49bbe5f6983383a330d8511e79bc6939941ae0ecf84a50151872b89c8d0661",
+          "bundle_path": "source-entrypoints/mce/proteus/benchmarks/aime_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/ace_formula_data.py",
+          "file_sha256": "20a50d7a950bcc592ff59e577a71f7e0a1203740837a571ebb1557f51fe098be",
+          "bundle_path": "source-entrypoints/mce/proteus/benchmarks/ace_formula_data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/data.py",
+          "file_sha256": "a848b62e134072258edf3e66133ed226adeeba66e5983670463af80480e51940",
+          "bundle_path": "source-entrypoints/mce/proteus/methods/meta_harness/data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/records.py",
+          "file_sha256": "d5348b9dd94ebc3c7352b64c54efff2135629488cca462f026dc18b1de81451c",
+          "bundle_path": "source-entrypoints/mce/proteus/methods/meta_harness/records.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/report.py",
+          "file_sha256": "3f3dad19bf612a2281ad68c3065ec4ff809af4fe2139ec3185a68eedb1612fec",
+          "bundle_path": "source-entrypoints/mce/proteus/methods/meta_harness/report.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "file_sha256": "44e3be1978e49ceca0dfff7c4abc4cb335c2718ffb48b2f251692a13856d5c9d",
+          "bundle_path": "source-entrypoints/mce/proteus/benchmarks/coral_circle_packing/recipe.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/report.py",
+          "file_sha256": "77eee1fdb3d3c84e376042af248b6bff1aabb51bae849ce3a3e8e89b82d26def",
+          "bundle_path": "source-entrypoints/mce/proteus/benchmarks/coral_circle_packing/report.py"
+        },
+        {
+          "path": "proteus/methods/coral/report.py",
+          "file_sha256": "120b78011d6098a4d5d8f1ddfa9766a765c3646124d974a8f24b6c411b592a26",
+          "bundle_path": "source-entrypoints/mce/proteus/methods/coral/report.py"
+        },
+        {
+          "path": "proteus/recipes/cli.py",
+          "file_sha256": "fbe73db8adeea548393b68a6ebef3b9651a2d0f1864fdec17f2fdb9133a5ff0f",
+          "bundle_path": "source-entrypoints/mce/proteus/recipes/cli.py"
+        },
+        {
+          "path": "proteus/recipes/export.py",
+          "file_sha256": "ecd8d6e3d6d7ddd4f78b2c33e9329781c4f5b310c0ad9a72a4e7d7bfd6e0f53d",
+          "bundle_path": "source-entrypoints/mce/proteus/recipes/export.py"
+        },
+        {
+          "path": "pyproject.toml",
+          "file_sha256": "54a5657fa81429409dd448ff6521b0808952abf7953a5eb524d8c634e4af794c",
+          "bundle_path": "source-entrypoints/mce/pyproject.toml"
+        }
+      ]
+    },
+    {
+      "name": "coral",
+      "root": "/home/ubuntu/proteus-full-linux-20261020/sources/coral",
+      "revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+      "tree_hash": "dd20b1145741a7fa3494f73d64e4c0067d435e1f",
+      "status_porcelain": "",
+      "history": [
+        "722ac71a36ab355f6512afb3214f05722eb90b9b Linux-only authenticated remote admission and exact response identity; no scientific method changes",
+        "a6aa852f319052ed1c469246981a78ee66a14db9 Import exact original tree f92c8cf30bf7e792ed118e8d82e171aa5ed5cab6 for distinct Linux profile"
+      ],
+      "import_root_revision": "a6aa852f319052ed1c469246981a78ee66a14db9",
+      "import_root_tree": "4a3cce8fc5547764d8b313d8bd55d7da7f647523",
+      "import_root_subject": "Import exact original tree f92c8cf30bf7e792ed118e8d82e171aa5ed5cab6 for distinct Linux profile",
+      "overlay_patch": "source-patches/coral-import-to-active.patch",
+      "entry_points": [
+        {
+          "path": "proteus/examples/gepa_aime.py",
+          "file_sha256": "7fea7dc66afd5c2e38819fde18203c738348dad80eb68a3340dec77474adf43e",
+          "bundle_path": "source-entrypoints/coral/proteus/examples/gepa_aime.py"
+        },
+        {
+          "path": "proteus/examples/ace_formula.py",
+          "file_sha256": "f624683c79535535f20feddc9cb7195728cc2a37383e72946b97b3340a86f898",
+          "bundle_path": "source-entrypoints/coral/proteus/examples/ace_formula.py"
+        },
+        {
+          "path": "proteus/examples/combee_formula.py",
+          "file_sha256": "9a578b2e1c79ba591d84837da7047b3ee03635c7cebee04c67bcac73904a7d38",
+          "bundle_path": "source-entrypoints/coral/proteus/examples/combee_formula.py"
+        },
+        {
+          "path": "proteus/examples/meta_harness.py",
+          "file_sha256": "969903b185db50a70b61c9b6056be96e53c3648232c053a968d7afdbe2d278ad",
+          "bundle_path": "source-entrypoints/coral/proteus/examples/meta_harness.py"
+        },
+        {
+          "path": "proteus/benchmarks/aime_data.py",
+          "file_sha256": "3d49bbe5f6983383a330d8511e79bc6939941ae0ecf84a50151872b89c8d0661",
+          "bundle_path": "source-entrypoints/coral/proteus/benchmarks/aime_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/ace_formula_data.py",
+          "file_sha256": "20a50d7a950bcc592ff59e577a71f7e0a1203740837a571ebb1557f51fe098be",
+          "bundle_path": "source-entrypoints/coral/proteus/benchmarks/ace_formula_data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/data.py",
+          "file_sha256": "a848b62e134072258edf3e66133ed226adeeba66e5983670463af80480e51940",
+          "bundle_path": "source-entrypoints/coral/proteus/methods/meta_harness/data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/records.py",
+          "file_sha256": "d5348b9dd94ebc3c7352b64c54efff2135629488cca462f026dc18b1de81451c",
+          "bundle_path": "source-entrypoints/coral/proteus/methods/meta_harness/records.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/report.py",
+          "file_sha256": "3f3dad19bf612a2281ad68c3065ec4ff809af4fe2139ec3185a68eedb1612fec",
+          "bundle_path": "source-entrypoints/coral/proteus/methods/meta_harness/report.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "file_sha256": "bf05c278092d0e1dcfe2ec9c7105ed7c46e14504c7776311d60f72ee11aebd43",
+          "bundle_path": "source-entrypoints/coral/proteus/benchmarks/coral_circle_packing/recipe.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/report.py",
+          "file_sha256": "77eee1fdb3d3c84e376042af248b6bff1aabb51bae849ce3a3e8e89b82d26def",
+          "bundle_path": "source-entrypoints/coral/proteus/benchmarks/coral_circle_packing/report.py"
+        },
+        {
+          "path": "proteus/methods/coral/report.py",
+          "file_sha256": "120b78011d6098a4d5d8f1ddfa9766a765c3646124d974a8f24b6c411b592a26",
+          "bundle_path": "source-entrypoints/coral/proteus/methods/coral/report.py"
+        },
+        {
+          "path": "proteus/recipes/cli.py",
+          "file_sha256": "fbe73db8adeea548393b68a6ebef3b9651a2d0f1864fdec17f2fdb9133a5ff0f",
+          "bundle_path": "source-entrypoints/coral/proteus/recipes/cli.py"
+        },
+        {
+          "path": "proteus/recipes/export.py",
+          "file_sha256": "ecd8d6e3d6d7ddd4f78b2c33e9329781c4f5b310c0ad9a72a4e7d7bfd6e0f53d",
+          "bundle_path": "source-entrypoints/coral/proteus/recipes/export.py"
+        },
+        {
+          "path": "pyproject.toml",
+          "file_sha256": "54a5657fa81429409dd448ff6521b0808952abf7953a5eb524d8c634e4af794c",
+          "bundle_path": "source-entrypoints/coral/pyproject.toml"
+        },
+        {
+          "path": "proteus/methods/native.py",
+          "file_sha256": "95c221f542944efdb508b8378761f849e16bbb914c67b05eeb5edce8eef47b39",
+          "bundle_path": "source-entrypoints/coral/proteus/methods/native.py"
+        }
+      ]
+    },
+    {
+      "name": "coral-output-channels-v5_1",
+      "root": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5_1",
+      "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "tree_hash": "9fe4a04b1d5437a6fd291a5585953bc9bfcda57a",
+      "status_porcelain": "",
+      "history": [
+        "7ca7742d18f267b5a2805dad59979e328d3a8f36 Capture structured candidate stdout and stderr before Harbor transport merging",
+        "783ab5db3a8d9b6a50209ea093580c60dbab5d76 Preserve Harbor structured output channels and unavailable formal scores",
+        "722ac71a36ab355f6512afb3214f05722eb90b9b Linux-only authenticated remote admission and exact response identity; no scientific method changes",
+        "a6aa852f319052ed1c469246981a78ee66a14db9 Import exact original tree f92c8cf30bf7e792ed118e8d82e171aa5ed5cab6 for distinct Linux profile"
+      ],
+      "import_root_revision": "a6aa852f319052ed1c469246981a78ee66a14db9",
+      "import_root_tree": "4a3cce8fc5547764d8b313d8bd55d7da7f647523",
+      "import_root_subject": "Import exact original tree f92c8cf30bf7e792ed118e8d82e171aa5ed5cab6 for distinct Linux profile",
+      "overlay_patch": "source-patches/coral-output-channels-v5_1-import-to-active.patch",
+      "entry_points": [
+        {
+          "path": "proteus/examples/gepa_aime.py",
+          "file_sha256": "7fea7dc66afd5c2e38819fde18203c738348dad80eb68a3340dec77474adf43e",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/examples/gepa_aime.py"
+        },
+        {
+          "path": "proteus/examples/ace_formula.py",
+          "file_sha256": "f624683c79535535f20feddc9cb7195728cc2a37383e72946b97b3340a86f898",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/examples/ace_formula.py"
+        },
+        {
+          "path": "proteus/examples/combee_formula.py",
+          "file_sha256": "9a578b2e1c79ba591d84837da7047b3ee03635c7cebee04c67bcac73904a7d38",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/examples/combee_formula.py"
+        },
+        {
+          "path": "proteus/examples/meta_harness.py",
+          "file_sha256": "969903b185db50a70b61c9b6056be96e53c3648232c053a968d7afdbe2d278ad",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/examples/meta_harness.py"
+        },
+        {
+          "path": "proteus/benchmarks/aime_data.py",
+          "file_sha256": "3d49bbe5f6983383a330d8511e79bc6939941ae0ecf84a50151872b89c8d0661",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/benchmarks/aime_data.py"
+        },
+        {
+          "path": "proteus/benchmarks/ace_formula_data.py",
+          "file_sha256": "20a50d7a950bcc592ff59e577a71f7e0a1203740837a571ebb1557f51fe098be",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/benchmarks/ace_formula_data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/data.py",
+          "file_sha256": "a848b62e134072258edf3e66133ed226adeeba66e5983670463af80480e51940",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/methods/meta_harness/data.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/records.py",
+          "file_sha256": "d5348b9dd94ebc3c7352b64c54efff2135629488cca462f026dc18b1de81451c",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/methods/meta_harness/records.py"
+        },
+        {
+          "path": "proteus/methods/meta_harness/report.py",
+          "file_sha256": "3f3dad19bf612a2281ad68c3065ec4ff809af4fe2139ec3185a68eedb1612fec",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/methods/meta_harness/report.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/recipe.py",
+          "file_sha256": "bf05c278092d0e1dcfe2ec9c7105ed7c46e14504c7776311d60f72ee11aebd43",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/benchmarks/coral_circle_packing/recipe.py"
+        },
+        {
+          "path": "proteus/benchmarks/coral_circle_packing/report.py",
+          "file_sha256": "6e7d5ceab64dd77315d22f5e4e6c2f544f1d4c167f1250ddea98e5d61c08b582",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/benchmarks/coral_circle_packing/report.py"
+        },
+        {
+          "path": "proteus/methods/coral/report.py",
+          "file_sha256": "120b78011d6098a4d5d8f1ddfa9766a765c3646124d974a8f24b6c411b592a26",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/methods/coral/report.py"
+        },
+        {
+          "path": "proteus/recipes/cli.py",
+          "file_sha256": "fbe73db8adeea548393b68a6ebef3b9651a2d0f1864fdec17f2fdb9133a5ff0f",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/recipes/cli.py"
+        },
+        {
+          "path": "proteus/recipes/export.py",
+          "file_sha256": "ecd8d6e3d6d7ddd4f78b2c33e9329781c4f5b310c0ad9a72a4e7d7bfd6e0f53d",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/proteus/recipes/export.py"
+        },
+        {
+          "path": "pyproject.toml",
+          "file_sha256": "54a5657fa81429409dd448ff6521b0808952abf7953a5eb524d8c634e4af794c",
+          "bundle_path": "source-entrypoints/coral-output-channels-v5_1/pyproject.toml"
+        }
+      ]
+    }
+  ],
+  "git_ancestry_warning": "AWS sources are re-rooted imports of exact original trees, not Git descendants of the public branch. Patches reproduce file content, not original commit ancestry or resume identity.",
+  "source_patch_order": {
+    "api": [
+      "public-dev-to-original-api.patch",
+      "api-import-to-active.patch"
+    ],
+    "api-ledger-serialized-io-v1": [
+      "public-dev-to-original-api.patch",
+      "api-ledger-serialized-io-v1-import-to-active.patch"
+    ],
+    "mce": [
+      "public-dev-to-original-mce.patch",
+      "mce-import-to-active.patch"
+    ],
+    "coral": [
+      "public-dev-to-original-coral.patch",
+      "coral-import-to-active.patch"
+    ],
+    "coral-output-channels-v5_1": [
+      "public-dev-to-original-coral.patch",
+      "coral-output-channels-v5_1-import-to-active.patch"
+    ]
+  },
+  "unified_release_commit_tested": false,
+  "unpublished_revision_links_created": false
+}

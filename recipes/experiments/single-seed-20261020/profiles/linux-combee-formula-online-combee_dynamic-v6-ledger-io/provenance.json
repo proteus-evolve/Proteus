@@ -1,0 +1,81 @@
+{
+  "profile": "linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+  "bindings": [
+    {
+      "recipe": "recipes/seed-0-online-combee_dynamic.json",
+      "lock": "locks/seed-0-online-combee_dynamic.json",
+      "config_hash": "sha256:87d253c95e357008c7d22417d1c62f42e09b9379e1a0a9f4d98bc12769c23512",
+      "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+      "sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "proteus",
+          "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+          "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "unpaid-lookup-failure-full212-preparation-v1",
+          "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+          "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+          "schema_version": 1
+        }
+      ]
+    }
+  ],
+  "original_H0": [
+    {
+      "ref": {
+        "codec": {
+          "name": "proteus.ace_playbook",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "components": [
+          {
+            "content_hash": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+            "executable": false,
+            "path": "index.json",
+            "schema_version": 1,
+            "size_bytes": 106
+          },
+          {
+            "content_hash": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+            "executable": false,
+            "path": "playbook.txt",
+            "schema_version": 1,
+            "size_bytes": 184
+          }
+        ],
+        "content_hash": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+        "environment_hash": null,
+        "runtime": null,
+        "schema_version": 1
+      },
+      "manifest": "initial-artifacts/manifests/31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27.json",
+      "components": [
+        {
+          "content_hash": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+          "executable": false,
+          "path": "index.json",
+          "schema_version": 1,
+          "size_bytes": 106,
+          "bundle_blob": "initial-artifacts/blobs/4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212"
+        },
+        {
+          "content_hash": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+          "executable": false,
+          "path": "playbook.txt",
+          "schema_version": 1,
+          "size_bytes": 184,
+          "bundle_blob": "initial-artifacts/blobs/d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249"
+        }
+      ],
+      "is_original_pre_run_H0_not_generated_search_result": true
+    }
+  ],
+  "historical_builder": "proteus/examples/combee_formula.py",
+  "accepted_evidence_cut_UTC": "2026-10-23T13:57:55.553727+00:00",
+  "portability": "Frozen historical controls; absolute paths and host-bound runtime configuration are intentional. Use README for new-run preparation; do not reuse original locks after relocation."
+}

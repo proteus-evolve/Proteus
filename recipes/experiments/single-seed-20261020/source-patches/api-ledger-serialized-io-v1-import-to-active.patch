@@ -1,0 +1,189 @@
+diff --git a/proteus/core/ledger.py b/proteus/core/ledger.py
+index 50bf95e..edc6add 100644
+--- a/proteus/core/ledger.py
++++ b/proteus/core/ledger.py
+@@ -9,13 +9,17 @@ directory and export only deliberately selected records.
+ 
+ from __future__ import annotations
+ 
++import hashlib
++import os
+ import sqlite3
++import threading
+ import time
+ from collections.abc import Mapping
+ from contextlib import contextmanager
+ from dataclasses import dataclass, field
+ from decimal import Decimal
+ from pathlib import Path
++from weakref import WeakValueDictionary
+ 
+ from proteus.artifacts.store import _mkdir_durable, _sync_directory
+ from proteus.core.contracts import NONNEGATIVE, BudgetLimits, Usage, require
+@@ -26,6 +30,36 @@ DIMENSIONS = ("model_calls", "evaluations", "cost_usd", "wall_seconds")
+ TERMINAL = ("completed", "failed", "cancelled")
+ 
+ 
++# All Ledger instances using the same canonical file share this in-process I/O
++# queue. Keep SQLite's independent process locking/timeout and fresh connections.
++# Readers must participate too: a long read cursor in rollback-journal mode can
++# otherwise block a writer's COMMIT until SQLite's busy timeout expires.
++_CONNECTION_LOCKS = WeakValueDictionary()
++_CONNECTION_LOCKS_GUARD = threading.Lock()
++
++
++def _connection_lock(path):
++    key = str(path.resolve())
++    with _CONNECTION_LOCKS_GUARD:
++        lock = _CONNECTION_LOCKS.get(key)
++        if lock is None:
++            lock = threading.RLock()
++            _CONNECTION_LOCKS[key] = lock
++        return lock
++
++
++def _after_fork_child():
++    # No inherited thread can release a mutex owned by a vanished parent thread.
++    # New child connections still contend through SQLite with other processes.
++    global _CONNECTION_LOCKS, _CONNECTION_LOCKS_GUARD
++    _CONNECTION_LOCKS = WeakValueDictionary()
++    _CONNECTION_LOCKS_GUARD = threading.Lock()
++
++
++if hasattr(os, "register_at_fork"):
++    os.register_at_fork(after_in_child=_after_fork_child)
++
++
+ @dataclass(frozen=True, kw_only=True)
+ class Amounts(Contract):
+     model_calls: int | None = field(default=None, metadata=NONNEGATIVE)
+@@ -87,14 +121,15 @@ class Ledger:
+ 
+     @contextmanager
+     def _connection(self):
+-        db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
+-        db.row_factory = sqlite3.Row
+-        try:
+-            db.execute("PRAGMA foreign_keys=ON")
+-            db.execute("PRAGMA synchronous=FULL")
+-            yield db
+-        finally:
+-            db.close()
++        with _connection_lock(self.path):
++            db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
++            db.row_factory = sqlite3.Row
++            try:
++                db.execute("PRAGMA foreign_keys=ON")
++                db.execute("PRAGMA synchronous=FULL")
++                yield db
++            finally:
++                db.close()
+ 
+     @contextmanager
+     def _transaction(self):
+@@ -235,6 +270,38 @@ class Ledger:
+             return [self._row(row) for row in db.execute("SELECT * FROM entries ORDER BY id")]
+ 
+     def has_operation(self, operation_id):
++        if type(operation_id) is str and type(self) is Ledger and "entries" not in self.__dict__:
++            # Re-read every row in the original order. An unchanged raw row may
++            # reuse successful JSON validation, but a later malformed record
++            # must still fail before an earlier matching operation can return.
++            # Cache only this lookup's compact identity, never settlement data,
++            # snapshots, authoritative accounting, or an operation-ID set that
++            # could become stale after another connection inserts/updates work.
++            previous = getattr(self, "_operation_lookup_rows", {})
++            updated, identities = {}, []
++            with self._connection() as db:
++                for row in db.execute("SELECT * FROM entries ORDER BY id"):
++                    raw = (row["identity_json"], row["settlement_json"])
++                    signature = None
++                    if all(value is None or type(value) in (str, bytes) for value in raw):
++                        signature = (row["state"], tuple(None if value is None else
++                            (type(value), hashlib.sha256(value.encode("utf-8", "surrogatepass")
++                             if type(value) is str else value).digest()) for value in raw))
++                    old = previous.get(row["id"])
++                    if signature is not None and old is not None and old[0] == signature:
++                        identity = old[1]
++                    else:
++                        identity = self._row(row)["identity"]
++                        if type(identity) is dict:
++                            identity = {"metadata": identity["metadata"]} if "metadata" in identity else {}
++                    if signature is not None and type(identity) is dict:
++                        updated[row["id"]] = (signature, identity)
++                    identities.append(identity)
++            # Publish a whole new cache; concurrent readers never share a
++            # partially updated dictionary. Deleted/changed rows are not kept.
++            self._operation_lookup_rows = updated
++            return any(identity["metadata"].get("operation_id") == operation_id
++                       for identity in identities)
+         return any(entry["identity"]["metadata"].get("operation_id") == operation_id
+                    for entry in self.entries())
+ 
+diff --git a/proteus/execution/actors.py b/proteus/execution/actors.py
+index 9b8563e..7c05664 100644
+--- a/proteus/execution/actors.py
++++ b/proteus/execution/actors.py
+@@ -50,6 +50,8 @@ class ChatActor:
+     def execute(self, spec, request, workspace: Path) -> ActorResult:
+         validate_chat(spec, self.options)
+         waited = 0.0
++        bridge_request_id = None
++        guard = None
+         if self.options.dispatch_guard_path is not None:
+             # Experimental scheduling guard: wait before opening any provider
+             # connection, never turn a paused budget into a failed HTTP call.
+@@ -57,7 +59,30 @@ class ChatActor:
+             guard_started = time.monotonic()
+             while True:
+                 guard = read_json(Path(self.options.dispatch_guard_path).read_text())
+-                require(guard.get("version") == 1, "unknown dispatch guard version")
++                require(guard.get("version") in (1, 2), "unknown dispatch guard version")
++                if guard["version"] == 2:
++                    # New Linux-only infrastructure profile: authenticated admission
++                    # against original Mac authority, outside provider HTTP timeout.
++                    token = os.environ.get(guard["token_env"], "")
++                    require(bool(token), "missing scoped relay credential")
++                    check = urllib.request.Request(guard["admission_url"],
++                        headers={"Authorization": "Bearer " + token})
++                    for admission_attempt in range(5):
++                        try:
++                            with urllib.request.urlopen(check, timeout=10) as response:
++                                admission = read_json(response.read().decode("utf-8"))
++                            break
++                        except OSError as exc:
++                            if (getattr(exc, "code", 503) not in (408, 429, 500, 502, 503, 504)
++                                    or admission_attempt == 4):
++                                raise
++                            time.sleep(min(2 ** admission_attempt, 8))
++                    if admission.get("allowed") is True:
++                        import hashlib
++                        bridge_request_id = hashlib.sha256(str(workspace.resolve()).encode()).hexdigest()
++                        break
++                    time.sleep(1)
++                    continue
+                 legacy = read_json(Path(guard["legacy_handle"]).read_text())
+                 if legacy["status"] not in ("running", "preparing"):
+                     break
+@@ -78,7 +103,8 @@ class ChatActor:
+         payload = {**json_value(spec.model_settings), "model": spec.model, "messages": messages}
+         wire = urllib.request.Request(self.options.base_url.rstrip("/") + "/chat/completions",
+             data=json.dumps(payload, allow_nan=False).encode("utf-8"), method="POST",
+-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
++            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}",
++                **({"X-Proteus-Request-ID": bridge_request_id} if bridge_request_id else {})})
+         started = time.monotonic()
+         # A single request: retries, if requested, belong to the stage/attempt service.
+         timeout = min(self.options.timeout_seconds, request.timeout_seconds or self.options.timeout_seconds)
+@@ -107,7 +133,10 @@ class ChatActor:
+             require(finish_reason is None or (isinstance(finish_reason, str) and bool(finish_reason)),
+                     "chat finish_reason must be a nonempty string")
+             return ActorResult(text=text, runtime=runtime,
+-                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason)
++                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason,
++                trace=({"kind":"linux-scoped-relay", "request_id":bridge_request_id,
++                    "provider_response_id":body.get("id"), "guard_wait_seconds":waited},)
++                    if bridge_request_id else ())
+         except Exception as exc:
+             raise ActorFailed(ActorResult(text='', runtime=runtime, status=OperationStatus.FAILED,
+                 usage=replace(usage, wall_seconds=time.monotonic() - started),

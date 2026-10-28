@@ -1,0 +1,4 @@
+# Preserve historical patch context and source bytes; SHA256SUMS binds them.
+source-patches/*.patch -whitespace
+continuations/source-repairs/*.patch -whitespace
+historical-builders/prepare_combee_parallel_v3_1.py -whitespace

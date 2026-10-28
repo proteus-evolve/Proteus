@@ -1,5 +1,9 @@
 # Meta-Harness recipe (P07e)
 
+For the accepted October configurations, actual launch scripts and result boundaries,
+see the [frozen experiment guide](../recipes/meta-harness/mce/README.md).
+This page documents the general builder rather than a complete frozen run.
+
 This is an adapted, experimental text-classification recipe for
 [Meta-Harness at 8123ccabe2b19fa1123090b2e5f1bacc20963ce8](https://github.com/stanford-iris-lab/meta-harness/tree/8123ccabe2b19fa1123090b2e5f1bacc20963ce8).
 It includes the full outer search and inner learning loop, two source-pinned

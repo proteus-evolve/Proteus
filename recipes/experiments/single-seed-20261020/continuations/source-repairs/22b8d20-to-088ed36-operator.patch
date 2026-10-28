@@ -1,0 +1,113 @@
+diff --git a/proteus_continuation/cli.py b/proteus_continuation/cli.py
+index ed3e196..7645c97 100644
+--- a/proteus_continuation/cli.py
++++ b/proteus_continuation/cli.py
+@@ -120,6 +120,8 @@ def prepare(args):
+             'exact sealed generic-chat response adoption into an owned started actor',
+             'append authenticated no-dispatch reentry proof; same started actor row/reservation/slot/stable ID retained',
+             'reconcile owned pending actors before workflow preflight; admitted unknowns remain held'],
++        'preview_only_overrides':['collect every exact sealed snapshot/cache actor record',
++            'stop before joining a partial workflow map once preview frontiers reached'],
+         'dynamic_interrupted_attempt':'preserve original timing-start reference and all completed measurements; only interrupted in-flight duration remains UNKNOWN per original TimingService' if manifest.recipe.method.options.get('dynamic_batch') else None}
+     context=Context(plan,out,registry,oracle=None,allow_paid=False)
+     refs=context.prepare_immutable_inputs()
+@@ -181,6 +183,7 @@ def preview(args):
+         # from a checkpoint rather than individually re-invoked on this attempt.
+         old=context.ledger.parent.index()
+         actual={r['id']:r for r in services.actor_calls if r['id'] in old and old[r['id']]['state']=='completed'}
++        actual.update(context.loaded_sealed_actors)
+         for entry_id,record in actual.items():
+             assert content_hash(record)==content_hash(old[entry_id]['settlement']['result']),'sealed actor record changed'
+         preserved={'sealed_actor_records_exactly_reused':len(actual),
+@@ -196,6 +199,8 @@ def preview(args):
+         'initialized':initialized,'preserved':preserved,
+         'tainted_cohort_successors':[{'id':i,'state':context.ledger._own(i)['state']} for i in context.ledger.tainted],
+         'provider_calls_enabled':False,'preview_scratch_must_NEVER_be_launched':True}
++    receipt['actual_scientific_state_preview_passed']=(set(context.frontiers)=={r['actor_id'] for r in plan['failed_actor_frontier']}
++        and len(actual)==plan['independent_expected_closed_actor_count'] and journal.pending)
+     once(context.root/'preview-receipt.json',receipt)
+     print(json.dumps({'receipt':str(context.root/'preview-receipt.json'),'stop':stop,
+         'frontier_count':len(context.frontiers),'expected':len(plan['failed_actor_frontier'])}))
+diff --git a/proteus_continuation/journal.py b/proteus_continuation/journal.py
+index 60edb6a..4b1092e 100644
+--- a/proteus_continuation/journal.py
++++ b/proteus_continuation/journal.py
+@@ -33,8 +33,13 @@ class PrefixJournal(OriginalJournal):
+         request_paths={int(p.name.split('.')[0]):p for p in (parent/'operations').glob('*.request.json')
+             if int(p.name.split('.')[0])<=cut+1}
+         for path in (self.root/'operations').glob('*.request.json'):
+-            number=int(path.name.split('.')[0]);require(number not in request_paths,'branch rewrote inherited request')
+-            request_paths[number]=path
++            number=int(path.name.split('.')[0])
++            if number in request_paths:
++                # Workflow structural cache checks require materialized copies.
++                # An identical immutable copied prefix is not a rewritten op.
++                from proteus.artifacts.store import _read
++                require(_read(path)==_read(request_paths[number]),'branch rewrote inherited request')
++            else:request_paths[number]=path
+         snapshot,state,final=record['snapshot'],None,None
+         chosen=None
+         for expected,(number,path) in enumerate(sorted(request_paths.items()),1):
+diff --git a/proteus_continuation/runtime.py b/proteus_continuation/runtime.py
+index 25a7a5e..9a07dd6 100644
+--- a/proteus_continuation/runtime.py
++++ b/proteus_continuation/runtime.py
+@@ -42,7 +42,7 @@ class Context:
+         self.artifacts=ArtifactStore(self.root/'artifacts',registry,
+             allowed_codecs=(recipe.subject.initial_artifact.codec,) if recipe.subject else ())
+         self.ledger.defer_uncertain_settlement=self.defer_uncertain_settlement
+-        self.reused_actors=set()
++        self.reused_actors=set();self.loaded_sealed_actors={}
+     def journal_parent(self,root):
+         relative=Path(root).resolve().relative_to(self.root)
+         key=relative.as_posix()
+@@ -56,8 +56,15 @@ class Context:
+         ref=self.read_refs.get(str(path))
+         if ref:
+             parent=Path(ref['parent']);require(sha(parent.read_bytes())==ref['sha256'],'read-only prefix bytes changed')
+-            return original_load(parent)
+-        return original_load(path)
++            value=original_load(parent)
++        else:value=original_load(path)
++        if isinstance(value,dict) and isinstance(value.get('snapshot'),dict):
++            old=self.ledger.parent.index()
++            with self._guard:
++                for record in value['snapshot'].get('actor_calls',[]):
++                    if record['id'] in old and old[record['id']]['state']=='completed':
++                        self.loaded_sealed_actors[record['id']]=record
++        return value
+     def link(self,parent):
+         parent=Path(parent);relative=parent.relative_to(self.parent);dest=self.root/relative
+         require(parent.is_file() and not parent.is_symlink(),'prefix ref must be a regular file')
+@@ -220,6 +227,7 @@ def operational_overlay(context):
+     import proteus.core.recovery as recovery
+     import proteus.core.workflows as workflows
+     original_init,original_actor=RunServices.__init__,RunServices._actor
++    original_join=workflows.WorkflowMap.join
+     def configure(self,*args,**kwargs):
+         original_init(self,*args,**kwargs)
+         c=context_for(self.root)
+@@ -231,10 +239,16 @@ def operational_overlay(context):
+     replacements=[]
+     original_journal=recovery.Journal
+     def load(path):
+-        if Path(path).is_relative_to(context.root):return context.load(path)
++        if Path(path).is_relative_to(context.root) or Path(path).is_relative_to(context.parent):return context.load(path)
+         return original_load(path)
++    def join(self,*args,**kwargs):
++        c=context_for(self.services.root)
++        if c and not c.allow_paid and c.frontiers:
++            raise RecoveryRequired('CONTINUATION_PREVIEW_FRONTIERS_COMPLETE:'+str(len(c.frontiers)))
++        return original_join(self,*args,**kwargs)
+     ACTIVE.append(context);PrefixJournal.context_lookup=staticmethod(context_for)
+     RunServices.__init__,RunServices._actor=configure,actor
++    workflows.WorkflowMap.join=join
+     for module in list(sys.modules.values()):
+         if module is None or not getattr(module,'__name__','').startswith('proteus.'):continue
+         for name,old,new in (('Journal',original_journal,PrefixJournal),('_load',original_load,load)):
+@@ -244,4 +258,5 @@ def operational_overlay(context):
+     finally:
+         for module,name,old in reversed(replacements):setattr(module,name,old)
+         RunServices.__init__,RunServices._actor=original_init,original_actor
++        workflows.WorkflowMap.join=original_join
+         ACTIVE.remove(context)

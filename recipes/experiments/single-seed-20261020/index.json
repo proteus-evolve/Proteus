@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "study_date": "2026-10-20",
+  "result_cut_UTC": "2026-10-23T13:57:55.553727+00:00",
+  "profile_count": 15,
+  "recipe_count": 16,
+  "profiles": [
+    {
+      "profile": "linux-aime-full-seed-0-v2",
+      "family": "gepa",
+      "directory": "profiles/linux-aime-full-seed-0-v2",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-baseline.json",
+          "lock": "locks/seed-0-baseline.json",
+          "config_hash": "sha256:60b465d25c349ddfee9732de41f1170ce75b3f9667c3fa656c7dd486e6007357",
+          "lock_hash": "sha256:3fd69001cfda5443fe06e01ecc59d0f3affedf58f4d93552f34b23704c1b145e",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+              "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-launcher",
+              "repository": "local-content-addressed:run_api_formal_v2.py",
+              "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+              "schema_version": 1
+            }
+          ]
+        },
+        {
+          "recipe": "recipes/seed-0-optimized.json",
+          "lock": "locks/seed-0-optimized.json",
+          "config_hash": "sha256:ab60e0206efc3f75d137d86efd1d3c16aad223053939e4f5890bd87c4885200e",
+          "lock_hash": "sha256:cd922a2d91ba0c560907d2deddc58454c94b3efe5c5af1340d4940241e96dd45",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+              "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-launcher",
+              "repository": "local-content-addressed:run_api_formal_v2.py",
+              "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-ace-formula-offline-v2",
+      "family": "ace",
+      "directory": "profiles/linux-ace-formula-offline-v2",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-offline.json",
+          "lock": "locks/seed-0-offline.json",
+          "config_hash": "sha256:848083bc248d2018d080d75d5c96338190124735941e8d2a715ce94320058da2",
+          "lock_hash": "sha256:d2a188818ae4252941709855b3a6771c15bd39c7ec0a1c34622f6127a8a31d0a",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+              "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-launcher",
+              "repository": "local-content-addressed:run_api_formal_v2.py",
+              "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-ace-formula-online-v3",
+      "family": "ace",
+      "directory": "profiles/linux-ace-formula-online-v3",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-online.json",
+          "lock": "locks/seed-0-online.json",
+          "config_hash": "sha256:a788bae5d02b7d3d2852ea07cd75c62441c88e1d8c69c46fa6d3c82e510a10a9",
+          "lock_hash": "sha256:1e43c6304dd2688f28565c64eb4bc429e27109fbf70621051d4535a50952bc5e",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+              "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-ace-online-fresh-launcher-v3",
+              "repository": "local-content-addressed:run_ace_online_fresh_v3.py",
+              "revision": "93ebf4fab3c07371bf656104d0f77fb6f9bd352116b31713cbe75ceb71cd08ac",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-offline-ace-v2",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-offline-ace-v2",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-offline-ace.json",
+          "lock": "locks/seed-0-offline-ace.json",
+          "config_hash": "sha256:361ebd11c44826cce01d384e25fef7eee7c9c46ebae9d15d3b3d757feaec2602",
+          "lock_hash": "sha256:61421766ec341e558b4ba6c25782eec15c4951bebf87b6d6d060f6b80ac96a57",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+              "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-launcher",
+              "repository": "local-content-addressed:run_api_formal_v2.py",
+              "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-online-ace-v2",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-online-ace-v2",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-online-ace.json",
+          "lock": "locks/seed-0-online-ace.json",
+          "config_hash": "sha256:da1f8828f6a3ab85fdae831f098ad76bd949b596634e3892c83bae5ccbdbbe51",
+          "lock_hash": "sha256:61421766ec341e558b4ba6c25782eec15c4951bebf87b6d6d060f6b80ac96a57",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+              "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-launcher",
+              "repository": "local-content-addressed:run_api_formal_v2.py",
+              "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+      "recipes": [
+        {
+          "recipe": "recipe.json",
+          "lock": "lock.json",
+          "config_hash": "sha256:9b1fda20c163847986c2fff77db0e60c6ea5f0968a2a259edc758d1e91ec10aa",
+          "lock_hash": "sha256:fa73e564a395f14c4344fa870ab210e756057539048dcc8bffe776ccdd307442",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+              "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "naive-v7-fresh-H0-preparation",
+              "repository": "local-content-addressed:prepare_naive_fresh_H0_replacement_v7.py",
+              "revision": "3673a48654bb1da7941465b611f9922253a1b4436b9eb7467603b8090e0e2eba",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-online-naive_parallel-v5-ledger-io",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-online-naive_parallel-v5-ledger-io",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-online-naive_parallel.json",
+          "lock": "locks/seed-0-online-naive_parallel.json",
+          "config_hash": "sha256:a288826eba67c43f1024f0cf333cd1f6068b2cef6c4697faca76c5f1c7b138a7",
+          "lock_hash": "sha256:83acd53b9d9fc69c3a9ae0b086963ea2d7698f3b0b7e4ad9c7e64b27f3381c6a",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+              "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "unpaid-api-serialized-io-full-replacement-preparation-v1",
+              "repository": "local-content-addressed:prepare_combee_serialized_io_replacements_v1.py",
+              "revision": "ac35dd9e966be167601d4a7dfeb09e75cda0ce04d0a526b3173ae48a19dd0cf0",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-offline-combee_fixed.json",
+          "lock": "locks/seed-0-offline-combee_fixed.json",
+          "config_hash": "sha256:649e3bae030aa82eea5c555a83b11164bb47081a0e44b84c9151b518e7a09497",
+          "lock_hash": "sha256:83acd53b9d9fc69c3a9ae0b086963ea2d7698f3b0b7e4ad9c7e64b27f3381c6a",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+              "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "unpaid-api-serialized-io-full-replacement-preparation-v1",
+              "repository": "local-content-addressed:prepare_combee_serialized_io_replacements_v1.py",
+              "revision": "ac35dd9e966be167601d4a7dfeb09e75cda0ce04d0a526b3173ae48a19dd0cf0",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-online-combee_fixed-v6-ledger-io",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-online-combee_fixed-v6-ledger-io",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-online-combee_fixed.json",
+          "lock": "locks/seed-0-online-combee_fixed.json",
+          "config_hash": "sha256:06605409215806baa0ddf177d2c134ad6b7ff451fa39adb8a3fb625429d18662",
+          "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+              "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "unpaid-lookup-failure-full212-preparation-v1",
+              "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+              "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-offline-combee_dynamic.json",
+          "lock": "locks/seed-0-offline-combee_dynamic.json",
+          "config_hash": "sha256:bc95dd79b85498419a6c6513e0b08a31748baf3205f91f1a4bfb56238b737e21",
+          "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+              "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "unpaid-lookup-failure-full212-preparation-v1",
+              "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+              "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+      "family": "combee",
+      "directory": "profiles/linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+      "recipes": [
+        {
+          "recipe": "recipes/seed-0-online-combee_dynamic.json",
+          "lock": "locks/seed-0-online-combee_dynamic.json",
+          "config_hash": "sha256:87d253c95e357008c7d22417d1c62f42e09b9379e1a0a9f4d98bc12769c23512",
+          "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+              "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "unpaid-lookup-failure-full212-preparation-v1",
+              "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+              "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": "settings.json",
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-mce-full-three-domains-seed42-v1",
+      "family": "meta-harness",
+      "directory": "profiles/linux-mce-full-three-domains-seed42-v1",
+      "recipes": [
+        {
+          "recipe": "recipe.json",
+          "lock": "lock.json",
+          "config_hash": "sha256:4a21df7d1c546a8d4bb60d610e2b70e3754609373a174a3fdf72e873c8c3a77f",
+          "lock_hash": "sha256:a266efd9f5f577a2a8afdf0bc776039ba3273f87738d618b166751708f4bcee8",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/mce",
+              "revision": "c4664e486c13d35fb2a86438040bf132ed9df428",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "pilot-runtime",
+              "repository": "local-content-addressed:/home/ubuntu/proteus-full-linux-20261020/live_workspace_actor.py",
+              "revision": "f43948ecdd6dc22c5deaf9778ad5f3d07b06a25d847383143a5eda24962d7c12",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "linux-launcher",
+              "repository": "local-content-addressed:run_mce_formal.py",
+              "revision": "2bde98722d213403081add2544c5f8182742e4c9093d5578fe951125f02f112f",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": null,
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-coral-circle-1-workers-v5-1",
+      "family": "coral",
+      "directory": "profiles/linux-coral-circle-1-workers-v5-1",
+      "recipes": [
+        {
+          "recipe": "recipe.json",
+          "lock": "lock.json",
+          "config_hash": "sha256:7980b093bc14198eb9c0659d83a32bc414f7f1f3c26d992ddaa57c354ad85ae3",
+          "lock_hash": "sha256:5215ae3538b751de9f7c49d1d5cb0b5b65029a68b112007ff1b06d6fb807cbd3",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+              "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "full-coral-channel-profiles-v5-1",
+              "repository": "local-content-addressed:prepare_coral_output_channels_v5_1.py",
+              "revision": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": null,
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-coral-circle-2-workers-v5-1",
+      "family": "coral",
+      "directory": "profiles/linux-coral-circle-2-workers-v5-1",
+      "recipes": [
+        {
+          "recipe": "recipe.json",
+          "lock": "lock.json",
+          "config_hash": "sha256:b1a9056f0f82d8ed0c78482b09e1b2d92bfd0388c11438ed7906c8495fa6139f",
+          "lock_hash": "sha256:5215ae3538b751de9f7c49d1d5cb0b5b65029a68b112007ff1b06d6fb807cbd3",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+              "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "full-coral-channel-profiles-v5-1",
+              "repository": "local-content-addressed:prepare_coral_output_channels_v5_1.py",
+              "revision": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": null,
+      "status": "accepted_adapted_single_seed"
+    },
+    {
+      "profile": "linux-native-pi-upstream-source-activation-v1",
+      "family": "native",
+      "directory": "profiles/linux-native-pi-upstream-source-activation-v1",
+      "recipes": [
+        {
+          "recipe": "recipe.json",
+          "lock": "lock.json",
+          "config_hash": "sha256:96dd9f7a7db314df9d11c974a4d84d74acea17a87fad9430505114ad412314fb",
+          "lock_hash": "sha256:9ecf68da3f3d5a2a0f7a0c89c92c9e657dc3ec9f2a940c3e2fb2aecd30c86461",
+          "sources": [
+            {
+              "dirty_patch_hash": null,
+              "name": "proteus",
+              "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/coral",
+              "revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+              "schema_version": 1
+            },
+            {
+              "dirty_patch_hash": null,
+              "name": "native-runtime",
+              "repository": "local-content-addressed:LinuxPiNativeRuntime",
+              "revision": "eb7e96398380eceb01e865f76be144c8a7710dd7a3fcfa6b69dec1dcdd9e6385",
+              "schema_version": 1
+            }
+          ]
+        }
+      ],
+      "historical_launcher": "launch.json",
+      "settings": null,
+      "status": "mechanism_only"
+    }
+  ],
+  "retired_profile_not_used_as_success": "linux-combee-formula-offline-naive_parallel-v5-ledger-io",
+  "replacement_profile": "linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+  "historical_runtime_not_current_dev_branch": true
+}

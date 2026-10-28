@@ -1,0 +1,29 @@
+Pack 26 circles into a unit square to maximize the sum of radii.
+Edit initial_program.py, preserving run() -> (centers, radii, sum_radii).
+centers has shape (26, 2), radii shape (26,). Every radius is nonnegative;
+each circle stays within the square and no two circles overlap.
+The formal score is the verified sum of radii / 2.635977, with 1e-6 tolerance.
+NumPy 2.2.6 and SciPy 1.15.3 are installed for evaluation. The timeout is 600s.
+The claimed sum is ignored; an independent private verifier checks geometry.
+
+You are a persistent research worker optimizing the circle-packing task.
+Your editable seed is in candidate/. Read candidate/RESEARCH.md and inspect the
+original initial_program.py. Explore multiple approaches; use formal evaluation
+to compare your results, and consult shared notes and skills from other workers.
+Keep main.py compatible with the declared geometry export protocol.
+
+Use the provided stdlib gateway helper from the workspace root:
+  python candidate/research.py submit --operation UNIQUE_ID --directory candidate
+  python candidate/research.py poll TICKET_ID
+  python candidate/research.py snapshot --operation UNIQUE_OBSERVATION_ID
+  python candidate/research.py read REVISION_HASH
+  python candidate/research.py publish --operation UNIQUE_ID --kind notes --key IDEA --file note.md
+For skills use --kind skills; --sources FILE accepts a JSON array of exact
+revision/evidence references. Cite the note or shared_attempt from a formal
+result when publishing a derived skill. To update a key, pass --expected FILE
+containing its current revision reference. A conflict requires reading current
+state and making a new, explicit write. Retry transport failures using the same
+operation ID and bytes. Use a new ID for new content or a new observation.
+Only the authenticated gateway's formal scores count. Do not report a
+candidate's claimed score as a verified result. Continue research until stopped
+by the controller; respond to reflect, consolidate and pivot interventions.

@@ -1,0 +1,122 @@
+{
+  "profile": "linux-aime-full-seed-0-v2",
+  "bindings": [
+    {
+      "recipe": "recipes/seed-0-baseline.json",
+      "lock": "locks/seed-0-baseline.json",
+      "config_hash": "sha256:60b465d25c349ddfee9732de41f1170ce75b3f9667c3fa656c7dd486e6007357",
+      "lock_hash": "sha256:3fd69001cfda5443fe06e01ecc59d0f3affedf58f4d93552f34b23704c1b145e",
+      "sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "proteus",
+          "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+          "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ]
+    },
+    {
+      "recipe": "recipes/seed-0-optimized.json",
+      "lock": "locks/seed-0-optimized.json",
+      "config_hash": "sha256:ab60e0206efc3f75d137d86efd1d3c16aad223053939e4f5890bd87c4885200e",
+      "lock_hash": "sha256:cd922a2d91ba0c560907d2deddc58454c94b3efe5c5af1340d4940241e96dd45",
+      "sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "proteus",
+          "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+          "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ]
+    }
+  ],
+  "original_H0": [
+    {
+      "ref": {
+        "codec": {
+          "name": "proteus.text_components",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "components": [
+          {
+            "content_hash": "sha256:20a429f2193128570334200eda1f7576e91c8b93240f36d53a5aececba404f78",
+            "executable": false,
+            "path": "system.txt",
+            "schema_version": 1,
+            "size_bytes": 103
+          }
+        ],
+        "content_hash": "sha256:4f87cb1e7c86cb0980ba6f6491fdda89a04d58f5abaf83145232df315f52275e",
+        "environment_hash": null,
+        "runtime": null,
+        "schema_version": 1
+      },
+      "manifest": "initial-artifacts/manifests/4f87cb1e7c86cb0980ba6f6491fdda89a04d58f5abaf83145232df315f52275e.json",
+      "components": [
+        {
+          "content_hash": "sha256:20a429f2193128570334200eda1f7576e91c8b93240f36d53a5aececba404f78",
+          "executable": false,
+          "path": "system.txt",
+          "schema_version": 1,
+          "size_bytes": 103,
+          "bundle_blob": "initial-artifacts/blobs/20a429f2193128570334200eda1f7576e91c8b93240f36d53a5aececba404f78"
+        }
+      ],
+      "is_original_pre_run_H0_not_generated_search_result": true
+    },
+    {
+      "ref": {
+        "codec": {
+          "name": "proteus.text_components",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "components": [
+          {
+            "content_hash": "sha256:20a429f2193128570334200eda1f7576e91c8b93240f36d53a5aececba404f78",
+            "executable": false,
+            "path": "system.txt",
+            "schema_version": 1,
+            "size_bytes": 103
+          }
+        ],
+        "content_hash": "sha256:4f87cb1e7c86cb0980ba6f6491fdda89a04d58f5abaf83145232df315f52275e",
+        "environment_hash": null,
+        "runtime": null,
+        "schema_version": 1
+      },
+      "manifest": "initial-artifacts/manifests/4f87cb1e7c86cb0980ba6f6491fdda89a04d58f5abaf83145232df315f52275e.json",
+      "components": [
+        {
+          "content_hash": "sha256:20a429f2193128570334200eda1f7576e91c8b93240f36d53a5aececba404f78",
+          "executable": false,
+          "path": "system.txt",
+          "schema_version": 1,
+          "size_bytes": 103,
+          "bundle_blob": "initial-artifacts/blobs/20a429f2193128570334200eda1f7576e91c8b93240f36d53a5aececba404f78"
+        }
+      ],
+      "is_original_pre_run_H0_not_generated_search_result": true
+    }
+  ],
+  "historical_builder": "proteus/examples/gepa_aime.py",
+  "accepted_evidence_cut_UTC": "2026-10-23T13:57:55.553727+00:00",
+  "portability": "Frozen historical controls; absolute paths and host-bound runtime configuration are intentional. Use README for new-run preparation; do not reuse original locks after relocation."
+}
