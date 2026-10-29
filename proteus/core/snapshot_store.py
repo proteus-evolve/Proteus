@@ -1,6 +1,7 @@
 """Content-addressed recovery snapshots with shared immutable JSON subtrees."""
 
 from collections.abc import Mapping
+from contextlib import closing
 import copy
 import re
 import sqlite3
@@ -55,7 +56,7 @@ class SnapshotStore:
         require(not self.path.is_symlink(), 'recovery object database cannot be a symlink')
         # One FULL-synchronous transaction per snapshot, rather than an fsync for
         # every shared object. Journal publication happens only after this commit.
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute('PRAGMA synchronous=FULL')
             db.execute('CREATE TABLE IF NOT EXISTS objects (digest TEXT PRIMARY KEY, value TEXT NOT NULL)')
             db.executemany('INSERT OR IGNORE INTO objects VALUES (?,?)', self.pending.items())
@@ -70,7 +71,12 @@ class SnapshotStore:
             return snapshot
         cache = {}
         require(not self.path.is_symlink(), 'recovery object database cannot be a symlink')
-        with sqlite3.connect(self.path.as_uri() + '?mode=ro', uri=True) as db:
+        # Even SELECT must roll back a hot journal left by a killed writer.
+        # Existing-only rw permits SQLite recovery without creating a replacement
+        # database; query_only still forbids application-level data changes.
+        with closing(sqlite3.connect(self.path.as_uri() + '?mode=rw', uri=True)) as db:
+            db.execute('PRAGMA synchronous=FULL')
+            db.execute('PRAGMA query_only=ON')
             def decode(value):
                 kind, body = value
                 if kind == 'value':

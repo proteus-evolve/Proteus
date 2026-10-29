@@ -70,7 +70,10 @@ its JSON summary.
 The [raw scale record](validation/v1-20261028/scale.json) records these results on
 macOS/Apple Silicon with Python 3.12.13. Storage/recovery code is the committed
 `3e10b16` implementation; the later Native reporting compatibility repair does not
-change those components. Workloads were measured independently, not as a new ACE
+change those components. The subsequent hot-journal repair below changes SQLite
+connection handling, so these timings retain their original source binding. Its
+[smaller capacity recheck](validation/v1-20261028/hot-journal-scale.json) is separate
+from the original 500-example and 1,000-task measurements. Workloads were measured independently, not as a new ACE
 or Meta-Harness quality experiment.
 
 | Offline workload | Run time | Completed resume | Journal / database bytes |
@@ -106,7 +109,7 @@ results, runtime patches and current implementation checks. It preserves the
 container checks do not replace matched-quality reruns, multiple seeds or a complete
 reproduction of an original paper.
 
-Local validation covers all **1,778 collected cases: 1,695 passed and 83 skipped**
+Before the hot-journal repair below, local validation covered all **1,778 collected cases: 1,695 passed and 83 skipped**
 after the explicit rechecks below. The [per-case outcome record](validation/v1-20261028/test-outcomes.json)
 checks its node-ID set against the final collection. It retains the [original broad
 sweep](validation/v1-20261028/broad-sweep.json) and [six initial failures](validation/v1-20261028/earlier-lock-failures.log):
@@ -114,7 +117,9 @@ one GEPA resume and five knowledge subprocess cases encountered source/schema lo
 that changed while Native metadata was being repaired. All six passed with source
 held fixed. An additional 90-case Native/export check and the final 44-pass/3-skip
 fault/configuration check overlap the sweep; their totals are not added as new cases.
-The skips require optional pinned reference sources or live Docker; the GitHub
+The hot-journal repair adds two cases, bringing the current collection to **1,780**;
+its affected-suite outcomes are recorded separately below, rather than relabeling
+the earlier full sweep as a fresh run of the new source. The skips require optional pinned reference sources or live Docker; the GitHub
 matrix fetches those references and the Harbor/native gates supply the real runtimes.
 No test-coverage percentage was measured.
 
@@ -152,6 +157,39 @@ matrix and sets `PROTEUS_REQUIRE_GEPA=1`; the
 separates the reproduced missing-dependency failures from the post-install checks.
 This changes workflow preparation only; the Proteus runtime tree and frozen results
 remain unchanged. A new complete live-smoke run is still required.
+
+### Additional gate finding: interrupted SQLite snapshot transaction
+
+The next branch attempt, [40831787772](https://github.com/proteus-evolve/Proteus/actions/runs/40831787772),
+passed GEPA setup but failed the worker-knowledge capture hard-exit/resume case:
+**1 failed / 1,686 passed / 91 skipped**. All downstream live jobs were skipped.
+The [raw failure log](validation/v1-20261028/release-smoke-40831787772-failed.log)
+is retained. The same head's full CI, Harbor and native-source workflows passed;
+that does not waive the failed independent smoke prerequisite.
+
+A new deterministic subprocess test forces uncommitted snapshot pages to disk and
+exits without cleanup. Before the repair, it reproduces the same `attempt to write
+a readonly database` error. SQLite must
+[roll back a hot journal before reading](https://www.sqlite.org/lockingv3.html#dealing_with_hot_journals).
+Snapshot loading now opens only an existing database in read/write mode and enables
+[`query_only`](https://www.sqlite.org/pragma.html#pragma_query_only), permitting
+SQLite's recovery while forbidding application data writes. It never creates an
+empty replacement for a missing database. Save/load connections are explicitly
+closed; save transactions still commit before journal receipt publication.
+
+The new test verifies the last committed snapshot, discard of uncommitted objects,
+database integrity, repeated load and a subsequent successful save. A second test
+checks that a missing database stays missing. The
+[repair acceptance record](validation/v1-20261028/hot-journal-recheck.json)
+records the before/after fault check, affected worker/workflow/recovery suites,
+installed distribution checks and exact wheel source identity. These checks are
+**151 passed / 5 environment skips**, plus **16 installed wheel/sdist checks**,
+145 no-pytest offline checks, build/twine and Ruff. All 255 wheel Python files match
+the repaired checkout byte for byte. The first local package-check staging omitted
+three fixture/helper inputs; its eight failures are retained in the record, and all
+16 checks passed after copying the CI fixture inputs, without another runtime change.
+These outcomes are separate from the earlier 1,778-case local sweep. New complete workflows on the
+repaired head remain required; successful jobs from older runs are not pooled.
 
 Release remains blocked until the current preparation evidence is complete and the
 remaining research acceptance is either satisfied or explicitly scoped by maintainers.
