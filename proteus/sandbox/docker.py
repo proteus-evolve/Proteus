@@ -247,8 +247,14 @@ class DockerSandbox:
         except BaseException as exc:
             if proc is not None and proc.poll() is None:
                 proc.kill()  # Never follow this with an unbounded pipe drain.
-            _write(marker, {"version": 1, "container": name})
-            raise RecoveryRequired(f"Docker cleanup unverified for {name}; reservation must remain active") from exc
+            message = f"Docker cleanup unverified for {name}; reservation must remain active"
+            try:
+                _write(marker, {"version": 1, "container": name})
+            except Exception:
+                # Storage failure must not downgrade unknown execution to an
+                # ordinary terminal failure and release a managed reservation.
+                message += "; cleanup marker could not be persisted"
+            raise RecoveryRequired(message) from exc
 
     def reconcile_cleanup(self, run_root: Path):
         """Explicitly verify removal before permitting work in an uncertain root."""

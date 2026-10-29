@@ -1,0 +1,137 @@
+{
+  "stage_and_ledger": {
+    "python": "3.12.13",
+    "platform": "macOS-15.0-arm64-arm-64bit",
+    "source_revision": "e1c4d0e1865887ef404c949bfccbfa8cec8bebf5",
+    "working_tree_diff_hash": "sha256:a6163b09ac2ffbb8da3c846abe881e792cbb85f64ecaed8d3f8a00b23eb3d806",
+    "scope": "offline managed stages and accounting; no model latency or Docker performance claim",
+    "stages": [
+      {
+        "examples": 80,
+        "managed_stages": 240,
+        "prompt_bytes_per_stage": 8192,
+        "run_seconds": 13.350988917052746,
+        "completed_resume_seconds": 0.8829020000994205,
+        "journal": {
+          "files": 644,
+          "bytes": 9190140
+        },
+        "run": {
+          "files": 653,
+          "bytes": 40951247
+        },
+        "same_completed_result": true,
+        "resume_added_dispatches": 0,
+        "provider_calls": 0
+      },
+      {
+        "examples": 160,
+        "managed_stages": 480,
+        "prompt_bytes_per_stage": 8192,
+        "run_seconds": 47.63015729095787,
+        "completed_resume_seconds": 1.8228434165939689,
+        "journal": {
+          "files": 1284,
+          "bytes": 20236519
+        },
+        "run": {
+          "files": 1293,
+          "bytes": 83688002
+        },
+        "same_completed_result": true,
+        "resume_added_dispatches": 0,
+        "provider_calls": 0
+      },
+      {
+        "examples": 500,
+        "managed_stages": 1500,
+        "prompt_bytes_per_stage": 8192,
+        "run_seconds": 433.2331778751686,
+        "completed_resume_seconds": 6.46532416716218,
+        "journal": {
+          "files": 4004,
+          "bytes": 70421365
+        },
+        "run": {
+          "files": 4013,
+          "bytes": 268548964
+        },
+        "same_completed_result": true,
+        "resume_added_dispatches": 0,
+        "provider_calls": 0
+      }
+    ],
+    "ledger": {
+      "synthetic_entries": 5000,
+      "request_bytes": 8192,
+      "reserve_start_settle_and_check_seconds": 15.80661741644144,
+      "independent_scan_seconds": 1.2825834173709154,
+      "balance_matches_independent_scan": true,
+      "database": {
+        "files": 1,
+        "bytes": 89202688
+      },
+      "provider_calls": 0,
+      "usage_values_are_synthetic": true
+    },
+    "peak_rss_bytes": 348340224
+  },
+  "evaluation_cohort": {
+    "python": "3.12.13",
+    "platform": "macOS-15.0-arm64-arm-64bit",
+    "source_revision": "3e10b16f03752d99bdf56a06996c2fe675f18898",
+    "working_tree_diff_hash": "sha256:4b72d939183633ef1fb60ea9e9d55500de655b6f97f2819b706ad155e8ad953a",
+    "scope": "offline managed stages and accounting; no model latency or Docker performance claim",
+    "stages": [],
+    "cohort": {
+      "split_sizes": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "max_workers": 8,
+      "task_payload_bytes": 8192,
+      "run_seconds": 161.20888179074973,
+      "completed_resume_seconds": 2.6081474171951413,
+      "journal": {
+        "files": 32,
+        "bytes": 8068694
+      },
+      "run": {
+        "files": 7075,
+        "bytes": 130866225
+      },
+      "ledger_entries": 2003,
+      "resume_added_dispatches": 0,
+      "provider_calls": 0,
+      "same_completed_result": true,
+      "balance_matches_independent_scan": true
+    },
+    "peak_rss_bytes": 383811584
+  },
+  "source_binding": {
+    "runtime_source_commit": "3e10b16f03752d99bdf56a06996c2fe675f18898",
+    "measured_manifest_file_sha256": "ecd9eaee3e784471176973f7ef93db69a71d879547db1a9e2f5e0b85427e3d43",
+    "echo_plugin_implementation": [
+      {
+        "capabilities": [
+          "session.fresh",
+          "actor.execute",
+          "calls.bounded",
+          "request.timeout",
+          "actor.parallel"
+        ],
+        "implementation_hash": "sha256:ad5558ab12994ec377975a60a3981f58c72640504eaabfaec11ae75c7091ec04",
+        "plugin": {
+          "name": "proteus.echo",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "schema_version": 1,
+        "source": "proteus"
+      }
+    ],
+    "collection_note": "Captured from the active scale run; compare implementation hash with the committed Proteus source."
+  },
+  "scope": "Offline capacity validation; storage/recovery components from 3e10b16. Subsequent Native reporting compatibility repair does not change these components."
+}

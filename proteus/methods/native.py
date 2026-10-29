@@ -51,7 +51,6 @@ class NativeSummary(Contract):
     error: str
     eval_history: tuple[Mapping[str, Any], ...]
     counters: Mapping[str, Any]
-    model_selection: Mapping[str, Any] = field(default_factory=dict)
 
 
 def validate_native(recipe, options):
@@ -87,6 +86,8 @@ class NativeMethod:
         options = self.options
         actor = services.recipe.actors[options.actor]
         runtime = services.registry.create(actor.runtime, "actor")
+        services.native_model_selection = (runtime.model_selection(actor) if hasattr(runtime, "model_selection")
+            else {"owner": "runtime", "requested_model": actor.model, "resolved_model": None})
         def factory():
             return runtime.adapter(actor)
         parsed = [_evaluator(spec, factory) for spec in options.evaluators]
@@ -121,9 +122,7 @@ class NativeMethod:
                 result = run(cfg, start=start, resume=services.resume)
         finally:
             services.native_inputs = read_native_inputs(cfg.root)
-        selection = (runtime.model_selection(actor) if hasattr(runtime, "model_selection")
-                     else {"owner": "runtime", "requested_model": actor.model, "resolved_model": None})
-        summary = NativeSummary.from_dict({**asdict(result), "model_selection": selection})
+        summary = NativeSummary.from_dict(asdict(result))
         ref = services.values.publish("proteus.native_summary@1", summary)
         return MethodResult(status=OperationStatus.FAILED if result.error or result.episodes_complete < options.episodes
                             else OperationStatus.COMPLETED, outputs={"native": ref}, diagnostic=result.error)

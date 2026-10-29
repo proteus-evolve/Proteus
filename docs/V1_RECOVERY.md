@@ -109,8 +109,39 @@ failures; resume does not grant additional retries beyond the configured policy.
 
 Public `execution-*.json` files for journal-enabled methods are cumulative snapshots;
 do not sum them as separate attempts. The ledger is authoritative for charged usage.
-The journal stores full snapshots and favors auditability over storage efficiency;
-compaction and parallel operation scheduling are later work.
+New journal snapshots use content-addressed JSON subtrees in a private SQLite
+object store. Appended records share unchanged data and bounded-fanout list chunks
+with earlier checkpoints; only their references enter each operation receipt.
+Objects commit with FULL synchronization before the receipt is published, and
+every recovered object's content hash is checked. Existing full snapshots remain
+readable. This reduces repeated storage; snapshot traversal still grows with run
+state, so the [release scale acceptance](V1_RELEASE_ACCEPTANCE.md) defines the
+validated range rather than promising unbounded runs.
+
+Ledger schema 2 maintains per-scope Decimal totals, unknown/unbounded counts and
+active slots in the same transaction as reservations and settlements. Opening a
+schema-1 ledger upgrades its accounting index transactionally without changing
+historical entries/events. Read-only export can still read schema 1 and independently
+scans entries to audit schema-2 totals. Source/configuration locks still prohibit
+silently upgrading an unfinished experiment to different code.
+
+`RecoveryRequired`, keyboard interruption and system interruption do not settle
+started actor, subject/verifier, build or Native work. A deterministic grader's
+explicit `SystemExit` remains a private failed grade; `RecoveryRequired` and
+keyboard interruption retain its reservation. The three map schedulers drain
+already submitted work and block new dispatch while an unknown operation remains.
+
+Native episode completion first prepares a Git commit object, then durably stores
+the complete evaluator/counter/selection receipt, and only then publishes the
+episode mapping. Resume rolls forward an interrupted publication without executing
+the episode or evaluator again. A legacy checkpoint that already lost its history
+before this protocol still needs its original evidence; no score is reconstructed.
+
+Docker execution allows at most the execution timeout plus a separate **10-second
+cleanup window**. Removal and client-pipe drain share that window. Unverified
+cleanup raises `RecoveryRequired` and persists a private marker. The sandbox refuses
+another dispatch in that root until `sandbox.reconcile_cleanup(run_root)` confirms
+removal. This does not settle a lost model response or reconcile its budget by itself.
 
 ## Reconcile an independently completed Harbor worker
 

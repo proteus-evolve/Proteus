@@ -600,6 +600,11 @@ I09、I12 从 M1 开始随每个方法扩展，不能拖到所有方法完成后
 
 ## 9 发布清单
 
+The October 28 review closure, current validation and unresolved release gates are
+tracked in [release acceptance](../V1_RELEASE_ACCEPTANCE.md). The
+[15-profile correspondence](../V1_EXPERIMENT_ACCEPTANCE.md) distinguishes historical
+results from current implementation evidence; it does not waive the checklist below.
+
 - [ ] I01–I15 的验收记录齐全，R00 与 R01–R05 均完成对应范围。
 - [ ] 每个 recipe 有版本锁、运行说明、机制核对、支持矩阵、真实结果与偏差说明。
 - [ ] 公共 API 与配置 schema 定义稳定，插件扩展教程通过实际验证。

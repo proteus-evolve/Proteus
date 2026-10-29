@@ -408,6 +408,7 @@ def report_run(root, *, include_private=False, measurement_spec=None):
             'source_run': str(root),
             'candidates': candidates, 'tasks': tasks, 'cohorts': cohorts, 'accounting': accounting, 'timing': timing,
             'native_accounting': native_accounting,
+            'native_model_selection': run.records.get('native_model_selection'),
             'stages': stages, 'attempts': attempts, 'unreported_rollout_ids': unreported,
             'evidence': {path: digest for path, digest in run.evidence.items()
                          if include_private or not (path.startswith(('private/', '.proteus-records/'))

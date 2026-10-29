@@ -51,6 +51,13 @@ circle packing; it does not automatically imply a held-out task.
   deviations. It emits descriptive summaries without a controlled-comparison
   claim, a variation mask or paired baseline deltas.
 
+Each paired replicate must have identical execution and task-suite seed mappings.
+The execution seed or split seed may differ from the outer replicate index:
+for example, outer seed `0`, execution seed `11`, split seed `42` is valid when
+both conditions use that same mapping. Output rows retain this `randomization`
+mapping. A broad variation mask cannot bypass it; intentionally unpaired seed
+schedules belong in a descriptive `reference_profiles` comparison.
+
 Every condition requires every declared seed exactly once. A copied/resumed run
 cannot count as another observation. Within a condition, source/plugin/package locks must remain identical, and configuration may differ
 only in the declared replicate seeds and pinned JSON data locations. Unknown or

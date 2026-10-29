@@ -130,3 +130,21 @@ def test_cached_ledger_balances_match_full_audit_and_migrate_v1(tmp_path):
         db.execute('PRAGMA user_version=1')
     reopened = Ledger(book.path, **identity)
     assert reopened.balance() == before and reopened.has_operation('15')
+
+
+def test_native_summary_v1_keeps_legacy_content_identity_and_records_model_owner(tmp_path):
+    from proteus.methods.native import NativeSummary
+    from proteus.recipes.builtins import builtin_registry
+    from proteus.recipes.runner import run_recipe
+    from test_v1_plugins import native_recipe, SOURCE
+    legacy = {'schema_version': 1, 'name': 'legacy', 'episodes_complete': 1,
+              'root': 'workspace', 'error': '', 'eval_history': [], 'counters': {}}
+    assert NativeSummary.from_dict(legacy).to_dict() == legacy
+    recipe, registry = native_recipe(), builtin_registry()
+    result = run_recipe(recipe, registry=registry, lock=registry.make_lock(recipe, [SOURCE]), root=tmp_path / 'run')
+    assert result.status.value == 'completed', result.diagnostic
+    record = json.loads((tmp_path / 'run/execution-0001.json').read_text())
+    assert record['native_model_selection']['owner'] == 'framework'
+    assert record['native_model_selection']['resolved_model'] is None
+    values = [item['value'] for item in record['values'] if item['ref']['kind'] == 'proteus.native_summary@1']
+    assert values and all('model_selection' not in value for value in values)

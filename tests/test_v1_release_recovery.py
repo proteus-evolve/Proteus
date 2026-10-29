@@ -1,6 +1,7 @@
 """Release blockers: uncertainty is retained; prepared Native commits roll forward."""
 
 from dataclasses import replace
+import os
 import subprocess
 
 import pytest
@@ -233,3 +234,77 @@ def test_docker_polled_cleanup_never_drains_pipes_without_timeout(tmp_path, monk
     with pytest.raises(RecoveryRequired, match='cleanup unverified'):
         DockerSandbox(SandboxConfig()).run(tmp_path, ['true'], {}, timeout_s=1, stop_check=lambda: False)
     assert len(timeouts) == 3 and all(0 < value <= DockerSandbox.CLEANUP_SECONDS for value in timeouts)
+
+
+@pytest.mark.skipif(not os.environ.get('PROTEUS_HARBOR_PYTHON'), reason='requires live Docker gate')
+@pytest.mark.parametrize('polled', [False, True])
+def test_live_harbor_sandbox_timeout_removes_actual_container(tmp_path, polled):
+    from proteus.sandbox.docker import DockerSandbox, SandboxConfig
+    from proteus.examples.harbor_evaluation import IMAGE
+    removed = []
+    class Sandbox(DockerSandbox):
+        def _cleanup(self, name, marker, proc=None):
+            removed.append(name)
+            return super()._cleanup(name, marker, proc)
+    sandbox = Sandbox(SandboxConfig(image=IMAGE))
+    with pytest.raises(subprocess.TimeoutExpired):
+        sandbox.run(tmp_path, ['python', '-c', 'import time; time.sleep(60)'], {}, timeout_s=1,
+                    stop_check=(lambda: False) if polled else None)
+    assert len(removed) == 1
+    inspect = subprocess.run(['docker', 'container', 'inspect', removed[0]],
+                             capture_output=True, text=True, timeout=10)
+    assert inspect.returncode != 0 and 'No such' in inspect.stderr
+
+
+@pytest.mark.skipif(not os.environ.get('PROTEUS_HARBOR_PYTHON'), reason='requires live Docker gate')
+def test_live_harbor_sandbox_keyboard_interrupt_removes_actual_container(tmp_path):
+    import signal
+    import sys
+    import time
+    import uuid
+    from proteus.examples.harbor_evaluation import IMAGE
+    suffix = uuid.uuid4().hex[:12]
+    name = 'proteus-' + suffix
+    program = '''
+import sys,uuid
+from pathlib import Path
+from types import SimpleNamespace
+from proteus.sandbox.docker import DockerSandbox,SandboxConfig
+uuid.uuid4=lambda:SimpleNamespace(hex=sys.argv[3])
+DockerSandbox(SandboxConfig(image=sys.argv[2])).run(Path(sys.argv[1]),
+    ['python','-c','import time;time.sleep(60)'],{},timeout_s=60)
+'''
+    process = subprocess.Popen([sys.executable, '-c', program, str(tmp_path), IMAGE, suffix],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        deadline = time.monotonic() + 20
+        while True:
+            inspect = subprocess.run(['docker', 'container', 'inspect', '--format', '{{.State.Running}}', name],
+                                     capture_output=True, text=True, timeout=5)
+            if inspect.returncode == 0 and inspect.stdout.strip() == 'true':
+                break
+            assert process.poll() is None and time.monotonic() < deadline
+            time.sleep(0.05)
+        process.send_signal(signal.SIGINT)
+        _, error = process.communicate(timeout=15)
+        assert process.returncode != 0 and 'KeyboardInterrupt' in error
+        inspect = subprocess.run(['docker', 'container', 'inspect', name],
+                                 capture_output=True, text=True, timeout=10)
+        assert inspect.returncode != 0 and 'No such' in inspect.stderr
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=5)
+        subprocess.run(['docker', 'rm', '-f', name], capture_output=True, timeout=10)
+
+
+def test_cleanup_marker_storage_failure_still_reports_uncertainty(tmp_path, monkeypatch):
+    from proteus.sandbox.docker import DockerSandbox, SandboxConfig
+    def failed_run(args, **kwargs):
+        raise subprocess.TimeoutExpired(args, kwargs['timeout'])
+    def failed_write(*args, **kwargs):
+        raise OSError('disk full')
+    monkeypatch.setattr(subprocess, 'run', failed_run)
+    monkeypatch.setattr('proteus.core.recovery._write', failed_write)
+    with pytest.raises(RecoveryRequired, match='marker could not be persisted'):
+        DockerSandbox(SandboxConfig()).run(tmp_path, ['true'], {}, timeout_s=1)

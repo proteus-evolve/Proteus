@@ -121,6 +121,7 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                     "results": [item.to_dict() for item in services.results],
                     "actor_calls": services.actor_calls, "native_prompts": services.native_prompts,
                     "native_inputs": services.native_inputs,
+                    "native_model_selection": getattr(services, "native_model_selection", None),
                     "candidates": [item.to_dict() for item in services.candidates],
                     "rollouts": [item.to_dict() for item in services.rollouts],
                     "evaluations": [item.to_dict() for item in services.evaluations],

@@ -1,0 +1,450 @@
+{
+  "profile_count": 15,
+  "profiles": [
+    {
+      "profile": "linux-aime-full-seed-0-v2",
+      "family": "gepa",
+      "historical_core": "api",
+      "historical_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "historical_source_tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "solver": "proteus.aime_solver"
+      },
+      "archive_directory": "profiles/linux-aime-full-seed-0-v2",
+      "current_validation_files": [
+        "tests/test_v1_gepa_method.py",
+        "tests/test_v1_gepa_aime.py",
+        "tests/test_v1_recovery.py"
+      ],
+      "boundary": "AIME solver plus chat reflector; current reference mechanism/data checks; fresh endpoint/model bindings need new locks.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-ace-formula-offline-v2",
+      "family": "ace",
+      "historical_core": "api",
+      "historical_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "historical_source_tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-ace-formula-offline-v2",
+      "current_validation_files": [
+        "tests/test_v1_ace_method.py",
+        "tests/test_v1_ace_formula.py",
+        "tests/test_v1_recovery.py"
+      ],
+      "boundary": "Chat generator/reflector/curator and Formula local subject; offline selected and online stream metrics remain distinct.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-ace-formula-online-v3",
+      "family": "ace",
+      "historical_core": "api",
+      "historical_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "historical_source_tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-ace-online-fresh-launcher-v3",
+          "repository": "local-content-addressed:run_ace_online_fresh_v3.py",
+          "revision": "93ebf4fab3c07371bf656104d0f77fb6f9bd352116b31713cbe75ceb71cd08ac",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-ace-formula-online-v3",
+      "current_validation_files": [
+        "tests/test_v1_ace_method.py",
+        "tests/test_v1_ace_formula.py",
+        "tests/test_v1_recovery.py"
+      ],
+      "boundary": "Chat generator/reflector/curator and Formula local subject; offline selected and online stream metrics remain distinct.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-offline-ace-v2",
+      "family": "combee",
+      "historical_core": "api",
+      "historical_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "historical_source_tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-offline-ace-v2",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-online-ace-v2",
+      "family": "combee",
+      "historical_core": "api",
+      "historical_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "historical_source_tree": "3efa779dbae56aa53f2541cfb85a3bdeae42cda4",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-online-ace-v2",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+      "family": "combee",
+      "historical_core": "api-ledger-serialized-io-v1",
+      "historical_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "historical_source_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "naive-v7-fresh-H0-preparation",
+          "repository": "local-content-addressed:prepare_naive_fresh_H0_replacement_v7.py",
+          "revision": "3673a48654bb1da7941465b611f9922253a1b4436b9eb7467603b8090e0e2eba",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-offline-naive_parallel-v7-fresh-H0",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-online-naive_parallel-v5-ledger-io",
+      "family": "combee",
+      "historical_core": "api-ledger-serialized-io-v1",
+      "historical_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "historical_source_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "unpaid-api-serialized-io-full-replacement-preparation-v1",
+          "repository": "local-content-addressed:prepare_combee_serialized_io_replacements_v1.py",
+          "revision": "ac35dd9e966be167601d4a7dfeb09e75cda0ce04d0a526b3173ae48a19dd0cf0",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-online-naive_parallel-v5-ledger-io",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+      "family": "combee",
+      "historical_core": "api-ledger-serialized-io-v1",
+      "historical_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "historical_source_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "unpaid-api-serialized-io-full-replacement-preparation-v1",
+          "repository": "local-content-addressed:prepare_combee_serialized_io_replacements_v1.py",
+          "revision": "ac35dd9e966be167601d4a7dfeb09e75cda0ce04d0a526b3173ae48a19dd0cf0",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-offline-combee_fixed-v5-ledger-io",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-online-combee_fixed-v6-ledger-io",
+      "family": "combee",
+      "historical_core": "api-ledger-serialized-io-v1",
+      "historical_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "historical_source_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "unpaid-lookup-failure-full212-preparation-v1",
+          "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+          "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-online-combee_fixed-v6-ledger-io",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+      "family": "combee",
+      "historical_core": "api-ledger-serialized-io-v1",
+      "historical_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "historical_source_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "unpaid-lookup-failure-full212-preparation-v1",
+          "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+          "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+      "family": "combee",
+      "historical_core": "api-ledger-serialized-io-v1",
+      "historical_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "historical_source_tree": "0325f517771142cfdd900a8c26150c8ac05d9c80",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "unpaid-lookup-failure-full212-preparation-v1",
+          "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+          "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "curator": "proteus.chat",
+        "generator": "proteus.chat",
+        "reflector": "proteus.chat"
+      },
+      "archive_directory": "profiles/linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+      "current_validation_files": [
+        "tests/test_v1_combee_baselines.py",
+        "tests/test_v1_combee_aggregation.py",
+        "tests/test_v1_dynamic_batching.py",
+        "tests/test_v1_workflows.py"
+      ],
+      "boundary": "ACE chat roles, workflow aggregation and optional dynamic batching; serialized-I/O historical source remains explicit. No paper-speedup claim.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-mce-full-three-domains-seed42-v1",
+      "family": "meta-harness",
+      "historical_core": "mce",
+      "historical_revision": "c4664e486c13d35fb2a86438040bf132ed9df428",
+      "historical_source_tree": "68357b084f41508442fe1d09ac8dea2229237ae3",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "pilot-runtime",
+          "repository": "local-content-addressed:/home/ubuntu/proteus-full-linux-20261020/live_workspace_actor.py",
+          "revision": "f43948ecdd6dc22c5deaf9778ad5f3d07b06a25d847383143a5eda24962d7c12",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_mce_formal.py",
+          "revision": "2bde98722d213403081add2544c5f8182742e4c9093d5578fe951125f02f112f",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "model": "proteus.chat",
+        "proposer": "pilot.deepseek_workspace"
+      },
+      "archive_directory": "profiles/linux-mce-full-three-domains-seed42-v1",
+      "current_validation_files": [
+        "tests/test_v1_meta_harness.py",
+        "tests/test_v1_code_protocol.py",
+        "tests/test_v1_workspace.py",
+        "tests/test_v1_recovery.py"
+      ],
+      "boundary": "Historical pilot.deepseek_workspace proposer and scoped relay are custom runtime inputs. Current workspace/code-subject integration checks are separate from this full quality run.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-coral-circle-1-workers-v5-1",
+      "family": "coral",
+      "historical_core": "coral-output-channels-v5_1",
+      "historical_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "historical_source_tree": "9fe4a04b1d5437a6fd291a5585953bc9bfcda57a",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "full-coral-channel-profiles-v5-1",
+          "repository": "local-content-addressed:prepare_coral_output_channels_v5_1.py",
+          "revision": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "researcher": "proteus.echo"
+      },
+      "archive_directory": "profiles/linux-coral-circle-1-workers-v5-1",
+      "current_validation_files": [
+        "tests/test_v1_coral_method.py",
+        "tests/test_v1_coral_circle_packing.py",
+        "tests/test_v1_coral_harbor_study.py",
+        "tests/test_v1_gateway_recovery.py"
+      ],
+      "boundary": "Historical JSON command workers and released-feedback/channel shims are archived inputs. Current CORAL controller/Harbor/gateway checks do not reproduce their model result.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-coral-circle-2-workers-v5-1",
+      "family": "coral",
+      "historical_core": "coral-output-channels-v5_1",
+      "historical_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "historical_source_tree": "9fe4a04b1d5437a6fd291a5585953bc9bfcda57a",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "full-coral-channel-profiles-v5-1",
+          "repository": "local-content-addressed:prepare_coral_output_channels_v5_1.py",
+          "revision": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "researcher": "proteus.echo"
+      },
+      "archive_directory": "profiles/linux-coral-circle-2-workers-v5-1",
+      "current_validation_files": [
+        "tests/test_v1_coral_method.py",
+        "tests/test_v1_coral_circle_packing.py",
+        "tests/test_v1_coral_harbor_study.py",
+        "tests/test_v1_gateway_recovery.py"
+      ],
+      "boundary": "Historical JSON command workers and released-feedback/channel shims are archived inputs. Current CORAL controller/Harbor/gateway checks do not reproduce their model result.",
+      "current_full_quality_rerun": false
+    },
+    {
+      "profile": "linux-native-pi-upstream-source-activation-v1",
+      "family": "native",
+      "historical_core": "coral",
+      "historical_revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+      "historical_source_tree": "dd20b1145741a7fa3494f73d64e4c0067d435e1f",
+      "historical_runtime_sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "native-runtime",
+          "repository": "local-content-addressed:LinuxPiNativeRuntime",
+          "revision": "eb7e96398380eceb01e865f76be144c8a7710dd7a3fcfa6b69dec1dcdd9e6385",
+          "schema_version": 1
+        }
+      ],
+      "historical_actor_plugins": {
+        "agent": "proteus.native.native_linux_binding_v2:BudgetedPi"
+      },
+      "archive_directory": "profiles/linux-native-pi-upstream-source-activation-v1",
+      "current_validation_files": [
+        "tests/test_v1_release_recovery.py",
+        "tests/test_native_budget.py",
+        "tests/check_native_source_docker.py",
+        "tests/check_native_source_repair.py"
+      ],
+      "boundary": "Historical custom BudgetedPi binding and Pi v0.85.1 image are distinct from current pinned Pi/DSH source gates. Phase exits 137 and unknown canonical usage stay recorded; historical resume covered only completed runs.",
+      "current_full_quality_rerun": false
+    }
+  ]
+}

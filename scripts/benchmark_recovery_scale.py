@@ -107,9 +107,69 @@ def ledger_study(root, count, prompt_bytes):
             'provider_calls': 0, 'usage_values_are_synthetic': True}
 
 
+def cohort_study(root, sizes, prompt_bytes):
+    from proteus.artifacts.codecs import FileContent
+    from proteus.artifacts.store import ArtifactStore
+    from proteus.core.contracts import FeedbackVisibility
+    from proteus.evaluation.tasks import Task, TaskDataset, TaskRecord
+    from proteus.examples.candidate_evaluation import prepare, plugin
+    from proteus.methods.compare import CompareOptions
+    from proteus.recipes.config import TaskSuiteSpec
+    recipe = load_recipe(prepare(root / 'study'))
+    splits = ('train', 'validation', 'test')
+    dataset = TaskDataset(version='scale-500-300-200-v1', records=tuple(
+        TaskRecord(task=Task(id=f'{split}-{i}', version='1', split=split,
+            input={'value': i, 'payload': 'x' * prompt_bytes}), reference=i)
+        for split, count in zip(splits, sizes) for i in range(count)))
+    data_path = root / 'study/tasks.json'
+    data_path.write_text(dataset.to_json())
+    registry = builtin_registry()
+    store = ArtifactStore(root / 'study/artifact-store', registry)
+    code = "import json,sys\nr=json.load(sys.stdin)\nprint(json.dumps({'output':r['task']['input']['value']}))\n"
+    artifact = store.put(PluginRef(name='proteus.file_tree', version='1'),
+                         {'main.py': FileContent(code.encode())})
+    template = recipe.evaluations[0]
+    evaluations = tuple(replace(template, id=split, purpose=purpose,
+        selection_eligible=split != 'test',
+        tasks=TaskSuiteSpec(suite=plugin('proteus.json_tasks', path=str(data_path)),
+            dataset_version=dataset.version, dataset_hash=content_hash(dataset), split=split,
+            task_ids=tuple(f'{split}-{i}' for i in range(count))),
+        visibility=FeedbackVisibility.HIDDEN if split == 'test' else FeedbackVisibility.OBSERVED,
+        feedback_timing='never' if split == 'test' else 'after_batch')
+        for split, purpose, count in zip(splits, ('optimization', 'validation', 'test'), sizes))
+    recipe = replace(recipe, method=plugin('proteus.compare', **CompareOptions(evaluations=splits).to_dict()),
+        subject=replace(recipe.subject, initial_artifact=artifact), evaluations=evaluations,
+        execution=replace(recipe.execution, max_workers=8),
+        budget=BudgetLimits(max_evaluations=sum(sizes), max_concurrency=8))
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    lock = registry.make_lock(recipe, [SourcePin(name='proteus',
+        repository='https://github.com/proteus-evolve/Proteus.git', revision=revision)])
+    before = time.perf_counter()
+    result = run_recipe(recipe, registry=registry, lock=lock, root=root / 'run', artifact_source=store.root)
+    elapsed = time.perf_counter() - before
+    assert result.status.value == 'completed', result.diagnostic
+    manifest = json.loads((root / 'run/manifest.json').read_text())
+    book = Ledger(root / 'run/private/ledger.sqlite3', run_id='run',
+                  config_hash=manifest['config_hash'], lock_hash=manifest['lock_hash'])
+    count = book.balance()['entries']
+    before = time.perf_counter()
+    assert run_recipe(recipe, registry=registry, lock=lock, root=root / 'run', resume=True) == result
+    recovery = time.perf_counter() - before
+    assert book.balance()['entries'] == count and book.balance()['active_slots'] == 0
+    with book._connection() as db:
+        assert book._balance(db, 'run') == book._scan_balance(db, 'run')
+    return {'split_sizes': dict(zip(splits, sizes)), 'max_workers': 8, 'task_payload_bytes': prompt_bytes,
+            'run_seconds': elapsed, 'completed_resume_seconds': recovery,
+            'journal': size(root / 'run/private/recovery'), 'run': size(root / 'run'),
+            'ledger_entries': count, 'resume_added_dispatches': 0, 'provider_calls': 0,
+            'same_completed_result': True, 'balance_matches_independent_scan': True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--mode', choices=('all', 'cohort'), default='all')
+    parser.add_argument('--cohort-sizes', type=int, nargs=3, default=[500, 300, 200])
     parser.add_argument('--examples', type=int, nargs='+', default=[80, 160, 500])
     parser.add_argument('--ledger-entries', type=int, default=5000)
     parser.add_argument('--prompt-bytes', type=int, default=8192)
@@ -122,18 +182,21 @@ def main():
               'working_tree_diff_hash': content_hash(subprocess.check_output(['git', 'diff', 'HEAD'], cwd=ROOT, text=True)),
               'scope': 'offline managed stages and accounting; no model latency or Docker performance claim',
               'stages': []}
-    for count in args.examples:
+    for count in (args.examples if args.mode == 'all' else []):
         with tempfile.TemporaryDirectory(prefix='stages-', dir=output) as folder:
             row = stage_study(Path(folder) / 'run', count, args.prompt_bytes)
         report['stages'].append(row)
         (output / 'scale.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps(row), flush=True)
-    with tempfile.TemporaryDirectory(prefix='ledger-', dir=output) as folder:
-        report['ledger'] = ledger_study(Path(folder), args.ledger_entries, args.prompt_bytes)
+    if args.mode == 'all':
+        with tempfile.TemporaryDirectory(prefix='ledger-', dir=output) as folder:
+            report['ledger'] = ledger_study(Path(folder), args.ledger_entries, args.prompt_bytes)
+    with tempfile.TemporaryDirectory(prefix='cohort-', dir=output) as folder:
+        report['cohort'] = cohort_study(Path(folder), args.cohort_sizes, args.prompt_bytes)
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     report['peak_rss_bytes'] = peak if platform.system() == 'Darwin' else peak * 1024
     (output / 'scale.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(json.dumps(report['ledger']), flush=True)
+    print(json.dumps({key: report[key] for key in ('ledger', 'cohort') if key in report}), flush=True)
 
 
 if __name__ == '__main__':
