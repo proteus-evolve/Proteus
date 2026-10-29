@@ -1,0 +1,275 @@
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	﻿2026-10-29T06:17:09.6773785Z ##[group]Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6775909Z [36;1mpip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q[0m
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6811831Z shell: /usr/bin/bash -e {0}
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6812532Z env:
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6813073Z   DSH_TAG: dsh-v0.1.0-rc.7
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6814093Z   PI_TAG: v0.84.2
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6815391Z   CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6818453Z   CELL: --arm neutral --arm review:notes --seeds 1 --episodes 2 --max-turns 10 --min-turns-per-phase 2 --announce-budget --evaluator units:notes --evaluator step@observe --evaluator tool-calls
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6821433Z   GOAL: Get better at your work, however you judge it.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6898716Z   EDIT_CELL: --arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6904747Z   EDIT_GOAL: REQUIRED TASK, do this before anything else in this session: check whether the file src/packages/coding-agent/src/cli.ts (or src/apps/cli/src/bin.ts if that is the path that exists) contains the string PROTEUS-NOTE. If it does not, immediately use your edit or write tool to insert this comment on its own line right after the shebang line: // PROTEUS-NOTE: CLI entry point; boots the agent session. Make no other change to the file. If the marker is already present, do not rewrite or touch the file. Only after this is done may you do anything else.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6909365Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6910666Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6911770Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6912747Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6913706Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6914684Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:09.6915549Z ##[endgroup]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:10.4000953Z Obtaining file:///home/runner/work/Proteus/Proteus
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:10.4015897Z   Installing build dependencies: started
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.0591853Z   Installing build dependencies: finished with status 'done'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.0596307Z   Checking if build backend supports build_editable: started
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.3659510Z   Checking if build backend supports build_editable: finished with status 'done'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.3666189Z   Getting requirements to build editable: started
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.6284427Z   Getting requirements to build editable: finished with status 'done'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.6291879Z   Preparing editable metadata (pyproject.toml): started
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.7729348Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.8567357Z Collecting zstandard>=0.21 (from proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.8951420Z   Downloading zstandard-0.25.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.3 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.9125028Z Collecting pytest>=7.0 (from proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:11.9157593Z   Downloading pytest-9.2.0-py3-none-any.whl.metadata (7.9 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1219558Z Collecting ruff==0.14.14 (from proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1269294Z   Downloading ruff-0.14.14-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (26 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1521173Z Collecting jsonschema>=4.18 (from proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1559044Z   Downloading jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1670062Z Collecting attrs>=22.2.0 (from jsonschema>=4.18->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1703499Z   Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1800667Z Collecting jsonschema-specifications>=2023.03.6 (from jsonschema>=4.18->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1833059Z   Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.1969809Z Collecting referencing>=0.28.4 (from jsonschema>=4.18->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.2004425Z   Downloading referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.3455435Z Collecting rpds-py>=0.25.0 (from jsonschema>=4.18->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.3492396Z   Downloading rpds_py-2026.9.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.3754301Z Collecting iniconfig>=2 (from pytest>=7.0->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.3785744Z   Downloading iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.3888580Z Collecting packaging>=24 (from pytest>=7.0->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.3922020Z   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4016016Z Collecting pluggy<2,>=1.6 (from pytest>=7.0->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4049355Z   Downloading pluggy-1.7.0-py3-none-any.whl.metadata (5.0 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4168362Z Collecting pygments>=2.15 (from pytest>=7.0->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4200913Z   Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4326605Z Collecting typing-extensions>=4.4.0 (from referencing>=0.28.4->jsonschema>=4.18->proteus-evolve==0.4.0)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4397939Z   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.4466155Z Downloading ruff-0.14.14-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (11.2 MB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5202656Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.2/11.2 MB 162.0 MB/s  0:00:00
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5239239Z Downloading jsonschema-4.26.0-py3-none-any.whl (90 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5297717Z Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5343841Z Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5388516Z Downloading pytest-9.2.0-py3-none-any.whl (411 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5440173Z Downloading pluggy-1.7.0-py3-none-any.whl (27 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5484049Z Downloading iniconfig-2.3.1-py3-none-any.whl (7.6 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5531122Z Downloading packaging-26.3-py3-none-any.whl (129 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5577331Z Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5624647Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 320.6 MB/s  0:00:00
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5654488Z Downloading referencing-0.37.0-py3-none-any.whl (26 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5699229Z Downloading rpds_py-2026.9.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (371 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5912849Z Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.5961653Z Downloading zstandard-0.25.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.5 MB)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.6283569Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 173.6 MB/s  0:00:00
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.6563046Z Building wheels for collected packages: proteus-evolve
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.6568863Z   Building editable for proteus-evolve (pyproject.toml): started
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.8405714Z   Building editable for proteus-evolve (pyproject.toml): finished with status 'done'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.8409635Z   Created wheel for proteus-evolve: filename=proteus_evolve-0.4.0-0.editable-py3-none-any.whl size=12985 sha256=e4814254e378185070b2da2f0b748dc0f76afcdf6f3c11935e0d11b3eb1b9899
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.8410791Z   Stored in directory: /tmp/pip-ephem-wheel-cache-jtii_n8k/wheels/bb/b5/c5/18240afb60642ee5a6d09022d36319d7bc7970923f2dd1b942
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.8428410Z Successfully built proteus-evolve
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:12.8782189Z Installing collected packages: zstandard, typing-extensions, ruff, rpds-py, pygments, proteus-evolve, pluggy, packaging, iniconfig, attrs, referencing, pytest, jsonschema-specifications, jsonschema
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:13.8988294Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:13.9001779Z Successfully installed attrs-26.1.0 iniconfig-2.3.1 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 packaging-26.3 pluggy-1.7.0 proteus-evolve-0.4.0 pygments-2.21.0 pytest-9.2.0 referencing-0.37.0 rpds-py-2026.9.1 ruff-0.14.14 typing-extensions-4.16.0 zstandard-0.25.0
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:14.0429632Z All checks passed!
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:22.9455364Z ........................................................s............... [  4%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:25.6171397Z ........................................................................ [  8%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:30.2883419Z ........................................................................ [ 12%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:38.6790732Z ........................................................................ [ 16%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:39.9070613Z ........................................................................ [ 20%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:40.1426282Z ........................................................................ [ 24%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:45.9085828Z ........................................................................ [ 28%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:17:47.3913404Z ........................................................................ [ 32%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:18:51.0005822Z ...................................ss...........s.......ssssssss........ [ 36%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:19:25.4761900Z .........s.............................................................. [ 40%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:19:49.1878243Z ....................................ss.............................sssss [ 44%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:22:55.2150165Z ...ssssss..............sssssssssss.s.s.s.s.s.s.s.s.s.s.........s.sssssss [ 48%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:22:59.9402985Z ssssssssssssss.......................................................... [ 52%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:24:16.4306232Z ..........sssssssss...........s..ss.................sssss............... [ 56%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:25:21.7375786Z .....ssssss....sssFFF................................................... [ 60%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:25:53.2931144Z ............................................s..........s................ [ 64%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:25:53.5210155Z sssssssssssss..sssssssssssssssssssssssssssssssssssssssssssssssss........ [ 68%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:26:02.9305610Z ...........s..................ssss........ss............................ [ 72%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:27:49.8373492Z ..........................................................s....sssssss.. [ 76%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:28:32.4103476Z .................................................sss.................... [ 80%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:29:20.8586182Z ................................s...s................................... [ 85%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:29:56.7782276Z ............ss.........................................sss.......ss..... [ 89%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:30:57.1252629Z ...........................................s............................ [ 93%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:09.3248098Z ........................................................................ [ 97%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6584226Z ...................s..............................                       [100%]
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6584717Z =================================== FAILURES ===================================
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6585022Z __ test_complete_gepa_loop_uses_dynamic_batches_without_unaccounted_profiling __
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6585194Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6585354Z tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_complete_gepa_loop_uses_d0')
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6585571Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6585793Z     def test_complete_gepa_loop_uses_dynamic_batches_without_unaccounted_profiling(tmp_path):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6586194Z         from test_v1_ace_method import run
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6586451Z         from test_v1_ledger import run_ledger
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6586680Z     
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6586847Z         root = tmp_path / "study"
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6587034Z >       registry, recipe = dynamic_gepa(root)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6587194Z                            ^^^^^^^^^^^^^^^^^^
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6587292Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6587386Z tests/test_v1_dynamic_batching.py:331: 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6587582Z _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6587796Z tests/test_v1_dynamic_batching.py:322: in dynamic_gepa
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6588267Z     register(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6588412Z proteus/examples/combee_gepa.py:23: in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6588582Z     register_method(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6588737Z proteus/methods/combee_gepa.py:118: in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6588901Z     register_gepa(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6589049Z proteus/methods/gepa/method.py:482: in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6589211Z     register_search(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6589362Z proteus/methods/gepa/search.py:86: in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6589600Z     policy = InstanceFrontier()  # Fail before a run if the optional reference differs.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6589827Z              ^^^^^^^^^^^^^^^^^^
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6590201Z proteus/methods/gepa/search.py:23: in __init__
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6590363Z     load_reference()
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6590645Z proteus/methods/gepa/reference.py:29: in load_reference
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6590849Z     require(spec is not None and spec.origin is not None,
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6591056Z _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6591185Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6591235Z condition = False
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6591728Z message = "optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'"
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6592082Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6592190Z     def require(condition: bool, message: str) -> None:
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6592362Z         if not condition:
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6592497Z >           raise ContractError(message)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6592980Z E           proteus.core.serialization.ContractError: optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6593411Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6593477Z proteus/core/contracts.py:25: ContractError
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6593710Z _ test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.begin] _
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6593887Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6594019Z tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_dynamic_gepa_recovery_pre0')
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6594255Z boundary = 'timing.begin'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6594334Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6594448Z     @pytest.mark.parametrize("boundary", ["timing.begin", "timing.finish"])
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6594747Z     def test_dynamic_gepa_recovery_preserves_sampling_and_charged_work(tmp_path, boundary):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6594997Z         from test_v1_ledger import run_ledger
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6595144Z     
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6595249Z         def invoke(mode):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6595501Z             return subprocess.run([sys.executable, "-c", DYNAMIC_GEPA_DRIVER, str(tmp_path / "study"), boundary, mode],
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6595808Z                                   capture_output=True, text=True, timeout=120)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6595983Z     
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6596094Z         stopped = invoke("run")
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6596286Z >       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6596514Z E       AssertionError: Traceback (most recent call last):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6596701Z E           File "<string>", line 14, in <module>
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6596977Z E           File "/home/runner/work/Proteus/Proteus/tests/test_v1_dynamic_batching.py", line 322, in dynamic_gepa
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6597244Z E             register(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6597489Z E           File "/home/runner/work/Proteus/Proteus/proteus/examples/combee_gepa.py", line 23, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6597748Z E             register_method(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6597998Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/combee_gepa.py", line 118, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6598257Z E             register_gepa(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6598501Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/method.py", line 482, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6598870Z E             register_search(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6599115Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 86, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6599444Z E             policy = InstanceFrontier()  # Fail before a run if the optional reference differs.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6599676Z E                      ^^^^^^^^^^^^^^^^^^
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6600072Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 23, in __init__
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6600415Z E             load_reference()
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6600666Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/reference.py", line 29, in load_reference
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6600988Z E             require(spec is not None and spec.origin is not None,
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6601426Z E           File "/home/runner/work/Proteus/Proteus/proteus/core/contracts.py", line 25, in require
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6601679Z E             raise ContractError(message)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6602160Z E         proteus.core.serialization.ContractError: optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6602613Z E         
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6602720Z E       assert 1 == 86
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6603239Z E        +  where 1 = CompletedProcess(args=['/opt/hostedtoolcache/Python/3.12.15/x64/bin/python', '-c', "\nimport json,os,sys\nfrom pathlib...: python -m pip install \'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975\'\n').returncode
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6603783Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6603899Z tests/test_v1_dynamic_batching.py:363: AssertionError
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6604276Z _ test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.finish] _
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6604456Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6604591Z tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_dynamic_gepa_recovery_pre1')
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6604829Z boundary = 'timing.finish'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6604912Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6605028Z     @pytest.mark.parametrize("boundary", ["timing.begin", "timing.finish"])
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6605325Z     def test_dynamic_gepa_recovery_preserves_sampling_and_charged_work(tmp_path, boundary):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6605572Z         from test_v1_ledger import run_ledger
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6605716Z     
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6605832Z         def invoke(mode):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6606086Z             return subprocess.run([sys.executable, "-c", DYNAMIC_GEPA_DRIVER, str(tmp_path / "study"), boundary, mode],
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6606388Z                                   capture_output=True, text=True, timeout=120)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6606559Z     
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6606666Z         stopped = invoke("run")
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6606860Z >       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6607086Z E       AssertionError: Traceback (most recent call last):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6607273Z E           File "<string>", line 14, in <module>
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6607543Z E           File "/home/runner/work/Proteus/Proteus/tests/test_v1_dynamic_batching.py", line 322, in dynamic_gepa
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6607807Z E             register(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6608050Z E           File "/home/runner/work/Proteus/Proteus/proteus/examples/combee_gepa.py", line 23, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6608305Z E             register_method(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6608549Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/combee_gepa.py", line 118, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6608801Z E             register_gepa(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6609043Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/method.py", line 482, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6609297Z E             register_search(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6609540Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 86, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6610372Z E             policy = InstanceFrontier()  # Fail before a run if the optional reference differs.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6610607Z E                      ^^^^^^^^^^^^^^^^^^
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6610854Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 23, in __init__
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6611103Z E             load_reference()
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6611357Z E           File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/reference.py", line 29, in load_reference
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6611655Z E             require(spec is not None and spec.origin is not None,
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6611923Z E           File "/home/runner/work/Proteus/Proteus/proteus/core/contracts.py", line 25, in require
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6612170Z E             raise ContractError(message)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6612800Z E         proteus.core.serialization.ContractError: optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6613257Z E         
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6613363Z E       assert 1 == 86
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6613865Z E        +  where 1 = CompletedProcess(args=['/opt/hostedtoolcache/Python/3.12.15/x64/bin/python', '-c', "\nimport json,os,sys\nfrom pathlib...: python -m pip install \'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975\'\n').returncode
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6614387Z 
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6614463Z tests/test_v1_dynamic_batching.py:363: AssertionError
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6614724Z =========================== short test summary info ============================
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6615650Z FAILED tests/test_v1_dynamic_batching.py::test_complete_gepa_loop_uses_dynamic_batches_without_unaccounted_profiling - proteus.core.serialization.ContractError: optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6616552Z FAILED tests/test_v1_dynamic_batching.py::test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.begin] - AssertionError: Traceback (most recent call last):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6620932Z     File "<string>", line 14, in <module>
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6621316Z     File "/home/runner/work/Proteus/Proteus/tests/test_v1_dynamic_batching.py", line 322, in dynamic_gepa
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6621588Z       register(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6621838Z     File "/home/runner/work/Proteus/Proteus/proteus/examples/combee_gepa.py", line 23, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6622093Z       register_method(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6622342Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/combee_gepa.py", line 118, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6622602Z       register_gepa(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6622849Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/method.py", line 482, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6623106Z       register_search(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6623347Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 86, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6623674Z       policy = InstanceFrontier()  # Fail before a run if the optional reference differs.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6623901Z                ^^^^^^^^^^^^^^^^^^
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6624144Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 23, in __init__
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6624386Z       load_reference()
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6624637Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/reference.py", line 29, in load_reference
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6624936Z       require(spec is not None and spec.origin is not None,
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6625228Z     File "/home/runner/work/Proteus/Proteus/proteus/core/contracts.py", line 25, in require
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6625480Z       raise ContractError(message)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6625939Z   proteus.core.serialization.ContractError: optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6626533Z   
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.6626637Z assert 1 == 86
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7518937Z  +  where 1 = CompletedProcess(args=['/opt/hostedtoolcache/Python/3.12.15/x64/bin/python', '-c', "\nimport json,os,sys\nfrom pathlib...: python -m pip install \'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975\'\n').returncode
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7519839Z FAILED tests/test_v1_dynamic_batching.py::test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.finish] - AssertionError: Traceback (most recent call last):
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7520647Z     File "<string>", line 14, in <module>
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7520969Z     File "/home/runner/work/Proteus/Proteus/tests/test_v1_dynamic_batching.py", line 322, in dynamic_gepa
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7521606Z       register(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7521864Z     File "/home/runner/work/Proteus/Proteus/proteus/examples/combee_gepa.py", line 23, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7522120Z       register_method(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7522366Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/combee_gepa.py", line 118, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7522618Z       register_gepa(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7522876Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/method.py", line 482, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7523122Z       register_search(registry)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7523362Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 86, in register
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7523682Z       policy = InstanceFrontier()  # Fail before a run if the optional reference differs.
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7523907Z                ^^^^^^^^^^^^^^^^^^
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7524157Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/search.py", line 23, in __init__
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7524403Z       load_reference()
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7524653Z     File "/home/runner/work/Proteus/Proteus/proteus/methods/gepa/reference.py", line 29, in load_reference
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7524953Z       require(spec is not None and spec.origin is not None,
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7525227Z     File "/home/runner/work/Proteus/Proteus/proteus/core/contracts.py", line 25, in require
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7525481Z       raise ContractError(message)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7525950Z   proteus.core.serialization.ContractError: optional pinned GEPA runtime is missing; install with: python -m pip install 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7526409Z   
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7526510Z assert 1 == 86
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7527004Z  +  where 1 = CompletedProcess(args=['/opt/hostedtoolcache/Python/3.12.15/x64/bin/python', '-c', "\nimport json,os,sys\nfrom pathlib...: python -m pip install \'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975\'\n').returncode
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.7527559Z 3 failed, 1587 passed, 188 skipped in 913.16s (0:15:13)
+offline	Run pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q	2026-10-29T06:32:27.9102861Z ##[error]Process completed with exit code 1.

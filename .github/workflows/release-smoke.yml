@@ -50,7 +50,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: pip install -e '.[dev,dsh,pi]' && ruff check . && pytest tests/ -q
+      - run: pip install -e '.[dev,dsh,pi]'
+      - name: Install exact optional GEPA reference for conformance tests
+        run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+      - name: Offline lint and tests
+        env:
+          PROTEUS_REQUIRE_GEPA: "1"
+        run: ruff check . && pytest tests/ -q
 
   minimal:
     needs: offline

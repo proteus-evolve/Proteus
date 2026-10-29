@@ -140,6 +140,19 @@ on [PR #106](https://github.com/proteus-evolve/Proteus/pull/106). Earlier succes
 runs are preserved but do not replace the final head. The branch release-smoke run
 and required tag gates remain separate acceptance items.
 
+The first branch live-smoke attempt, [40828273530](https://github.com/proteus-evolve/Proteus/actions/runs/40828273530),
+failed in its offline prerequisite: the workflow installed the development extras but
+omitted the exact optional GEPA reference required by three dynamic-batching cases.
+It recorded **3 failed / 1,587 passed / 188 skipped**; every downstream live job was
+skipped, so no provider call was launched by that attempt. The
+[original failure log](validation/v1-20261028/release-smoke-40828273530-failed.log)
+is retained. The workflow now installs the same pinned GEPA commit as the main CI
+matrix and sets `PROTEUS_REQUIRE_GEPA=1`; the
+[isolated regression record](validation/v1-20261028/release-smoke-dependency-recheck.json)
+separates the reproduced missing-dependency failures from the post-install checks.
+This changes workflow preparation only; the Proteus runtime tree and frozen results
+remain unchanged. A new complete live-smoke run is still required.
+
 Release remains blocked until the current preparation evidence is complete and the
 remaining research acceptance is either satisfied or explicitly scoped by maintainers.
 After that, main integration, version/tag creation and the four successful tag-triggered
