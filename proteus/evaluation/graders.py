@@ -21,14 +21,16 @@ class GradingContext:
     bypass its durable reservation. Plugins must route all model work here.
     """
 
-    def __init__(self, spec, runtime, root, *, role, binding, system=''):
+    def __init__(self, spec, runtime, root, *, role, binding, system='', capabilities=()):
         self.spec, self.runtime, self.root, self.system = spec, runtime, root, system
-        self.role, self.binding = role, binding
+        self.role, self.binding, self.capabilities = role, binding, capabilities
         self.started = False
         self.result = None
         self.input_hash = self.outcome_hash = None
 
     def actor(self, prompt, *, system='', timeout_seconds=None):
+        require(timeout_seconds is None or 'request.timeout' in self.capabilities,
+                'grading actor cannot enforce the requested transport timeout')
         require(not self.started, 'model evaluator supports one actor dispatch per grade')
         request = ActorRequest(prompt=prompt, system='\n\n'.join(value for value in (self.system, system) if value),
                                timeout_seconds=timeout_seconds)
@@ -115,6 +117,10 @@ def verify_grade(root, grade, actor, *, role, binding):
                     for key in ('model_calls', 'input_tokens', 'output_tokens', 'cost_usd')),
                 'unreported grading transport usage must stay unknown')
     require(grade.runtime.runtime == actor.runtime.plugin, 'model grade uses a different runtime role')
+    if 'result' in outcome:
+        from proteus.execution.harness_candidate import verify_subject_receipts
+        return verify_subject_receipts(root / 'work', result)
+    return []
 
 
 @dataclass(frozen=True, kw_only=True)

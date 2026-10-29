@@ -1,7 +1,8 @@
 # Harness integration, role binding and external evaluation
 
-Status: implementation audit and acceptance plan. This document does not claim that
-the missing bridges already exist. Baseline: `325ab5e` / PR #106; its engineering
+Status: registration, candidate execution, managed grading and the additional
+Native evolution profile are implemented. See [current contracts and evidence
+boundaries](../V1_HARNESS_ROLES.md). The audit below describes the original baseline. Baseline: `325ab5e` / PR #106; its engineering
 acceptance remains separate from all changes on this branch.
 
 ## Product contract
@@ -43,7 +44,9 @@ that the coding agent's own candidate state was activated.
    active execution state from editable output, and isolate every role/trial root.
 3. Route Native configurations with external evaluation through journaled candidate
    operations and the existing evaluation service. Reuse its phase protocol while
-   retaining the legacy CLI/input form through compatibility translation. Persist
+   retaining the original legacy CLI/input form unchanged. The explicit
+   `proteus.native_evolution` profile does not silently translate legacy evaluator
+   schedules, measurements or score selection. Persist
    candidate-producing actor results before evaluation so an interruption cannot
    force an unknown operation to run again.
 4. Expose external graders through the common evaluation contract, including an

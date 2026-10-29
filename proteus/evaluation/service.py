@@ -61,7 +61,8 @@ def validate_evaluation_config(recipe, registry):
         elif model:
             actor = recipe.actors[spec.actor]
             plugin = registry.get(actor.runtime.plugin, 'actor')
-            require(actor.session.value == 'fresh' and 'actor.execute' in plugin.capabilities,
+            require(actor.session.value == 'fresh' and 'actor.execute' in plugin.capabilities
+                    and 'actor.workspace' not in plugin.capabilities,
                     'model evaluator requires a fresh executable actor role')
             if recipe.budget.max_model_calls is not None or actor.budget.max_model_calls is not None:
                 require('calls.bounded' in plugin.capabilities, 'model evaluator actor lacks calls.bounded capability')
@@ -283,6 +284,10 @@ class EvaluationSession:
         self.request = StageRequest.from_dict(record["request"])
         self.protocol_hash = record["protocol_hash"]
         self.root = self.services.root / "evaluations" / content_hash(self.operation_id).split(":")[1]
+        if self.services.recipe.subject.runner.plugin.name == 'proteus.harness_subject':
+            from proteus.execution.harness_candidate import verify_subject_receipts
+            for index, observation in enumerate(self._observations):
+                verify_subject_receipts(self.root / 'trials' / f'{index:06d}', observation.rollout)
         if self.spec.actor is not None:
             from proteus.evaluation.graders import grading_binding, verify_grade
             for index in self._grades:
@@ -503,6 +508,12 @@ class EvaluationSession:
                             or (result.status not in VALID and result.usage.model_calls is None),
                             "subject actor usage mismatch")
                     result = replace(result, usage=usage)
+            if recipe.subject.runner.plugin.name == 'proteus.harness_subject':
+                from proteus.execution.harness_candidate import verify_subject_receipts
+                try:
+                    verify_subject_receipts(self.root / 'trials' / f'{index:06d}', result)
+                except Exception as exc:
+                    raise RecoveryRequired(f'harness subject receipts need reconciliation: {exc}') from exc
         except BaseException as exc:
             from proteus.core.recovery import uncertain_execution
             uncertain = uncertain_execution(exc)
@@ -607,6 +618,7 @@ class EvaluationSession:
             runtime = self.services.registry.create(actor.runtime, 'actor')
             grading_context = GradingContext(actor, runtime, self.root / 'private' / 'grader-actors' / f'{index:06d}',
                 role=self.spec.actor, binding=grading_binding(self.spec.id, rollout),
+                capabilities=self.services.registry.get(actor.runtime.plugin).capabilities,
                 system=self.services.prompts[actor.prompt_hash] if actor.prompt_hash else '')
         if is_backend:
             self._pending_grade_usage = None  # Already tracked when the trial ran.

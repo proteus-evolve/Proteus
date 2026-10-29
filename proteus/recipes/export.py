@@ -176,8 +176,11 @@ class SavedRun:
                 grade = Grade.from_dict(grade_record['grade'])
                 if spec.actor is not None:
                     from proteus.evaluation.graders import grading_binding, verify_grade
-                    verify_grade(self.root / prefix / 'private' / 'grader-actors' / f'{index:06d}', grade,
+                    grading_root = self.root / prefix / 'private' / 'grader-actors' / f'{index:06d}'
+                    grading_records = verify_grade(grading_root, grade,
                         self.recipe.actors[spec.actor], role=spec.actor, binding=grading_binding(spec.id, rollout))
+                    if grading_records:
+                        self._native_evidence(grading_root / 'work', grading_records)
                 require(grade_record['row'] == row.to_dict()
                         and (grade.status, grade.score, dict(grade.metrics)) == (row.status, row.score, dict(row.metrics)),
                         'grade row differs from original grading record')
@@ -187,6 +190,12 @@ class SavedRun:
                     require(entry['settlement']['result']['grade'] == grade.to_dict(), 'grade differs from ledger settlement')
                 prediction = prefix+f'/predictions/{index:06d}.json'
                 trial = TrialRecord.from_dict(self.read(prediction))
+                if self.recipe.subject.runner.plugin.name == 'proteus.harness_subject':
+                    from proteus.execution.harness_candidate import verify_subject_receipts
+                    native_root = self.root / prefix / 'trials' / f'{index:06d}'
+                    native_records = verify_subject_receipts(native_root, rollout)
+                    if native_records:
+                        self._native_evidence(native_root, native_records)
                 require(trial.rollout == rollout and trial.task_hash == content_hash(task) and trial.inputs == inputs,
                         'saved prediction differs from snapshot')
                 for ref in (rollout.state_before, rollout.state_after, *rollout.trace):

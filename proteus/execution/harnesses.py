@@ -32,7 +32,7 @@ class HarnessIntegration:
     def __post_init__(self):
         PluginRef(name=self.name, version='1')
         require(callable(self.factory), 'harness integration needs an adapter factory')
-        require(bool(self.options) and set(self.options) <= {'actor', 'workspace', 'native'},
+        require(bool(self.options) and set(self.options) <= {'actor', 'workspace', 'native', 'evolution'},
                 'unknown or empty harness integration roles')
         require(all(isinstance(schema, type) and issubclass(schema, Contract)
                     for schema in self.options.values()), 'harness role options must be Contract classes')
@@ -42,7 +42,9 @@ class HarnessIntegration:
         require(len(set(self.capabilities)) == len(self.capabilities), 'duplicate harness capability')
         require('workspace' not in self.options or 'harness.workspace' in self.capabilities,
                 'workspace role needs harness.workspace capability')
-        require('harness.custom_phases' in self.capabilities or not {'actor', 'workspace'} & set(self.options),
+        require('evolution' not in self.options or 'harness.candidate_tree' in self.capabilities,
+                'evolution role needs harness.candidate_tree capability')
+        require('harness.custom_phases' in self.capabilities or not {'actor', 'workspace', 'evolution'} & set(self.options),
                 'generic actor roles need harness.custom_phases capability')
         object.__setattr__(self, 'options', MappingProxyType(dict(self.options)))
 
@@ -59,7 +61,8 @@ class HarnessIntegration:
         # Legacy Native accounts at its own transport boundaries. Its validator
         # checks those bounds separately; a generic-call bound is not equivalent.
         if role != 'native' and spec.budget.max_model_calls is not None:
-            require(self.model_call_bound is not None, 'harness role lacks calls.bounded capability')
+            bound = self.model_call_bound if role != 'evolution' or self.model_call_bound == 0 else None
+            require(bound is not None, 'harness role lacks calls.bounded capability')
 
 
 class IntegratedHarnessActor(HarnessActor):
@@ -68,17 +71,24 @@ class IntegratedHarnessActor(HarnessActor):
     def __init__(self, integration, role, options):
         super().__init__(integration.name, options)
         self.integration, self.role = integration, role
-        self.supports_workspace = role == 'workspace'
-        self.model_call_bound = integration.model_call_bound
+        self.supports_workspace = role in ('workspace', 'evolution')
+        self.model_call_bound = (integration.model_call_bound
+            if role != 'evolution' or integration.model_call_bound == 0 else None)
 
     def adapter(self, spec):
         self.integration.check(self.role, spec, self.options)
         adapter = self.integration.factory(self.role, spec, self.options)
         require(adapter.name == self.integration.name, 'adapter identity differs from harness integration')
-        if self.role in ('actor', 'workspace'):
+        if self.role in ('actor', 'workspace', 'evolution'):
             require(getattr(adapter, 'supports_custom_phases', False),
                     'declared harness.custom_phases capability is not implemented')
         return adapter
+
+    def execute(self, spec, request, workspace):
+        if self.role == 'evolution':
+            from proteus.execution.harness_evolution import execute_episode
+            return execute_episode(self, spec, request, workspace)
+        return super().execute(spec, request, workspace)
 
     def model_selection(self, spec):
         if self.integration.model_selection is not None:
@@ -108,9 +118,9 @@ def register_harness(registry, integration, *, bindings=None):
                 capabilities.append('candidate.staged_activation')
         else:
             capabilities.extend(('session.fresh', 'actor.execute', 'trace.normalized'))
-            if role == 'workspace':
+            if role in ('workspace', 'evolution'):
                 capabilities.append('actor.workspace')
-            if integration.model_call_bound is not None:
+            if integration.model_call_bound is not None and (role != 'evolution' or integration.model_call_bound == 0):
                 capabilities.append('calls.bounded')
         ref = PluginRef(name=names[role], version='1')
         registry.register(Plugin(ref=ref, kind='actor', options=integration.options[role],

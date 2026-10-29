@@ -80,3 +80,11 @@ The [native adapter input records](V1_NATIVE_INPUTS.md) cover the owned submissi
 boundary; opaque internal provider messages and aggregate native costs can remain
 unavailable. [Release gates](RELEASING.md) bind the exact release tag/commit. Their
 implementation does not imply that the actual release has passed.
+
+
+The [harness role additions](V1_HARNESS_ROLES.md) keep unused new grading-role and
+workspace-control fields out of serialization. Pre-role manifests, deterministic
+grades and ordinary workspace requests therefore retain their canonical hashes.
+Regression fixtures were captured from `325ab5e`; complete saved comparison and
+workspace reports are also checked against that implementation. Source/plugin
+changes still prohibit resuming under a different lock.

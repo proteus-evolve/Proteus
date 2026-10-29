@@ -150,3 +150,25 @@ def test_unknown_candidate_dispatch_retains_role_reservation_and_cannot_repeat(t
     started = [row for row in entries if row['identity']['metadata']['kind'] == 'subject']
     assert len(started) == 1 and started[0]['state'] == 'started'
     assert started[0]['identity']['scopes'] == ['role:target', 'run']
+
+
+def test_harness_subject_receipt_tampering_blocks_export_and_completed_resume(tmp_path, monkeypatch):
+    from proteus.core.native_inputs import input_directory
+    from proteus.recipes.export import report_run
+    monkeypatch.setenv('PROTEUS_HARNESS_CANDIDATE_KEY', 'fixture')
+    with state_driven_provider() as (url, calls):
+        registry, store, _, recipe = configured(tmp_path, url)
+        lock = registry.make_lock(recipe, [SOURCE])
+        result = run_recipe(recipe, registry=registry, lock=lock, root=tmp_path / 'run', artifact_source=store.root)
+        assert result.status == OperationStatus.COMPLETED
+        assert report_run(tmp_path / 'run')['accounting']['actual']['model_calls'] == 2
+        trial = next((tmp_path / 'run').glob('evaluations/*/trials/000000'))
+        path = next(input_directory(trial).glob('*.outcome.json'))
+        raw = json.loads(path.read_text())
+        raw['usage']['reported']['input_tokens'] = 999
+        path.write_text(json.dumps(raw))
+        with pytest.raises(ContractError):
+            report_run(tmp_path / 'run')
+        with pytest.raises(ContractError):
+            run_recipe(recipe, registry=registry, lock=lock, root=tmp_path / 'run', resume=True)
+        assert len(calls) == 2

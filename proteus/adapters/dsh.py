@@ -238,6 +238,11 @@ class DshHarness:
             (harness_root / sub).mkdir(exist_ok=True)
         self._extract_self_code(harness_root / "src")
 
+    def prepare_candidate(self, harness_root: Path) -> None:
+        """Restore empty surface directories without reseeding candidate files."""
+        for sub in ('notes', 'tools'):
+            (harness_root / sub).mkdir(parents=True, exist_ok=True)
+
     def _extract_self_code(self, dest: Path) -> None:
         """Unpack the source the image was built from into `dest` (episode-0 state).
 

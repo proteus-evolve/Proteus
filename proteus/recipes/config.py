@@ -137,6 +137,12 @@ class EvaluationSpec(Contract):
     selection_eligible: bool = True
     allow_supervision: bool = False
 
+    def to_dict(self):
+        value = super().to_dict()
+        if self.actor is None:
+            value.pop('actor')  # Preserve pre-grading-role configuration hashes.
+        return value
+
     def _validate(self):
         require((self.visibility == FeedbackVisibility.HIDDEN) == (self.feedback_timing == "never"),
                 "hidden feedback uses never; observed feedback needs an explicit timing")

@@ -80,7 +80,7 @@ def test_existing_builtin_names_use_same_registration_flow_and_explicit_roles():
     matrix = harness_support_matrix(registry)
     assert set(matrix) == {'minimal', 'llm', 'pi', 'dsh', 'codex'}
     assert set(matrix['minimal']) == {'actor', 'native'}
-    assert set(matrix['pi']) == {'actor', 'native', 'workspace', 'subject'}
+    assert set(matrix['pi']) == {'actor', 'native', 'workspace', 'subject', 'evolution'}
     assert matrix['pi']['workspace']['plugin']['name'] == 'proteus.workspace.pi'
     assert matrix['dsh']['native']['plugin']['name'] == 'proteus.native.dsh'
 
@@ -109,3 +109,15 @@ def test_registry_snapshot_and_lock_retain_external_integration_identity():
         implementation_hash='sha256:' + '2' * 64))
     with pytest.raises(ContractError, match='differ from lock'):
         wrong.check_lock(wrong.resolve(recipe), lock)
+
+
+@pytest.mark.parametrize('role', ('workspace', 'evolution'))
+def test_workspace_protocol_cannot_be_bound_to_a_plain_prompt_stage(role):
+    from proteus.examples.harness_roles import register
+    registry = builtin_registry()
+    refs = register(registry)
+    recipe = stage_recipe()
+    recipe = replace(recipe, budget=BudgetLimits(), actors={'optimizer': replace(recipe.actors['optimizer'],
+        model=None, budget=BudgetLimits(), runtime=PluginSpec(plugin=refs[role]))})
+    with pytest.raises(ContractError, match='requires a harness actor binding'):
+        registry.resolve(recipe)

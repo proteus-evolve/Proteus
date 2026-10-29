@@ -63,6 +63,12 @@ class Grade(Contract):
     diagnostic: str = ""
     runtime: RuntimeIdentity | None = None
 
+    def to_dict(self):
+        value = super().to_dict()
+        if self.runtime is None:
+            value.pop('runtime')  # Old deterministic grading records keep their bytes.
+        return value
+
     def _validate(self):
         EvaluationRow(rollout_id="validation", task_id="validation", status=self.status,
                       score=self.score, metrics=self.metrics)

@@ -22,6 +22,7 @@ class WorkspaceService:
         require(type(request) is WorkspaceInput, 'workspace request must be typed')
         seeds = [self.services.values.get(ref) for ref in operation.inputs.values()
                  if ref.kind == 'proteus.artifact_ref@1']
+        require(request.active_seed is None or request.active_seed in seeds, 'active seed was not supplied to this stage')
         require(request.seed in seeds, 'workspace seed was not supplied to this stage')
         require(request.history in operation.inputs.values(), 'workspace history was not supplied to this stage')
         view = self.services.values.get(request.history)
@@ -39,6 +40,8 @@ class WorkspaceService:
         require(not task.exists() and not task.is_symlink(), 'coding actor needs a fresh task workspace')
         task.mkdir()
         self.services.artifacts.materialize(request.seed, task / 'input')
+        if request.active_seed is not None:
+            self.services.artifacts.materialize(request.active_seed, task / 'active')
         self.evidence.store.materialize(request.history, task / 'history')
         (task / 'output').mkdir()
         (task / 'scratch').mkdir()
@@ -51,13 +54,16 @@ class WorkspaceService:
         task = Path(workspace) / 'task'
         require(task.is_dir() and not task.is_symlink(), 'coding task workspace was replaced')
         self.services.artifacts.verify_tree(request.seed, task / 'input')
+        if request.active_seed is not None:
+            self.services.artifacts.verify_tree(request.active_seed, task / 'active')
         self.evidence.store.verify_materialized(request.history, task / 'history')
         if result.status != OperationStatus.COMPLETED:
             return result
         files = ArtifactStore.read_tree(task / 'output', max_bytes=request.max_output_bytes,
                                        max_files=request.max_output_files)
         require(bool(files), 'coding actor completed without output files')
-        artifact = self.services.artifacts.put(request.seed.codec, files)
+        artifact = self.services.artifacts.put(request.seed.codec, files, runtime=request.seed.runtime,
+            environment_hash=request.seed.environment_hash)
         return replace(result, workspace_artifact=artifact)
 
     def verify_result(self, request, result):

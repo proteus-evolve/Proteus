@@ -121,6 +121,11 @@ class CodexHarness:
             (harness_root / sub).mkdir(parents=True, exist_ok=True)
         self._extract_self_code(harness_root / "src")
 
+    def prepare_candidate(self, harness_root: Path) -> None:
+        """Restore empty surface directories without reseeding candidate files."""
+        for sub in ('notes', 'tools', '.agents/skills'):
+            (harness_root / sub).mkdir(parents=True, exist_ok=True)
+
     def _extract_self_code(self, dest: Path) -> None:
         if dest.exists() and any(dest.iterdir()):
             return

@@ -18,6 +18,10 @@ not establish reproduced paper scores, collaboration gains or recursive returns.
 The [implementation plan](plans/proteus-1.0.0-implementation-plan.md) retains the
 full experiment and release acceptance requirements.
 
+The [harness role bridge](V1_HARNESS_ROLES.md) documents source-bound integration,
+materialized evolving candidates, independent model graders and the additional
+journaled Native evolution profile, including its present container coverage gap.
+
 ## Architecture
 
 ```mermaid

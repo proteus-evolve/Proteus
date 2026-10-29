@@ -1,0 +1,104 @@
+{
+  "source_commit": "325ab5edb056f592209e23116e6ffabcb87ec9e8",
+  "evaluation": {
+    "allow_supervision": false,
+    "evaluator": {
+      "options": {
+        "schema_version": 1
+      },
+      "plugin": {
+        "name": "proteus.exact_match",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "feedback_timing": "after_batch",
+    "id": "validation",
+    "purpose": "validation",
+    "schema_version": 1,
+    "selection_eligible": true,
+    "tasks": {
+      "dataset_hash": "sha256:1c7a4552a6a7738904ed23c233ce7c18262fe133638cc3f230684c3b55f65466",
+      "dataset_version": "offline-double-v1",
+      "order": "declared",
+      "schema_version": 1,
+      "seed": 0,
+      "split": "validation",
+      "suite": {
+        "options": {
+          "path": "/private/tmp/proteus-role-old-reader-fixtures/workspace/study/tasks.json",
+          "schema_version": 1
+        },
+        "plugin": {
+          "name": "proteus.json_tasks",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "requires": [],
+        "schema_version": 1
+      },
+      "task_ids": [
+        "two",
+        "three"
+      ]
+    },
+    "visibility": "observed"
+  },
+  "grade": {
+    "diagnostic": "",
+    "feedback": {
+      "schema_version": 1,
+      "value": {
+        "correct": false,
+        "reference": 4
+      }
+    },
+    "metrics": {
+      "exact_match": 0.0
+    },
+    "schema_version": 1,
+    "score": 0.0,
+    "status": "task_failed",
+    "usage": {
+      "cost_usd": 0.0,
+      "input_tokens": 0,
+      "model_calls": 0,
+      "output_tokens": 0,
+      "schema_version": 1,
+      "wall_seconds": 0.0039899153634905815
+    }
+  },
+  "workspace": {
+    "schema_version": 1,
+    "seed": {
+      "schema_version": 1,
+      "content_hash": "sha256:a39ea27c2e0dd0451ef4aea7fcf85d9cffbe88e5a30861fd96ae42ace4363e10",
+      "codec": {
+        "schema_version": 1,
+        "name": "proteus.file_tree",
+        "version": "1"
+      },
+      "components": [
+        {
+          "schema_version": 1,
+          "path": "main.py",
+          "content_hash": "sha256:0229417c3a67a7cd000a662b0ae5c03bb8f10669b214ddb269edf8e41a78a6dd",
+          "size_bytes": 117,
+          "executable": false
+        }
+      ],
+      "runtime": null,
+      "environment_hash": null
+    },
+    "history": {
+      "schema_version": 1,
+      "kind": "proteus.evidence.view@1",
+      "id": "sha256:20e2e701073bd5aeb5b5c22eaeed0a231e905187f1a2647032636f4b12ddb520",
+      "content_hash": "sha256:b19e0b017ca7c6c50f4a9bb557d8b9b610ce4583dd8d32c2296bfea0ff8d10e2"
+    },
+    "max_output_bytes": 8388608,
+    "max_output_files": 256
+  }
+}

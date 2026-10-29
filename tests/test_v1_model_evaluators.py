@@ -180,3 +180,41 @@ def test_grader_role_prompt_is_not_added_to_public_actor_records(tmp_path, monke
         _, records, _, _ = execute(tmp_path, registry, store, recipe)
     assert len(prompts) == 1 and SECRET in prompts[0]
     assert records['actor_calls'] == [] and SECRET not in json.dumps(records)
+
+
+def test_grading_harness_native_receipts_are_verified_privately(tmp_path, monkeypatch):
+    from proteus.core.native_inputs import input_directory
+    monkeypatch.setenv('PROTEUS_PRIVATE_GRADER_KEY', 'fixture')
+    with endpoint([response('{"score":1}')]) as url:
+        registry, store, recipe = configured(tmp_path, url)
+        recipe = replace(recipe, actors={'judge': replace(recipe.actors['judge'],
+            runtime=plugin('proteus.harness.llm', base_url=url, key_env='PROTEUS_PRIVATE_GRADER_KEY'))})
+        lock = registry.make_lock(recipe, [SOURCE])
+        result = run_recipe(recipe, registry=registry, lock=lock, root=tmp_path / 'run', artifact_source=store.root)
+        assert result.status == OperationStatus.COMPLETED, result.diagnostic
+        owner = report_run(tmp_path / 'run', include_private=True)
+        assert owner['tasks'][0]['score'] == 1
+        public = report_run(tmp_path / 'run')
+        assert SECRET not in json.dumps(public)
+        work = next((tmp_path / 'run').glob('evaluations/*/private/grader-actors/*/work'))
+        path = next(input_directory(work).glob('*.outcome.json'))
+        raw = json.loads(path.read_text())
+        raw['usage']['reported']['output_tokens'] = 999
+        path.write_text(json.dumps(raw))
+        with pytest.raises(ContractError):
+            report_run(tmp_path / 'run')
+        with pytest.raises(ContractError):
+            run_recipe(recipe, registry=registry, lock=lock, root=tmp_path / 'run', resume=True)
+
+
+def test_grading_context_rejects_unsupported_timeout_before_dispatch(tmp_path):
+    from proteus.evaluation.graders import GradingContext
+    class Never:
+        def execute(self, *args):
+            pytest.fail('unsupported timeout must not reach runtime')
+    spec = ActorSpec(runtime=plugin('proteus.echo'))
+    context = GradingContext(spec, Never(), tmp_path / 'private-grader', role='judge', binding={})
+    with pytest.raises(ContractError, match='transport timeout'):
+        context.actor('test', timeout_seconds=1)
+    assert not context.started and context.usage().model_calls == 0
+    assert not context.root.exists()

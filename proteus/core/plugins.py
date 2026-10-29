@@ -143,6 +143,13 @@ class Registry:
             if 'stage.workspace' in plugin.capabilities:
                 require('actor.workspace' in actor_plugin.capabilities,
                         'workspace stage requires a workspace-capable actor')
+            harness_roles = [cap.removeprefix('harness.role.') for cap in actor_plugin.capabilities
+                             if cap.startswith('harness.role.')]
+            if harness_roles:
+                expected = ('evolution' if 'stage.harness_episode' in plugin.capabilities else
+                            'workspace' if 'stage.workspace' in plugin.capabilities else 'actor')
+                require(harness_roles == [expected],
+                        f'{stage.id} requires a harness {expected} binding; got {harness_roles}')
             if any(budget.max_model_calls is not None for budget in
                    (recipe.budget, recipe.actors[stage.role].budget, stage.budget)):
                 require("calls.bounded" in actor_plugin.capabilities,

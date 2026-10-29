@@ -92,6 +92,7 @@ def validate_subject(recipe, options, registry):
     plugin = registry.get(actor.runtime.plugin, 'actor')
     require({'actor.execute', 'harness.candidate_tree'} <= set(plugin.capabilities),
             'target role lacks harness.candidate_tree execution capability')
+    require('actor.workspace' not in plugin.capabilities, 'target role must execute candidates, not a coding workspace')
     require(actor.session.value == 'fresh', 'harness trials require fresh target-role instances')
     require(recipe.execution.timeout_seconds is None or 'request.timeout' in plugin.capabilities,
             'harness role cannot enforce the declared per-request execution timeout')
@@ -128,14 +129,22 @@ class HarnessSubject:
             result = runtime.execute_candidate(context.role_spec, request, lease.handle['root'])
         except ActorFailed as exc:
             result = exc.result
-        files = ArtifactStore.read_tree(lease.local_root,
-            max_bytes=sum(item.size_bytes for item in effective.components) + 8 * 1024 * 1024,
-            max_files=len(effective.components) + 256)
-        output = files.get(options.output_file)
         status, prediction = Outcome.SUCCEEDED, None
         diagnostic = result.diagnostic
+        output = None
+        try:
+            files = ArtifactStore.read_tree(lease.local_root,
+                max_bytes=sum(item.size_bytes for item in effective.components) + 8 * 1024 * 1024,
+                max_files=len(effective.components) + 256)
+            output = files.get(options.output_file)
+        except Exception as exc:
+            # Output validation failed after measured execution. Retain its usage
+            # and receipt identity instead of converting the work to unknown/zero.
+            status, diagnostic = Outcome.INFRA_ERROR, f'{type(exc).__name__}: {exc}'
         if result.status.value != 'completed':
             status = Outcome.INFRA_ERROR
+        elif status == Outcome.INFRA_ERROR:
+            pass
         elif output is None:
             status, diagnostic = Outcome.TASK_FAILED, 'harness did not produce the declared prediction file'
         else:
@@ -153,3 +162,22 @@ class HarnessSubject:
                             settings={**result.runtime.settings, 'harness_candidate': identity}),
             status=status, output=prediction, state=context.state, trace=Trace(events=result.trace),
             usage=result.usage, diagnostic=diagnostic)
+
+
+def verify_subject_receipts(root, result):
+    """Verify target-role measurements without constructing/running the adapter."""
+    from proteus.execution.harness_usage import INFERENCE, collect
+    from proteus.core.serialization import json_value
+    marker = result.runtime.settings.get('native_usage')
+    if marker is None:
+        return []
+    from proteus.core.native_inputs import input_directory
+    directory = input_directory(root)
+    require(all(not p.is_symlink() for p in (root, directory, directory.parent)),
+            'harness subject evidence directory cannot be a symlink')
+    require(marker.get('version') == 1, 'subject native usage must describe one act trial')
+    usage, expected, records = collect(root, marker['backend'])
+    require(expected is not None and json_value(marker) == expected, 'harness subject usage evidence differs')
+    require(all(getattr(result.usage, key) == getattr(usage, key) for key in INFERENCE),
+            'harness subject usage differs from native receipts')
+    return records

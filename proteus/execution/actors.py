@@ -212,6 +212,7 @@ class HarnessActor:
             harness.mkdir(exist_ok=True)
             adapter.seed(harness, self.options.seed)
         if self.supports_workspace:
+            require(request.workspace.episode is None, 'ordinary workspace actor cannot execute an evolution episode')
             require(all((workspace / 'task' / name).is_dir() for name in ('input', 'history', 'output', 'scratch')),
                     'coding workspace was not prepared by the service')
             # This actor optimizes a supplied system, not its own runtime. Do not
