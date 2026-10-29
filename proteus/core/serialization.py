@@ -147,9 +147,13 @@ def _constraints(value, metadata, path):
     for key, bound in metadata.items():
         failed = (
             (key == "minimum" and value < bound)
+            or (key == "maximum" and value > bound)
             or (key == "exclusiveMinimum" and value <= bound)
+            or (key == "exclusiveMaximum" and value >= bound)
             or (key == "minLength" and len(value) < bound)
+            or (key == "maxLength" and len(value) > bound)
             or (key == "minItems" and len(value) < bound)
+            or (key == "maxItems" and len(value) > bound)
             or (key == "pattern" and re.search(bound, value) is None)
             or (key == "uniqueItems" and bound
                 and len({canonical_json(item) for item in value}) != len(value))

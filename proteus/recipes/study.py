@@ -102,6 +102,7 @@ def _mask(value, pointer):
 def compare_runs(spec, *, base='.', include_private=False):
     require(type(spec) is StudySpec, 'comparison requires a typed StudySpec')
     rows, manifests = [], {}
+    randomizations = defaultdict(list)
     identities, protocols = set(), defaultdict(list)
     conditions = defaultdict(list)
     for case in spec.cases:
@@ -116,6 +117,15 @@ def compare_runs(spec, *, base='.', include_private=False):
         require(manifest.manifest_hash == identity and manifest.recipe.seed == case.seed,
                 'case seed or run manifest differs')
         manifests[identity] = manifest
+        # Seeds may differ from the outer replicate index, but each paired case
+        # must use the same explicit mapping. Masking variations cannot erase it.
+        randomization = {
+            'recipe_seed': manifest.recipe.seed,
+            'execution_seed': manifest.recipe.execution.seed,
+            'evaluation_seeds': {item.id: item.tasks.seed for item in manifest.recipe.evaluations},
+            'task_seed': manifest.recipe.tasks.seed if manifest.recipe.tasks is not None else None,
+        }
+        randomizations[case.seed].append(content_hash(randomization))
         selected = []
         target_protocol = []
         for evaluation_id in case.evaluation_ids:
@@ -156,12 +166,15 @@ def compare_runs(spec, *, base='.', include_private=False):
             'continuous_run_seconds': report['timing']['continuous_run_seconds'],
             'controller_seconds': report['timing']['controller_seconds'],
             'timing_coverage': report['timing']['coverage'],
-            'configuration_fingerprint': condition_hash, 'declared_variations': variation_hashes}
+            'configuration_fingerprint': condition_hash, 'declared_variations': variation_hashes,
+            'randomization': randomization}
         rows.append(row)
     for name, values in conditions.items():
         require(len({item[0] for item in values}) == 1, 'condition changes more than seeds or data locations: '+name)
         require(len({item[1] for item in values}) == 1, 'condition source/plugin/package lock changes across seeds: '+name)
     if spec.mode == 'controlled':
+        require(all(len(set(values)) == 1 for values in randomizations.values()),
+                'controlled paired cases use different execution/task seed mappings')
         require(all(len(set(values)) == 1 for values in protocols.values()),
                 'controlled conditions use different final task/metric/state protocols')
         fingerprints = {content_hash(value[2]) for values in conditions.values() for value in values}
@@ -198,7 +211,7 @@ def compare_runs(spec, *, base='.', include_private=False):
                            'quality_delta': _stats([row['quality_delta'] for row in per_seed])})
     payload = {'schema_version': 1, 'study': spec.to_dict(), 'study_hash': content_hash(spec),
         'include_private': include_private, 'rows': rows, 'summaries': summaries, 'paired_deltas': deltas,
-        'comparison_semantics': 'configurations match except declared variations, names, seeds and pinned JSON data locations'
+        'comparison_semantics': 'configurations match except declared variations, names and pinned JSON data locations; seed mappings match within every paired replicate'
             if spec.mode == 'controlled' else 'descriptive reference profiles; no matched-condition or baseline-delta claim',
         'notes': ['Quality aggregates only the explicitly selected final-test cohorts.',
                   'Incomplete/hidden scores and unknown costs keep the whole aggregate unavailable.',

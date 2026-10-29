@@ -236,7 +236,8 @@ class RunServices:
 
     def snapshot(self):
         return {"run_id": self.run_id, "config_hash": self.recipe.config_hash, "lock_hash": self.lock_hash,
-            "values": self.values.export(), "candidates": self.candidates, "rollouts": self.rollouts,
+            "values": [{"ref": ref, "value": value} for ref, value in self.values._values.values()],
+            "candidates": self.candidates, "rollouts": self.rollouts,
             "evaluations": self.evaluations, "requests": self.requests, "results": self.results,
             "actor_calls": self.actor_calls, "native_prompts": getattr(self, "native_prompts", []),
             "operations": sorted(self._operations), "actor_ordinals": [[key, value] for key, value in self._actor_ordinals.items()],
@@ -433,6 +434,7 @@ class RunServices:
         started = time.monotonic()
         result = None
         error = None
+        uncertain = False
         try:
             workspace.mkdir(parents=True, exist_ok=recovering)
             if workspace_input is not None:
@@ -452,6 +454,8 @@ class RunServices:
             workspaces.verify_result(workspace_input, result)
             return result
         except BaseException as exc:
+            from proteus.core.recovery import uncertain_execution
+            uncertain = uncertain_execution(exc)
             if isinstance(exc, ActorFailed) and type(exc.result) is ActorResult:
                 result = exc.result
                 record['result'] = result.to_dict()
@@ -463,7 +467,7 @@ class RunServices:
                 record["usage"] = Usage(model_calls=0, input_tokens=0, output_tokens=0,
                                         cost_usd=0, wall_seconds=0).to_dict()
                 self.ledger.settle(call_id, actual=Amounts.zero(), status="cancelled", result=record)
-            else:
+            elif not uncertain:
                 usage = result.usage if type(result) is ActorResult else Usage()
                 usage = replace(usage, wall_seconds=record["wall_seconds"])
                 record["usage"] = usage.to_dict()

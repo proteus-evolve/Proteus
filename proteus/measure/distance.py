@@ -14,7 +14,6 @@ surfaces start empty and endpoint distance saturates after the first episode.
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -137,14 +136,6 @@ class SurfaceDelta:
         """Of what moved, the fraction that was revision/removal rather than accumulation."""
         moved = self.added + self.dropped + self.revised
         return 0.0 if not moved else (self.dropped + self.revised) / moved
-
-
-def _sim(a: str, b: str) -> float:
-    ta = set(re.findall(r"[a-z0-9_]{3,}", a.lower()))
-    tb = set(re.findall(r"[a-z0-9_]{3,}", b.lower()))
-    if not ta or not tb:
-        return 1.0 if ta == tb else 0.0
-    return len(ta & tb) / len(ta | tb)
 
 
 def delta(a: dict[str, str], b: dict[str, str], surface: str) -> SurfaceDelta:

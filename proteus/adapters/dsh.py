@@ -454,7 +454,7 @@ class DshHarness:
                     spec, phase, used, phase_start_used=start_used)]
                 command = source_command(spec, active, command)
                 with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
-                                  payload=command, model=spec.model or self.model) as receipt:
+                                  payload=command, model=self.model) as receipt:
                     proc = None
                     try:
                         proc = self.sandbox.run(

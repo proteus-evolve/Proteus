@@ -403,6 +403,7 @@ class EvaluationSession:
         result = None
         rejected_result = None
         subject_dispatched = False
+        uncertain = False
         build_elapsed = 0.0
         def build(artifact, spec, base_image):
             nonlocal build_elapsed
@@ -465,9 +466,11 @@ class EvaluationSession:
                             or (result.status not in VALID and result.usage.model_calls is None),
                             "subject actor usage mismatch")
                     result = replace(result, usage=usage)
-        except RecoveryRequired:
-            raise
-        except Exception as exc:
+        except BaseException as exc:
+            from proteus.core.recovery import uncertain_execution
+            uncertain = uncertain_execution(exc)
+            if uncertain:
+                raise
             rejected_result = result if type(result) is SubjectResult else None
             fallback_usage = Usage() if subject_dispatched else zero_usage()
             usage = services._usage(first_actor) if len(services.actor_calls) > first_actor else (
@@ -483,13 +486,14 @@ class EvaluationSession:
             fallback_usage = Usage() if subject_dispatched else zero_usage()
             observed = result.usage if type(result) is SubjectResult else fallback_usage
             self._pending_usage = observed
-            services.ledger.settle(subject_entry, actual=Amounts.zero() if managed else Amounts.from_usage(observed),
-                status="completed" if type(result) is SubjectResult and result.status in VALID else "failed",
-                result={"usage": observed, "delegates_usage_to_actor": managed,
-                        "status": result.status if type(result) is SubjectResult else "interrupted",
-                        "rejected_result": rejected_result, "subject_result": result,
-                        "subject_dispatched": subject_dispatched})
-            if verifier_entry is not None:
+            if not uncertain:
+                services.ledger.settle(subject_entry, actual=Amounts.zero() if managed else Amounts.from_usage(observed),
+                    status="completed" if type(result) is SubjectResult and result.status in VALID else "failed",
+                    result={"usage": observed, "delegates_usage_to_actor": managed,
+                            "status": result.status if type(result) is SubjectResult else "interrupted",
+                            "rejected_result": rejected_result, "subject_result": result,
+                            "subject_dispatched": subject_dispatched})
+            if verifier_entry is not None and not uncertain:
                 evidence_result = rejected_result or result
                 backend = evidence_result.backend_evaluation if type(evidence_result) is SubjectResult else None
                 self._backend_usage[index] = backend.usage if backend else fallback_usage
@@ -594,7 +598,11 @@ class EvaluationSession:
                     grade = grader.grade(self.batch.tasks[index], rollout, self._references[rollout.task_id])
                     require(type(grade) is Grade and grade.usage.model_calls == 0,
                             "deterministic evaluator must return Grade with zero model calls")
+            except RecoveryRequired:
+                raise
             except (Exception, SystemExit) as exc:
+                # A deterministic grader's explicit exit is a private failed grade.
+                # Keyboard interruption and unknown external work remain unsettled.
                 grade = Grade(status=Outcome.INFRA_ERROR, score=None,
                               usage=self._backend_usage[index] if is_backend else (
                                   grade.usage if type(grade) is Grade else Usage()),

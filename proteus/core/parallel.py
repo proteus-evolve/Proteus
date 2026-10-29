@@ -339,10 +339,9 @@ class StageMap:
             result = exc.result
         except RecoveryRequired:
             raise
-        except (Exception, SystemExit) as exc:
-            # A constructor failure or an actor's settled SystemExit is a known
-            # failed branch. Preserve the request and actual/unknown usage;
-            # neither implies that external work has an unsettled receipt.
+        except Exception as exc:
+            # Ordinary constructor failures are known outcomes. Interruptions
+            # propagate without a branch receipt or permission to retry actors.
             spec = next(s for s in parent.recipe.stages if s.id == job.stage)
             if not branch.requests:
                 branch.requests.append(

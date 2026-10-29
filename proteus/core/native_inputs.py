@@ -90,6 +90,9 @@ def native_input(spec, *, backend, phase, scope, payload, model=None):
     try:
         yield receipt
     except BaseException as exc:
+        from proteus.core.recovery import uncertain_execution
+        if uncertain_execution(exc):
+            raise  # No terminal receipt exists; NativeBudget retains its reservation.
         publish_outcome(status='raised', error_type=type(exc).__name__)
         raise
     else:
