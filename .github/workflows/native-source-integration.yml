@@ -101,27 +101,49 @@ jobs:
       - name: Install pinned GEPA for explicitly requested live role pilot
         if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
-      - name: Live Native and GEPA minimum cycles through the new harness roles
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
+      - name: Live Native one-episode harness evolution
+        id: live_native
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
+        continue-on-error: true
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
+            --backend "$BACKEND" --image "$IMAGE" --method native --out "$OUT/live-native" \
+            2>&1 | tee "$OUT/live-native.log"
+      - name: Live GEPA one-mutation harness policy evolution
+        id: live_gepa
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'native'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
+            --backend "$BACKEND" --image "$IMAGE" --method gepa --out "$OUT/live-gepa" \
+            2>&1 | tee "$OUT/live-gepa.log"
+      - name: Require each selected live cell to pass
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
+        env:
+          NATIVE_OUTCOME: ${{ steps.live_native.outcome }}
+          GEPA_OUTCOME: ${{ steps.live_gepa.outcome }}
           PILOT_METHODS: ${{ inputs.pilot_methods || 'both' }}
         shell: bash
         run: |
-          set -uo pipefail
-          test -n "$DEEPSEEK_API_KEY" || exit 1
-          status=0
-          methods="$PILOT_METHODS"
-          if [ "$methods" = pi-gepa-dsh-both ]; then
-            if [ "$BACKEND" = pi ]; then methods=gepa; else methods=both; fi
-          fi
-          if [ "$methods" = both ]; then methods="native gepa"; fi
-          for method in $methods; do
-            timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
-              --backend "$BACKEND" --image "$IMAGE" --method "$method" --out "$OUT/live-$method" \
-              2>&1 | tee "$OUT/live-$method.log" || status=1
-          done
-          exit "$status"
+          python - <<'PY'
+          import os
+          methods = os.environ['PILOT_METHODS']
+          native = methods != 'gepa' and (methods != 'pi-gepa-dsh-both' or os.environ['BACKEND'] == 'dsh')
+          gepa = methods != 'native'
+          for selected, name in ((native, 'NATIVE_OUTCOME'), (gepa, 'GEPA_OUTCOME')):
+              if selected and os.environ[name] != 'success':
+                  raise RuntimeError(f'{name}: {os.environ[name]}; selected live cell did not pass')
+          PY
       - name: Exclude credential stores from live artifact upload and check for secret bytes
         if: always() && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
         env:

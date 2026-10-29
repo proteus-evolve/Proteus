@@ -5,6 +5,9 @@ actual pinned Pi and DeepSeek Harness source images and a real DeepSeek model.
 It is a mechanism check on synthetic formatting tasks, not a benchmark result or
 a matched reproduction of any paper. No tool action or model reply is mocked.
 
+See [`RESULTS.md`](RESULTS.md) for source-bound outcomes, original failures and
+acceptance boundaries; [`results.json`](results.json) contains compact evidence.
+
 ## Four cells
 
 | Target harness | Method | Optimized artifact | Acceptance |
