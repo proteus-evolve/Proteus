@@ -28,7 +28,9 @@ def check():
             'initial', 'episode-2', 'episode-3', 'episode-3']
         assert len(records['actor_calls']) == 3
         public, owner = report_run(root / 'run'), report_run(root / 'run', include_private=True)
-        assert [row['score'] for row in owner['tasks']] == [0, 1, 1, 1]
+        assert {(row['candidate_id'], row['purpose']): row['score'] for row in owner['tasks']} == {
+            ('initial', 'optimization'): 0, ('episode-2', 'optimization'): 1,
+            ('episode-3', 'optimization'): 1, ('episode-3', 'test'): 1}
         assert owner['accounting']['actual']['model_calls'] == 0
         assert owner['accounting']['actual']['evaluations'] == 4
         assert next(row['score'] for row in public['tasks'] if row['visibility'] == 'hidden') is None
