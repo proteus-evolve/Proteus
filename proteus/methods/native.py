@@ -53,7 +53,7 @@ class NativeSummary(Contract):
     counters: Mapping[str, Any]
 
 
-def validate_native(recipe, options):
+def validate_native(recipe, options, registry=None):
     require(set(recipe.actors) == {options.actor}, "native recipe requires exactly its bound actor")
     require(not recipe.stages and recipe.subject is None and recipe.tasks is None
             and recipe.execution is None and not recipe.evaluations and not recipe.search,
@@ -63,17 +63,25 @@ def validate_native(recipe, options):
     supported_budget(actor.budget)
     from proteus.core.native_budget import validate
     validate(recipe, options)
-    require(actor.runtime.plugin.name.startswith("proteus.native."), "native recipe needs a native harness binding")
     require(actor.prompt_hash is None, "native recipe prompts are declared in native phase_prompts")
-    from proteus.execution.actors import harness_class
-    name = actor.runtime.plugin.name.removeprefix("proteus.native.")
-    cls = harness_class(name)
-    mode = {"none": "fresh", "framework": "handoff", "native": "native"}[
-        getattr(cls, "continuity_mode", "native")]
+    runtime = registry.create(actor.runtime, 'actor') if registry is not None else None
+    integration = getattr(runtime, 'integration', None)
+    if integration is not None:
+        require(runtime.role == 'native', 'native recipe needs a native harness binding')
+        mode = integration.continuity
+        custom_phases = 'harness.custom_phases' in integration.capabilities
+    else:
+        require(actor.runtime.plugin.name.startswith("proteus.native."), "native recipe needs a native harness binding")
+        from proteus.execution.actors import harness_class
+        name = actor.runtime.plugin.name.removeprefix("proteus.native.")
+        cls = harness_class(name)
+        mode = {"none": "fresh", "framework": "handoff", "native": "native"}[
+            getattr(cls, "continuity_mode", "native")]
+        custom_phases = getattr(cls, "supports_custom_phases", False)
     require(actor.session.value == mode, "native actor session must match the adapter's continuity policy")
     require(not options.checkpoint_turns or mode != "fresh", "checkpoint turns need adapter continuity")
     if options.phases != PHASES or options.phase_prompts:
-        require(getattr(cls, "supports_custom_phases", False), "adapter does not support custom phases")
+        require(custom_phases, "adapter does not support custom phases")
 
 
 class NativeMethod:

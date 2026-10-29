@@ -172,7 +172,8 @@ def builtin_registry() -> Registry:
         validate=lambda recipe, options: validate_sequence(recipe, options, registry),
         capabilities=("control.sequence", "control.bounded_loop", "control.condition", "run.resume", "run.journal"),
         state_schema=SequenceState)
-    add("proteus.native", "method", NativeOptions, NativeMethod, validate=validate_native,
+    add("proteus.native", "method", NativeOptions, NativeMethod,
+        validate=lambda recipe, options: validate_native(recipe, options, registry),
         capabilities=("run.resume", "legacy.episode"))
     add("proteus.prompt", "stage", EmptyOptions, lambda options: PromptStage(),
         capabilities=("stage.replay", "stage.parallel"),
@@ -185,21 +186,32 @@ def builtin_registry() -> Registry:
         capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout", "actor.parallel"))
     add("proteus.chat", "actor", ChatOptions, ChatActor, validate=validate_chat,
         capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout", "actor.parallel"))
+    from proteus.execution.harnesses import HarnessIntegration, register_harness
     for name in ("minimal", "llm", "dsh", "pi", "codex"):
+        roles = {'actor': HarnessOptions, 'native': AdapterOptions}
+        bindings = {'actor': f'proteus.harness.{name}', 'native': f'proteus.native.{name}'}
+        capabilities = ['harness.custom_phases']
+        if name == 'minimal':
+            capabilities.append('harness.model_free')
         if name in ('dsh', 'pi', 'codex'):
-            add(f'proteus.workspace.{name}', 'actor', HarnessOptions,
-                lambda options, name=name: WorkspaceHarnessActor(name, options),
-                validate=lambda spec, options, name=name: validate_workspace_harness(name, spec, options),
-                capabilities=('session.fresh', 'actor.execute', 'actor.workspace', 'trace.normalized'))
-        def validate(spec, options, name=name):
-            return validate_harness(name, spec, options)
+            roles['workspace'] = HarnessOptions
+            bindings['workspace'] = f'proteus.workspace.{name}'
+            capabilities.extend(('harness.workspace', 'harness.staged_activation'))
 
-        def factory(options, name=name):
-            return HarnessActor(name, options)
-        add(f"proteus.harness.{name}", "actor", HarnessOptions, factory, validate=validate,
-            capabilities=("session.fresh", "actor.execute", "trace.normalized"))
+        def adapter(role, spec, options, name=name):
+            runtime = WorkspaceHarnessActor(name, options) if role == 'workspace' else HarnessActor(name, options)
+            return runtime.adapter(spec)
+
+        def validate(role, spec, options, name=name):
+            return (validate_workspace_harness(name, spec, options) if role == 'workspace'
+                    else validate_harness(name, spec, options))
+
+        def model_selection(role, spec, options, name=name):
+            runtime = WorkspaceHarnessActor(name, options) if role == 'workspace' else HarnessActor(name, options)
+            return runtime.model_selection(spec)
+
         continuity = "fresh" if name in ("minimal", "llm") else "handoff"
-        add(f"proteus.native.{name}", "actor", AdapterOptions, factory, validate=validate,
-            capabilities=(f"session.{continuity}", "legacy.episode", "trace.normalized")
-            + (("candidate.staged_activation",) if name in ("dsh", "pi", "codex") else ()))
+        register_harness(registry, HarnessIntegration(name=name, factory=adapter, options=roles,
+            implementation_hash=digest, source='proteus', capabilities=tuple(capabilities),
+            continuity=continuity, validate=validate, model_selection=model_selection), bindings=bindings)
     return registry
