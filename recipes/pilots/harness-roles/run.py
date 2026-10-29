@@ -12,10 +12,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 
 from proteus.api.v1 import (
-    ActorSpec, ArtifactStore, BudgetLimits, EnvironmentSpec, EvaluationSpec, ExecutionSpec,
+    ActorSpec, ArtifactRef, ArtifactStore, BudgetLimits, EnvironmentSpec, EvaluationSpec, ExecutionSpec,
     FeedbackVisibility, FileContent, NativeEvolutionOptions, PluginRef, PluginSpec,
     RecipeConfig, ReferenceSpec, StageSpec, SubjectSpec, Task, TaskDataset, TaskRecord,
     TaskSuiteSpec, WorkspaceOptions, builtin_registry, content_hash, require,
@@ -36,6 +37,16 @@ PINS = {'pi': '914cf1472e715297caa30db4b9535d534a9eb718',
 MARKER = 'PROTEUS_ROLE_PILOT_ACTIVATED'
 LIMITS = {'max_bytes': 128 * 1024 * 1024, 'max_files': 10000}
 POLICY = 'Transform the supplied text to lowercase. Return only the transformed text.\n'
+DSH_ALIASES = {
+    '.agents/notes/implemented/CLAUDE.md': 'AGENTS.md',
+    '.claude/skills': '../.agents/skills',
+    'CLAUDE.md': 'AGENTS.md',
+    'examples/CLAUDE.md': 'AGENTS.md',
+    'examples/acp-agent/tests/snapshots/agent-instructions/workspace/AGENTS.md': 'AGENTS.canonical.md',
+    'examples/acp-agent/tests/snapshots/agent-instructions/workspace/nested/AGENTS.md': 'AGENTS.canonical.md',
+    'packages/CLAUDE.md': 'AGENTS.md',
+    'vendor/CLAUDE.md': 'AGENTS.md',
+}
 
 
 def plugin(name, **options):
@@ -44,6 +55,34 @@ def plugin(name, **options):
 
 def save(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+
+def normalize_seed_aliases(seed, *, backend):
+    """Snapshot the pinned DSH documentation/fixture aliases as regular files.
+
+    The artifact codec intentionally rejects links. This explicit seed projection
+    preserves their current contents, not future alias identity. Unknown, broken or
+    escaping links remain errors; the general artifact contract is unchanged.
+    """
+    changes = []
+    if backend == 'dsh':
+        source = (seed / 'src').resolve()
+        for relative, target in DSH_ALIASES.items():
+            path = source / relative
+            require(path.is_symlink() and os.readlink(path) == target,
+                    f'pinned DSH alias differs: {relative}')
+            resolved = path.resolve(strict=True)
+            require(resolved.is_relative_to(source), 'DSH seed alias escapes its source tree')
+            directory = resolved.is_dir()
+            path.unlink()
+            if directory:
+                shutil.copytree(resolved, path, symlinks=True)
+            else:
+                shutil.copyfile(resolved, path)
+                path.chmod(resolved.stat().st_mode & 0o777)
+            changes.append({'path': 'src/' + relative, 'target': target,
+                            'projection': 'directory_copy' if directory else 'file_copy'})
+    return changes
 
 
 def prepare(root, *, backend, image, method, model, seed_files=None):
@@ -59,6 +98,7 @@ def prepare(root, *, backend, image, method, model, seed_files=None):
     if seed_files is None:
         adapter = registry.create(target.runtime, 'actor').adapter(target)
         adapter.seed(root / 'seed')
+        save(root / 'seed-projection.json', normalize_seed_aliases(root / 'seed', backend=backend))
         files = ArtifactStore.read_tree(root / 'seed', **LIMITS)
     else:
         files = dict(seed_files)  # Preparation-only test input; never used by live CLI.
@@ -131,13 +171,20 @@ def prepare(root, *, backend, image, method, model, seed_files=None):
             input_types={'prompt': 'proteus.text@1'}, output_types={'response': 'proteus.actor_result@1'},
             read_scopes=('proteus.text@1',), write_scopes=('proteus.actor_result@1',)),)
         options = GepaOptions(train='train', validation='validation', reflection_stage='reflect',
-            max_metric_calls=4, minibatch_size=1, test_evaluations=('test',), skip_perfect_score=False)
+            max_metric_calls=3, minibatch_size=1, test_evaluations=('test',), skip_perfect_score=False,
+            reflection_prompt_template=(
+                'You are rewriting the entire contents of the policy file notes/policy.md. '
+                'The harness reads THIS file to learn the transformation to apply. '
+                'Write a concrete, general transformation rule inferred from observed feedback; '
+                'do not refer the reader back to the same policy file or repeat task IDs.\n'
+                'Current policy:\n<curr_param>\nObserved executions and feedback:\n<side_info>\n'
+                'Return only the complete replacement policy in a fenced code block.'))
         method_plugin = plugin('proteus.gepa', **options.to_dict())
         search = {'parent': plugin('proteus.gepa_parent'), 'frontier': plugin('proteus.gepa_frontier'),
                   'final': plugin('proteus.gepa_best')}
         reference = ReferenceSpec(profile='adapted', code=REPOSITORY, revision=REVISION,
             deviations=('One GEPA mutation of a real coding harness policy on synthetic cases; not a quality study.',))
-        budget = BudgetLimits(max_evaluations=7)
+        budget = BudgetLimits(max_evaluations=6)
     recipe = RecipeConfig(name=f'live-{backend}-{method}-one-cycle', method=method_plugin,
         reference=reference, actors=actors, stages=stages, search=search,
         subject=SubjectSpec(runner=plugin('proteus.harness_subject'), initial_artifact=initial, actor='target'),
@@ -149,7 +196,7 @@ def prepare(root, *, backend, image, method, model, seed_files=None):
     return registry, store, recipe
 
 
-def verify(root, *, method):
+def verify(root, *, method, backend):
     records = json.loads(sorted((root / 'run').glob('execution-*.json'))[-1].read_text())
     require(len(records['candidates']) >= 2, 'no candidate was produced')
     require(len({r['artifact_hash'] for r in records['rollouts']}) >= 2,
@@ -158,8 +205,13 @@ def verify(root, *, method):
             'a target rollout failed or produced no output')
     initial = [r for r in records['rollouts'] if r['candidate_id'] == 'initial']
     changed = [r for r in records['rollouts'] if r['candidate_id'] != 'initial']
-    require(initial and changed and all(r['output'].islower() for r in initial)
-            and all(r['output'].isupper() for r in changed), 'observed behavior did not change as expected')
+    require(initial and changed, 'initial and generated candidate execution must both be present')
+    batches = [json.loads(p.read_text()) for p in (root / 'run').glob('evaluations/*/private/batches/*.json')]
+    require(batches and any(b['visibility'] == 'hidden' for b in batches), 'private final evaluation is missing')
+    by_id = {r['id']: r for r in records['rollouts']}
+    targets = {r['task']['id']: r['reference'] for r in json.loads((root / 'tasks.json').read_text())['records']}
+    require(all(row['score'] == float(by_id[row['rollout_id']]['output'] == targets[row['task_id']])
+                for batch in batches for row in batch['rows']), 'external evaluator disagrees with recorded predictions')
     require(all(r['runtime']['settings'].get('native_usage') for r in records['rollouts']),
             'target execution lacks native usage receipts')
     activations = []
@@ -169,10 +221,17 @@ def verify(root, *, method):
                 activations.append(row['outcome']['activation'])
     require(activations, 'no source activation receipts')
     if method == 'native':
+        require(all(r['output'].islower() for r in initial) and all(r['output'].isupper() for r in changed),
+                'Native did not implement its explicitly requested format change')
         calls = records['actor_calls']
         require(len(calls) == 1 and calls[0]['role'] == 'evolver', 'expected exactly one evolution episode')
         require(calls[0]['result']['runtime']['settings']['candidate_viability']['valid'],
                 'evolved source failed its build/viability gate')
+        artifacts = ArtifactStore(root / 'run/artifacts', registry=None)
+        candidate = next(c for c in records['candidates'] if c['id'] == changed[0]['candidate_id'])
+        files = artifacts.files(ArtifactRef.from_dict(candidate['artifact']))
+        require(MARKER.encode() in files['src/' + ENTRY[backend]].data,
+                'accepted candidate lacks the requested executable source marker')
         require(len({a['cli_sha256'] for a in activations}) >= 2,
                 'the changed compiled harness was not activated in task execution')
     else:
@@ -185,6 +244,8 @@ def verify(root, *, method):
             'rollout_count': len(records['rollouts']),
             'predictions': [{'candidate': r['candidate_id'], 'task': r['task_id'], 'output': r['output']}
                             for r in records['rollouts']],
+            'scores': [{'candidate': b['candidate_id'], 'visibility': b['visibility'],
+                        'rows': [{'task': r['task_id'], 'score': r['score']} for r in b['rows']]} for b in batches],
             'activations': activations, 'accounting': report.get('accounting'),
             'scope': 'Live-model mechanism acceptance on synthetic tasks, not benchmark improvement.'}
 
@@ -204,22 +265,23 @@ def main():
     image = json.loads(subprocess.check_output(['docker', 'image', 'inspect', args.image], text=True))[0]
     require(image['Config']['Labels']['org.opencontainers.image.revision'] == PINS[args.backend],
             'image source revision differs from the declared harness pin')
-    registry, store, recipe = prepare(root, backend=args.backend, image=image['Id'],
-        method=args.method, model=args.model)
-    lock = registry.make_lock(recipe, [SourcePin(name='proteus',
-        repository='https://github.com/proteus-evolve/Proteus', revision=head)])
-    (root / 'lock.json').write_text(lock.to_json() + '\n')
     evidence = {'started_utc': datetime.now(timezone.utc).isoformat(), 'proteus_head': head,
         'backend': args.backend, 'method': args.method, 'requested_model': args.model,
         'image_id': image['Id'], 'source_revision': PINS[args.backend], 'status': 'started'}
-    save(root / 'evidence.json', evidence)
     try:
+        registry, store, recipe = prepare(root, backend=args.backend, image=image['Id'],
+            method=args.method, model=args.model)
+        lock = registry.make_lock(recipe, [SourcePin(name='proteus',
+            repository='https://github.com/proteus-evolve/Proteus', revision=head)])
+        (root / 'lock.json').write_text(lock.to_json() + '\n')
+        save(root / 'evidence.json', evidence)
         result = run_recipe(recipe, registry=registry, lock=lock, root=root / 'run', artifact_source=store.root)
         save(root / 'result.json', result.to_dict())
         require(result.status.value == 'completed', result.diagnostic)
-        evidence.update(verify(root, method=args.method))
+        evidence.update(verify(root, method=args.method, backend=args.backend))
         before = {str(p.relative_to(root / 'run')): hashlib.sha256(p.read_bytes()).hexdigest()
                   for p in (root / 'run').rglob('*') if p.is_file() and p.name.endswith('.input.json')}
+        require(bool(before), 'no dispatch receipts available for resume verification')
         resumed = run_recipe(recipe, registry=registry, lock=lock, root=root / 'run',
             artifact_source=store.root, resume=True)
         after = {str(p.relative_to(root / 'run')): hashlib.sha256(p.read_bytes()).hexdigest()

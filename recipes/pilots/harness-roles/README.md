@@ -19,6 +19,11 @@ engineering goal asks for an uppercase policy and an observable CLI marker. GEPA
 uses a managed DeepSeek chat reflection actor, as appropriate to its text-mutation
 protocol; the task subject is the full Pi/DSH harness. This pilot does not claim
 that GEPA changes TypeScript source or that all other method/harness pairs work.
+The DSH seed explicitly copies its eight pinned documentation/fixture symlink
+aliases to ordinary files/directories, preserving their current contents. This
+projection is recorded in `seed-projection.json`; alias identity is not preserved.
+Unknown, broken or source-escaping links fail. The core artifact codec continues
+to reject symlinks. Neither backend's executable source is filtered out.
 
 The initial rule lowercases mixed-case text. Train, validation (GEPA only) and
 private final cases use different words. The same external exact-match evaluator
@@ -46,12 +51,17 @@ python recipes/pilots/harness-roles/run.py \
 ```
 
 Or explicitly dispatch the existing **Native source integration** workflow on the
-pilot branch with `live_role_pilot=true`. Ordinary PR/tag/manual gate runs do not
+pilot branch with `live_role_pilot=true` (optionally `pilot_methods=gepa` or `native`).
+`pilot_methods=pi-gepa-dsh-both` runs the three cells still needing acceptance after
+the first pilot, without repeating the already accepted Pi Native episode.
+Ordinary PR/tag/manual gate runs do not
 call a paid provider unless this input is set. The GitHub runner first verifies the
 existing source gates, then runs both new-method cells independently. Each cell has
 a 25-minute wall timeout. Native has one four-phase episode with 32 configured
-turns; target trials allow 10 turns and 240 seconds each. GEPA has a four-metric-call
-threshold and a seven-evaluation hard ceiling. Native adapters do not advertise a
+turns; target trials allow 10 turns and 240 seconds each. GEPA has a three-metric-call
+threshold and a six-evaluation hard ceiling. With one validation item and one-item
+parent/child minibatches, this stops after the first mutation even if it is rejected.
+Native adapters do not advertise a
 hard provider-request or dollar bound; turn controls are not mislabeled as such.
 
 Use a fresh output directory. Failed or uncertain dispatches are preserved and are
@@ -67,10 +77,12 @@ records, report, result and final `evidence.json`. The workflow retains failed
 cells as well. Credential-store files are excluded and credential bytes block the
 entire artifact upload. Do not upload API keys or copy auth into candidate trees.
 
-Passing requires changed candidate execution, lowercase-to-uppercase observed
-behavior, native usage receipts and zero new dispatches on completed resume.
-Native additionally requires a successful viability build and distinct compiled
-CLI hashes in task execution. GEPA requires exactly one reflection cycle.
+Passing requires changed candidate execution, accurate external grading of each
+prediction, native usage receipts and zero new dispatches on completed resume.
+Native additionally requires the explicitly requested lowercase-to-uppercase change,
+a source marker, a successful viability build and distinct compiled CLI hashes in
+task execution. GEPA requires exactly one reflection cycle; a rejected candidate
+is valid mechanism evidence and its score is reported without calling it an improvement.
 Costs absent from native reports remain unknown; token/call measurements are
 reported separately. This does not validate ACE, Meta-Harness, CORAL or Codex through
 these bridges, nor establish optimization quality, efficiency or release readiness.

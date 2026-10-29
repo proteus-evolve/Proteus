@@ -22,6 +22,11 @@ on:
         description: Run one live DeepSeek Native and GEPA cycle per harness (paid, opt-in)
         type: boolean
         default: false
+      pilot_methods:
+        description: Which live minimum-cycle cells to run
+        type: choice
+        options: [both, native, gepa, pi-gepa-dsh-both]
+        default: both
 
 permissions:
   contents: read
@@ -100,12 +105,18 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          PILOT_METHODS: ${{ inputs.pilot_methods || 'both' }}
         shell: bash
         run: |
           set -uo pipefail
           test -n "$DEEPSEEK_API_KEY" || exit 1
           status=0
-          for method in native gepa; do
+          methods="$PILOT_METHODS"
+          if [ "$methods" = pi-gepa-dsh-both ]; then
+            if [ "$BACKEND" = pi ]; then methods=gepa; else methods=both; fi
+          fi
+          if [ "$methods" = both ]; then methods="native gepa"; fi
+          for method in $methods; do
             timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
               --backend "$BACKEND" --image "$IMAGE" --method "$method" --out "$OUT/live-$method" \
               2>&1 | tee "$OUT/live-$method.log" || status=1
