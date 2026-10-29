@@ -241,6 +241,7 @@ def test_docker_polled_cleanup_never_drains_pipes_without_timeout(tmp_path, monk
 def test_live_harbor_sandbox_timeout_removes_actual_container(tmp_path, polled):
     from proteus.sandbox.docker import DockerSandbox, SandboxConfig
     from proteus.examples.harbor_evaluation import IMAGE
+    subprocess.run(['docker', 'pull', IMAGE], check=True, capture_output=True, timeout=180)
     removed = []
     class Sandbox(DockerSandbox):
         def _cleanup(self, name, marker, proc=None):
@@ -248,8 +249,10 @@ def test_live_harbor_sandbox_timeout_removes_actual_container(tmp_path, polled):
             return super()._cleanup(name, marker, proc)
     sandbox = Sandbox(SandboxConfig(image=IMAGE))
     with pytest.raises(subprocess.TimeoutExpired):
-        sandbox.run(tmp_path, ['python', '-c', 'import time; time.sleep(60)'], {}, timeout_s=1,
-                    stop_check=(lambda: False) if polled else None)
+        sandbox.run(tmp_path, ['python', '-c',
+            "from pathlib import Path; Path('/run/started').write_text('yes'); import time; time.sleep(60)"],
+            {}, timeout_s=3, stop_check=(lambda: False) if polled else None)
+    assert (tmp_path / 'started').read_text() == 'yes'
     assert len(removed) == 1
     inspect = subprocess.run(['docker', 'container', 'inspect', removed[0]],
                              capture_output=True, text=True, timeout=10)
