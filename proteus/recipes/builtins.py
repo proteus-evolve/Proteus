@@ -171,6 +171,9 @@ def builtin_registry() -> Registry:
         capabilities=("subject.managed_actor", "subject.parallel"))
     add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
         capabilities=("evaluator.deterministic",))
+    from proteus.evaluation.graders import ModelJudge, ModelJudgeOptions
+    add('proteus.model_judge', 'evaluator', ModelJudgeOptions, ModelJudge,
+        capabilities=('evaluator.managed_actor',))
     add("proteus.harbor", "environment", HarborEnvironmentOptions, HarborEnvironment,
         validate=validate_harbor_environment,
         capabilities=("state.independent", "candidate.exact_tree", "environment.source_build", "environment.parallel"))

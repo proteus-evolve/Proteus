@@ -174,6 +174,10 @@ class SavedRun:
                 require(rollout.execution_hash == expected_execution, 'rollout execution differs')
                 grade_record = self.read(prefix+f'/private/grades/{index:06d}.json')
                 grade = Grade.from_dict(grade_record['grade'])
+                if spec.actor is not None:
+                    from proteus.evaluation.graders import grading_binding, verify_grade
+                    verify_grade(self.root / prefix / 'private' / 'grader-actors' / f'{index:06d}', grade,
+                        self.recipe.actors[spec.actor], role=spec.actor, binding=grading_binding(spec.id, rollout))
                 require(grade_record['row'] == row.to_dict()
                         and (grade.status, grade.score, dict(grade.metrics)) == (row.status, row.score, dict(row.metrics)),
                         'grade row differs from original grading record')

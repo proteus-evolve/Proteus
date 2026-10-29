@@ -61,6 +61,7 @@ class Grade(Contract):
     feedback: Feedback = field(default_factory=Feedback)
     usage: Usage = field(default_factory=Usage)
     diagnostic: str = ""
+    runtime: RuntimeIdentity | None = None
 
     def _validate(self):
         EvaluationRow(rollout_id="validation", task_id="validation", status=self.status,

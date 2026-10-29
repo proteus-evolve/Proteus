@@ -48,11 +48,23 @@ def validate_evaluation_config(recipe, registry):
         require(spec.tasks.dataset_hash is not None, "evaluations require a pinned task dataset_hash")
         capabilities = registry.get(spec.evaluator.plugin, "evaluator").capabilities
         backend = {cap for cap in capabilities if cap.startswith("evaluation.backend.")}
+        model = 'evaluator.managed_actor' in capabilities
+        require(not model or 'evaluator.deterministic' not in capabilities,
+                'model evaluator cannot also claim deterministic evaluation')
+        require((spec.actor is not None) == model, 'only a model evaluator declares a grading actor role')
         if backend:
+            require(not model, 'integrated backend evaluation cannot also dispatch a model-grading role')
             subject_caps = registry.get(recipe.subject.runner.plugin, "subject").capabilities
             require(backend.issubset(subject_caps), "backend evaluator requires a matching subject adapter")
             require(recipe.budget.max_model_calls is None,
                     "integrated verifier cannot enforce a finite model-call cap")
+        elif model:
+            actor = recipe.actors[spec.actor]
+            plugin = registry.get(actor.runtime.plugin, 'actor')
+            require(actor.session.value == 'fresh' and 'actor.execute' in plugin.capabilities,
+                    'model evaluator requires a fresh executable actor role')
+            if recipe.budget.max_model_calls is not None or actor.budget.max_model_calls is not None:
+                require('calls.bounded' in plugin.capabilities, 'model evaluator actor lacks calls.bounded capability')
         else:
             require("evaluator.deterministic" in capabilities,
                     "evaluators must be deterministic or a declared integrated backend")
@@ -271,6 +283,15 @@ class EvaluationSession:
         self.request = StageRequest.from_dict(record["request"])
         self.protocol_hash = record["protocol_hash"]
         self.root = self.services.root / "evaluations" / content_hash(self.operation_id).split(":")[1]
+        if self.spec.actor is not None:
+            from proteus.evaluation.graders import grading_binding, verify_grade
+            for index in self._grades:
+                entry_id = 'grader-' + content_hash([self.operation_id, self.request.attempt_id, index]).split(':')[1]
+                entry = self.services.ledger.entry(entry_id)
+                grade = Grade.from_dict(entry['settlement']['result']['grade'])
+                verify_grade(self.root / 'private' / 'grader-actors' / f'{index:06d}', grade,
+                    self.services.recipe.actors[self.spec.actor], role=self.spec.actor,
+                    binding=grading_binding(self.spec.id, self._observations[index].rollout))
 
     @property
     def position(self):
@@ -305,6 +326,9 @@ class EvaluationSession:
         if kind == 'subject' and subject.actor is not None and 'subject.runtime_actor' in self.services.registry.get(
                 subject.runner.plugin).capabilities:
             role = subject.actor
+            scopes['role:' + role] = self.services.recipe.actors[role].budget
+        if kind == 'grader' and self.spec.actor is not None:
+            role = self.spec.actor
             scopes['role:' + role] = self.services.recipe.actors[role].budget
         self.services.ledger.reserve(entry_id, scopes=scopes,
             reservation=reservation, slots=slots,
@@ -575,6 +599,15 @@ class EvaluationSession:
         self._pending_grade_usage = Usage()
         backend = self._backend_evaluations.get(index)
         is_backend = self._backend()
+        model_grader = 'evaluator.managed_actor' in self.services.registry.get(self.spec.evaluator.plugin).capabilities
+        grading_context = None
+        if model_grader:
+            from proteus.evaluation.graders import GradingContext, grading_binding
+            actor = self.services.recipe.actors[self.spec.actor]
+            runtime = self.services.registry.create(actor.runtime, 'actor')
+            grading_context = GradingContext(actor, runtime, self.root / 'private' / 'grader-actors' / f'{index:06d}',
+                role=self.spec.actor, binding=grading_binding(self.spec.id, rollout),
+                system=self.services.prompts[actor.prompt_hash] if actor.prompt_hash else '')
         if is_backend:
             self._pending_grade_usage = None  # Already tracked when the trial ran.
         # Integrated verifier usage was reserved before the external trial and
@@ -584,7 +617,8 @@ class EvaluationSession:
         if not is_backend:
             grader_entry = self._reserve_dispatch("grader", index,
                 request={"rollout": rollout, "evaluation": self.spec, "reference": self._references[rollout.task_id]},
-                reservation=Amounts(model_calls=0), slots=1)
+                reservation=Amounts(model_calls=(grading_context.runtime.model_call_bound
+                    if model_grader and rollout.status in VALID else 0)), slots=1)
             entry = self.services.ledger.entry(grader_entry)
             if entry["state"] == "reserved":
                 self.services.ledger.start(grader_entry)
@@ -607,6 +641,11 @@ class EvaluationSession:
                         self._references[rollout.task_id], backend=backend)
                     require(type(grade) is Grade and grade.usage == backend.usage,
                             "backend evaluator must preserve the recorded verifier usage")
+                elif model_grader:
+                    grade = grader.grade(self.batch.tasks[index], rollout, self._references[rollout.task_id],
+                                         context=grading_context)
+                    require(type(grade) is Grade, 'model evaluator must return Grade')
+                    grade = replace(grade, usage=grading_context.usage(), runtime=grading_context.identity())
                 else:
                     grade = grader.grade(self.batch.tasks[index], rollout, self._references[rollout.task_id])
                     require(type(grade) is Grade and grade.usage.model_calls == 0,
@@ -614,15 +653,25 @@ class EvaluationSession:
             except RecoveryRequired:
                 raise
             except (Exception, SystemExit) as exc:
+                if model_grader and not isinstance(exc, Exception):
+                    raise  # A grading runtime interruption retains its reservation.
                 # A deterministic grader's explicit exit is a private failed grade.
                 # Keyboard interruption and unknown external work remain unsettled.
                 grade = Grade(status=Outcome.INFRA_ERROR, score=None,
                               usage=self._backend_usage[index] if is_backend else (
-                                  grade.usage if type(grade) is Grade else Usage()),
+                                  grading_context.usage() if model_grader else grade.usage if type(grade) is Grade else Usage()),
+                              runtime=grading_context.identity() if model_grader else None,
                               diagnostic=f"{type(exc).__name__}: {exc}")
         if not is_backend:
             if replayed_grade is None:
                 grade = replace(grade, usage=replace(grade.usage, wall_seconds=time.monotonic() - started))
+            if model_grader:
+                from proteus.evaluation.graders import grading_binding, verify_grade
+                try:
+                    verify_grade(grading_context.root, grade, grading_context.spec, role=self.spec.actor,
+                                 binding=grading_binding(self.spec.id, rollout))
+                except Exception as exc:
+                    raise RecoveryRequired('private grading evidence must be reconciled before settlement') from exc
             self.services.ledger.settle(grader_entry, actual=Amounts.from_usage(grade.usage),
                 status="completed" if grade.status in VALID else "failed", result={"grade": grade})
         self._pending_grade_usage = None if is_backend else grade.usage

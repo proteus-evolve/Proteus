@@ -18,6 +18,7 @@ from proteus.core.search import ArchivePolicy, ArchiveSnapshot, FinalSelector, O
 from proteus.core.serialization import Contract, ContractError, canonical_json, content_hash
 from proteus.evaluation.records import EvaluationReceipt, Feedback, Grade, SubjectResult, zero_usage
 from proteus.evaluation.runners import Evaluator, SubjectContext, SubjectRunner
+from proteus.evaluation.graders import GradingContext, ModelJudgeOptions
 from proteus.evaluation.tasks import StateValue, Task, TaskBatch, TaskDataset, TaskRecord, TaskSelection, TaskSuite
 from proteus.execution.harnesses import HarnessIntegration, harness_support_matrix, register_harness
 from proteus.execution.harness_candidate import HarnessEnvironmentOptions, HarnessSubjectOptions
@@ -37,7 +38,7 @@ __all__ = (
     'ArtifactComponent', 'ArtifactRef', 'ArtifactStore', 'BudgetLimits', 'Candidate', 'Contract', 'ContractError',
     'DataRef', 'DependencyLock', 'EmptyOptions', 'EnvironmentSpec', 'EvaluationBatch', 'EvaluationReceipt',
     'EvaluationRow', 'EvaluationSpec', 'Evaluator', 'ExecutionSpec', 'Feedback', 'FeedbackVisibility',
-    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'HarnessEnvironmentOptions', 'HarnessIntegration', 'HarnessSubjectOptions', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState',
+    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'GradingContext', 'HarnessEnvironmentOptions', 'HarnessIntegration', 'HarnessSubjectOptions', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState', 'ModelJudgeOptions',
     'Objective', 'OperationStatus', 'Outcome', 'ParentSelector', 'Plugin', 'PluginLock', 'PluginRef', 'PluginSpec',
     'PluginState', 'PolicyResult', 'RecipeConfig', 'RecordsDelta', 'ReferenceSpec', 'Registry', 'Rollout',
     'RunManifest', 'RunServices', 'RuntimeIdentity', 'SearchDecision', 'SelectionView', 'SessionPolicy', 'SourcePin',
