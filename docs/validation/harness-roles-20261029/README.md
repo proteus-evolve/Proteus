@@ -6,8 +6,8 @@ It is independent of PR #106 and is not research or release acceptance.
 
 | Current code check | Outcome |
 | --- | --- |
-| Affected role, workspace, evaluation, export, budget and Native source/activation suites | 244 passed, 1 environment skip |
-| Installed wheel, outside the checkout: roles, methods, private graders, recovery, backward shapes and accounting | 80 passed, 1 Docker skip |
+| Affected role, workspace, evaluation, export, budget and Native source/activation suites | 245 passed, 1 environment skip |
+| Installed wheel, outside the checkout: roles, methods, private graders, recovery, backward shapes and accounting | 81 passed, 1 Docker skip |
 | Offline / JavaScript / Ruff | 145 passed / 8 passed / clean |
 | wheel + sdist build, twine and exact package Python bytes | passed; all 261 Python files match |
 | Installed wheel and sdist standalone Native example | 3 episodes, 4 task evaluations, zero model calls; completed resume dispatches zero work |
@@ -20,6 +20,12 @@ only failure was an overly narrow error-message regex: the finite call cap was
 correctly rejected before dispatch. The assertion was corrected and the current
 suite passes. Raw failures, skipped checks and earlier packaging-fixture setup
 failures are retained with the evidence; they were not changed into passes.
+
+The final routing follow-up explicitly points staged source predictions into the
+writable `/workspace/candidate/` tree. It was rechecked with 245 affected source
+cases and 81 installed-wheel cases passing; earlier snapshot artifacts are retained
+separately. These are assertions over adapter contracts and a source subprocess
+fixture, not a replacement for the open production-container checks.
 
 The tests demonstrate:
 

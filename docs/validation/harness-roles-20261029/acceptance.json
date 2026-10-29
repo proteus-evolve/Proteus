@@ -1,20 +1,20 @@
 {
-  "collected_at_utc": "2026-10-29T19:52:15.890222+00:00",
+  "collected_at_utc": "2026-10-29T20:02:37.255733+00:00",
   "status": "local mechanism checks passed; new production-container bridges and CI remain separate",
-  "code_commit": "fa7bda5880ee2cd98bab47f52f589324f19db5ec",
-  "proteus_tree": "5dad2efcd7b685137be557c419d7a8134a07aa15",
+  "code_commit": "5a73d0bb303997ff23f4f449e7756c0cac515d72",
+  "proteus_tree": "2da4d553fcbb60b2b6f5639c377d470953f92e89",
   "base_commit": "325ab5edb056f592209e23116e6ffabcb87ec9e8",
   "release_ready": false,
   "scientific_quality_result": false,
   "current_checks": {
     "affected_source_suites": {
-      "tests": 245,
+      "tests": 246,
       "failures": 0,
       "errors": 0,
       "skipped": 1
     },
     "wheel_outside_checkout": {
-      "tests": 81,
+      "tests": 82,
       "failures": 0,
       "errors": 0,
       "skipped": 1
@@ -34,6 +34,12 @@
     "actual_old_reader_reports_identical": {
       "comparison": "sha256:b402888eb582b64b435ff2de69130589e7c2c9ca6ffb1c349dbb630980c16d0c",
       "workspace": "sha256:a8a471d02f2940d0852957ced37f68c467319894b7ca74edaee76ec15f23cc64"
+    },
+    "staged_output_destination": {
+      "passed": 37,
+      "wrong_location": "readonly active snapshot",
+      "configured_location": "/workspace/candidate/<output_file>",
+      "routing": "integration capability, no method or brand switch"
     }
   },
   "prior_full_sweep": {
@@ -49,8 +55,8 @@
     "not_pooled_with_current_source": true
   },
   "artifacts": {
-    "proteus_evolve-0.4.0.tar.gz": "sha256:a18584dff25fedcd3e97f2a7a9e932580a78cc9f47a73c06d4906aad516a20b9",
-    "proteus_evolve-0.4.0-py3-none-any.whl": "sha256:ce19cbafe7ac39bbf1465b47bf493e2a5864e3b8408f1fc531df53cb34f5c790"
+    "proteus_evolve-0.4.0.tar.gz": "sha256:886247a4eb1312d6ef0ebb5ff9383306d9caf56213721a8ac010803d7d0b4c45",
+    "proteus_evolve-0.4.0-py3-none-any.whl": "sha256:c6e693af6a9fdb96ee76a664a07788924a0dc86c7c58892ca258c48fc07cae5a"
   },
   "raw_evidence_directory": "/Users/myyyth/Documents/Proteus-v1-experiments/harness-role-contracts-20261029",
   "boundaries": [
@@ -62,5 +68,50 @@
     "Old report reading passes; changed source/locks do not authorize old-run resume",
     "No AWS/historical studies/paid API/release/tag/version/PyPI action",
     "#106 acceptance is independent; this work does not replace same-tag release gates"
-  ]
+  ],
+  "previous_core_snapshot": {
+    "code_commit": "fa7bda5880ee2cd98bab47f52f589324f19db5ec",
+    "proteus_tree": "5dad2efcd7b685137be557c419d7a8134a07aa15",
+    "current_checks": {
+      "affected_source_suites": {
+        "tests": 246,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "wheel_outside_checkout": {
+        "tests": 82,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "offline": {
+        "passed": 145,
+        "failed": 0
+      },
+      "javascript": {
+        "passed": 8,
+        "failed": 0
+      },
+      "ruff": "passed",
+      "wheel_and_sdist_build_twine": "passed",
+      "package_python_files_byte_matched": 261,
+      "wheel_and_sdist_native_example": "passed: 3 episodes, 4 task evaluations, 0 model calls, 0 repeated dispatch on completed resume",
+      "actual_old_reader_reports_identical": {
+        "comparison": "sha256:b402888eb582b64b435ff2de69130589e7c2c9ca6ffb1c349dbb630980c16d0c",
+        "workspace": "sha256:a8a471d02f2940d0852957ced37f68c467319894b7ca74edaee76ec15f23cc64"
+      },
+      "staged_output_destination": {
+        "passed": 37,
+        "wrong_location": "readonly active snapshot",
+        "configured_location": "/workspace/candidate/<output_file>",
+        "routing": "integration capability, no method or brand switch"
+      }
+    },
+    "artifacts": {
+      "proteus_evolve-0.4.0.tar.gz": "sha256:a18584dff25fedcd3e97f2a7a9e932580a78cc9f47a73c06d4906aad516a20b9",
+      "proteus_evolve-0.4.0-py3-none-any.whl": "sha256:ce19cbafe7ac39bbf1465b47bf493e2a5864e3b8408f1fc531df53cb34f5c790"
+    }
+  },
+  "pull_request": "https://github.com/proteus-evolve/Proteus/pull/107"
 }
