@@ -72,6 +72,7 @@ def validate_evaluation_config(recipe, registry):
             "subject reconciliation currently requires a self-contained runner, not delegated actor calls")
     if recipe.budget.max_model_calls is not None:
         require("subject.managed_actor" in subject_plugin.capabilities
+                or "subject.runtime_actor" in subject_plugin.capabilities
                 or "subject.model_free" in subject_plugin.capabilities,
                 "subject cannot enforce a finite model-call cap")
     if subject.actor is not None:
@@ -298,11 +299,18 @@ class EvaluationSession:
 
     def _reserve_dispatch(self, kind, index, *, request, reservation, slots):
         entry_id = kind + "-" + content_hash([self.operation_id, self.request.attempt_id, index]).split(":")[1]
-        self.services.ledger.reserve(entry_id, scopes={"run": self.services.recipe.budget},
+        scopes = {"run": self.services.recipe.budget}
+        role = "grader" if kind == "backend_verifier" else kind
+        subject = self.services.recipe.subject
+        if kind == 'subject' and subject.actor is not None and 'subject.runtime_actor' in self.services.registry.get(
+                subject.runner.plugin).capabilities:
+            role = subject.actor
+            scopes['role:' + role] = self.services.recipe.actors[role].budget
+        self.services.ledger.reserve(entry_id, scopes=scopes,
             reservation=reservation, slots=slots,
             reuse=self.services._journal is not None and self.services._journal.recovering,
             metadata={"kind": kind, "operation_id": self.operation_id, "attempt_id": self.request.attempt_id,
-                      "role": "grader" if kind == "backend_verifier" else kind,
+                      "role": role,
                       "trial_id": f"{self.operation_id}:rollout-{index + 1}",
                       "worker_id": getattr(self.services, "_worker_id", None)}, request=request)
         return entry_id
@@ -356,13 +364,17 @@ class EvaluationSession:
         runtime_ref = recipe.actors[recipe.subject.actor].runtime.plugin if recipe.subject.actor else recipe.subject.runner.plugin
         runtime = RuntimeIdentity(runtime=runtime_ref, environment_hash=content_hash(recipe.execution.environment))
         first_actor = len(services.actor_calls)
-        managed = recipe.subject.actor is not None
+        embedded = 'subject.runtime_actor' in services.registry.get(recipe.subject.runner.plugin).capabilities
+        role_spec = recipe.actors[recipe.subject.actor] if recipe.subject.actor is not None else None
+        role_runtime = services.registry.create(role_spec.runtime, 'actor') if embedded else None
+        managed = recipe.subject.actor is not None and not embedded
         model_free = "subject.model_free" in services.registry.get(recipe.subject.runner.plugin).capabilities
         subject_entry = self._reserve_dispatch("subject", index,
             request={"candidate": candidate, "task": task, "execution": recipe.execution,
                      "state": state, "history_hash": content_hash(history), "seed": seed,
                      "delegates_usage_to_actor": managed, "inputs": self.input_refs},
-            reservation=Amounts.zero() if managed else Amounts(model_calls=0 if model_free else None),
+            reservation=Amounts.zero() if managed else Amounts(model_calls=(role_runtime.model_call_bound
+                if embedded else 0 if model_free else None)),
             slots=0 if managed else 1)
         verifier_entry = None
         if self._backend():
@@ -448,19 +460,20 @@ class EvaluationSession:
                             and lease.loaded_artifact_hash == candidate.artifact.content_hash,
                             "environment loaded a different candidate")
                     actor = None
-                    if recipe.subject.actor is not None:
+                    if managed:
                         stage = StageSpec(id="subject", operator=recipe.subject.runner, role=recipe.subject.actor)
                         def actor(prompt, *, timeout_seconds=None):
                             return services._actor(stage, self.request, prompt, None, None, isolate=True,
                                 trial_id=f"{self.operation_id}:rollout-{index + 1}", timeout_seconds=timeout_seconds)
                     context = SubjectContext(candidate=candidate, task=task, state=state, history=history,
                         seed=seed, execution=recipe.execution, subject=recipe.subject, lease=lease, _actor=actor,
-                        inputs=invocation_inputs, actor_runtime=runtime_ref if managed else None)
+                        inputs=invocation_inputs, actor_runtime=runtime_ref if role_spec is not None else None,
+                        role_spec=role_spec, _role_runtime=role_runtime)
                     # New runner instance per task prevents undeclared plugin-instance memory.
                     subject_dispatched = True
                     result = services.registry.create(recipe.subject.runner, "subject").run(context)
                 self._validate_subject_result(result, candidate, task, runtime)
-                if recipe.subject.actor is not None:
+                if managed:
                     usage = services._usage(first_actor)
                     require(result.usage.model_calls == usage.model_calls
                             or (result.status not in VALID and result.usage.model_calls is None),

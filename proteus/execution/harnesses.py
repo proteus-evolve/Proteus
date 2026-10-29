@@ -136,4 +136,10 @@ def harness_support_matrix(registry):
         require(len(names) == len(roles) == 1, 'invalid registered harness role metadata')
         result.setdefault(names[0], {})[roles[0]] = {
             'plugin': entry['plugin'], 'capabilities': capabilities, 'options': entry['options']}
+        if roles[0] == 'actor' and 'harness.candidate_tree' in capabilities:
+            result[names[0]]['subject'] = {
+                'plugin': {'name': 'proteus.harness_subject', 'version': '1'},
+                'runtime_role': entry['plugin'],
+                'capabilities': ['candidate.materialized', 'state.independent'],
+                'scope': 'Explicit file-tree or pinned-base projection; per-trial adapter state is isolated.'}
     return result

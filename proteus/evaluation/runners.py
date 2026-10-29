@@ -63,6 +63,8 @@ class SubjectContext:
     _actor: Any = None
     inputs: Mapping[str, Contract] = field(default_factory=dict)
     actor_runtime: PluginRef | None = None
+    role_spec: Any = None
+    _role_runtime: Any = None
 
     def actor(self, prompt, *, timeout_seconds=None):
         require(self._actor is not None, "subject has no managed actor role")

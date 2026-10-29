@@ -154,6 +154,16 @@ def builtin_registry() -> Registry:
             "environment.filesystem_scopes", "environment.pids"))
     add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python,
         capabilities=("subject.parallel",))
+    from proteus.execution.harness_candidate import (
+        HarnessEnvironment, HarnessEnvironmentOptions, HarnessSubject, HarnessSubjectOptions,
+        validate_environment as validate_harness_environment, validate_subject as validate_harness_subject,
+    )
+    add('proteus.harness_environment', 'environment', HarnessEnvironmentOptions, HarnessEnvironment,
+        validate=validate_harness_environment,
+        capabilities=('state.independent', 'candidate.exact_tree', 'environment.harness_tree'))
+    add('proteus.harness_subject', 'subject', HarnessSubjectOptions, HarnessSubject,
+        validate=lambda recipe, options: validate_harness_subject(recipe, options, registry),
+        capabilities=('subject.runtime_actor',))
     add("proteus.code_subject", "subject", CodeOptions, CodeSubject, validate=validate_code,
         capabilities=("subject.managed_actor", "subject.actor_timeout", "subject.code_protocol", "subject.parallel"),
         inputs={"memory": "proteus.code.state@1"})
@@ -193,6 +203,8 @@ def builtin_registry() -> Registry:
         capabilities = ['harness.custom_phases']
         if name == 'minimal':
             capabilities.append('harness.model_free')
+        else:
+            capabilities.append('harness.candidate_tree')
         if name in ('dsh', 'pi', 'codex'):
             roles['workspace'] = HarnessOptions
             bindings['workspace'] = f'proteus.workspace.{name}'

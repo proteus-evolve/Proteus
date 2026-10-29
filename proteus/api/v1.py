@@ -20,6 +20,7 @@ from proteus.evaluation.records import EvaluationReceipt, Feedback, Grade, Subje
 from proteus.evaluation.runners import Evaluator, SubjectContext, SubjectRunner
 from proteus.evaluation.tasks import StateValue, Task, TaskBatch, TaskDataset, TaskRecord, TaskSelection, TaskSuite
 from proteus.execution.harnesses import HarnessIntegration, harness_support_matrix, register_harness
+from proteus.execution.harness_candidate import HarnessEnvironmentOptions, HarnessSubjectOptions
 from proteus.measure.artifacts import MeasurementSpec, MeasurementSurface
 from proteus.recipes.builtins import builtin_registry
 from proteus.recipes.config import (
@@ -36,7 +37,7 @@ __all__ = (
     'ArtifactComponent', 'ArtifactRef', 'ArtifactStore', 'BudgetLimits', 'Candidate', 'Contract', 'ContractError',
     'DataRef', 'DependencyLock', 'EmptyOptions', 'EnvironmentSpec', 'EvaluationBatch', 'EvaluationReceipt',
     'EvaluationRow', 'EvaluationSpec', 'Evaluator', 'ExecutionSpec', 'Feedback', 'FeedbackVisibility',
-    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'HarnessIntegration', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState',
+    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'HarnessEnvironmentOptions', 'HarnessIntegration', 'HarnessSubjectOptions', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState',
     'Objective', 'OperationStatus', 'Outcome', 'ParentSelector', 'Plugin', 'PluginLock', 'PluginRef', 'PluginSpec',
     'PluginState', 'PolicyResult', 'RecipeConfig', 'RecordsDelta', 'ReferenceSpec', 'Registry', 'Rollout',
     'RunManifest', 'RunServices', 'RuntimeIdentity', 'SearchDecision', 'SelectionView', 'SessionPolicy', 'SourcePin',

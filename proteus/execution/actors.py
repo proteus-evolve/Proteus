@@ -179,6 +179,14 @@ class HarnessActor:
                 "resolved_model": None}
 
     def execute(self, spec, request, workspace: Path) -> ActorResult:
+        return self._execute(spec, request, workspace, prepared_candidate=False)
+
+    def execute_candidate(self, spec, request, workspace: Path) -> ActorResult:
+        """Execute a materialized candidate; never seed over its editable state."""
+        require(not self.supports_workspace, 'candidate execution is not a coding workspace call')
+        return self._execute(spec, request, workspace, prepared_candidate=True)
+
+    def _execute(self, spec, request, workspace: Path, *, prepared_candidate) -> ActorResult:
         require(spec.session.value == "fresh" and request.session_id is None and request.handoff is None,
                 "generic harness actor calls require fresh workspaces; native method owns continuity")
         require((request.workspace is not None) == self.supports_workspace,
@@ -189,8 +197,20 @@ class HarnessActor:
         require(getattr(adapter, "supports_custom_phases", False), "harness needs custom-phase support")
         workspace.mkdir(parents=True, exist_ok=True)
         harness = workspace / "harness"
-        harness.mkdir(exist_ok=True)
-        adapter.seed(harness, self.options.seed)
+        if prepared_candidate:
+            require(harness.is_dir() and not harness.is_symlink(), 'candidate harness was not materialized')
+            prepare = getattr(adapter, 'prepare_candidate', None)
+            if prepare is not None:
+                prepare(harness)
+            validate = getattr(adapter, 'validate_candidate', None)
+            if validate is not None:
+                reason = validate(harness)
+                if reason:
+                    from proteus.evaluation.runners import InvalidCandidate
+                    raise InvalidCandidate(reason)
+        else:
+            harness.mkdir(exist_ok=True)
+            adapter.seed(harness, self.options.seed)
         if self.supports_workspace:
             require(all((workspace / 'task' / name).is_dir() for name in ('input', 'history', 'output', 'scratch')),
                     'coding workspace was not prepared by the service')

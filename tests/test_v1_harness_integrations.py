@@ -80,7 +80,7 @@ def test_existing_builtin_names_use_same_registration_flow_and_explicit_roles():
     matrix = harness_support_matrix(registry)
     assert set(matrix) == {'minimal', 'llm', 'pi', 'dsh', 'codex'}
     assert set(matrix['minimal']) == {'actor', 'native'}
-    assert set(matrix['pi']) == {'actor', 'native', 'workspace'}
+    assert set(matrix['pi']) == {'actor', 'native', 'workspace', 'subject'}
     assert matrix['pi']['workspace']['plugin']['name'] == 'proteus.workspace.pi'
     assert matrix['dsh']['native']['plugin']['name'] == 'proteus.native.dsh'
 

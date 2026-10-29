@@ -77,8 +77,9 @@ def run_recipe(recipe, *, registry, lock, root, run_id=None, prompts=None, resum
                 if artifact_source is not None:
                     from proteus.artifacts.store import ArtifactStore
                     require(recipe.subject is not None, "artifact import requires a subject")
-                    services.artifacts.copy_from(ArtifactStore(artifact_source, registry),
-                                                 recipe.subject.initial_artifact)
+                    source = ArtifactStore(artifact_source, registry)
+                    for artifact in registry.artifact_inputs(recipe):
+                        services.artifacts.copy_from(source, artifact)
                 result = MethodResult.from_dict(finished) if finished is not None else method.run(services, restored)
                 require(type(result) is MethodResult, "method must return MethodResult")
                 from proteus.workers.service import require_terminal
