@@ -1,0 +1,171 @@
+....................s..ss.................sssss....................sssss [ 17%]
+s....sss................................................................ [ 34%]
+................................s.s..........s.......................... [ 52%]
+.....................................F.................................. [ 69%]
+.s..................ssss........ss...................................... [ 86%]
+....FFFFF.......................................s....s                   [100%]
+=================================== FAILURES ===================================
+_ test_hard_exit_replays_full_engine_without_duplicate_calls[method.result:1] __
+
+tmp_path = PosixPath('/private/tmp/proteus-v1-release-full-validation-20261028/fixtures-hg4xttnw/pytest/test_hard_exit_replays_full_en13')
+boundary = 'method.result:1'
+
+    @pytest.mark.parametrize("boundary", ["candidate:1", "evaluation.step:1", "engine.save:1", "sealed:1",
+        "checkpoint.request:1", "checkpoint:1", "search.parent:1", "stage:1", "candidate:2",
+        "evaluation.step:6", "checkpoint:2", "checkpoint.request:2", "checkpoint:5", "method.result:1"])
+    def test_hard_exit_replays_full_engine_without_duplicate_calls(tmp_path, boundary):
+        root = tmp_path / "study"
+        stopped = invoke(root, boundary, "run")
+        assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+        continued = invoke(root, boundary, "resume")
+>       assert continued.returncode == 0, continued.stdout + continued.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 44, in <module>
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/tests/test_v1_gepa_method.py", line 55, in run
+E             result = run_recipe(recipe, registry=registry, lock=lock, root=root / "run", artifact_source=root / "artifact-store", **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/runner.py", line 50, in run_recipe
+E             manifest.assert_resume_compatible(recipe, lock)
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/manifest.py", line 94, in assert_resume_compatible
+E             require(content_hash(lock) == self.lock_hash, "resume changes the dependency lock")
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/contracts.py", line 25, in require
+E             raise ContractError(message)
+E         proteus.core.serialization.ContractError: resume changes the dependency lock
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/tmp/proteus-v1-review-4f7209c/bin/python', '-c', "\nimport os,sys,json\nfrom pathlib import P...ire\n    raise ContractError(message)\nproteus.core.serialization.ContractError: resume changes the dependency lock\n').returncode
+
+tests/test_v1_gepa_method.py:377: AssertionError
+_ test_hard_exit_preserves_recorded_reads_and_later_shared_publications[capture.receipt] _
+
+tmp_path = PosixPath('/private/tmp/proteus-v1-release-full-validation-20261028/fixtures-hg4xttnw/pytest/test_hard_exit_preserves_recor0')
+boundary = 'capture.receipt'
+
+    @pytest.mark.parametrize("boundary", ["capture.receipt", "knowledge.capture", "publish.receipt", "knowledge.attempt", "conflict.receipt"])
+    def test_hard_exit_preserves_recorded_reads_and_later_shared_publications(tmp_path, boundary):
+        recipe, registry, lock = setup(tmp_path)
+        stopped = subprocess.run([sys.executable, "-c", WORKER, str(tmp_path), boundary],
+                                 text=True, capture_output=True, timeout=45)
+>       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 40, in <module>
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/runner.py", line 28, in run_recipe
+E             registry.check_lock(recipe, lock)
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/plugins.py", line 284, in check_lock
+E             require(actual == lock, "registered plugins, capabilities or host runtime differ from lock")
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/contracts.py", line 25, in require
+E             raise ContractError(message)
+E         proteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock
+E         
+E       assert 1 == 86
+E        +  where 1 = CompletedProcess(args=['/tmp/proteus-v1-review-4f7209c/bin/python', '-c', "\nimport os, sys\nfrom pathlib import Path\...ssage)\nproteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock\n').returncode
+
+tests/test_v1_knowledge_service.py:147: AssertionError
+_ test_hard_exit_preserves_recorded_reads_and_later_shared_publications[knowledge.capture] _
+
+tmp_path = PosixPath('/private/tmp/proteus-v1-release-full-validation-20261028/fixtures-hg4xttnw/pytest/test_hard_exit_preserves_recor1')
+boundary = 'knowledge.capture'
+
+    @pytest.mark.parametrize("boundary", ["capture.receipt", "knowledge.capture", "publish.receipt", "knowledge.attempt", "conflict.receipt"])
+    def test_hard_exit_preserves_recorded_reads_and_later_shared_publications(tmp_path, boundary):
+        recipe, registry, lock = setup(tmp_path)
+        stopped = subprocess.run([sys.executable, "-c", WORKER, str(tmp_path), boundary],
+                                 text=True, capture_output=True, timeout=45)
+>       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 40, in <module>
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/runner.py", line 28, in run_recipe
+E             registry.check_lock(recipe, lock)
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/plugins.py", line 284, in check_lock
+E             require(actual == lock, "registered plugins, capabilities or host runtime differ from lock")
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/contracts.py", line 25, in require
+E             raise ContractError(message)
+E         proteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock
+E         
+E       assert 1 == 86
+E        +  where 1 = CompletedProcess(args=['/tmp/proteus-v1-review-4f7209c/bin/python', '-c', "\nimport os, sys\nfrom pathlib import Path\...ssage)\nproteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock\n').returncode
+
+tests/test_v1_knowledge_service.py:147: AssertionError
+_ test_hard_exit_preserves_recorded_reads_and_later_shared_publications[publish.receipt] _
+
+tmp_path = PosixPath('/private/tmp/proteus-v1-release-full-validation-20261028/fixtures-hg4xttnw/pytest/test_hard_exit_preserves_recor2')
+boundary = 'publish.receipt'
+
+    @pytest.mark.parametrize("boundary", ["capture.receipt", "knowledge.capture", "publish.receipt", "knowledge.attempt", "conflict.receipt"])
+    def test_hard_exit_preserves_recorded_reads_and_later_shared_publications(tmp_path, boundary):
+        recipe, registry, lock = setup(tmp_path)
+        stopped = subprocess.run([sys.executable, "-c", WORKER, str(tmp_path), boundary],
+                                 text=True, capture_output=True, timeout=45)
+>       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 40, in <module>
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/runner.py", line 28, in run_recipe
+E             registry.check_lock(recipe, lock)
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/plugins.py", line 284, in check_lock
+E             require(actual == lock, "registered plugins, capabilities or host runtime differ from lock")
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/contracts.py", line 25, in require
+E             raise ContractError(message)
+E         proteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock
+E         
+E       assert 1 == 86
+E        +  where 1 = CompletedProcess(args=['/tmp/proteus-v1-review-4f7209c/bin/python', '-c', "\nimport os, sys\nfrom pathlib import Path\...ssage)\nproteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock\n').returncode
+
+tests/test_v1_knowledge_service.py:147: AssertionError
+_ test_hard_exit_preserves_recorded_reads_and_later_shared_publications[knowledge.attempt] _
+
+tmp_path = PosixPath('/private/tmp/proteus-v1-release-full-validation-20261028/fixtures-hg4xttnw/pytest/test_hard_exit_preserves_recor3')
+boundary = 'knowledge.attempt'
+
+    @pytest.mark.parametrize("boundary", ["capture.receipt", "knowledge.capture", "publish.receipt", "knowledge.attempt", "conflict.receipt"])
+    def test_hard_exit_preserves_recorded_reads_and_later_shared_publications(tmp_path, boundary):
+        recipe, registry, lock = setup(tmp_path)
+        stopped = subprocess.run([sys.executable, "-c", WORKER, str(tmp_path), boundary],
+                                 text=True, capture_output=True, timeout=45)
+>       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 40, in <module>
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/runner.py", line 28, in run_recipe
+E             registry.check_lock(recipe, lock)
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/plugins.py", line 284, in check_lock
+E             require(actual == lock, "registered plugins, capabilities or host runtime differ from lock")
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/contracts.py", line 25, in require
+E             raise ContractError(message)
+E         proteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock
+E         
+E       assert 1 == 86
+E        +  where 1 = CompletedProcess(args=['/tmp/proteus-v1-review-4f7209c/bin/python', '-c', "\nimport os, sys\nfrom pathlib import Path\...ssage)\nproteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock\n').returncode
+
+tests/test_v1_knowledge_service.py:147: AssertionError
+_ test_hard_exit_preserves_recorded_reads_and_later_shared_publications[conflict.receipt] _
+
+tmp_path = PosixPath('/private/tmp/proteus-v1-release-full-validation-20261028/fixtures-hg4xttnw/pytest/test_hard_exit_preserves_recor4')
+boundary = 'conflict.receipt'
+
+    @pytest.mark.parametrize("boundary", ["capture.receipt", "knowledge.capture", "publish.receipt", "knowledge.attempt", "conflict.receipt"])
+    def test_hard_exit_preserves_recorded_reads_and_later_shared_publications(tmp_path, boundary):
+        recipe, registry, lock = setup(tmp_path)
+        stopped = subprocess.run([sys.executable, "-c", WORKER, str(tmp_path), boundary],
+                                 text=True, capture_output=True, timeout=45)
+>       assert stopped.returncode == 86, stopped.stdout + stopped.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 40, in <module>
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/recipes/runner.py", line 28, in run_recipe
+E             registry.check_lock(recipe, lock)
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/plugins.py", line 284, in check_lock
+E             require(actual == lock, "registered plugins, capabilities or host runtime differ from lock")
+E           File "/Users/myyyth/.codex/worktrees/v1-experiment-recipes/Proteus/proteus/core/contracts.py", line 25, in require
+E             raise ContractError(message)
+E         proteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock
+E         
+E       assert 1 == 86
+E        +  where 1 = CompletedProcess(args=['/tmp/proteus-v1-review-4f7209c/bin/python', '-c', "\nimport os, sys\nfrom pathlib import Path\...ssage)\nproteus.core.serialization.ContractError: registered plugins, capabilities or host runtime differ from lock\n').returncode
+
+tests/test_v1_knowledge_service.py:147: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_v1_gepa_method.py::test_hard_exit_replays_full_engine_without_duplicate_calls[method.result:1]
+FAILED tests/test_v1_knowledge_service.py::test_hard_exit_preserves_recorded_reads_and_later_shared_publications[capture.receipt]
+FAILED tests/test_v1_knowledge_service.py::test_hard_exit_preserves_recorded_reads_and_later_shared_publications[knowledge.capture]
+FAILED tests/test_v1_knowledge_service.py::test_hard_exit_preserves_recorded_reads_and_later_shared_publications[publish.receipt]
+FAILED tests/test_v1_knowledge_service.py::test_hard_exit_preserves_recorded_reads_and_later_shared_publications[knowledge.attempt]
+FAILED tests/test_v1_knowledge_service.py::test_hard_exit_preserves_recorded_reads_and_later_shared_publications[conflict.receipt]
+6 failed, 379 passed, 29 skipped in 363.39s (0:06:03)

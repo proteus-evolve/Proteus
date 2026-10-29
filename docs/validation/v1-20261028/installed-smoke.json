@@ -1,0 +1,98 @@
+[
+  {
+    "distribution": "wheel",
+    "check": "check_plugin_templates.py",
+    "exit_code": 0,
+    "seconds": 9.941981666721404
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_native_inputs_package.py",
+    "exit_code": 0,
+    "seconds": 0.7498368341475725
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_native_budget_package.py",
+    "exit_code": 0,
+    "seconds": 0.9433168331161141
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_harness_accounting_package.py",
+    "exit_code": 0,
+    "seconds": 0.8965902915224433
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_result_export.py",
+    "exit_code": 0,
+    "seconds": 1.3067975407466292
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_study_comparison.py",
+    "exit_code": 0,
+    "seconds": 2.795156540349126
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_parallel_package.py",
+    "exit_code": 0,
+    "seconds": 0.3300105407834053
+  },
+  {
+    "distribution": "wheel",
+    "check": "check_workflow_package.py",
+    "exit_code": 0,
+    "seconds": 2.5515125412493944
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_plugin_templates.py",
+    "exit_code": 0,
+    "seconds": 9.913167708553374
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_native_inputs_package.py",
+    "exit_code": 0,
+    "seconds": 0.7325437096878886
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_native_budget_package.py",
+    "exit_code": 0,
+    "seconds": 0.946992208249867
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_harness_accounting_package.py",
+    "exit_code": 0,
+    "seconds": 0.8954530833289027
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_result_export.py",
+    "exit_code": 0,
+    "seconds": 1.3250327492132783
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_study_comparison.py",
+    "exit_code": 0,
+    "seconds": 2.8245899584144354
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_parallel_package.py",
+    "exit_code": 0,
+    "seconds": 0.3372839577496052
+  },
+  {
+    "distribution": "sdist",
+    "check": "check_workflow_package.py",
+    "exit_code": 0,
+    "seconds": 2.610358708538115
+  }
+]

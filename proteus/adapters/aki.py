@@ -75,7 +75,6 @@ class AkiHarness:
     def __init__(self, src: str | None = None, docker: bool = True) -> None:
         self.src = Path(src or os.environ.get("AKI_HARNESS_SRC", "")).expanduser()
         self.docker = docker
-        self._pending_root: Optional[Path] = None
         self._run_configs: dict[Path, object] = {}
 
     # ---------------------------------------------------------------- contract: metadata
@@ -121,7 +120,6 @@ class AkiHarness:
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         # Aki's init_run seeds and installs in one step; remember state until then.
-        self._pending_root = harness_root
         self._rng_seed = rng_seed
 
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None:
@@ -142,7 +140,6 @@ class AkiHarness:
         if not harness_root.exists():
             supervisor.init_run(config)
         self._run_configs[run_root] = config
-        self._pending_root = None
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         _, supervisor, _, _ = self._api()

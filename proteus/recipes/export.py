@@ -220,7 +220,8 @@ class SavedRun:
         with sqlite3.connect(path.as_uri()+'?mode=ro', uri=True) as db:
             db.row_factory = sqlite3.Row
             db.execute('BEGIN')
-            require(db.execute('PRAGMA user_version').fetchone()[0] == 1, 'unsupported ledger schema')
+            version = db.execute('PRAGMA user_version').fetchone()[0]
+            require(version in (1, 2), 'unsupported ledger schema')
             identities = db.execute('SELECT value FROM identity').fetchall()
             require(len(identities) == 1 and read_json(identities[0][0]) == {'schema_version': 1,
                 'run_id': self.manifest.run_id, 'config_hash': self.manifest.config_hash,
@@ -230,7 +231,10 @@ class SavedRun:
                 verify_scopes(self.recipe, db)
             entries = [Ledger._row(row) for row in db.execute('SELECT * FROM entries ORDER BY id')]
             self.ledger_entries = {entry['id']: entry for entry in entries}
-            charged, unknown, active, count = Ledger._balance(db, 'run')
+            charged, unknown, active, count = Ledger._scan_balance(db, 'run')
+            if version == 2:
+                require((charged, unknown, active, count) == Ledger._balance(db, 'run'),
+                        'ledger cached balance differs from audited entries')
             require(count == len(entries), 'ledger contains operations outside the run budget')
             require(active == 0 and all(entry['state'] in TERMINAL for entry in entries),
                     'export requires settled operations; reconcile or finish recovery first')
@@ -404,6 +408,7 @@ def report_run(root, *, include_private=False, measurement_spec=None):
             'source_run': str(root),
             'candidates': candidates, 'tasks': tasks, 'cohorts': cohorts, 'accounting': accounting, 'timing': timing,
             'native_accounting': native_accounting,
+            'native_model_selection': run.records.get('native_model_selection'),
             'stages': stages, 'attempts': attempts, 'unreported_rollout_ids': unreported,
             'evidence': {path: digest for path, digest in run.evidence.items()
                          if include_private or not (path.startswith(('private/', '.proteus-records/'))

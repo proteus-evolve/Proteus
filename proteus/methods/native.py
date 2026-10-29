@@ -86,6 +86,8 @@ class NativeMethod:
         options = self.options
         actor = services.recipe.actors[options.actor]
         runtime = services.registry.create(actor.runtime, "actor")
+        services.native_model_selection = (runtime.model_selection(actor) if hasattr(runtime, "model_selection")
+            else {"owner": "runtime", "requested_model": actor.model, "resolved_model": None})
         def factory():
             return runtime.adapter(actor)
         parsed = [_evaluator(spec, factory) for spec in options.evaluators]
@@ -112,6 +114,9 @@ class NativeMethod:
         start = completed_episodes(cfg) if services.resume else 0
         from proteus.core.native_inputs import read_native_inputs
         from proteus.core.native_budget import budget_scope
+        if services.resume and any(row['outcome'] is None for row in read_native_inputs(cfg.root)):
+            from proteus.core.recovery import RecoveryRequired
+            raise RecoveryRequired('native dispatch outcome is unknown; reconcile before resuming')
         try:
             with budget_scope(services, cfg.adapter, evaluators):
                 result = run(cfg, start=start, resume=services.resume)

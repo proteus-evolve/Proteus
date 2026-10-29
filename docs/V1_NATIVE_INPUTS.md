@@ -33,7 +33,8 @@ separate JSON files:
 
 Files are atomically published and fsynced before dispatch. Inputs are never
 replaced by a retry. Ordinary exceptions write a `raised` outcome containing the
-exception type; a hard exit can leave an input without an outcome. The reader
+exception type. `RecoveryRequired`, keyboard/system interruption and hard exits
+leave an input without a terminal outcome. The reader
 reports that completion as `unknown`, including the ambiguity between a crash
 just before dispatch and a crash after remote work. It never resumes or reissues
 work based on these records. Existing native recovery rules remain authoritative.
@@ -206,8 +207,9 @@ backend protocol. This profile currently stops and retains evidence instead.
 Pi, DSH, Codex, Aki, custom adapters and benchmark evaluators do not have a
 supported native call bound. Their finite call limits are rejected before the
 run is published. Token, monetary-cost, elapsed-time and evaluation caps remain
-unsupported for native recipes. Old unbounded recipes and the legacy `proteus
-run` entry point keep their prior behavior. These controls do not constitute
+unsupported for native recipes. Unbounded recipes remain unbounded, but an unknown
+input outcome now also blocks their automatic recipe resume. The legacy `proteus
+run` entry point retains its separate adapter/explicit phase-recovery rules. These controls do not constitute
 independent provider billing verification or complete I09 acceptance.
 
 ### Native evaluator receipts

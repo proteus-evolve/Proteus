@@ -48,6 +48,23 @@ version. Keep the original checkout and environment for pending runs.
 
 ## Session and environment capability boundaries
 
+For DSH actor options, `model_selection = "framework"` binds `ActorSpec.model`
+through the adapter's settings file; `"runtime"` requires `model = null` and
+leaves selection to the pinned DSH profile. The default `"legacy"` preserves the
+previous behavior: workspace DSH binds the requested model, while generic/native
+DSH uses its runtime profile. Actor results and Native execution metadata record the owner,
+requested/applied model and an unknown resolved model when it cannot be observed.
+DSH input receipts record the actual adapter override or null, rather than claiming
+an ignored recipe model was applied. No override is inferred for runtime-owned profiles.
+
+The unused `EpisodeSpec.extra_env` field has been removed in 1.0 development;
+passing it now fails instead of silently doing nothing. Configure supported
+container environment values through `SandboxConfig.env` and named
+`env_passthrough`, or implement an explicit custom adapter configuration.
+`_repair_feedback` is retained as the documented former-private compatibility
+helper during this development transition. It is outside the proposed stable API;
+its removal requires a separate compatibility review.
+
 Fresh actor calls, declared handoff context and native session continuation are
 separate protocols. A runtime must advertise the requested capability; the framework
 does not silently exchange them. Persistent research workers record native session

@@ -143,6 +143,11 @@ class DockerSandbox:
         the callable returns True the container is killed and the process's own exit
         code is returned — the caller decides whether that stop was a cap or a failure.
         """
+        from proteus.core.recovery import RecoveryRequired
+        from proteus.core.episode import private_record_dir
+        marker = private_record_dir(run_root) / "docker-cleanup.json"
+        if marker.exists():
+            raise RecoveryRequired("Docker cleanup remains unverified; reconcile_cleanup before dispatch")
         c = self.config
         import uuid
 
@@ -180,48 +185,87 @@ class DockerSandbox:
                 return subprocess.run(
                     argv, capture_output=True, text=True, errors="replace",
                     env=docker_env, timeout=timeout_s, check=False)
-            except subprocess.TimeoutExpired:
-                # subprocess.run kills only the docker CLI process. The named container
-                # is a separate process and otherwise survives as an orphan.
-                subprocess.run(["docker", "rm", "-f", name],
-                               capture_output=True, check=False)
+            except BaseException:
+                self._cleanup(name, marker)
                 raise
 
         import time
         proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, errors="replace", env=docker_env)
         deadline = time.monotonic() + timeout_s
-        stopped = False
-        while True:
-            try:
-                out, err = proc.communicate(timeout=poll_s)
-                break
-            except subprocess.TimeoutExpired:
-                pass
-            if time.monotonic() > deadline:
-                subprocess.run(["docker", "rm", "-f", name],
-                               capture_output=True, check=False)
-                out, err = proc.communicate()
-                raise subprocess.TimeoutExpired(argv, timeout_s, output=out, stderr=err)
-            if not stopped:
+        try:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(argv, timeout_s)
                 try:
-                    should_stop = stop_check()
-                except Exception:
-                    subprocess.run(["docker", "rm", "-f", name],
-                                   capture_output=True, check=False)
-                    proc.communicate()
-                    raise
-                if should_stop:
-                    stopped = True
-                    removed = subprocess.run(
-                        ["docker", "rm", "-f", name], capture_output=True, check=False)
-                    if removed.returncode != 0 and proc.poll() is None:
-                        # `stop_check` may fire before Docker has registered the name.
-                        # Stop the client, then retry after its create attempt has ended.
-                        proc.terminate()
-                        proc.communicate()
-                        subprocess.run(["docker", "rm", "-f", name],
-                                       capture_output=True, check=False)
-                        out, err = "", ""
-                        break
-        return subprocess.CompletedProcess(argv, proc.returncode, out, err)
+                    out, err = proc.communicate(timeout=min(poll_s, remaining))
+                    return subprocess.CompletedProcess(argv, proc.returncode, out, err)
+                except subprocess.TimeoutExpired:
+                    if time.monotonic() >= deadline:
+                        raise subprocess.TimeoutExpired(argv, timeout_s)
+                if stop_check():
+                    out, err = self._cleanup(name, marker, proc)
+                    return subprocess.CompletedProcess(argv, proc.returncode, out, err)
+        except RecoveryRequired:
+            raise
+        except BaseException:
+            self._cleanup(name, marker, proc)
+            raise
+
+    CLEANUP_SECONDS = 10.0
+
+    @classmethod
+    def _cleanup(cls, name, marker, proc=None):
+        """Bound container removal and client drain by one shared deadline."""
+        import time
+        from proteus.core.recovery import RecoveryRequired, _write
+        deadline = time.monotonic() + cls.CLEANUP_SECONDS
+        def remaining():
+            return max(0.001, deadline - time.monotonic())
+        try:
+            removed = subprocess.run(["docker", "rm", "-f", name], capture_output=True,
+                                     text=True, timeout=remaining(), check=False)
+            if proc is not None:
+                if removed.returncode and proc.poll() is None:
+                    proc.terminate()
+                try:
+                    out, err = proc.communicate(timeout=min(2.0, remaining()))
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    out, err = proc.communicate(timeout=remaining())
+                if removed.returncode:
+                    # Registration may have raced the first removal. The client is
+                    # now stopped; removal must be checked again before proceeding.
+                    removed = subprocess.run(["docker", "rm", "-f", name], capture_output=True,
+                                             text=True, timeout=remaining(), check=False)
+            else:
+                out, err = "", ""
+            if removed.returncode and "No such container" not in (removed.stderr or ""):
+                raise RuntimeError("Docker did not confirm container removal")
+            return out, err
+        except BaseException as exc:
+            if proc is not None and proc.poll() is None:
+                proc.kill()  # Never follow this with an unbounded pipe drain.
+            message = f"Docker cleanup unverified for {name}; reservation must remain active"
+            try:
+                _write(marker, {"version": 1, "container": name})
+            except Exception:
+                # Storage failure must not downgrade unknown execution to an
+                # ordinary terminal failure and release a managed reservation.
+                message += "; cleanup marker could not be persisted"
+            raise RecoveryRequired(message) from exc
+
+    def reconcile_cleanup(self, run_root: Path):
+        """Explicitly verify removal before permitting work in an uncertain root."""
+        from proteus.core.episode import private_record_dir
+        from proteus.core.recovery import _load
+        from proteus.artifacts.store import _sync_directory
+        marker = private_record_dir(run_root) / "docker-cleanup.json"
+        if marker.exists():
+            record = _load(marker)
+            if record["version"] != 1 or not record["container"].startswith("proteus-"):
+                raise ValueError("invalid Docker cleanup receipt")
+            self._cleanup(record["container"], marker)
+            marker.unlink()
+            _sync_directory(marker.parent)

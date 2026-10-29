@@ -515,6 +515,8 @@ class WorkflowMap:
             validate_state=lambda state: require(False, "unexpected workflow checkpoint"),
         )
         journal.root = path / "journal"
+        from proteus.core.snapshot_store import SnapshotStore
+        journal.snapshots = SnapshotStore(journal.root / "snapshots")
         branch._journal = journal
         _, final = journal.initialize()
         if final is None:
@@ -589,11 +591,13 @@ class WorkflowMap:
         last = snapshots[-1]
         terminal = _load(last)
         request = _load(last.with_name(last.name.replace(".result.json", ".request.json")))
+        from proteus.core.snapshot_store import SnapshotStore
+        terminal_snapshot = SnapshotStore(path / "journal/snapshots").load(terminal["snapshot"])
         require(
             request["kind"] == "method.result"
             and terminal["error"] is None
             and terminal["request_hash"] == content_hash(request)
-            and terminal["snapshot"] == record["snapshot"],
+            and terminal_snapshot == record["snapshot"],
             "workflow terminal journal differs",
         )
         final = MethodResult.from_dict(terminal["output"])

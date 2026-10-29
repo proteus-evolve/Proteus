@@ -174,6 +174,7 @@ class BuildService:
         builder, key, image_id, cached_from = {}, None, None, None
         dispatched = False
         error = None
+        uncertain = False
         attempt = self.root / "attempts" / entry
         try:
             attempt.mkdir(parents=True, exist_ok=False)
@@ -223,6 +224,8 @@ class BuildService:
                     image_id = (attempt / "image-id").read_text().strip()
                     verify_image(image_id, key, artifact, spec)
         except BaseException as exc:
+            from proteus.core.recovery import uncertain_execution
+            uncertain = uncertain_execution(exc)
             error = f"{type(exc).__name__}: {exc}"
             image_id, cached_from = None, None
             raise
@@ -233,10 +236,11 @@ class BuildService:
                 base_image=base_image, dockerfile_hash=content_hash(definition), input_hash=key, builder=builder,
                 image_id=image_id, cache_hit=cached_from is not None, cached_from=cached_from,
                 status="failed" if error else "completed", usage=usage, diagnostic=error or "")
-            self.records.append(receipt)
-            services.ledger.settle(entry, actual=Amounts.from_usage(usage), status=receipt.status,
-                                   result={"receipt": receipt})
-            publish_bytes(attempt / "receipt.json", canonical_json(receipt).encode())
+            if not uncertain:
+                self.records.append(receipt)
+                services.ledger.settle(entry, actual=Amounts.from_usage(usage), status=receipt.status,
+                                       result={"receipt": receipt})
+                publish_bytes(attempt / "receipt.json", canonical_json(receipt).encode())
         if not receipt.cache_hit:
             publish_bytes(self.root / "cache" / key.split(":")[1] / (content_hash(receipt).split(":")[1] + ".json"),
                           canonical_json(receipt).encode())

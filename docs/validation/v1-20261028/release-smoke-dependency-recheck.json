@@ -1,0 +1,340 @@
+{
+  "collected_at_utc": "2026-10-29T06:51:17.300308+00:00",
+  "github_failure": {
+    "run": 40828273530,
+    "head": "4da344511dc1a0ea08926d20ad65146185f13489",
+    "failed": 3,
+    "passed": 1587,
+    "skipped": 188,
+    "downstream_live_jobs": "all skipped; no provider calls started"
+  },
+  "environment": "Fresh Python 3.12.13 venv; editable .[dev,dsh,pi]; no optional pinned reference sources",
+  "reproduced_before_install": [
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_complete_gepa_loop_uses_dynamic_batches_without_unaccounted_profiling",
+      "status": "failed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.begin]",
+      "status": "failed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.finish]",
+      "status": "failed"
+    }
+  ],
+  "dependency_added": {
+    "package": "gepa",
+    "repository": "https://github.com/gepa-ai/gepa",
+    "revision": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975",
+    "install_flags": "--no-deps"
+  },
+  "after_install_command": "PROTEUS_REQUIRE_GEPA=1 python -m pytest tests/test_v1_dynamic_batching.py tests/test_release_smoke.py -q",
+  "after_install_totals": {
+    "passed": 50,
+    "failed": 0,
+    "error": 0,
+    "skipped": 9
+  },
+  "after_install_cases": [
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_ordinary_iteration_delays_choose_a_bounded_plateau[6-6-0]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_ordinary_iteration_delays_choose_a_bounded_plateau[16-8-0]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_ordinary_iteration_delays_choose_a_bounded_plateau[16-16-0.5]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_flat_increasing_or_unusable_profiles_fall_back[delays0]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_flat_increasing_or_unusable_profiles_fall_back[delays1]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_flat_increasing_or_unusable_profiles_fall_back[delays2]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_flat_increasing_or_unusable_profiles_fall_back[delays3]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_short_and_interrupted_batches_stay_recorded_without_false_throughput",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_online_window_caps_profile_sizes_without_extra_trials",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_controller_rejects_options_drift_and_reused_measurements",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_restored_profile_cannot_discard_good_measurements_or_invent_durations",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_large_duration_overflow_is_excluded_and_survives_restore",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_plateau_matches_actual_pinned_dynamic_sampler[0]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_plateau_matches_actual_pinned_dynamic_sampler[0.25]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_plateau_matches_actual_pinned_dynamic_sampler[0.5]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_plateau_matches_actual_pinned_dynamic_sampler[0.9]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_plateau_matches_actual_pinned_dynamic_sampler[1]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_plateau_matches_actual_pinned_dynamic_sampler[1.5]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_ace_profiles_ordinary_batches_and_preserves_task_coverage[offline]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_ace_profiles_ordinary_batches_and_preserves_task_coverage[online]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_ace_recovery_keeps_profile_evidence_without_extra_learning[timing.begin]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_ace_recovery_keeps_profile_evidence_without_extra_learning[timing.finish]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_variable_gepa_sampler_matches_actual_source_across_size_changes_and_restore[0]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_variable_gepa_sampler_matches_actual_source_across_size_changes_and_restore[0.5]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_variable_gepa_sampler_matches_actual_source_across_size_changes_and_restore[1.5]",
+      "status": "skipped"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_complete_gepa_loop_uses_dynamic_batches_without_unaccounted_profiling",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.begin]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_v1_dynamic_batching",
+      "name": "test_dynamic_gepa_recovery_preserves_sampling_and_charged_work[timing.finish]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_compares_runtime_to_preceding_checkpoint",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_rejects_cache_only_edit_with_valid_seed_binaries[cache]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_rejects_missing_or_mismatched_activation[hash]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_rejects_missing_or_mismatched_activation[publication]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_rejects_missing_or_mismatched_activation[episode]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_rejects_missing_or_mismatched_activation[missing]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_codex_gate_rejects_missing_or_mismatched_activation[binary]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_requires_hashed_inputs_for_every_episode",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_harness_gate_separates_evaluator_receipts",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[None-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[None-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[capped-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[capped-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[cache-only-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[cache-only-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[wrong-checkpoint-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[wrong-checkpoint-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[missing-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[missing-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[unknown-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[unknown-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[failed-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[failed-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[receipt-pi]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_source_gate_requires_actual_preceding_checkpoint_receipts[receipt-dsh]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence[input]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence[outcome]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence[unknown]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence[opaque]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence[backend]",
+      "status": "passed"
+    },
+    {
+      "class": "tests.test_release_smoke",
+      "name": "test_live_gate_rejects_missing_corrupt_or_wrong_scope_input_evidence[episode]",
+      "status": "passed"
+    }
+  ],
+  "scope": "Workflow dependency repair only; no runtime code or historical result changes. Offline reference-source skips are covered separately by full CI."
+}

@@ -300,20 +300,17 @@ def test_http_actor_requests_really_overlap_and_report_known_tokens(tmp_path, mo
     assert "fixture-secret" not in json.dumps(records)
 
 
-def test_settled_system_exit_preserves_unknown_spend_without_claiming_uncertain_replay(tmp_path):
+def test_system_exit_retains_uncertain_dispatch_without_replay(tmp_path):
     registry, recipe = setup(options=Options(prompts=("exit", "0")))
     root = tmp_path / "run"
     result = run(root, registry, recipe)
-    assert result.status == OperationStatus.COMPLETED, result.diagnostic
-    joined, records = mapped(root)
-    assert joined.results[0].status == OperationStatus.FAILED
-    assert "SystemExit" in joined.results[0].diagnostic
-    assert joined.results[0].usage.model_calls is None
+    assert result.status == OperationStatus.FAILED and "RecoveryRequired" in result.diagnostic
     book = run_ledger(root)
     assert book.balance()["unknown"]["model_calls"] == 1
-    assert book.balance()["charged"]["model_calls"] == 2 and book.balance()["active_slots"] == 0
+    assert book.balance()["charged"]["model_calls"] == 2 and book.balance()["active_slots"] == 1
     before = book.events()
-    assert run(root, registry, recipe, resume=True) == result
+    resumed = run(root, registry, recipe, resume=True)
+    assert resumed.status == OperationStatus.FAILED and "RecoveryRequired" in resumed.diagnostic
     assert book.events() == before
 
 

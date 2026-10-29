@@ -60,7 +60,7 @@ class Ledger:
                                    "config_hash": config_hash, "lock_hash": lock_hash})
         with self._transaction() as db:
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            require(version in (0, 1), "unsupported ledger schema version")
+            require(version in (0, 1, 2), "unsupported ledger schema version")
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if version == 0:
                 require(not tables, "refusing to initialize an unrecognized ledger database")
@@ -78,11 +78,26 @@ class Ledger:
                 db.execute("INSERT INTO identity VALUES (?)", (identity,))
                 db.execute("PRAGMA user_version=1")
             else:
-                require(tables == {"identity", "scopes", "entries", "membership", "events"},
+                require(tables == ({"identity", "scopes", "entries", "membership", "events"}
+                                   | ({"balances"} if version == 2 else set())),
                         "ledger schema is incomplete or unrecognized")
                 identities = db.execute("SELECT value FROM identity").fetchall()
                 require(len(identities) == 1 and identities[0][0] == identity,
                         "ledger run/configuration/lock identity differs")
+            if version != 2:
+                db.execute("ALTER TABLE entries ADD COLUMN operation_id TEXT")
+                db.execute("CREATE INDEX entries_operation ON entries(operation_id)")
+                db.execute("CREATE TABLE balances (scope TEXT PRIMARY KEY REFERENCES scopes(id), totals_json TEXT NOT NULL)")
+                totals = {row[0]: self._empty_totals() for row in db.execute("SELECT id FROM scopes")}
+                for row in db.execute("SELECT * FROM entries").fetchall():
+                    entry = self._row(row)
+                    db.execute("UPDATE entries SET operation_id=? WHERE id=?",
+                               (entry['identity']['metadata'].get('operation_id'), entry['id']))
+                    for scope in entry['identity']['scopes']:
+                        self._apply(totals[scope], entry, 1)
+                for scope, value in totals.items():
+                    db.execute("INSERT INTO balances VALUES (?,?)", (scope, canonical_json(value)))
+                db.execute("PRAGMA user_version=2")
         _sync_directory(self.path.parent)
 
     @contextmanager
@@ -125,7 +140,7 @@ class Ledger:
                    (entry_id, kind, time.time_ns(), canonical_json(payload)))
 
     @staticmethod
-    def _balance(db, scope):
+    def _scan_balance(db, scope):
         rows = db.execute("SELECT e.* FROM entries e JOIN membership m ON e.id=m.entry "
                           "WHERE m.scope=? ORDER BY e.id", (scope,)).fetchall()
         charged = {key: Decimal(0) for key in DIMENSIONS}
@@ -148,6 +163,41 @@ class Ledger:
                     charged[key] += Decimal(str(value))
         return charged, unknown, active_slots, len(rows)
 
+    @staticmethod
+    def _empty_totals():
+        return {"sum": {key: "0" for key in DIMENSIONS},
+                "unknown": {key: 0 for key in DIMENSIONS},
+                "unbounded": {key: 0 for key in DIMENSIONS}, "active_slots": 0, "entries": 0}
+
+    @staticmethod
+    def _apply(totals, entry, sign):
+        totals["entries"] += sign
+        if entry["state"] not in TERMINAL:
+            totals["active_slots"] += sign * entry["identity"]["slots"]
+        for key in DIMENSIONS:
+            actual = entry["settlement"]["actual"][key] if entry["settlement"] is not None else None
+            effective = actual if actual is not None else entry["identity"]["reservation"][key]
+            totals["unknown"][key] += sign * int(actual is None)
+            totals["unbounded"][key] += sign * int(effective is None)
+            totals["sum"][key] = str(Decimal(totals["sum"][key]) + sign * Decimal(str(effective or 0)))
+
+    @classmethod
+    def _adjust(cls, db, entry, sign):
+        for scope in entry["identity"]["scopes"]:
+            row = db.execute("SELECT totals_json FROM balances WHERE scope=?", (scope,)).fetchone()
+            require(row is not None, "ledger scope balance is missing")
+            totals = read_json(row[0])
+            cls._apply(totals, entry, sign)
+            db.execute("UPDATE balances SET totals_json=? WHERE scope=?", (canonical_json(totals), scope))
+
+    @staticmethod
+    def _balance(db, scope):
+        row = db.execute("SELECT totals_json FROM balances WHERE scope=?", (scope,)).fetchone()
+        totals = read_json(row[0]) if row is not None else Ledger._empty_totals()
+        charged = {key: None if totals["unbounded"][key] else Decimal(totals["sum"][key])
+                   for key in DIMENSIONS}
+        return charged, totals["unknown"], totals["active_slots"], totals["entries"]
+
     def reserve(self, entry_id: str, *, scopes: Mapping[str, BudgetLimits], reservation: Amounts,
                 metadata: Mapping, request, slots: int = 1, reuse: bool = True):
         require(type(entry_id) is str and bool(entry_id.strip()), "ledger entry id must be nonempty")
@@ -167,6 +217,7 @@ class Ledger:
                 require(old is None or old[0] == encoded_limits, f"budget scope changed: {scope}")
                 if old is None:
                     db.execute("INSERT INTO scopes VALUES (?,?)", (scope, encoded_limits))
+                    db.execute("INSERT INTO balances VALUES (?,?)", (scope, canonical_json(self._empty_totals())))
             old = db.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()
             if old is not None:
                 require(old["identity_json"] == encoded, "ledger operation identity changed")
@@ -182,9 +233,11 @@ class Ledger:
                         require(charged[key] is not None
                                 and charged[key] + Decimal(str(bound)) <= Decimal(str(cap)),
                                 f"{'evaluation' if key == 'evaluations' else key} budget exhausted: {scope}")
-            db.execute("INSERT INTO entries VALUES (?,?,'reserved',NULL)", (entry_id, encoded))
+            db.execute("INSERT INTO entries(id,identity_json,state,settlement_json,operation_id) VALUES (?,?,'reserved',NULL,?)",
+                       (entry_id, encoded, metadata.get("operation_id")))
             for scope in scopes:
                 db.execute("INSERT INTO membership VALUES (?,?)", (scope, entry_id))
+            self._adjust(db, self._entry(db, entry_id), 1)
             self._event(db, entry_id, "reserved", identity)
             return self._entry(db, entry_id)
 
@@ -221,8 +274,10 @@ class Ledger:
             if entry["state"] in TERMINAL:
                 require(canonical_json(entry["settlement"]) == encoded, "ledger settlement changed")
                 return tuple(violations)
+            self._adjust(db, entry, -1)
             db.execute("UPDATE entries SET state=?, settlement_json=? WHERE id=?",
                        (status, encoded, entry_id))
+            self._adjust(db, self._entry(db, entry_id), 1)
             self._event(db, entry_id, "settled", settlement)
             return tuple(violations)
 
@@ -235,8 +290,8 @@ class Ledger:
             return [self._row(row) for row in db.execute("SELECT * FROM entries ORDER BY id")]
 
     def has_operation(self, operation_id):
-        return any(entry["identity"]["metadata"].get("operation_id") == operation_id
-                   for entry in self.entries())
+        with self._connection() as db:
+            return db.execute("SELECT 1 FROM entries WHERE operation_id=? LIMIT 1", (operation_id,)).fetchone() is not None
 
     def balance(self, scope="run"):
         with self._connection() as db:

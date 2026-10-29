@@ -128,6 +128,8 @@ their distances are not a universal quality metric across all methods.
 
 ## Start, extend and release
 
+- Check [review closure and release acceptance](V1_RELEASE_ACCEPTANCE.md) and the
+  [historical/current experiment correspondence](V1_EXPERIMENT_ACCEPTANCE.md).
 - Start with the [README recipe walkthrough](../README.md#recipe-quick-start), then
   choose a [catalog entry](V1_RECIPE_CATALOG.md) and its domain instructions.
 - Generate an external method, stage, evaluator, subject or policy with

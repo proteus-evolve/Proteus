@@ -9,6 +9,7 @@ import time
 import urllib.request
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 from proteus.core.adapter import EpisodeSpec
@@ -102,6 +103,7 @@ class AdapterOptions(Contract):
     auth_file: str | None = field(default=None, metadata=TEXT)
     base_url: str | None = field(default=None, metadata=TEXT)
     key_env: str | None = field(default=None, metadata={"pattern": r"^[A-Za-z_][A-Za-z0-9_]*$"})
+    model_selection: Literal["legacy", "framework", "runtime"] = "legacy"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -122,7 +124,12 @@ def validate_harness(name, spec, options):
     require(spec.budget.max_model_calls is None or spec.runtime.plugin.name in
             ('proteus.native.minimal', 'proteus.native.llm'),
             "legacy harness call accounting has no hard global bound")
-    require(name == "minimal" or spec.model is not None, "live harness recipes require an explicit model")
+    require(name == "dsh" or options.model_selection != "runtime",
+            "runtime-owned model selection is currently supported only by DSH")
+    if name == "dsh" and options.model_selection == "runtime":
+        require(spec.model is None, "runtime-owned DSH model selection requires model=null")
+    else:
+        require(name == "minimal" or spec.model is not None, "live harness recipes require an explicit model")
     if name not in ("codex", "dsh", "pi"):
         require(options.image is None and options.network == "host"
                 and options.phase_timeout_seconds is None,
@@ -151,7 +158,7 @@ class HarnessActor:
                 args["image"] = options.image
             if self.name == "codex" and options.auth_file is not None:
                 args["auth_file"] = options.auth_file
-            if self.name == "dsh" and self.supports_workspace:
+            if self.name == "dsh" and self.model_selection(spec)["owner"] == "framework":
                 args["model"] = spec.model
         elif self.name == "llm":
             if options.base_url is not None:
@@ -160,6 +167,16 @@ class HarnessActor:
                 require(bool(os.environ.get(options.key_env)), "missing LLM harness credential")
                 args["key"] = os.environ[options.key_env]
         return harness_class(self.name)(**args)
+
+    def model_selection(self, spec):
+        policy = self.options.model_selection
+        owner = "framework"
+        if self.name == "dsh" and (policy == "runtime" or (policy == "legacy" and not self.supports_workspace)):
+            owner = "runtime"
+        return {"policy": policy, "owner": owner,
+                "requested_model": spec.model,
+                "applied_model": spec.model if owner == "framework" else None,
+                "resolved_model": None}
 
     def execute(self, spec, request, workspace: Path) -> ActorResult:
         require(spec.session.value == "fresh" and request.session_id is None and request.handoff is None,
@@ -195,13 +212,17 @@ class HarnessActor:
                 continuity_mode=getattr(adapter, "continuity_mode", "native")))
             trace = tuple(asdict(event) for event in adapter.read_trace(workspace, 1))
         except Exception as exc:
+            from proteus.core.recovery import RecoveryRequired
+            if isinstance(exc, RecoveryRequired):
+                raise
             failure = exc
         from proteus.execution.harness_usage import collect
         usage, marker, _ = collect(workspace, self.name)
         if usage is None:
             counters = result.counters if result is not None else {}
             usage = Usage(input_tokens=counters.get('tokens_in'), output_tokens=counters.get('tokens_out'))
-        settings = {"requested_model": spec.model, "harness": self.name}
+        settings = {"requested_model": spec.model, "harness": self.name,
+                    "model_selection": self.model_selection(spec)}
         if marker is not None:
             settings['native_usage'] = marker
         text = "\n".join(event["text"] for event in trace if event.get("text"))

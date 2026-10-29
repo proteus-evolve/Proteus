@@ -286,11 +286,12 @@ def test_invalid_runtime_results_and_system_exit_do_not_erase_spend(tmp_path, be
     assert result.status == OperationStatus.FAILED
     book = run_ledger(root)
     entry, = book.entries()
-    assert entry["state"] == "failed"
     if behavior == "exit":
-        assert entry["settlement"]["actual"]["model_calls"] is None
+        assert entry["state"] == "started" and entry["settlement"] is None
         assert book.balance()["charged"]["model_calls"] == 1
+        assert book.balance()["active_slots"] == 1
     else:
+        assert entry["state"] == "failed"
         assert entry["settlement"]["actual"]["model_calls"] == 3
         assert book.balance()["charged"]["model_calls"] == 3
         assert entry["settlement"]["violations"] == ["model_calls"]

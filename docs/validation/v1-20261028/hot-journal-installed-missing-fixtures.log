@@ -1,0 +1,133 @@
+{"distribution": "wheel", "check": "check_plugin_templates.py", "exit_code": 0, "seconds": 10.382617249153554}
+{"distribution": "wheel", "check": "check_native_inputs_package.py", "exit_code": 1, "seconds": 0.13763016741722822}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_inputs_package.py", line 69, in <module>
+    check()
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_inputs_package.py", line 23, in check
+    recipe=load_recipe(Path(__file__).with_name('native.toml'))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/proteus-v1-release-hot-journal-wheel/lib/python3.12/site-packages/proteus/recipes/config.py", line 406, in load_recipe
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/proteus-v1-release-hot-journal-installed-out/native.toml'
+
+{"distribution": "wheel", "check": "check_native_budget_package.py", "exit_code": 1, "seconds": 0.6464988328516483}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_budget_package.py", line 77, in <module>
+    check()
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_budget_package.py", line 40, in check
+    recipe = load_recipe(Path(__file__).with_name('native.toml'))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/proteus-v1-release-hot-journal-wheel/lib/python3.12/site-packages/proteus/recipes/config.py", line 406, in load_recipe
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/proteus-v1-release-hot-journal-installed-out/native.toml'
+
+{"distribution": "wheel", "check": "check_harness_accounting_package.py", "exit_code": 1, "seconds": 0.6391331246122718}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_harness_accounting_package.py", line 115, in <module>
+    check()
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_harness_accounting_package.py", line 45, in check
+    recipe = load_recipe(Path(__file__).with_name('stages.toml'))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/proteus-v1-release-hot-journal-wheel/lib/python3.12/site-packages/proteus/recipes/config.py", line 406, in load_recipe
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/proteus-v1-release-hot-journal-installed-out/stages.toml'
+
+{"distribution": "wheel", "check": "check_result_export.py", "exit_code": 1, "seconds": 0.02623483259230852}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_result_export.py", line 9, in <module>
+    from check_recipe_catalog import check_example
+ModuleNotFoundError: No module named 'check_recipe_catalog'
+
+{"distribution": "wheel", "check": "check_study_comparison.py", "exit_code": 0, "seconds": 2.896410083398223}
+{"distribution": "wheel", "check": "check_parallel_package.py", "exit_code": 0, "seconds": 0.3493578340858221}
+{"distribution": "wheel", "check": "check_workflow_package.py", "exit_code": 0, "seconds": 2.774629792198539}
+{"distribution": "sdist", "check": "check_plugin_templates.py", "exit_code": 0, "seconds": 10.828318499960005}
+{"distribution": "sdist", "check": "check_native_inputs_package.py", "exit_code": 1, "seconds": 0.13482000026851892}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_inputs_package.py", line 69, in <module>
+    check()
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_inputs_package.py", line 23, in check
+    recipe=load_recipe(Path(__file__).with_name('native.toml'))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/proteus-v1-release-hot-journal-sdist/lib/python3.12/site-packages/proteus/recipes/config.py", line 406, in load_recipe
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/proteus-v1-release-hot-journal-installed-out/native.toml'
+
+{"distribution": "sdist", "check": "check_native_budget_package.py", "exit_code": 1, "seconds": 0.6372149595990777}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_budget_package.py", line 77, in <module>
+    check()
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_native_budget_package.py", line 40, in check
+    recipe = load_recipe(Path(__file__).with_name('native.toml'))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/proteus-v1-release-hot-journal-sdist/lib/python3.12/site-packages/proteus/recipes/config.py", line 406, in load_recipe
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/proteus-v1-release-hot-journal-installed-out/native.toml'
+
+{"distribution": "sdist", "check": "check_harness_accounting_package.py", "exit_code": 1, "seconds": 0.6436117505654693}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_harness_accounting_package.py", line 115, in <module>
+    check()
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_harness_accounting_package.py", line 45, in check
+    recipe = load_recipe(Path(__file__).with_name('stages.toml'))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/proteus-v1-release-hot-journal-sdist/lib/python3.12/site-packages/proteus/recipes/config.py", line 406, in load_recipe
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/myyyth/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/proteus-v1-release-hot-journal-installed-out/stages.toml'
+
+{"distribution": "sdist", "check": "check_result_export.py", "exit_code": 1, "seconds": 0.02932658325880766}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-out/check_result_export.py", line 9, in <module>
+    from check_recipe_catalog import check_example
+ModuleNotFoundError: No module named 'check_recipe_catalog'
+
+{"distribution": "sdist", "check": "check_study_comparison.py", "exit_code": 0, "seconds": 2.734286665916443}
+{"distribution": "sdist", "check": "check_parallel_package.py", "exit_code": 0, "seconds": 0.314280167222023}
+{"distribution": "sdist", "check": "check_workflow_package.py", "exit_code": 0, "seconds": 2.421451915986836}
+Traceback (most recent call last):
+  File "/tmp/proteus-v1-release-hot-journal-installed-smoke.py", line 18, in <module>
+    assert all(row['exit_code']==0 for row in report)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

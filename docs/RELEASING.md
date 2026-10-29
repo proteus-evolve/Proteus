@@ -22,6 +22,10 @@ reserve the name before that upload.
 
 ## Release checklist
 
+For 1.0 preparation, first close the [execution/recovery review](V1_RELEASE_ACCEPTANCE.md)
+and verify the [15-profile historical/current evidence mapping](V1_EXPERIMENT_ACCEPTANCE.md).
+Keep implementation tests, historical quality results and final tag gates separate.
+
 1. Complete the release acceptance in the implementation plan, including real-model studies and their declared evaluation splits. Confirm `main` is clean, pushed, and green in CI and Harbor. For 1.0, merge feature PRs into `dev/1.0.0` first; integrate into `main` only after acceptance.
 2. Set the single version source, `proteus.__version__`, in `proteus/__init__.py`; update
    the README badge, install text, and `docs/releases/v<version>.md`. `pyproject.toml`

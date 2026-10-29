@@ -91,7 +91,6 @@ class EpisodeSpec:
     announce_budget: bool = False
     """Whether the adapter should show the live budget contract at phase start."""
     seed: int = 0                    # the run's RNG seed (condition replicate index)
-    extra_env: Mapping[str, str] = field(default_factory=dict)
     continuity_mode: str = "native"
     """How fresh phases continue: ``native`` means the harness owns continuity,
     ``framework`` uses Proteus's external handoff protocol, and ``none`` deliberately

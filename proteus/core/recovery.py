@@ -19,6 +19,16 @@ class RecoveryRequired(RuntimeError):
     """Execution must stop until an uncertain external operation is reconciled."""
 
 
+def uncertain_execution(error):
+    """Interruptions and explicit uncertainty are not terminal execution receipts.
+
+    Ordinary runtime exceptions report known failure. A runtime whose external
+    work may still be active must raise RecoveryRequired instead. Process/keyboard
+    interruption is conservative: retain started reservations until reconciliation.
+    """
+    return isinstance(error, RecoveryRequired) or not isinstance(error, Exception)
+
+
 def _write(path, value):
     publish_bytes(path, canonical_json({"hash": content_hash(value), "value": value}).encode())
 
@@ -91,6 +101,8 @@ class Journal:
         self.recovering = False
         self.validate_state = validate_state
         self.identity = {"manifest_hash": manifest_hash, "format": 1}
+        from proteus.core.snapshot_store import SnapshotStore
+        self.snapshots = SnapshotStore(self.root / "snapshots")
 
     def _path(self, sequence, suffix):
         return self.root / "operations" / f"{sequence:08d}.{suffix}.json"
@@ -102,7 +114,7 @@ class Journal:
     def initialize(self):
         origin = self.root / "origin.json"
         if not self.services.resume:
-            _write(origin, {"identity": self.identity, "snapshot": self.services.snapshot()})
+            _write(origin, {"identity": self.identity, "snapshot": self.snapshots.save(self.services.snapshot())})
             return None, None
         require(origin.is_file(), "run has no durable recovery journal")
         record = _load(origin)
@@ -130,7 +142,7 @@ class Journal:
             if request["kind"] == "method.result":
                 require(sequence == len(paths) and result["error"] is None, "method result must be terminal")
                 snapshot, self.cursor, final = result["snapshot"], sequence, result["output"]
-        self.services.restore(snapshot)
+        self.services.restore(self.snapshots.load(snapshot))
         return state, final
 
     def call(self, kind, identity, function, *, encode=lambda value: value.to_dict(), decode=None):
@@ -146,7 +158,7 @@ class Journal:
             if result_path.exists():
                 result = _load(result_path)
                 require(result["request_hash"] == content_hash(request), "recovery result/request mismatch")
-                self.services.restore(result["snapshot"])
+                self.services.restore(self.snapshots.load(result["snapshot"]))
                 self.cursor = sequence
                 self._raise(result["error"])
                 return decode(result["output"]) if decode else result["output"]
@@ -164,12 +176,12 @@ class Journal:
             if hasattr(exc, "result"):
                 error["result"] = exc.result.to_dict()
             _write(result_path, {"request_hash": content_hash(request), "output": None,
-                                "error": error, "snapshot": self.services.snapshot()})
+                                "error": error, "snapshot": self.snapshots.save(self.services.snapshot())})
             self.cursor = sequence
             raise
         else:
             _write(result_path, {"request_hash": content_hash(request), "output": encode(output),
-                                "error": None, "snapshot": self.services.snapshot()})
+                                "error": None, "snapshot": self.snapshots.save(self.services.snapshot())})
             self.cursor = sequence
             return output
         finally:
