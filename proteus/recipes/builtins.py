@@ -221,7 +221,7 @@ def builtin_registry() -> Registry:
             capabilities.append('harness.model_free')
         else:
             capabilities.append('harness.candidate_tree')
-            roles['evolution'] = HarnessOptions
+            roles['evolution'] = AdapterOptions
             bindings['evolution'] = f'proteus.evolution.{name}'
         if name in ('dsh', 'pi', 'codex'):
             roles['workspace'] = HarnessOptions

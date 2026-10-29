@@ -79,7 +79,9 @@ Empty declared surface directories are recreated by adapter hooks; candidate sou
 and instructions are never reseeded or overwritten.
 
 The materialization environment is explicitly trusted host + unrestricted network.
-It enforces file bounds and identity, not process/network isolation. Containerized
+It enforces file bounds and identity, not process/network isolation. Static target
+`ActorSpec.prompt_hash` is rejected: harness instructions belong in the pinned
+candidate, so no configured prompt can be silently ignored. Containerized
 adapters retain their own process boundary. A requested unsupported per-trial
 transport deadline fails preflight; a container phase deadline is not substituted
 for it. This bridge currently requires independent, serial target trials.
@@ -94,7 +96,9 @@ Configure one `proteus.harness_episode` stage whose role uses
 `proteus.evolution.<harness>`, and the subject role uses
 `proteus.harness.<same-harness>`. Supply a complete initial file-tree artifact,
 observed evaluation IDs, an explicit evidence policy and optional hidden final tests.
-`NativeEvolutionOptions` names these IDs and the phase/turn controls.
+`NativeEvolutionOptions` names these IDs and the phase/turn controls. Built-in
+evolution bindings use adapter options only; generic-call `max_turns` and `seed`
+are rejected there. Episode turns belong to the method, and its seed to the recipe.
 
 ```text
 last-valid candidate ─> frozen executing harness ─────────────────────┐

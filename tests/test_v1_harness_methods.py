@@ -375,3 +375,12 @@ def test_staged_subject_prediction_uses_the_writable_candidate_path(tmp_path, mo
     result, _ = execute(tmp_path, registry, store, recipe)
     assert result.status == OperationStatus.COMPLETED, result.diagnostic
     assert len(observed) == 3
+
+
+@pytest.mark.parametrize('extra', ({'max_turns': 3}, {'seed': 7}))
+def test_evolution_role_rejects_unused_generic_call_controls(tmp_path, extra):
+    registry, _, recipe = native(tmp_path, 'http://127.0.0.1:1')
+    actor = recipe.actors['evolver']
+    actor = replace(actor, runtime=replace(actor.runtime, options={**actor.runtime.options, **extra}))
+    with pytest.raises(ContractError, match='unknown fields'):
+        registry.resolve(replace(recipe, actors={**recipe.actors, 'evolver': actor}))

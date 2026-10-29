@@ -172,3 +172,11 @@ def test_harness_subject_receipt_tampering_blocks_export_and_completed_resume(tm
         with pytest.raises(ContractError):
             run_recipe(recipe, registry=registry, lock=lock, root=tmp_path / 'run', resume=True)
         assert len(calls) == 2
+
+
+def test_target_static_prompt_cannot_be_silently_ignored(tmp_path):
+    from proteus.core.serialization import content_hash
+    registry, _, _, recipe = configured(tmp_path, 'http://127.0.0.1:1')
+    actor = replace(recipe.actors['target'], prompt_hash=content_hash('static role instructions'))
+    with pytest.raises(ContractError, match='static actor prompt_hash is unsupported'):
+        registry.resolve(replace(recipe, actors={'target': actor}))
