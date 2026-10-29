@@ -12,11 +12,11 @@ import importlib.metadata
 import platform
 import sys
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
 
-from proteus.core.contracts import PluginRef, require
+from proteus.core.contracts import ArtifactRef, PluginRef, require
 from proteus.core.serialization import Contract, content_hash
 from proteus.recipes.config import PluginSpec, RecipeConfig
 from proteus.recipes.manifest import DependencyLock, PluginLock, SourcePin
@@ -143,6 +143,13 @@ class Registry:
             if 'stage.workspace' in plugin.capabilities:
                 require('actor.workspace' in actor_plugin.capabilities,
                         'workspace stage requires a workspace-capable actor')
+            harness_roles = [cap.removeprefix('harness.role.') for cap in actor_plugin.capabilities
+                             if cap.startswith('harness.role.')]
+            if harness_roles:
+                expected = ('evolution' if 'stage.harness_episode' in plugin.capabilities else
+                            'workspace' if 'stage.workspace' in plugin.capabilities else 'actor')
+                require(harness_roles == [expected],
+                        f'{stage.id} requires a harness {expected} binding; got {harness_roles}')
             if any(budget.max_model_calls is not None for budget in
                    (recipe.budget, recipe.actors[stage.role].budget, stage.budget)):
                 require("calls.bounded" in actor_plugin.capabilities,
@@ -261,9 +268,38 @@ class Registry:
             method.validate(resolved, method.options.from_dict(resolved.method.options))
         return resolved
 
+    def artifact_inputs(self, recipe):
+        """Explicit artifact references in the subject and typed plugin options.
+
+        A pinned harness base or stage seed is an input, not an implicit filesystem
+        dependency. Its codec participates in the same implementation lock.
+        """
+        references = {}
+
+        def visit(value):
+            if isinstance(value, ArtifactRef):
+                references[value.content_hash] = value
+            elif is_dataclass(value):
+                for item in fields(value):
+                    visit(getattr(value, item.name))
+            elif isinstance(value, Mapping):
+                for item in value.values():
+                    visit(item)
+            elif isinstance(value, (tuple, list)):
+                for item in value:
+                    visit(item)
+
+        if recipe.subject is not None:
+            visit(recipe.subject.initial_artifact)
+        for spec in recipe.plugin_specs():
+            plugin = self.get(spec.plugin)
+            visit(plugin.options.from_dict(spec.options))
+        return tuple(references[key] for key in sorted(references))
+
     def make_lock(self, recipe: RecipeConfig, sources: Sequence[SourcePin], *, packages=()) -> DependencyLock:
         recipe = self.resolve(recipe)
         refs = {(ref.name, ref.version): ref for ref in recipe.plugin_refs()}
+        refs.update({(ref.codec.name, ref.codec.version): ref.codec for ref in self.artifact_inputs(recipe)})
         locks = []
         for key, ref in sorted(refs.items()):
             plugin = self.get(ref)

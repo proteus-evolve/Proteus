@@ -12,17 +12,19 @@ from proteus.core.serialization import content_hash, json_value
 INFERENCE = DIMENSIONS[:-1]
 
 
-def collect(workspace, backend):
+def collect(workspace, backend, *, episode=1, phases=('act',)):
     records = read_native_inputs(workspace)
     if not records:
         return None, None, records
-    require(all(row['input']['backend'] == backend and row['input']['episode'] == 1
-                and row['input']['phase'] == 'act' for row in records),
+    require(all(row['input']['backend'] == backend and row['input']['episode'] == episode
+                and row['input']['phase'] in phases for row in records),
             'generic actor receipt belongs to another dispatch')
     summary = summarize_native_inputs(records)
     usage = replace(Usage.from_dict(summary['reported']), wall_seconds=None)
     marker = {'version': 1, 'backend': backend, 'records_hash': content_hash(records),
               'boundary_count': len(records), 'inference': {key: getattr(usage, key) for key in INFERENCE}}
+    if episode != 1 or phases != ('act',):
+        marker.update(version=2, episode=episode, phases=list(phases))
     return usage, marker, records
 
 
@@ -40,7 +42,9 @@ def verify(root, record):
     directory = input_directory(workspace)
     require(all(not path.is_symlink() for path in (workspace.parent, directory.parent, directory)),
             'native actor evidence directory cannot be a symlink')
-    usage, expected, records = collect(workspace, marker['backend'])
+    require(marker.get('version') in (1, 2), 'unsupported harness usage binding')
+    usage, expected, records = collect(workspace, marker['backend'],
+        episode=marker.get('episode', 1), phases=tuple(marker.get('phases', ('act',))))
     require(expected is not None and json_value(marker) == expected, 'native actor usage evidence differs')
     for reported in (result.get('usage'), record.get('usage')):
         if reported is not None:

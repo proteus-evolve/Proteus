@@ -182,6 +182,7 @@ def test_duplicate_fresh_session_across_actor_calls_is_not_exported_as_valid_usa
     from test_native_codex_usage import raw, stream
     source = raw(stream(identity='12345678-1234-4234-8234-123456789abc'))
     class Reused(MinimalHarness):
+        name = 'codex'  # The substitute emits Codex transport/session evidence.
         def run_episode(self, spec):
             with native_input(spec, backend='codex', phase='act', scope='harness_cli',
                               payload=['exec', '--json', '--ephemeral', 'fixture']) as receipt:

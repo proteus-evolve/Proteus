@@ -18,7 +18,12 @@ from proteus.core.search import ArchivePolicy, ArchiveSnapshot, FinalSelector, O
 from proteus.core.serialization import Contract, ContractError, canonical_json, content_hash
 from proteus.evaluation.records import EvaluationReceipt, Feedback, Grade, SubjectResult, zero_usage
 from proteus.evaluation.runners import Evaluator, SubjectContext, SubjectRunner
+from proteus.evaluation.graders import GradingContext, ModelJudgeOptions
 from proteus.evaluation.tasks import StateValue, Task, TaskBatch, TaskDataset, TaskRecord, TaskSelection, TaskSuite
+from proteus.execution.harnesses import HarnessIntegration, harness_support_matrix, register_harness
+from proteus.execution.harness_candidate import HarnessEnvironmentOptions, HarnessSubjectOptions
+from proteus.execution.workspace_records import HarnessEpisode, WorkspaceInput, WorkspaceOptions
+from proteus.methods.native_evolution import NativeEvolutionOptions
 from proteus.measure.artifacts import MeasurementSpec, MeasurementSurface
 from proteus.recipes.builtins import builtin_registry
 from proteus.recipes.config import (
@@ -35,12 +40,12 @@ __all__ = (
     'ArtifactComponent', 'ArtifactRef', 'ArtifactStore', 'BudgetLimits', 'Candidate', 'Contract', 'ContractError',
     'DataRef', 'DependencyLock', 'EmptyOptions', 'EnvironmentSpec', 'EvaluationBatch', 'EvaluationReceipt',
     'EvaluationRow', 'EvaluationSpec', 'Evaluator', 'ExecutionSpec', 'Feedback', 'FeedbackVisibility',
-    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState',
+    'FileContent', 'FileDelta', 'FileWrite', 'FinalSelector', 'Grade', 'GradingContext', 'HarnessEnvironmentOptions', 'HarnessEpisode', 'HarnessIntegration', 'HarnessSubjectOptions', 'MeasurementSpec', 'MeasurementSurface', 'Method', 'MethodResult', 'MethodState', 'ModelJudgeOptions', 'NativeEvolutionOptions', 'WorkspaceInput', 'WorkspaceOptions',
     'Objective', 'OperationStatus', 'Outcome', 'ParentSelector', 'Plugin', 'PluginLock', 'PluginRef', 'PluginSpec',
     'PluginState', 'PolicyResult', 'RecipeConfig', 'RecordsDelta', 'ReferenceSpec', 'Registry', 'Rollout',
     'RunManifest', 'RunServices', 'RuntimeIdentity', 'SearchDecision', 'SelectionView', 'SessionPolicy', 'SourcePin',
     'Stage', 'StageContext', 'StageRequest', 'StageResult', 'StageSpec', 'StatePolicy', 'StateValue', 'StructuredRecords',
     'SubjectContext', 'SubjectResult', 'SubjectRunner', 'SubjectSpec', 'Task', 'TaskBatch', 'TaskDataset', 'TaskRecord',
     'TaskSelection', 'TaskSuite', 'TaskSuiteSpec', 'TextComponents', 'TextDelta', 'Usage', 'ValidationStatus', 'builtin_registry',
-    'canonical_json', 'content_hash', 'implementation_hash', 'load_recipe', 'require', 'run_recipe', 'zero_usage',
+    'canonical_json', 'content_hash', 'harness_support_matrix', 'implementation_hash', 'load_recipe', 'register_harness', 'require', 'run_recipe', 'zero_usage',
 )

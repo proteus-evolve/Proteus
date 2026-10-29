@@ -130,11 +130,18 @@ class EvaluationSpec(Contract):
     id: str = field(metadata=TEXT)
     evaluator: PluginSpec
     tasks: TaskSuiteSpec
+    actor: str | None = field(default=None, metadata=TEXT)
     purpose: Literal["optimization", "validation", "test"] = "optimization"
     visibility: FeedbackVisibility = FeedbackVisibility.HIDDEN
     feedback_timing: Literal["never", "after_prediction", "after_batch"] = "never"
     selection_eligible: bool = True
     allow_supervision: bool = False
+
+    def to_dict(self):
+        value = super().to_dict()
+        if self.actor is None:
+            value.pop('actor')  # Preserve pre-grading-role configuration hashes.
+        return value
 
     def _validate(self):
         require((self.visibility == FeedbackVisibility.HIDDEN) == (self.feedback_timing == "never"),
@@ -250,6 +257,8 @@ class RecipeConfig(Contract):
         require(all(role.strip() for role in self.actors), "actor roles must be nonempty")
         require(self.subject is None or self.subject.actor is None or self.subject.actor in self.actors,
                 "subject references an unknown actor role")
+        require(all(spec.actor is None or spec.actor in self.actors for spec in self.evaluations),
+                'evaluation references an unknown actor role')
         require(all(stage.role in self.actors for stage in self.stages),
                 "stage references an unknown actor role")
         unique((stage.id for stage in self.stages), "stage ID")

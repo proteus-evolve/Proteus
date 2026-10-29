@@ -1,2 +1,4 @@
 include recipes/examples/p01-contract.toml
 recursive-include recipes *.toml
+include recipes/native/shared-evaluation/prepare.py
+include recipes/native/shared-evaluation/README.md

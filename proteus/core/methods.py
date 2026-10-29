@@ -198,7 +198,7 @@ class RunServices:
         self.prompts = dict(prompts or {})
         self.values = Values(registry)
         from proteus.artifacts.store import ArtifactStore
-        codecs = (recipe.subject.initial_artifact.codec,) if recipe.subject is not None else ()
+        codecs = tuple({ref.codec for ref in registry.artifact_inputs(recipe)})
         self.artifacts = ArtifactStore(self.root / "artifacts", registry, allowed_codecs=codecs)
         self.candidates = []
         self.rollouts, self.evaluations = [], []

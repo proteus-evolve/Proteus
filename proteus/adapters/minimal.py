@@ -86,6 +86,11 @@ class MinimalHarness:
             "empty": disposition.is_empty,
         }))
 
+    def prepare_candidate(self, harness_root: Path) -> None:
+        """Recreate required empty directories without replacing candidate files."""
+        for sub in ('notes', 'tools'):
+            (harness_root / sub).mkdir(parents=True, exist_ok=True)
+
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         harness = spec.root / "harness"
         for sub in ("notes", "tools"):

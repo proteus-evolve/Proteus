@@ -20,7 +20,8 @@ from proteus.core.serialization import Contract
 from proteus.evidence.records import EvidenceView
 from proteus.execution.code_records import CodeCall, CodeOptions, CodeResult, CodeState
 from proteus.execution.workspace import WorkspaceStage
-from proteus.execution.workspace_records import WorkspaceInput, WorkspaceOptions
+from proteus.execution.workspace_records import HarnessEpisode, WorkspaceInput, WorkspaceOptions
+from proteus.execution.harness_evolution import HarnessEpisodeStage
 from proteus.execution.actors import WorkspaceHarnessActor, validate_workspace_harness
 from proteus.execution.code_subject import CodeSubject, validate_code
 from proteus.execution.harbor_code import HarborCodeEnvironment, HarborCodeOptions, validate_harbor_code
@@ -36,6 +37,8 @@ from proteus.evaluation.runners import (
 from proteus.evaluation.tasks import JsonSuiteOptions, JsonTaskSuite, StateValue, SupervisedBatch, TaskBatch, TaskSelection
 from proteus.core.contracts import EvaluationBatch
 from proteus.methods.compare import CompareMethod, CompareOptions, CompareState, validate_compare
+from proteus.methods.native_evolution import (NativeEvolutionMethod, NativeEvolutionOptions,
+    NativeEvolutionState, NativeEvolutionSummary, validate_native_evolution)
 from proteus.methods.native import NativeMethod, NativeOptions, NativeSummary, validate_native
 from proteus.methods.sequence import SequenceMethod, SequenceOptions, SequenceState, validate_sequence
 
@@ -85,6 +88,8 @@ def builtin_registry() -> Registry:
     registry.register_data("proteus.timing.start@1", TimingStart)
     registry.register_data("proteus.timing.measurement@1", TimingMeasurement)
     registry.register_data("proteus.native_summary@1", NativeSummary)
+    registry.register_data("proteus.harness_episode@1", HarnessEpisode)
+    registry.register_data("proteus.native_evolution_summary@1", NativeEvolutionSummary)
     registry.register_data("proteus.artifact_ref@1", ArtifactRef)
     registry.register_data("proteus.candidate@1", Candidate)
     registry.register_data("proteus.artifact_proposal@1", ArtifactProposal)
@@ -154,6 +159,16 @@ def builtin_registry() -> Registry:
             "environment.filesystem_scopes", "environment.pids"))
     add("proteus.python_subject", "subject", PythonSubjectOptions, PythonSubject, validate=validate_python,
         capabilities=("subject.parallel",))
+    from proteus.execution.harness_candidate import (
+        HarnessEnvironment, HarnessEnvironmentOptions, HarnessSubject, HarnessSubjectOptions,
+        validate_environment as validate_harness_environment, validate_subject as validate_harness_subject,
+    )
+    add('proteus.harness_environment', 'environment', HarnessEnvironmentOptions, HarnessEnvironment,
+        validate=validate_harness_environment,
+        capabilities=('state.independent', 'candidate.exact_tree', 'environment.harness_tree'))
+    add('proteus.harness_subject', 'subject', HarnessSubjectOptions, HarnessSubject,
+        validate=lambda recipe, options: validate_harness_subject(recipe, options, registry),
+        capabilities=('subject.runtime_actor',))
     add("proteus.code_subject", "subject", CodeOptions, CodeSubject, validate=validate_code,
         capabilities=("subject.managed_actor", "subject.actor_timeout", "subject.code_protocol", "subject.parallel"),
         inputs={"memory": "proteus.code.state@1"})
@@ -161,6 +176,9 @@ def builtin_registry() -> Registry:
         capabilities=("subject.managed_actor", "subject.parallel"))
     add("proteus.exact_match", "evaluator", EmptyOptions, lambda options: ExactMatch(),
         capabilities=("evaluator.deterministic",))
+    from proteus.evaluation.graders import ModelJudge, ModelJudgeOptions
+    add('proteus.model_judge', 'evaluator', ModelJudgeOptions, ModelJudge,
+        capabilities=('evaluator.managed_actor',))
     add("proteus.harbor", "environment", HarborEnvironmentOptions, HarborEnvironment,
         validate=validate_harbor_environment,
         capabilities=("state.independent", "candidate.exact_tree", "environment.source_build", "environment.parallel"))
@@ -172,8 +190,12 @@ def builtin_registry() -> Registry:
         validate=lambda recipe, options: validate_sequence(recipe, options, registry),
         capabilities=("control.sequence", "control.bounded_loop", "control.condition", "run.resume", "run.journal"),
         state_schema=SequenceState)
-    add("proteus.native", "method", NativeOptions, NativeMethod, validate=validate_native,
+    add("proteus.native", "method", NativeOptions, NativeMethod,
+        validate=lambda recipe, options: validate_native(recipe, options, registry),
         capabilities=("run.resume", "legacy.episode"))
+    add("proteus.native_evolution", "method", NativeEvolutionOptions, NativeEvolutionMethod,
+        validate=lambda recipe, options: validate_native_evolution(recipe, options, registry),
+        capabilities=("run.resume", "run.journal", "control.native_episode"), state_schema=NativeEvolutionState)
     add("proteus.prompt", "stage", EmptyOptions, lambda options: PromptStage(),
         capabilities=("stage.replay", "stage.parallel"),
         inputs={"prompt": "proteus.text@1"}, outputs={"response": "proteus.actor_result@1"})
@@ -181,25 +203,45 @@ def builtin_registry() -> Registry:
         capabilities=('stage.replay', 'stage.workspace', 'stage.parallel'),
         inputs={'prompt': 'proteus.text@1', 'seed': 'proteus.artifact_ref@1', 'history': 'proteus.evidence.view@1'},
         outputs={'response': 'proteus.actor_result@1'})
+    add('proteus.harness_episode', 'stage', WorkspaceOptions, HarnessEpisodeStage,
+        capabilities=('stage.replay', 'stage.workspace', 'stage.harness_episode'),
+        inputs={'seed': 'proteus.artifact_ref@1', 'active': 'proteus.artifact_ref@1',
+                'episode': 'proteus.harness_episode@1', 'history': 'proteus.evidence.view@1'},
+        outputs={'response': 'proteus.actor_result@1'})
     add("proteus.echo", "actor", EmptyOptions, lambda options: EchoActor(), validate=validate_echo,
         capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout", "actor.parallel"))
     add("proteus.chat", "actor", ChatOptions, ChatActor, validate=validate_chat,
         capabilities=("session.fresh", "actor.execute", "calls.bounded", "request.timeout", "actor.parallel"))
+    from proteus.execution.harnesses import HarnessIntegration, register_harness
     for name in ("minimal", "llm", "dsh", "pi", "codex"):
+        roles = {'actor': HarnessOptions, 'native': AdapterOptions}
+        bindings = {'actor': f'proteus.harness.{name}', 'native': f'proteus.native.{name}'}
+        capabilities = ['harness.custom_phases']
+        if name == 'minimal':
+            capabilities.append('harness.model_free')
+        else:
+            capabilities.append('harness.candidate_tree')
+            roles['evolution'] = HarnessOptions
+            bindings['evolution'] = f'proteus.evolution.{name}'
         if name in ('dsh', 'pi', 'codex'):
-            add(f'proteus.workspace.{name}', 'actor', HarnessOptions,
-                lambda options, name=name: WorkspaceHarnessActor(name, options),
-                validate=lambda spec, options, name=name: validate_workspace_harness(name, spec, options),
-                capabilities=('session.fresh', 'actor.execute', 'actor.workspace', 'trace.normalized'))
-        def validate(spec, options, name=name):
-            return validate_harness(name, spec, options)
+            roles['workspace'] = HarnessOptions
+            bindings['workspace'] = f'proteus.workspace.{name}'
+            capabilities.extend(('harness.workspace', 'harness.staged_activation'))
 
-        def factory(options, name=name):
-            return HarnessActor(name, options)
-        add(f"proteus.harness.{name}", "actor", HarnessOptions, factory, validate=validate,
-            capabilities=("session.fresh", "actor.execute", "trace.normalized"))
+        def adapter(role, spec, options, name=name):
+            runtime = WorkspaceHarnessActor(name, options) if role == 'workspace' else HarnessActor(name, options)
+            return runtime.adapter(spec)
+
+        def validate(role, spec, options, name=name):
+            return (validate_workspace_harness(name, spec, options) if role == 'workspace'
+                    else validate_harness(name, spec, options))
+
+        def model_selection(role, spec, options, name=name):
+            runtime = WorkspaceHarnessActor(name, options) if role == 'workspace' else HarnessActor(name, options)
+            return runtime.model_selection(spec)
+
         continuity = "fresh" if name in ("minimal", "llm") else "handoff"
-        add(f"proteus.native.{name}", "actor", AdapterOptions, factory, validate=validate,
-            capabilities=(f"session.{continuity}", "legacy.episode", "trace.normalized")
-            + (("candidate.staged_activation",) if name in ("dsh", "pi", "codex") else ()))
+        register_harness(registry, HarnessIntegration(name=name, factory=adapter, options=roles,
+            implementation_hash=digest, source='proteus', capabilities=tuple(capabilities),
+            continuity=continuity, validate=validate, model_selection=model_selection), bindings=bindings)
     return registry

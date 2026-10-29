@@ -87,3 +87,12 @@ a claim about algorithm quality.
 The existing four templates also import plugin contracts from `proteus.api.v1`.
 See [V1_PLUGIN_SCAFFOLDS.md](V1_PLUGIN_SCAFFOLDS.md) for the self-evaluator example,
 and [V1_COMPATIBILITY.md](V1_COMPATIBILITY.md) for locks and stored-run compatibility.
+
+## Configurable harness roles
+
+`HarnessIntegration`, `register_harness` and `harness_support_matrix` expose one
+source-bound adaptation across supported roles. `HarnessEnvironmentOptions`,
+`HarnessSubjectOptions`, `HarnessEpisode`, workspace records,
+`NativeEvolutionOptions`, `GradingContext` and `ModelJudgeOptions` configure the
+common candidate/external-evaluation path. See [role contracts and evidence
+boundaries](V1_HARNESS_ROLES.md). Historical Native recipes remain unchanged.
