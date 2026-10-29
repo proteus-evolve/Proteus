@@ -118,12 +118,16 @@ class HarnessSubject:
         effective = lease.handle['effective']
         require(options.output_file not in {item.path for item in effective.components},
                 'prediction output cannot overwrite candidate input')
-        prompt = ('Execute this task using the loaded harness state. Write only the prediction to '
-                  f'harness/{options.output_file} (relative to the run root), or to '
-                  f'{options.output_file} relative to your harness directory. '
+        runtime = context._role_runtime
+        integration = getattr(runtime, 'integration', None)
+        staged = integration is not None and 'harness.staged_activation' in integration.capabilities
+        destination = (f'Write the prediction only to /workspace/candidate/{options.output_file}. '
+                       'The active /workspace snapshot is read-only. '
+                       if staged else f'Write only the prediction to harness/{options.output_file} '
+                       f'(relative to the run root), or to {options.output_file} relative to your harness directory. ')
+        prompt = ('Execute this task using the loaded harness state. ' + destination +
                   'Do not replace the task with self-improvement work.\nTask input:\n' + canonical_json(context.task.input))
         request = ActorRequest(prompt=prompt, timeout_seconds=context.execution.timeout_seconds)
-        runtime = context._role_runtime
         require(hasattr(runtime, 'execute_candidate'), 'target runtime cannot load a prepared candidate')
         try:
             result = runtime.execute_candidate(context.role_spec, request, lease.handle['root'])

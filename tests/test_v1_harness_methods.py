@@ -359,3 +359,19 @@ def test_native_inline_context_obeys_exact_stage_evidence_policy(tmp_path, monke
         if inline == 0:
             assert 'omitted from inline context' in prompt
         assert len(calls) == 6
+
+
+def test_staged_subject_prediction_uses_the_writable_candidate_path(tmp_path, monkeypatch):
+    from proteus.execution.harnesses import IntegratedHarnessActor
+    observed = []
+    execute_candidate = IntegratedHarnessActor.execute_candidate
+    def inspect_request(self, spec, request, workspace):
+        observed.append(request.prompt)
+        assert 'Write the prediction only to /workspace/candidate/notes/prediction.md.' in request.prompt
+        assert 'active /workspace snapshot is read-only' in request.prompt
+        return execute_candidate(self, spec, request, workspace)
+    monkeypatch.setattr(IntegratedHarnessActor, 'execute_candidate', inspect_request)
+    registry, store, recipe = process_native(tmp_path)
+    result, _ = execute(tmp_path, registry, store, recipe)
+    assert result.status == OperationStatus.COMPLETED, result.diagnostic
+    assert len(observed) == 3

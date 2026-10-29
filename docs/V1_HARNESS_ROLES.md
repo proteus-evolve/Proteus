@@ -65,7 +65,9 @@ uses that actor's model/settings/options; there is no second hidden model config
   a component cannot silently reactivate an old base file.
 - Every evaluation trial copies files into a fresh root. It does not call `seed`
   over them. The output path must be absent from the input candidate; default:
-  `notes/prediction.md`. JSON output is an explicit option.
+  `notes/prediction.md`. Staged source adapters receive its writable
+  `/workspace/candidate/` location explicitly; the active snapshot stays read-only.
+  JSON output is an explicit option.
 - Runtime evidence records original candidate hash, base hash, projection hash,
   effective harness hash and actual runtime/usage receipts. The subject ledger
   owns target-role usage once, independently of optimizer/grader calls.
