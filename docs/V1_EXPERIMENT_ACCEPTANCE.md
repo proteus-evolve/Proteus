@@ -36,9 +36,13 @@ reported separately in the release acceptance record.
 See the [requirement-by-requirement disposition](V1_RELEASE_EVIDENCE_MAP.md) for
 I03/I11/I14 and R00–R05. GEPA/AIME and ACE/Formula historical full-split experiments
 are complete; their old unchecked plan entries were stale. Current coding-search
-benchmark acceptance, Combee's mandatory complete quality/cost/elapsed comparison,
-and CORAL's actual sharing/intervention/recovery evidence remain separate open
-items. This mapping does not waive them or relabel the catalog's current builders.
+benchmark acceptance, Combee's common frozen-trace comparison, and
+CORAL's actual sharing/intervention/recovery evidence remain separate open items.
+Combee's four historical online conditions already have quality, API-upper-cost
+and study-elapsed observations, accepted by independent review for R04's reporting
+subitem and the Combee portion of I14. The offline continuous-time gaps do not imply
+missing online coverage. This mapping does not waive requirements or relabel the
+catalog's current builders.
 
 - GEPA/AIME and ACE/Combee Formula retain pinned source/data and adapted model settings.
   Their current offline mechanism, ordering, reference-conformance and recovery checks
