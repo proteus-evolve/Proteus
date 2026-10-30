@@ -61,7 +61,8 @@ def test_native_final_response_preserves_long_json_without_progress_or_reasoning
         adapter = DshHarness()
         directory = tmp_path / '.dsh-state/session'
         name = 'session.jsonl.zstd'
-        events = [dict(type='assistant/message', data={'turn': i, 'message': {'content': [
+        # A native DSH turn spans several model steps, including progress + final.
+        events = [dict(type='assistant/message', data={'turn': 1, 'step': i, 'message': {'content': [
             {'type': 'text', 'text': t}, {'type': 'reasoning', 'text': 'private scratchpad'}]}})
             for i, t in enumerate((progress, answer), 1)]
         monkeypatch.setattr('proteus.adapters.dsh._zstd_partial', lambda data: data)

@@ -147,3 +147,16 @@ publications must match its image's source marker. Workflow live-step conditions
 also refuse starting further cells after cancellation. Historical Pi results
 retain their original source bindings and have not been silently revalidated
 against this change.
+
+The stopped DSH ACE cell also failed strict JSON verification. Its complete
+artifact was not uploaded during force cancellation; the Actions log retains
+the exception and attempt timestamps, while detailed usage remains unknown.
+Inspection of earlier retained real DSH native logs then identified a separate
+response-reader defect: multiple model `step`s share one dialogue `turn`.
+Grouping visible text by turn prepended progress messages to the final JSON.
+The updated regression uses that native event shape and failed before the fix.
+DSH now returns the last complete visible assistant message; measurement traces
+and private reasoning filtering are unchanged. Related regressions: 146 passed,
+one environment skip. DSH attempt `40993899029` was stopped during image build
+before inference to include this fix. Codex attempt `40993578545` continues on
+`44380da`; the DSH-only reader correction does not change its adapter.

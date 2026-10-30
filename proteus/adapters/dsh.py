@@ -573,8 +573,10 @@ class DshHarness:
                   if e.tool is None and e.text and not e.params.get('kind')]
         if not events:
             return ''
-        last = events[-1]
-        return '\n'.join(e.text for e in events if (e.phase, e.turn) == (last.phase, last.turn))
+        # DSH's native turn spans multiple model steps. Progress and the final
+        # answer share that turn, so grouping by turn corrupts structured replies.
+        # _session_trace already combines the visible blocks of each message.
+        return events[-1].text
 
     def read_trace(self, root: Path, episode: int, *, text_limit: int | None = 500) -> Sequence[ActionEvent]:
         root = Path(root)
