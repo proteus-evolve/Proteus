@@ -12,6 +12,9 @@ Additional Pi pilots for ACE, Combee-ACE, Meta-Harness and CORAL are described i
 [`OTHER_METHODS.md`](OTHER_METHODS.md), with audited outcomes in
 [`ADDITIONAL_RESULTS.md`](ADDITIONAL_RESULTS.md). Their role and source boundaries
 are distinct from the four Native/GEPA cells below.
+The subsequent eight DSH/Codex cells are independently accepted in
+[`DSH_CODEX_RESULTS.md`](DSH_CODEX_RESULTS.md), with machine-readable identities
+and audited rows in [`dsh-codex-results.json`](dsh-codex-results.json).
 
 ## Four cells
 

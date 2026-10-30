@@ -207,8 +207,12 @@ Evidence currently distinguishes:
    Additional Pi ACE/Combee generator, Meta coding-proposer and bounded CORAL worker
    cells have [audited results](../recipes/pilots/harness-roles/ADDITIONAL_RESULTS.md).
    These test specified roles and cycles; ACE/Combee/Meta did not outperform their
-   baselines in the additional pilot. Codex live cells and DSH variants of those
-   four additional methods remain unverified. Different recorded source commits
+   baselines in that Pi pilot. DSH and Codex now each have independently accepted
+   ACE, Combee-ACE, Meta proposer and bounded CORAL worker cycles in the
+   [eight-cell report](../recipes/pilots/harness-roles/DSH_CODEX_RESULTS.md).
+   Candidates execute through their specified roles; scores and selected versus
+   last candidates remain separate. Codex Native/GEPA and Combee-GEPA are not
+   covered by this expansion. Different recorded source commits
    do not form a single-SHA release gate. Existing PR #106 source gates alone are
    not evidence for new method/role combinations.
 

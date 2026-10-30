@@ -4,8 +4,9 @@ These are **live synthetic mechanism checks**, distinct from the frozen research
 studies and the Native/GEPA results in `RESULTS.md`. A configuration that passes
 preflight is not an accepted live pilot. Each cell must retain its own outcome.
 
-See [audited results](ADDITIONAL_RESULTS.md) for accepted cells, unchanged scores,
-selected versus last candidates, and the preserved first-attempt failures.
+See [Pi results](ADDITIONAL_RESULTS.md) and the eight accepted
+[DSH/Codex cells](DSH_CODEX_RESULTS.md) for scores, selected versus last candidates,
+source-bound acceptance and preserved failures.
 
 | Cell | Optimized candidate | Real coding harness role | Minimum cycle |
 | --- | --- | --- | --- |
@@ -20,9 +21,9 @@ These roles are explicitly different from the real Pi/DSH coding harness. Neithe
 ACE nor Meta-Harness is claimed to mutate the controlling harness's source code.
 
 The first additional matrix uses Pi and requested model `deepseek-v4-flash`, with
-the same pinned upstream image as the Native/GEPA pilot. DSH is a selectable
-configuration, not accepted evidence until that exact cell runs. No old study is
-rerun or retrospectively relabeled.
+the same pinned upstream image as the Native/GEPA pilot. DSH and Codex now have
+separate live acceptance records for all four methods. No old study is rerun or
+retrospectively relabeled.
 
 ## First attempt and corrections
 
@@ -91,8 +92,8 @@ selected cell fails. No credentials are stored in a recipe or report.
 - The checker requires real changed-candidate execution and feedback evidence,
   but does not require a stochastic optimizer to improve every score. Failed or
   incomplete attempts remain failures, with their traces and usage retained.
-- Combee-GEPA, DSH/Codex combinations, and broader scientific experiments are not
-  covered by these four cells.
+- Combee-GEPA, Codex Native/GEPA, and broader scientific experiments are not
+  covered by these additional cells.
 
 The workspace image validator accepts both registry manifest digests and local
 content-addressed image IDs. Parallel support is an explicit integration
@@ -101,7 +102,12 @@ evolution roles do not. Built-in Pi/DSH use separate adapters, workspaces and
 container names. Local concurrent-call tests and the live Combee cell exercise
 these boundaries separately.
 
-## DSH and Codex expansion (pending live acceptance)
+## DSH and Codex expansion (eight live cells accepted)
+
+The [acceptance report](DSH_CODEX_RESULTS.md) and
+[structured evidence](dsh-codex-results.json) bind each accepted cell to its own
+source commit, run and artifact. This matrix spans repairs; it is not a single-SHA
+release gate or a controlled comparison of optimization quality.
 
 The same four minimum cycles can be dispatched with `pilot_backends=dsh` or
 `pilot_backends=codex` and `pilot_methods=other-methods`. DSH uses the same
@@ -119,8 +125,8 @@ the parent service retains its own managed-model configuration.
 
 Codex parallel capability is limited to fresh actor/workspace calls. Adapter
 instances, auth copies, sessions, binary publications and receipts are isolated
-per workspace. Offline concurrent tests cover these state boundaries; the live
-Combee cycle must independently pass before claiming live support.
+per workspace. Offline concurrent tests cover these state boundaries; accepted
+live Combee cycles also show two overlapping native invocation intervals.
 
 Codex builds its production Rust image once before all four cells. Previous
 release validation took about 147 minutes for this build; that infrastructure
@@ -158,8 +164,9 @@ The updated regression uses that native event shape and failed before the fix.
 DSH now returns the last complete visible assistant message; measurement traces
 and private reasoning filtering are unchanged. Related regressions: 146 passed,
 one environment skip. DSH attempt `40993899029` was stopped during image build
-before inference to include this fix. Codex attempt `40993578545` continues on
-`44380da`; the DSH-only reader correction does not change its adapter.
+before inference to include this fix. Codex producer `40993578545` ran on
+`44380da`; ACE, Combee and CORAL passed, while Meta required the separate repairs
+documented below and in the final acceptance report.
 
 ### DSH selective recovery
 
