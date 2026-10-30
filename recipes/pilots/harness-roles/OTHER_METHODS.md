@@ -205,3 +205,23 @@ literal prompt. A new boundary regression fails on the prior command and passes
 after the change; related regressions passed 126 tests with one environment skip.
 This is separate from DSH's two-parser fix. Run `40993578545` retains its original
 `44380da` source; the newer delimiter change is not retroactively credited to it.
+
+### Reusing a completed Codex producer's fixed runtime
+
+For a rejected cell, `codex_reuse_run_id` can identify a completed explicit Codex
+pilot workflow. The job downloads its artifact on the CI runner and accepts a
+retained binary publication only when both binary hashes/sizes match the manifests
+of successfully completed cells from that same producer, image and source pin.
+It checks out the exact upstream source with its symlinks and requires the full
+source hash to match the producer's pristine source witness. No Rust compilation
+is repeated. A model-free, networkless probe tests the native CLI delimiter before
+any new paid cell. Reuse validation has seven corruption/provenance regressions;
+the affected local suite passed 48 tests.
+
+The derived image has a new identity and is explicitly limited to fixed-runtime
+actor/workspace roles; it rejects source changes and cannot stand in for a
+source-evolution image. `reuse.json` binds its inputs to the original run. New
+cells still have fresh run directories, recipe locks, traces and completed-resume
+checks. Preserve the failed producer's outcomes and costs, and select only the
+rejected method(s), for example `pilot_cells=meta`. Omitting the reuse input retains
+the full production build path.

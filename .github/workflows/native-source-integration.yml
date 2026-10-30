@@ -37,6 +37,10 @@ on:
         description: Comma-separated additional method cells (ace,combee-ace,meta,coral)
         type: string
         default: ace,combee-ace,meta,coral
+      codex_reuse_run_id:
+        description: Optional completed Codex pilot run whose verified fixed binaries can be reused
+        type: string
+        default: ''
 
 env:
   PILOT_CELLS: ${{ inputs.pilot_cells || 'ace,combee-ace,meta,coral' }}
@@ -270,6 +274,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_backends == 'codex' && inputs.pilot_methods == 'other-methods'
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      contents: read
+      actions: read
     env:
       OUT: /tmp/proteus-native-source-codex
       IMAGE: proteus-codex-roles:pilot
@@ -309,15 +316,54 @@ jobs:
           df -h /
       - name: Build existing production Codex image from fixed source
         id: image
+        env:
+          REUSE_RUN_ID: ${{ inputs.codex_reuse_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          docker build --platform linux/amd64 --build-arg CODEX_REF="$CODEX_REF" \
-            --build-arg CARGO_BUILD_JOBS=1 --label "org.opencontainers.image.revision=$CODEX_REF" \
-            -t "$IMAGE" environments/codex-src 2>&1 | tee "$OUT/build.log"
+          if [ -n "$REUSE_RUN_ID" ]; then
+            [[ "$REUSE_RUN_ID" =~ ^[0-9]+$ ]]
+            gh api "repos/$GH_REPO/actions/runs/$REUSE_RUN_ID" > "$OUT/producer-run.json"
+            PRODUCER_SHA=$(python -c 'import json,os; print(json.load(open(os.environ["OUT"]+"/producer-run.json"))["head_sha"])')
+            gh run download "$REUSE_RUN_ID" --name "codex-method-pilots-$PRODUCER_SHA" --dir /tmp/codex-producer
+            python recipes/pilots/harness-roles/reuse_codex.py /tmp/codex-producer "$OUT/producer-run.json" /tmp/codex-reuse
+            cp /tmp/codex-reuse/reuse.json "$OUT/reuse.json"
+            cp environments/codex-src/boot.sh /tmp/codex-reuse/boot.sh
+            cp recipes/pilots/harness-roles/codex-fixed-boot.sh /tmp/codex-reuse/fixed-boot.sh
+            docker build --platform linux/amd64 --build-arg CODEX_REF="$CODEX_REF" \
+              --label "org.opencontainers.image.revision=$CODEX_REF" \
+              --label "proteus.runtime-scope=fixed-recovery" \
+              -f recipes/pilots/harness-roles/Dockerfile.codex-reuse -t "$IMAGE" /tmp/codex-reuse \
+              2>&1 | tee "$OUT/build.log"
+          else
+            docker build --platform linux/amd64 --build-arg CODEX_REF="$CODEX_REF" \
+              --build-arg CARGO_BUILD_JOBS=1 --label "org.opencontainers.image.revision=$CODEX_REF" \
+              -t "$IMAGE" environments/codex-src 2>&1 | tee "$OUT/build.log"
+          fi
           docker image inspect "$IMAGE" > "$OUT/image.json"
           docker run --rm --entrypoint sh "$IMAGE" -c '/opt/codex-target/release/codex --version; python3 --version' > "$OUT/runtime-versions.txt"
           pip freeze > "$OUT/python-packages.txt"
+      - name: Probe native literal prompt parsing without credentials or network
+        if: inputs.codex_reuse_run_id != ''
+        run: |
+          python - <<'CHECK'
+          import json, os, subprocess
+          from pathlib import Path
+          base = ['docker', 'run', '--rm', '--network', 'none', '--entrypoint',
+              '/opt/codex-target/release/codex', os.environ['IMAGE'], 'exec',
+              '--json', '--skip-git-repo-check', '-c', 'pilot_missing_equals']
+          prompt = '---\nname: meta-harness\n---\nA literal task'
+          records = {}
+          for name, suffix in [('old', [prompt]), ('fixed', ['--', prompt])]:
+              result = subprocess.run(base + suffix, text=True, capture_output=True, timeout=45)
+              records[name] = {'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr}
+          Path(os.environ['OUT'], 'literal-parser-probe.json').write_text(json.dumps(records, indent=2))
+          assert records['old']['exit_code'] != 0 and 'unexpected argument' in records['old']['stderr'].lower()
+          assert records['fixed']['exit_code'] != 0 and 'pilot_missing_equals' in records['fixed']['stderr']
+          assert 'unexpected argument' not in records['fixed']['stderr'].lower()
+          CHECK
       - name: Live Codex ace minimum cycle
         id: live_ace
         if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
