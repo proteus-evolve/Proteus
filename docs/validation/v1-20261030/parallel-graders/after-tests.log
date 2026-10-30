@@ -1,0 +1,508 @@
+........FFFFFF                                                           [100%]
+=================================== FAILURES ===================================
+_ test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[input] _
+
+tmp_path = PosixPath('/private/tmp/proteus-parallel-grader-fixes-20261030/after-tests/test_parallel_join_recovery_ve1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104a0b7a0>
+damage = 'input'
+
+    @pytest.mark.parametrize("damage", [None, "input", "outcome", "missing_input", "missing_outcome",
+                                        "native_usage", "missing_native"])
+    def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
+        calls = []
+    
+        def replies():
+            for _ in range(3):
+                calls.append(1)
+                yield response('{"score":1}')
+    
+        registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
+        # Explicit local test integration; do not broaden the bundled LLM harness's
+        # supported capabilities just to obtain real native receipts in this test.
+        harness = registry.get(plugin("proteus.harness.llm").plugin)
+        registry.register(replace(harness, ref=PluginRef(name="fixture.parallel_harness_judge", version="1"),
+            capabilities=(*harness.capabilities, "actor.parallel"),
+            implementation_hash=content_hash("local parallel grading receipt fixture")))
+        monkeypatch.setenv("PROTEUS_PRIVATE_GRADER_KEY", "local-fixture")
+        with endpoint(replies()) as url:
+            recipe = replace(recipe, actors={"judge": ActorSpec(model="fixture-judge",
+                runtime=plugin("fixture.parallel_harness_judge", base_url=url, key_env="PROTEUS_PRIVATE_GRADER_KEY"),
+                budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
+                    evaluator=plugin("proteus.model_judge"), actor="judge"),))
+            join = TrialMap.join
+    
+            def interrupt(self, records):
+                raise RecoveryRequired("injected interruption before joining completed grades")
+    
+            monkeypatch.setattr(TrialMap, "join", interrupt)
+            first, _ = run(tmp_path, registry, recipe)
+            monkeypatch.setattr(TrialMap, "join", join)
+        assert first.status == OperationStatus.FAILED and "injected interruption" in first.diagnostic
+        assert len(calls) == 3
+        assert len(list((tmp_path / "run/private/evaluation-maps").glob("*/*/result.json"))) == 3
+        book = run_ledger(tmp_path / "run")
+        events = book.events()
+        invocations = (tmp_path / "invocations.txt").read_bytes()
+        grader_root = next((tmp_path / "run").glob("evaluations/*/private/grader-actors/*"))
+        if damage is not None:
+            if "native" in damage:
+                path = next(input_directory(grader_root / "work").glob("*.outcome.json"))
+            else:
+                path = grader_root / ("input.json" if "input" in damage else "outcome.json")
+            if damage.startswith("missing"):
+                path.unlink()
+            else:
+                raw = json.loads(path.read_text())
+                if damage == "input":
+                    raw["value"]["role"] = "wrong-role"
+                elif damage == "outcome":
+                    raw["value"]["input_hash"] = "sha256:" + "0" * 64
+                else:
+                    raw["usage"]["reported"]["output_tokens"] = 999
+                path.chmod(0o644)
+                path.write_text(json.dumps(raw))
+        # The local endpoint is closed: neither valid nor invalid replay may dispatch.
+        for attempt in range(2):
+            result, _ = run(tmp_path, registry, recipe, resume=True)
+            if damage is None:
+                assert result.status == OperationStatus.COMPLETED, result.diagnostic
+                report_run(tmp_path / "run")
+            else:
+                assert result.status == OperationStatus.FAILED, result
+                assert not list((tmp_path / "run/private/evaluation-maps").glob("*/join.json"))
+            assert len(calls) == 3
+            assert (tmp_path / "invocations.txt").read_bytes() == invocations
+            # A successful join settles its cohort once, while rejected evidence must
+            # not change any reservation/settlement or retry the original calls.
+            if damage is None and attempt == 0:
+                events = book.events()
+>           assert book.events() == events
+E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
+E             
+E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345157994414000, ...}
+E             Use -v to get more diff
+
+tests/test_v1_parallel_model_evaluators.py:175: AssertionError
+_ test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[outcome] _
+
+tmp_path = PosixPath('/private/tmp/proteus-parallel-grader-fixes-20261030/after-tests/test_parallel_join_recovery_ve2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104b2f020>
+damage = 'outcome'
+
+    @pytest.mark.parametrize("damage", [None, "input", "outcome", "missing_input", "missing_outcome",
+                                        "native_usage", "missing_native"])
+    def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
+        calls = []
+    
+        def replies():
+            for _ in range(3):
+                calls.append(1)
+                yield response('{"score":1}')
+    
+        registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
+        # Explicit local test integration; do not broaden the bundled LLM harness's
+        # supported capabilities just to obtain real native receipts in this test.
+        harness = registry.get(plugin("proteus.harness.llm").plugin)
+        registry.register(replace(harness, ref=PluginRef(name="fixture.parallel_harness_judge", version="1"),
+            capabilities=(*harness.capabilities, "actor.parallel"),
+            implementation_hash=content_hash("local parallel grading receipt fixture")))
+        monkeypatch.setenv("PROTEUS_PRIVATE_GRADER_KEY", "local-fixture")
+        with endpoint(replies()) as url:
+            recipe = replace(recipe, actors={"judge": ActorSpec(model="fixture-judge",
+                runtime=plugin("fixture.parallel_harness_judge", base_url=url, key_env="PROTEUS_PRIVATE_GRADER_KEY"),
+                budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
+                    evaluator=plugin("proteus.model_judge"), actor="judge"),))
+            join = TrialMap.join
+    
+            def interrupt(self, records):
+                raise RecoveryRequired("injected interruption before joining completed grades")
+    
+            monkeypatch.setattr(TrialMap, "join", interrupt)
+            first, _ = run(tmp_path, registry, recipe)
+            monkeypatch.setattr(TrialMap, "join", join)
+        assert first.status == OperationStatus.FAILED and "injected interruption" in first.diagnostic
+        assert len(calls) == 3
+        assert len(list((tmp_path / "run/private/evaluation-maps").glob("*/*/result.json"))) == 3
+        book = run_ledger(tmp_path / "run")
+        events = book.events()
+        invocations = (tmp_path / "invocations.txt").read_bytes()
+        grader_root = next((tmp_path / "run").glob("evaluations/*/private/grader-actors/*"))
+        if damage is not None:
+            if "native" in damage:
+                path = next(input_directory(grader_root / "work").glob("*.outcome.json"))
+            else:
+                path = grader_root / ("input.json" if "input" in damage else "outcome.json")
+            if damage.startswith("missing"):
+                path.unlink()
+            else:
+                raw = json.loads(path.read_text())
+                if damage == "input":
+                    raw["value"]["role"] = "wrong-role"
+                elif damage == "outcome":
+                    raw["value"]["input_hash"] = "sha256:" + "0" * 64
+                else:
+                    raw["usage"]["reported"]["output_tokens"] = 999
+                path.chmod(0o644)
+                path.write_text(json.dumps(raw))
+        # The local endpoint is closed: neither valid nor invalid replay may dispatch.
+        for attempt in range(2):
+            result, _ = run(tmp_path, registry, recipe, resume=True)
+            if damage is None:
+                assert result.status == OperationStatus.COMPLETED, result.diagnostic
+                report_run(tmp_path / "run")
+            else:
+                assert result.status == OperationStatus.FAILED, result
+                assert not list((tmp_path / "run/private/evaluation-maps").glob("*/join.json"))
+            assert len(calls) == 3
+            assert (tmp_path / "invocations.txt").read_bytes() == invocations
+            # A successful join settles its cohort once, while rejected evidence must
+            # not change any reservation/settlement or retry the original calls.
+            if damage is None and attempt == 0:
+                events = book.events()
+>           assert book.events() == events
+E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
+E             
+E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345158969030000, ...}
+E             Use -v to get more diff
+
+tests/test_v1_parallel_model_evaluators.py:175: AssertionError
+_ test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[missing_input] _
+
+tmp_path = PosixPath('/private/tmp/proteus-parallel-grader-fixes-20261030/after-tests/test_parallel_join_recovery_ve3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104a09700>
+damage = 'missing_input'
+
+    @pytest.mark.parametrize("damage", [None, "input", "outcome", "missing_input", "missing_outcome",
+                                        "native_usage", "missing_native"])
+    def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
+        calls = []
+    
+        def replies():
+            for _ in range(3):
+                calls.append(1)
+                yield response('{"score":1}')
+    
+        registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
+        # Explicit local test integration; do not broaden the bundled LLM harness's
+        # supported capabilities just to obtain real native receipts in this test.
+        harness = registry.get(plugin("proteus.harness.llm").plugin)
+        registry.register(replace(harness, ref=PluginRef(name="fixture.parallel_harness_judge", version="1"),
+            capabilities=(*harness.capabilities, "actor.parallel"),
+            implementation_hash=content_hash("local parallel grading receipt fixture")))
+        monkeypatch.setenv("PROTEUS_PRIVATE_GRADER_KEY", "local-fixture")
+        with endpoint(replies()) as url:
+            recipe = replace(recipe, actors={"judge": ActorSpec(model="fixture-judge",
+                runtime=plugin("fixture.parallel_harness_judge", base_url=url, key_env="PROTEUS_PRIVATE_GRADER_KEY"),
+                budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
+                    evaluator=plugin("proteus.model_judge"), actor="judge"),))
+            join = TrialMap.join
+    
+            def interrupt(self, records):
+                raise RecoveryRequired("injected interruption before joining completed grades")
+    
+            monkeypatch.setattr(TrialMap, "join", interrupt)
+            first, _ = run(tmp_path, registry, recipe)
+            monkeypatch.setattr(TrialMap, "join", join)
+        assert first.status == OperationStatus.FAILED and "injected interruption" in first.diagnostic
+        assert len(calls) == 3
+        assert len(list((tmp_path / "run/private/evaluation-maps").glob("*/*/result.json"))) == 3
+        book = run_ledger(tmp_path / "run")
+        events = book.events()
+        invocations = (tmp_path / "invocations.txt").read_bytes()
+        grader_root = next((tmp_path / "run").glob("evaluations/*/private/grader-actors/*"))
+        if damage is not None:
+            if "native" in damage:
+                path = next(input_directory(grader_root / "work").glob("*.outcome.json"))
+            else:
+                path = grader_root / ("input.json" if "input" in damage else "outcome.json")
+            if damage.startswith("missing"):
+                path.unlink()
+            else:
+                raw = json.loads(path.read_text())
+                if damage == "input":
+                    raw["value"]["role"] = "wrong-role"
+                elif damage == "outcome":
+                    raw["value"]["input_hash"] = "sha256:" + "0" * 64
+                else:
+                    raw["usage"]["reported"]["output_tokens"] = 999
+                path.chmod(0o644)
+                path.write_text(json.dumps(raw))
+        # The local endpoint is closed: neither valid nor invalid replay may dispatch.
+        for attempt in range(2):
+            result, _ = run(tmp_path, registry, recipe, resume=True)
+            if damage is None:
+                assert result.status == OperationStatus.COMPLETED, result.diagnostic
+                report_run(tmp_path / "run")
+            else:
+                assert result.status == OperationStatus.FAILED, result
+                assert not list((tmp_path / "run/private/evaluation-maps").glob("*/join.json"))
+            assert len(calls) == 3
+            assert (tmp_path / "invocations.txt").read_bytes() == invocations
+            # A successful join settles its cohort once, while rejected evidence must
+            # not change any reservation/settlement or retry the original calls.
+            if damage is None and attempt == 0:
+                events = book.events()
+>           assert book.events() == events
+E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
+E             
+E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345159914230000, ...}
+E             Use -v to get more diff
+
+tests/test_v1_parallel_model_evaluators.py:175: AssertionError
+_ test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[missing_outcome] _
+
+tmp_path = PosixPath('/private/tmp/proteus-parallel-grader-fixes-20261030/after-tests/test_parallel_join_recovery_ve4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104b16ff0>
+damage = 'missing_outcome'
+
+    @pytest.mark.parametrize("damage", [None, "input", "outcome", "missing_input", "missing_outcome",
+                                        "native_usage", "missing_native"])
+    def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
+        calls = []
+    
+        def replies():
+            for _ in range(3):
+                calls.append(1)
+                yield response('{"score":1}')
+    
+        registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
+        # Explicit local test integration; do not broaden the bundled LLM harness's
+        # supported capabilities just to obtain real native receipts in this test.
+        harness = registry.get(plugin("proteus.harness.llm").plugin)
+        registry.register(replace(harness, ref=PluginRef(name="fixture.parallel_harness_judge", version="1"),
+            capabilities=(*harness.capabilities, "actor.parallel"),
+            implementation_hash=content_hash("local parallel grading receipt fixture")))
+        monkeypatch.setenv("PROTEUS_PRIVATE_GRADER_KEY", "local-fixture")
+        with endpoint(replies()) as url:
+            recipe = replace(recipe, actors={"judge": ActorSpec(model="fixture-judge",
+                runtime=plugin("fixture.parallel_harness_judge", base_url=url, key_env="PROTEUS_PRIVATE_GRADER_KEY"),
+                budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
+                    evaluator=plugin("proteus.model_judge"), actor="judge"),))
+            join = TrialMap.join
+    
+            def interrupt(self, records):
+                raise RecoveryRequired("injected interruption before joining completed grades")
+    
+            monkeypatch.setattr(TrialMap, "join", interrupt)
+            first, _ = run(tmp_path, registry, recipe)
+            monkeypatch.setattr(TrialMap, "join", join)
+        assert first.status == OperationStatus.FAILED and "injected interruption" in first.diagnostic
+        assert len(calls) == 3
+        assert len(list((tmp_path / "run/private/evaluation-maps").glob("*/*/result.json"))) == 3
+        book = run_ledger(tmp_path / "run")
+        events = book.events()
+        invocations = (tmp_path / "invocations.txt").read_bytes()
+        grader_root = next((tmp_path / "run").glob("evaluations/*/private/grader-actors/*"))
+        if damage is not None:
+            if "native" in damage:
+                path = next(input_directory(grader_root / "work").glob("*.outcome.json"))
+            else:
+                path = grader_root / ("input.json" if "input" in damage else "outcome.json")
+            if damage.startswith("missing"):
+                path.unlink()
+            else:
+                raw = json.loads(path.read_text())
+                if damage == "input":
+                    raw["value"]["role"] = "wrong-role"
+                elif damage == "outcome":
+                    raw["value"]["input_hash"] = "sha256:" + "0" * 64
+                else:
+                    raw["usage"]["reported"]["output_tokens"] = 999
+                path.chmod(0o644)
+                path.write_text(json.dumps(raw))
+        # The local endpoint is closed: neither valid nor invalid replay may dispatch.
+        for attempt in range(2):
+            result, _ = run(tmp_path, registry, recipe, resume=True)
+            if damage is None:
+                assert result.status == OperationStatus.COMPLETED, result.diagnostic
+                report_run(tmp_path / "run")
+            else:
+                assert result.status == OperationStatus.FAILED, result
+                assert not list((tmp_path / "run/private/evaluation-maps").glob("*/join.json"))
+            assert len(calls) == 3
+            assert (tmp_path / "invocations.txt").read_bytes() == invocations
+            # A successful join settles its cohort once, while rejected evidence must
+            # not change any reservation/settlement or retry the original calls.
+            if damage is None and attempt == 0:
+                events = book.events()
+>           assert book.events() == events
+E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
+E             
+E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345160838636000, ...}
+E             Use -v to get more diff
+
+tests/test_v1_parallel_model_evaluators.py:175: AssertionError
+_ test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[native_usage] _
+
+tmp_path = PosixPath('/private/tmp/proteus-parallel-grader-fixes-20261030/after-tests/test_parallel_join_recovery_ve5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1049e4530>
+damage = 'native_usage'
+
+    @pytest.mark.parametrize("damage", [None, "input", "outcome", "missing_input", "missing_outcome",
+                                        "native_usage", "missing_native"])
+    def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
+        calls = []
+    
+        def replies():
+            for _ in range(3):
+                calls.append(1)
+                yield response('{"score":1}')
+    
+        registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
+        # Explicit local test integration; do not broaden the bundled LLM harness's
+        # supported capabilities just to obtain real native receipts in this test.
+        harness = registry.get(plugin("proteus.harness.llm").plugin)
+        registry.register(replace(harness, ref=PluginRef(name="fixture.parallel_harness_judge", version="1"),
+            capabilities=(*harness.capabilities, "actor.parallel"),
+            implementation_hash=content_hash("local parallel grading receipt fixture")))
+        monkeypatch.setenv("PROTEUS_PRIVATE_GRADER_KEY", "local-fixture")
+        with endpoint(replies()) as url:
+            recipe = replace(recipe, actors={"judge": ActorSpec(model="fixture-judge",
+                runtime=plugin("fixture.parallel_harness_judge", base_url=url, key_env="PROTEUS_PRIVATE_GRADER_KEY"),
+                budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
+                    evaluator=plugin("proteus.model_judge"), actor="judge"),))
+            join = TrialMap.join
+    
+            def interrupt(self, records):
+                raise RecoveryRequired("injected interruption before joining completed grades")
+    
+            monkeypatch.setattr(TrialMap, "join", interrupt)
+            first, _ = run(tmp_path, registry, recipe)
+            monkeypatch.setattr(TrialMap, "join", join)
+        assert first.status == OperationStatus.FAILED and "injected interruption" in first.diagnostic
+        assert len(calls) == 3
+        assert len(list((tmp_path / "run/private/evaluation-maps").glob("*/*/result.json"))) == 3
+        book = run_ledger(tmp_path / "run")
+        events = book.events()
+        invocations = (tmp_path / "invocations.txt").read_bytes()
+        grader_root = next((tmp_path / "run").glob("evaluations/*/private/grader-actors/*"))
+        if damage is not None:
+            if "native" in damage:
+                path = next(input_directory(grader_root / "work").glob("*.outcome.json"))
+            else:
+                path = grader_root / ("input.json" if "input" in damage else "outcome.json")
+            if damage.startswith("missing"):
+                path.unlink()
+            else:
+                raw = json.loads(path.read_text())
+                if damage == "input":
+                    raw["value"]["role"] = "wrong-role"
+                elif damage == "outcome":
+                    raw["value"]["input_hash"] = "sha256:" + "0" * 64
+                else:
+                    raw["usage"]["reported"]["output_tokens"] = 999
+                path.chmod(0o644)
+                path.write_text(json.dumps(raw))
+        # The local endpoint is closed: neither valid nor invalid replay may dispatch.
+        for attempt in range(2):
+            result, _ = run(tmp_path, registry, recipe, resume=True)
+            if damage is None:
+                assert result.status == OperationStatus.COMPLETED, result.diagnostic
+                report_run(tmp_path / "run")
+            else:
+                assert result.status == OperationStatus.FAILED, result
+                assert not list((tmp_path / "run/private/evaluation-maps").glob("*/join.json"))
+            assert len(calls) == 3
+            assert (tmp_path / "invocations.txt").read_bytes() == invocations
+            # A successful join settles its cohort once, while rejected evidence must
+            # not change any reservation/settlement or retry the original calls.
+            if damage is None and attempt == 0:
+                events = book.events()
+>           assert book.events() == events
+E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
+E             
+E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345161749519000, ...}
+E             Use -v to get more diff
+
+tests/test_v1_parallel_model_evaluators.py:175: AssertionError
+_ test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[missing_native] _
+
+tmp_path = PosixPath('/private/tmp/proteus-parallel-grader-fixes-20261030/after-tests/test_parallel_join_recovery_ve6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104badca0>
+damage = 'missing_native'
+
+    @pytest.mark.parametrize("damage", [None, "input", "outcome", "missing_input", "missing_outcome",
+                                        "native_usage", "missing_native"])
+    def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
+        calls = []
+    
+        def replies():
+            for _ in range(3):
+                calls.append(1)
+                yield response('{"score":1}')
+    
+        registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
+        # Explicit local test integration; do not broaden the bundled LLM harness's
+        # supported capabilities just to obtain real native receipts in this test.
+        harness = registry.get(plugin("proteus.harness.llm").plugin)
+        registry.register(replace(harness, ref=PluginRef(name="fixture.parallel_harness_judge", version="1"),
+            capabilities=(*harness.capabilities, "actor.parallel"),
+            implementation_hash=content_hash("local parallel grading receipt fixture")))
+        monkeypatch.setenv("PROTEUS_PRIVATE_GRADER_KEY", "local-fixture")
+        with endpoint(replies()) as url:
+            recipe = replace(recipe, actors={"judge": ActorSpec(model="fixture-judge",
+                runtime=plugin("fixture.parallel_harness_judge", base_url=url, key_env="PROTEUS_PRIVATE_GRADER_KEY"),
+                budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
+                    evaluator=plugin("proteus.model_judge"), actor="judge"),))
+            join = TrialMap.join
+    
+            def interrupt(self, records):
+                raise RecoveryRequired("injected interruption before joining completed grades")
+    
+            monkeypatch.setattr(TrialMap, "join", interrupt)
+            first, _ = run(tmp_path, registry, recipe)
+            monkeypatch.setattr(TrialMap, "join", join)
+        assert first.status == OperationStatus.FAILED and "injected interruption" in first.diagnostic
+        assert len(calls) == 3
+        assert len(list((tmp_path / "run/private/evaluation-maps").glob("*/*/result.json"))) == 3
+        book = run_ledger(tmp_path / "run")
+        events = book.events()
+        invocations = (tmp_path / "invocations.txt").read_bytes()
+        grader_root = next((tmp_path / "run").glob("evaluations/*/private/grader-actors/*"))
+        if damage is not None:
+            if "native" in damage:
+                path = next(input_directory(grader_root / "work").glob("*.outcome.json"))
+            else:
+                path = grader_root / ("input.json" if "input" in damage else "outcome.json")
+            if damage.startswith("missing"):
+                path.unlink()
+            else:
+                raw = json.loads(path.read_text())
+                if damage == "input":
+                    raw["value"]["role"] = "wrong-role"
+                elif damage == "outcome":
+                    raw["value"]["input_hash"] = "sha256:" + "0" * 64
+                else:
+                    raw["usage"]["reported"]["output_tokens"] = 999
+                path.chmod(0o644)
+                path.write_text(json.dumps(raw))
+        # The local endpoint is closed: neither valid nor invalid replay may dispatch.
+        for attempt in range(2):
+            result, _ = run(tmp_path, registry, recipe, resume=True)
+            if damage is None:
+                assert result.status == OperationStatus.COMPLETED, result.diagnostic
+                report_run(tmp_path / "run")
+            else:
+                assert result.status == OperationStatus.FAILED, result
+                assert not list((tmp_path / "run/private/evaluation-maps").glob("*/join.json"))
+            assert len(calls) == 3
+            assert (tmp_path / "invocations.txt").read_bytes() == invocations
+            # A successful join settles its cohort once, while rejected evidence must
+            # not change any reservation/settlement or retry the original calls.
+            if damage is None and attempt == 0:
+                events = book.events()
+>           assert book.events() == events
+E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
+E             
+E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345162699707000, ...}
+E             Use -v to get more diff
+
+tests/test_v1_parallel_model_evaluators.py:175: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_v1_parallel_model_evaluators.py::test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[input]
+FAILED tests/test_v1_parallel_model_evaluators.py::test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[outcome]
+FAILED tests/test_v1_parallel_model_evaluators.py::test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[missing_input]
+FAILED tests/test_v1_parallel_model_evaluators.py::test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[missing_outcome]
+FAILED tests/test_v1_parallel_model_evaluators.py::test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[native_usage]
+FAILED tests/test_v1_parallel_model_evaluators.py::test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch[missing_native]
+6 failed, 8 passed in 9.97s

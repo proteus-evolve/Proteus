@@ -66,6 +66,9 @@ def validate_evaluation_config(recipe, registry):
                     'model evaluator requires a fresh executable actor role')
             if recipe.budget.max_model_calls is not None or actor.budget.max_model_calls is not None:
                 require('calls.bounded' in plugin.capabilities, 'model evaluator actor lacks calls.bounded capability')
+            if recipe.execution.max_workers > 1 and spec.feedback_timing == 'after_prediction':
+                require('actor.parallel' in plugin.capabilities,
+                        'parallel grading requires an actor with actor.parallel capability')
         else:
             require("evaluator.deterministic" in capabilities,
                     "evaluators must be deterministic or a declared integrated backend")

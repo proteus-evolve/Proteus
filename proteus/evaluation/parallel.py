@@ -159,6 +159,10 @@ class TrialMap:
             limit = min(
                 limit, services.recipe.actors[services.recipe.subject.actor].budget.max_concurrency
             )
+        if session.spec.actor and session.spec.feedback_timing == "after_prediction":
+            # Each worker predicts then grades. Bound the whole trial by both
+            # roles so admission never relies on a ledger rejection mid-trial.
+            limit = min(limit, services.recipe.actors[session.spec.actor].budget.max_concurrency)
         # Finish recovery as a separate phase before issuing ANY new trial. A
         # pending Harbor worker can reconcile; an uncertain actor stops the map.
         for phase in (
@@ -410,6 +414,23 @@ class TrialMap:
                     and graders[0]["settlement"]["result"]["grade"] == grade.to_dict(),
                     "parallel grade differs from ledger",
                 )
+            if session.spec.actor is not None:
+                from proteus.evaluation.graders import grading_binding, verify_grade
+
+                try:
+                    verify_grade(
+                        session.root / "private" / "grader-actors" / f"{index:06d}",
+                        grade,
+                        services.recipe.actors[session.spec.actor],
+                        role=session.spec.actor,
+                        binding=grading_binding(session.spec.id, rollout),
+                    )
+                except Exception as exc:
+                    # Keep the cohort recoverable while its original evidence is
+                    # reconciled, just as the serial grading path does.
+                    raise RecoveryRequired(
+                        "private grading evidence must be reconciled before parallel join"
+                    ) from exc
         else:
             require(
                 not graders and record["grade_usage"] is None,

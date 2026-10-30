@@ -7,6 +7,43 @@ It does not publish 1.0, change the package version or restart historical studie
 The review's baseline results are preserved as baseline evidence, not relabeled as
 validation of the repair.
 
+## October 30 independent re-review and parallel grader repair
+
+The independent re-review of merged `67aa54a9d01fbce8145189561cb6b510514ae658`
+confirmed the original P1/configuration fixes, but found two additional P2 release
+blockers. Both were independently reproduced on that merge before this repair.
+The original [concurrency failures](validation/v1-20261030/parallel-graders/before-concurrency.json)
+and [invalid-evidence resume](validation/v1-20261030/parallel-graders/before-recovery.json)
+are retained; they are not benchmark outcomes.
+
+| Finding | Repair | Targeted acceptance |
+| --- | --- | --- |
+| Parallel model grading ignored the judge's concurrency cap and `actor.parallel` capability. | After-prediction grading requires the capability at preflight; actual trial width also respects the grading role's cap. After-batch and hidden grading remain serial. | Judge cap 1 completes with peak 1; cap 2 permits peak 2 when the run cap permits; run cap 1 remains serial. Unsupported parallel actors are rejected before dispatch, while serial finalization remains supported. |
+| Completed parallel result recovery did not verify private model-grading provenance. | Before joining, reuse `verify_grade` for private input/outcome hashes, role/task/candidate binding and native usage receipts. Invalid evidence raises `RecoveryRequired`, keeping the cohort recoverable. | Interrupt after all branch results but before join. Corrupt or remove private input, outcome or native usage evidence: repeated resumes reject without new calls or ledger changes. Restore the original bytes: resume and export succeed, and completed resume adds no calls. |
+
+The [repair validation record](validation/v1-20261030/parallel-graders/validation.json)
+contains **175 passed / 8 skipped** across disjoint affected cases, including
+**14 new regression cases**. The eight skips require live Docker/Harbor; they are
+not passes. The separate no-pytest runner passed all 145 checks. Ruff and whitespace
+checks passed. This is targeted repair validation, not a new full-suite sweep or a
+coverage percentage. Concurrency actors and HTTP responses are local fixtures;
+no paid provider calls or AWS work occurred. The native-receipt tests explicitly
+register a local parallel fixture rather than broadening the bundled LLM harness's
+declared capabilities.
+
+The first implementation correctly rejected damaged evidence but terminally
+settled the cohort. Its [six failed recovery regressions](validation/v1-20261030/parallel-graders/after-tests.log)
+are retained. Using `RecoveryRequired` at this boundary preserves the original
+reservation and permits evidence reconciliation; the final regressions validate
+both rejection and subsequent recovery.
+
+**Release readiness remains unapproved.** This patch needs independent re-review
+and checks against its own source. Earlier CI, Harbor, native-source and live-smoke
+successes do not qualify this changed runtime or a future release tag. The
+[experiment acceptance](V1_EXPERIMENT_ACCEPTANCE.md), final API/support scope,
+version/release notes and all same-tag/SHA gates in [RELEASING.md](RELEASING.md)
+remain separate requirements. Frozen experiments and their claims are unchanged.
+
 ## Findings and decisions
 
 | Review finding | Confirmed and addressed | Current validation |
