@@ -24,7 +24,9 @@ separate work.
 
 The fragment illustrates fields to edit in an existing complete recipe. Actual
 width is bounded by the requested worker count, run concurrency and the subject
-actor's role concurrency. Setting the worker count alone does not override a
+actor's role concurrency. With an `after_prediction` model evaluator, the grading
+actor's role concurrency also bounds the whole trial (prediction then grading).
+Setting the worker count alone does not override a
 budget cap. Calls within one trial retain their own stage scope and ordered
 call numbers; different trials do not contend for the same call identity.
 
@@ -34,6 +36,12 @@ subject also requires a fresh actor with `actor.parallel`. Bundled local Python,
 prompt and managed-code subjects and the independent Harbor paths declare these
 capabilities. Third-party implementations must explicitly opt in after checking
 their own isolation and concurrency behavior.
+
+An `after_prediction` model evaluator also requires its configured
+`EvaluationSpec.actor` to declare `actor.parallel` when `max_workers > 1`, even if
+a budget reduces the actual width to one. After-batch and hidden model grading
+remain serial during finalization, so those grading actors need no parallel
+capability. All model grading still requires a fresh executable actor.
 
 Sequence and worker state are rejected with a width above one. The explicit
 `open_evaluation` / `step` interface remains serial so methods can receive
@@ -65,6 +73,11 @@ The owner journal remains the only writer of the full method state. Branch
 requests and results are immutable receipts under `private/evaluation-maps`.
 They are checked against the original task/candidate/seed, prediction files,
 typed values and settled subject, actor, grader and build records before joining.
+For model grades, this includes the private actor input/outcome hashes, configured
+role and task/candidate binding, and any native usage receipts. Missing or damaged
+grading evidence blocks the join with `RecoveryRequired`, preserving the cohort
+reservation. Restore the original evidence before resuming; the framework does
+not regenerate a grade or dispatch a replacement model call to repair evidence.
 
 Recovery first reconstructs or reconciles trials that were actually dispatched.
 Only after they are resolved may a reserved request or new trial run. A request

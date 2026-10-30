@@ -168,6 +168,13 @@ values or feedback. A malformed answer is an infrastructure failure with a missi
 score and retained usage. An unknown dispatch blocks redispatch. Restore and export
 check evidence hashes and bindings without calling the model again.
 
+In parallel evaluation, after-prediction grading requires `actor.parallel` and
+its role budget limits the whole trial's concurrency. After-batch and hidden
+grading run serially during finalization. Completed parallel trial recovery
+verifies the same private input/outcome and native usage evidence before joining;
+invalid evidence blocks recovery without a replacement dispatch. See
+[parallel evaluation](V1_PARALLEL_EVALUATION.md) for the admission contract.
+
 Plugins remain trusted controller code. A model grader that needs multiple calls
 must expose a distinct managed protocol with explicit bounds; it cannot hide them
 behind a deterministic declaration.

@@ -1,0 +1,62 @@
+{
+  "baseline_commit": "67aa54a9d01fbce8145189561cb6b510514ae658",
+  "baseline_reproductions": [
+    "before-concurrency.json",
+    "before-recovery.json"
+  ],
+  "fixed_source_sha256": {
+    "proteus/evaluation/parallel.py": "d771b1c6d1f1709afc7364196125d02f45a31395975d45fb962cc97c5c427927",
+    "proteus/evaluation/service.py": "57a4e0033e37eb75aac4df36ec1876a7f1c3039563245788509a2b913439e4e9",
+    "tests/test_v1_parallel_model_evaluators.py": "dc3f4f29e97b3d42c189a60ebb6995ae07237ed6f496f326dec2640ec3190cb2"
+  },
+  "suites": {
+    "final": {
+      "collected": 14,
+      "passed": 14,
+      "skipped": 0,
+      "failed": 0,
+      "evidence": "final.xml"
+    },
+    "related": {
+      "collected": 75,
+      "passed": 72,
+      "skipped": 3,
+      "failed": 0,
+      "evidence": "related.xml"
+    },
+    "recovery": {
+      "collected": 94,
+      "passed": 89,
+      "skipped": 5,
+      "failed": 0,
+      "evidence": "recovery.xml"
+    }
+  },
+  "unique_cases": 183,
+  "passed": 175,
+  "skipped": 8,
+  "failed": 0,
+  "skip_scope": "8 live Docker/Harbor cases; no skip counted as success",
+  "intermediate_failure": {
+    "failed": 6,
+    "passed": 8,
+    "evidence": "after-tests.log",
+    "reason": "Initial provenance check rejected corrupt evidence but an ordinary exception terminally settled the cohort. Changed this boundary to RecoveryRequired so original evidence can be restored and resumed without redispatch.",
+    "archive_format": "Trailing whitespace removed from repository log only; raw log retained under /tmp/proteus-parallel-grader-fixes-20261030/after-tests.log.",
+    "raw_sha256": "98286383c31551f424f118b84c9efd6428f9a41cfcba7f6ae16f4a1b2fde203f",
+    "archived_sha256": "d41743a597c0e486c17b9a051e6d33d2d066752b74f91abf4731702130f28f10"
+  },
+  "regression_scope": "175 passed / 8 skipped are disjoint affected cases, not a full suite or coverage percentage. Concurrency uses local fixture actors; private native receipts use a separately declared parallel local LLM harness fixture and localhost responses, not provider calls or a broader bundled LLM capability claim.",
+  "provider_calls": 0,
+  "paid_cost_usd": 0,
+  "aws_started": false,
+  "release_gates": "Not yet run for this repair head; earlier green checks remain bound to their original commits.",
+  "offline_runner": {
+    "passed": 145,
+    "failed": 0,
+    "separate_from_pytest_count": true,
+    "evidence": "offline.log"
+  },
+  "ruff": "passed",
+  "whitespace": "passed"
+}
