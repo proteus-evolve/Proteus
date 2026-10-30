@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "scope": "Local receipt readback; no new remote-run, provider, or candidate execution",
+  "source": {
+    "reviewed_merge": "3518095dab1e6223bb40d95237e11a3d8e11a0c3",
+    "runtime_tree": "f9a0040634c388483f66882cf4a45dddc9d8636b",
+    "reviewed_whole_tree": "3b45eb93b319ec165552744ea9f54cc795af515a",
+    "review_receipt_sha256": "88365b36d03835117a4d7929926b37a73090fc84cca43fa0c00f1b2304a73931"
+  },
+  "review": {
+    "new_confirmed_engineering_findings": [],
+    "publication_approved": false
+  },
+  "api": {
+    "version": 1,
+    "exports": [
+      "API_VERSION",
+      "ActorRequest",
+      "ActorResult",
+      "ActorRuntime",
+      "ActorSpec",
+      "ArchivePolicy",
+      "ArchiveSnapshot",
+      "ArtifactComponent",
+      "ArtifactRef",
+      "ArtifactStore",
+      "BudgetLimits",
+      "Candidate",
+      "Contract",
+      "ContractError",
+      "DataRef",
+      "DependencyLock",
+      "EmptyOptions",
+      "EnvironmentSpec",
+      "EvaluationBatch",
+      "EvaluationReceipt",
+      "EvaluationRow",
+      "EvaluationSpec",
+      "Evaluator",
+      "ExecutionSpec",
+      "Feedback",
+      "FeedbackVisibility",
+      "FileContent",
+      "FileDelta",
+      "FileWrite",
+      "FinalSelector",
+      "Grade",
+      "GradingContext",
+      "HarnessEnvironmentOptions",
+      "HarnessEpisode",
+      "HarnessIntegration",
+      "HarnessSubjectOptions",
+      "MeasurementSpec",
+      "MeasurementSurface",
+      "Method",
+      "MethodResult",
+      "MethodState",
+      "ModelJudgeOptions",
+      "NativeEvolutionOptions",
+      "Objective",
+      "OperationStatus",
+      "Outcome",
+      "ParentSelector",
+      "Plugin",
+      "PluginLock",
+      "PluginRef",
+      "PluginSpec",
+      "PluginState",
+      "PolicyResult",
+      "RecipeConfig",
+      "RecordsDelta",
+      "ReferenceSpec",
+      "Registry",
+      "Rollout",
+      "RunManifest",
+      "RunServices",
+      "RuntimeIdentity",
+      "SearchDecision",
+      "SelectionView",
+      "SessionPolicy",
+      "SourcePin",
+      "Stage",
+      "StageContext",
+      "StageRequest",
+      "StageResult",
+      "StageSpec",
+      "StatePolicy",
+      "StateValue",
+      "StructuredRecords",
+      "SubjectContext",
+      "SubjectResult",
+      "SubjectRunner",
+      "SubjectSpec",
+      "Task",
+      "TaskBatch",
+      "TaskDataset",
+      "TaskRecord",
+      "TaskSelection",
+      "TaskSuite",
+      "TaskSuiteSpec",
+      "TextComponents",
+      "TextDelta",
+      "Usage",
+      "ValidationStatus",
+      "WorkspaceInput",
+      "WorkspaceOptions",
+      "builtin_registry",
+      "canonical_json",
+      "content_hash",
+      "harness_support_matrix",
+      "implementation_hash",
+      "load_recipe",
+      "register_harness",
+      "require",
+      "run_recipe",
+      "zero_usage"
+    ],
+    "count": 100,
+    "missing": [],
+    "duplicates": 0,
+    "freeze_status": "proposed, pending maintainer release acceptance"
+  },
+  "frozen_archive": {
+    "profiles": 15,
+    "recipes": 16,
+    "index_sha256": "1e9238c9df6e8a8fd9244300a6ec19db7ced1d875a327195acc5fadbfcfa3796",
+    "results_sha256": "ec39f4565d05159406fa83e1804981a628762d90869cdb9c2c5c18909b9ffbd7"
+  },
+  "coral": {
+    "arms": [
+      {
+        "receipt": "CORAL-v5_1-first-arm-final-independent-acceptance.json",
+        "sha256": "67838a5d04821984adf7d2e412d26890cbb00db62fc87003583ae0274dc63bf4",
+        "source_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+        "config_hash": "sha256:7980b093bc14198eb9c0659d83a32bc414f7f1f3c26d992ddaa57c354ad85ae3",
+        "lock_hash": "sha256:5215ae3538b751de9f7c49d1d5cb0b5b65029a68b112007ff1b06d6fb807cbd3",
+        "physical_API_calls": 20,
+        "proposal_status_counts": {
+          "succeeded": 12,
+          "timed_out": 8
+        },
+        "workers": [
+          {
+            "worker_id": "a",
+            "generations": 12,
+            "restarts": 0,
+            "statuses": {
+              "stopped": 1,
+              "paused": 11
+            },
+            "continuity": {
+              "fresh_fallback": 11,
+              "fresh": 1
+            },
+            "formal_submissions": 20,
+            "knowledge_publications": 20
+          }
+        ],
+        "known_API_upper_USD_not_invoice": 0.09554347199999999,
+        "cooperation_report_matches_saved_receipt": true,
+        "full_matrix_accepted_in_original": false
+      },
+      {
+        "receipt": "CORAL-v5_1-second-arm-final-independent-acceptance.json",
+        "sha256": "4f2d3b35bafc2cd9e328c8234a3c622e6003cfdc233afedf876ad7fd091d57b2",
+        "source_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+        "config_hash": "sha256:b1a9056f0f82d8ed0c78482b09e1b2d92bfd0388c11438ed7906c8495fa6139f",
+        "lock_hash": "sha256:5215ae3538b751de9f7c49d1d5cb0b5b65029a68b112007ff1b06d6fb807cbd3",
+        "physical_API_calls": 20,
+        "proposal_status_counts": {
+          "succeeded": 11,
+          "timed_out": 9
+        },
+        "workers": [
+          {
+            "worker_id": "a",
+            "generations": 6,
+            "restarts": 0,
+            "statuses": {
+              "paused": 5,
+              "stopped": 1
+            },
+            "continuity": {
+              "fresh_fallback": 5,
+              "fresh": 1
+            },
+            "formal_submissions": 10,
+            "knowledge_publications": 10
+          },
+          {
+            "worker_id": "b",
+            "generations": 7,
+            "restarts": 0,
+            "statuses": {
+              "paused": 6,
+              "stopped": 1
+            },
+            "continuity": {
+              "fresh_fallback": 6,
+              "fresh": 1
+            },
+            "formal_submissions": 10,
+            "knowledge_publications": 10
+          }
+        ],
+        "known_API_upper_USD_not_invoice": 0.08557506,
+        "cooperation_report_matches_saved_receipt": true,
+        "full_matrix_accepted_in_original": false
+      }
+    ],
+    "own_feedback_first_arm_receipt": {
+      "name": "CORAL-v5_1-current-visible-feedback-and-HTTP-independent-audit.json",
+      "sha256": "24fcf4de41848bb9c475ce1c20135020e021a5ddbbf6b0f46ab9df9e4ca90a4d",
+      "matched_request_receipts": 20
+    },
+    "own_feedback_second_arm_request_receipts": 20,
+    "own_feedback_window": "min(proposal index, 5); verified within archived audit receipts",
+    "relay_database": {
+      "name": "relay-receipts.sqlite3",
+      "access": "mode=ro",
+      "dispatch_columns": [
+        "request_id",
+        "arm",
+        "body_sha256",
+        "started",
+        "finished",
+        "status",
+        "response_sha256",
+        "response_zlib",
+        "error_type"
+      ],
+      "request_bodies_stored": false
+    },
+    "actual_cross_worker_prompt_use": "not established from inspected local receipts",
+    "applied_interventions": "not established from inspected local receipts",
+    "live_crash_restart": "not established; reported restart counts are zero",
+    "caution": "Missing local evidence does not prove behavior never occurred. Publication, own feedback and pause/fresh-fallback remain accepted within their recorded scope."
+  },
+  "combee_offline_observations": [
+    {
+      "display_name": "Combee Naive offline",
+      "baseline_correct": 139,
+      "selected_correct": 168,
+      "physical_API_calls": 2344,
+      "known_API_upper_USD_not_invoice": 1.49794242,
+      "native_canonical_cost_USD": null,
+      "known_controller_seconds_across_attempts": 37958.898560751,
+      "continuous_run_seconds": null,
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9"
+    },
+    {
+      "display_name": "Combee ACE offline",
+      "baseline_correct": 136,
+      "selected_correct": 174,
+      "physical_API_calls": 2784,
+      "known_API_upper_USD_not_invoice": 5.503515372,
+      "native_canonical_cost_USD": null,
+      "known_controller_seconds_across_attempts": 74777.108154836,
+      "continuous_run_seconds": null,
+      "source_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5"
+    },
+    {
+      "display_name": "Combee Dynamic offline",
+      "baseline_correct": 138,
+      "selected_correct": 174,
+      "physical_API_calls": 2695,
+      "known_API_upper_USD_not_invoice": 2.975843886,
+      "native_canonical_cost_USD": null,
+      "known_controller_seconds_across_attempts": 76016.383775985,
+      "continuous_run_seconds": null,
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9"
+    },
+    {
+      "display_name": "Combee Fixed offline",
+      "baseline_correct": 139,
+      "selected_correct": 170,
+      "physical_API_calls": 2404,
+      "known_API_upper_USD_not_invoice": 1.632558642,
+      "native_canonical_cost_USD": null,
+      "known_controller_seconds_across_attempts": 44556.233157559,
+      "continuous_run_seconds": null,
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9"
+    }
+  ],
+  "new_paid_calls": 0,
+  "aws_operations": 0
+}

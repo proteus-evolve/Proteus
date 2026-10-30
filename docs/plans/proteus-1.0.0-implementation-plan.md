@@ -245,7 +245,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 ### I03 角色与运行时
 
 - [x] 定义 ActorSpec，分别配置角色的模型、runtime、提示、工具、session 策略与预算（P01/P02；无法兑现的非默认配置提前拒绝）。
-- [ ] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留（P02 已有 chat HTTP transport 和 coding harness bridge；P10v 已通过固定 Pi/DSH 源码镜像与真实 CLI 工具的容器验收，provider 使用确定性 fixture。真实模型验收仍待完成）。
+- [x] 接入一个通用 LLM runtime 和一个真实 coding-agent runtime；既有 harness adapter 通过兼容层保留（chat HTTP transport、固定源码容器及实际模型验收已分别完成；Pi/DSH/Codex 共 16 个有来源绑定的有限 method/role pilot 单元，见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。这不代表所有方法与 harness 的笛卡尔积、原生持久 session 或最终发布门禁均已通过）。
 - [x] 将执行能力声明为可检查的 capability，如原生 resume、候选代码加载、归一化轨迹（P02 registry 和 lock；能力由后端实现声明并按配置检查）。
 - [x] 明确 fresh、handoff、native session 三种上下文策略，不做隐式互换（P02/P09b/P09g：能力校验、session 确认、显式 fresh fallback 与代际记录；实际 provider 的最终 live 验收仍单列）。
 
@@ -346,6 +346,12 @@ P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算�
 
 **验收：** 至少两个真实 worker 异步探索并共享知识；评估和干预不重复结算；重启后能按声明的 session 协议继续工作。
 
+October 30 evidence reconciliation: the historical CORAL one/two-worker arms,
+knowledge publications and pause/fresh-fallback generations are present. Actual
+cross-worker revision inclusion in prompts, intervention application and interrupted
+recovery still need the [source-bound evidence closure](../V1_RELEASE_EVIDENCE_MAP.md#coral-completed-arms-and-the-exact-evidence-gap).
+The checked mechanism items above do not close this real-worker acceptance rule.
+
 ### I12 Recipe 配置与注册
 
 - [x] 定义版本化配置，组合方法、阶段、角色、subject、任务、环境、搜索和预算（P01；插件专有 options 校验由 P02 注册）。
@@ -365,14 +371,14 @@ P09b 已提供可注册 WorkerRuntime、独立工作区、持久代际与预算�
 
 **验收：** 研究者按教程添加插件与配置即可完成两种扩展，不修改核心代码；安装包中的模板在仓库外可用。
 
-P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。真实模型效果/成本/耗时实验与完整 I14 验收仍待完成。
+P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。历史真实模型结果、成本上界与部分计时已归档；完整 I14 验收仍缺 Combee 耗时对照与 CORAL 共享/干预证据，见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。
 
 ### I14 统一实验输出
 
-- [ ] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计。
+- [ ] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计（历史归档及当前导出机制已有；缺失成本/连续耗时保持 unknown，完整比较覆盖尚未关闭）。
 - [x] 提供 baseline、模块消融与多 seed 实验配置和汇总（P10d：StudySpec、显式差异、paired seed 和缺失指标传播；各领域另含原始 baseline 配置）。
-- [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果。
-- [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为。
+- [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果（已有 15 个来源绑定的 adapted 单 seed profile；不是原论文条件匹配或跨方法受控排名）。
+- [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为（已有真实分数、API 成本上界和两种 worker 配置；Combee 的完整 elapsed 比较及 CORAL 的实际共享/干预/恢复映射仍未关闭，不能仅以 experimental 标签豁免）。
 - [x] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离（P10s 已接入三类 codec 的显式测量接口、逐 parent edge 和指定 path；对应实现已通过 Python 3.10–3.14、wheel/sdist 与 Harbor 原始产物核验，见 [PR #97](https://github.com/proteus-evolve/Proteus/pull/97)。未知 codec/二进制表面保持 unavailable，不代表模型质量结果）。
 
 **验收：** 结果能由已保存的逐任务记录重新汇总；每张结果表能追溯到配置、候选与原始输出；缺失指标明确显示。
@@ -398,10 +404,10 @@ P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 p
 
 **流程：** 选择 parent → 采样任务与待修改组件 → 获取轨迹和反馈 → 反思修改 → 按参考规则比较 → 更新候选集合。最终配置同时声明组合操作是否启用。
 
-- [ ] 锁定论文与实现版本、反思提示、数据划分和搜索预算。
-- [x] 优先通过上游 adapter 和回调接入算法，桥接逐样本评估、候选与状态持久化（P05c single-mutation、full-validation、instance frontier、no-merge/no-cache profile；真实 benchmark 尚未完成）。
-- [ ] 核对 parent 选择、minibatch 比较、验证策略、组件修改及参考版本的组合操作。
-- [ ] 在固定评分与 proposal fixture 上对照参考逻辑，再运行真实 benchmark。
+- [x] 锁定论文与实现版本、反思提示、数据划分和搜索预算（[AIME 冻结 recipe](../../recipes/gepa/aime/README.md)：上游 `8b0ce6c`，45/45/30，metric-call budget 500、minibatch 3）。
+- [x] 优先通过上游 adapter 和回调接入算法，桥接逐样本评估、候选与状态持久化（P05c single-mutation、full-validation、instance frontier、no-merge/no-cache profile；历史真实 AIME 结果已完成，来源不改写为当前 release SHA）。
+- [x] 核对 parent 选择、minibatch 比较、验证策略、组件修改及参考版本的组合操作（[pinned reference 对照](../../tests/test_v1_gepa_method.py)；本 profile 明确禁用 merge，不声称验证启用 merge 的实验）。
+- [x] 在固定评分与 proposal fixture 上对照参考逻辑，再运行真实 benchmark（历史 seed 0：H0 23/30、selected 24/30，完整 private split；当前机制/恢复检查与历史模型结果分别映射，不声称 paper performance parity）。
 
 **依赖：** I01–I07、I09、I12。**完成定义：** 有一个完整评估划分的真实结果、可恢复的候选搜索记录和逐项机制对照。
 
@@ -415,7 +421,7 @@ P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 p
 - [x] 核对官方代码实际支持的操作；论文描述与代码差异进入偏差清单，额外 UPDATE/MERGE 等能力单独作为扩展 profile（P06a/P06b 保留未执行的原始操作记录，尚未提供扩展算子）。
 - [x] 验证固定 delta 的确定性、条目保留及在线预测前后时序（P06a/P06b；逐次对照实际上游并检查硬退出恢复）。
 - [x] 完成 Formula 500/300/200 领域数据/评分适配、offline/online study、完整私有结果审计及初始 baseline 对照（P06c；数据与实际参考代码逐项核对，HTTP fixture 仅验证机制，详见 [Formula recipe](../V1_ACE_FORMULA.md)）。
-- [ ] 完成所声明领域的真实模型实验与 baseline 结果；FiNER/AppWorld 尚未纳入已验证 profile。
+- [x] 完成所声明领域的真实模型实验与 baseline 结果（[历史 Formula 归档](../../recipes/ace/formula/README.md)：offline 141→173/200，online 141→163/200；前者为 selected checkpoint，后者为学习前 stream accuracy。FiNER/AppWorld 尚未纳入已验证 profile）。
 
 **依赖：** I01–I06、I08、I09、I12。**完成定义：** playbook 与每次更新可追溯；有完整声明协议下的真实结果及 baseline。
 
@@ -427,7 +433,8 @@ P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 p
 - [x] 实现领域 subject 的接口契约与候选加载，允许一次提交多个候选（P07b–P07e：MemorySystem/LLMCallable 桥接、独立代码与记忆状态、Harbor 隔离、三套固定 MCE 数据和多文件候选；声明串行及进程状态适配）。
 - [x] 不施加原方法没有的 parent sampling 规则；proposer 可自由参考多个历史版本（P07e 保留 base_system 元数据，不虚构 parent 谱系）。
 - [x] 保留有效候选和失败诊断，按照声明的指标选择最终候选或 frontier（P07e 完整 seed/dataset 分组、accuracy/context frontier、best-per-dataset 与 baseline 联集、隐藏测试前冻结；审计拒绝缺失评分与不完整 benchmark 分组）。
-- [ ] 锁定并运行一个原方法领域的真实任务设置。
+- [x] 锁定并运行一个原方法领域的真实任务设置（[历史三域 MCE](../../recipes/meta-harness/mce/README.md) 已完成；其 proposer 是一次 JSON 调用产生三个程序，仅验收该 adapted profile，不冒称当前 coding-search benchmark）。
+- [ ] 当前 coding-proposer benchmark 的完整验收仍未完成：Pi/DSH/Codex 仅有最小 live-cycle 证据；若将该 protocol 列为 benchmark-validated，需完整声明领域的审计运行。历史 JSON profile 与当前 coding-search 的支持边界见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。
 
 **依赖：** I01–I09、I12。**完成定义：** proposer 的历史检索、候选生成及后续评估均可审计；最终选择遵守数据划分。
 
@@ -439,7 +446,7 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 - [x] 实现 augmented shuffle、parallel scan aggregation 和动态 batch controller（P08b/P08c/P08f/P08g 的已声明参考 profile 与适配范围）。
 - [x] 保存复制、分组、层次与提示顺序，统计所有聚合及 profiling 调用（P08b–P08g：来源、RNG、wave、计时与正式调用账本）。
 - [ ] 用固定 trace 集比较顺序基础方法、naive parallel 和 Combee；包含固定 batch 与动态 batch 条件。
-- [ ] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开。
+- [ ] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开（八个历史 Formula 条件已有质量/成本上界；四个 offline 条件连续耗时均为 null，共享主机且 core 不同，未完成要求的完整权衡对照。至少一个组合需关闭该项；延期必须显式修订发布范围）。
 
 **依赖：** R01、R02、I10、I12、I14。**完成定义：** 两个组合都可运行；至少一个真实设置有完整权衡结果，动态控制器已实现并验证。
 
@@ -451,7 +458,8 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 - [x] 通过 EvaluationGateway 提交候选，允许 agent 决定探索、检索和评估时机（P09c/P09f 的 worker 主动请求、精确候选、正式反馈和预算协议）。
 - [x] 实现参考条件中的 reflect、consolidate、pivot 及触发规则（P09e/P09f 固定参考 policy 与显式单空间适配；不将参考提示直接当成本地命令）。
 - [x] 实现可恢复的 worker 生命周期、全局预算预留和共享写入处理（P09b–P09h 的操作回执、并发 CAS、代际预算与本地完整方法恢复；最终容器组合与真实模型验收仍独立要求）。
-- [ ] 选取不涉及模型训练的原论文优化任务，完成单 worker 对照和至少两个 worker 的实验。
+- [x] 选取不涉及模型训练的原论文优化任务，完成单 worker 对照和至少两个 worker 的实验（[历史 26-circle](../../recipes/coral/circle-packing/README.md)：1×20 与 2×10 proposals，均为一个 evaluation worker；完整结果和自身测量反馈已有审计）。
+- [ ] 将实际跨 worker 知识读取绑定到后续模型提示，将干预绑定到实际应用，并核对中断恢复的无重复评估/结算记录（本地回执确认 publication、pause 与 fresh fallback，但未包含完整共享/干预请求链；reported restarts 为 0，不能据此声称 live crash-restart。先补查原始证据，再决定是否需定向实验，见 [证据缺口](../V1_RELEASE_EVIDENCE_MAP.md#coral-completed-arms-and-the-exact-evidence-gap)）。
 
 **依赖：** I01–I09、I11、I12、I14。**完成定义：** 真实异步协作、共享知识、触发干预和中断恢复都有运行记录；不能仅以成功启动多个进程作为完成。
 
@@ -604,6 +612,10 @@ The October 28 review closure, current validation and unresolved release gates a
 tracked in [release acceptance](../V1_RELEASE_ACCEPTANCE.md). The
 [15-profile correspondence](../V1_EXPERIMENT_ACCEPTANCE.md) distinguishes historical
 results from current implementation evidence; it does not waive the checklist below.
+The [October 30 requirement disposition](../V1_RELEASE_EVIDENCE_MAP.md) closes stale
+historical-result checkboxes and identifies remaining Combee/CORAL evidence and
+current coding-search limits. Mandatory scope remains unchanged; any deferral needs
+an explicit maintainer decision, not a new label.
 
 - [ ] I01–I15 的验收记录齐全，R00 与 R01–R05 均完成对应范围。
 - [ ] 每个 recipe 有版本锁、运行说明、机制核对、支持矩阵、真实结果与偏差说明。

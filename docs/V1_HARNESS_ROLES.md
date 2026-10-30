@@ -195,6 +195,11 @@ text components; ACE a playbook; Meta-Harness its candidate-code protocol. Use a
 explicit projection/runner for compatible representations. Incompatible choices
 fail preflight instead of silently bypassing the method protocol.
 
+Aki remains within the legacy Native CLI scope; it is not a sixth registered
+common-role integration. The common candidate subject uses independent serial
+trials, and the common Native evolution profile uses last-valid activation without
+outer score selection. These boundaries also apply when interpreting the pilots.
+
 Evidence currently distinguishes:
 
 1. The actual LLM adapter with a local HTTP provider is optimized by the true pinned
@@ -222,6 +227,11 @@ Evidence currently distinguishes:
    covered by this expansion. Different recorded source commits
    do not form a single-SHA release gate. Existing PR #106 source gates alone are
    not evidence for new method/role combinations.
+
+Together these reports cover 16 bounded live cells. See the
+[release evidence map](V1_RELEASE_EVIDENCE_MAP.md) for their I03 acceptance and the
+remaining benchmark/release requirements; a successful cycle is not full research
+acceptance or a promise for every role combination.
 
 ## Reproduce mechanism checks
 

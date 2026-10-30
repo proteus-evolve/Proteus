@@ -32,6 +32,13 @@ internals and private attributes are not added to the stable API by this module.
 Advanced backends continue to have explicit source-pinned contracts and capability
 checks; importing `RunServices` is not a stability promise for every internal field.
 
+The October 30 review of `3518095` resolved all 100 unique exports, with no missing
+symbols or duplicates. The [source-bound inventory](validation/v1-20261030/release-scope/evidence.json)
+records their names. The release freeze remains proposed: maintainers must confirm
+this import surface, the service operations below and the documented schema/lock
+rules, then validate the final-version wheel/sdist outside the checkout. This
+inventory does not freeze additional internals or change the package version.
+
 ## Service contracts used by extensions
 
 A method receives framework-owned services. The supported extension surface is:

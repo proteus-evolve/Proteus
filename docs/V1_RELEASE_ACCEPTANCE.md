@@ -37,12 +37,25 @@ are retained. Using `RecoveryRequired` at this boundary preserves the original
 reservation and permits evidence reconciliation; the final regressions validate
 both rejection and subsequent recovery.
 
-**Release readiness remains unapproved.** This patch needs independent re-review
-and checks against its own source. Earlier CI, Harbor, native-source and live-smoke
-successes do not qualify this changed runtime or a future release tag. The
-[experiment acceptance](V1_EXPERIMENT_ACCEPTANCE.md), final API/support scope,
-version/release notes and all same-tag/SHA gates in [RELEASING.md](RELEASING.md)
-remain separate requirements. Frozen experiments and their claims are unchanged.
+The independent reviewer closed both findings on PR #109 head
+`067902ea7fc18ad6e5ec7cb1f25dd02fae3b18ff`, including the original probes and
+175 passed / 8 skipped affected cases. Its complete
+[CI](https://github.com/proteus-evolve/Proteus/actions/runs/41020598242) and
+[Harbor](https://github.com/proteus-evolve/Proteus/actions/runs/41020598266) runs passed.
+[PR #109](https://github.com/proteus-evolve/Proteus/pull/109) was merged as
+`3518095dab1e6223bb40d95237e11a3d8e11a0c3`; the entire Git tree is identical to the
+reviewed head. The subsequent read-only release review found no new engineering
+blocker and did not rerun or relabel the earlier full suite. Its sanitized
+[source/evidence inventory](validation/v1-20261030/release-scope/evidence.json)
+retains the source identities and reviewer receipt hash.
+
+**Code may enter release preparation; publication remains unapproved.** The
+[requirement disposition](V1_RELEASE_EVIDENCE_MAP.md) maps completed historical
+experiments and the still-open research evidence. Final API/support freeze,
+version/release notes, distribution checks and all same-tag/SHA gates in
+[RELEASING.md](RELEASING.md) remain separate requirements. Prior branch results,
+including identical-tree results, cannot qualify a future release tag. Frozen
+experiments and their claims are unchanged.
 
 ## Findings and decisions
 
