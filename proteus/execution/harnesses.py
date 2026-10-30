@@ -118,6 +118,8 @@ def register_harness(registry, integration, *, bindings=None):
                 capabilities.append('candidate.staged_activation')
         else:
             capabilities.extend(('session.fresh', 'actor.execute', 'trace.normalized'))
+            if role in ('actor', 'workspace') and 'harness.parallel' in integration.capabilities:
+                capabilities.append('actor.parallel')
             if role in ('workspace', 'evolution'):
                 capabilities.append('actor.workspace')
             if integration.model_call_bound is not None and (role != 'evolution' or integration.model_call_bound == 0):

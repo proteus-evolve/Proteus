@@ -25,7 +25,12 @@ on:
       pilot_methods:
         description: Which live minimum-cycle cells to run
         type: choice
-        options: [both, native, gepa, pi-gepa-dsh-both]
+        options: [both, native, gepa, pi-gepa-dsh-both, other-methods]
+        default: both
+      pilot_backends:
+        description: Harnesses for the opt-in pilot
+        type: choice
+        options: [both, pi, dsh]
         default: both
 
 permissions:
@@ -43,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [pi, dsh]
+        backend: ${{ fromJSON(inputs.pilot_backends == 'pi' && '["pi"]' || inputs.pilot_backends == 'dsh' && '["dsh"]' || '["pi","dsh"]') }}
     env:
       BACKEND: ${{ matrix.backend }}
       IMAGE: proteus-native-source:${{ matrix.backend }}
@@ -103,7 +108,7 @@ jobs:
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
       - name: Live Native one-episode harness evolution
         id: live_native
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
         continue-on-error: true
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -116,7 +121,7 @@ jobs:
             2>&1 | tee "$OUT/live-native.log"
       - name: Live GEPA one-mutation harness policy evolution
         id: live_gepa
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'native'
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'native'
         continue-on-error: true
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -127,10 +132,66 @@ jobs:
           timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
             --backend "$BACKEND" --image "$IMAGE" --method gepa --out "$OUT/live-gepa" \
             2>&1 | tee "$OUT/live-gepa.log"
+      - name: Live ace minimum cycle through coding harness
+        id: live_ace
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method ace --out "$OUT/live-ace" \
+            2>&1 | tee "$OUT/live-ace.log"
+      - name: Live combee-ace minimum cycle through coding harness
+        id: live_combee_ace
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method combee-ace --out "$OUT/live-combee-ace" \
+            2>&1 | tee "$OUT/live-combee-ace.log"
+      - name: Live meta minimum cycle through coding harness
+        id: live_meta
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method meta --out "$OUT/live-meta" \
+            2>&1 | tee "$OUT/live-meta.log"
+      - name: Live coral minimum cycle through coding harness
+        id: live_coral
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method coral --out "$OUT/live-coral" \
+            2>&1 | tee "$OUT/live-coral.log"
       - name: Require each selected live cell to pass
         if: always() && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
         env:
           NATIVE_OUTCOME: ${{ steps.live_native.outcome }}
+          ACE_OUTCOME: ${{ steps.live_ace.outcome }}
+          COMBEE_OUTCOME: ${{ steps.live_combee_ace.outcome }}
+          META_OUTCOME: ${{ steps.live_meta.outcome }}
+          CORAL_OUTCOME: ${{ steps.live_coral.outcome }}
           GEPA_OUTCOME: ${{ steps.live_gepa.outcome }}
           PILOT_METHODS: ${{ inputs.pilot_methods || 'both' }}
         shell: bash
@@ -138,6 +199,11 @@ jobs:
           python - <<'PY'
           import os
           methods = os.environ['PILOT_METHODS']
+          if methods == 'other-methods':
+              for name in ('ACE', 'COMBEE', 'META', 'CORAL'):
+                  if os.environ[name + '_OUTCOME'] != 'success':
+                      raise RuntimeError(name + ': selected live cell did not pass')
+              raise SystemExit(0)
           native = methods != 'gepa' and (methods != 'pi-gepa-dsh-both' or os.environ['BACKEND'] == 'dsh')
           gepa = methods != 'native'
           for selected, name in ((native, 'NATIVE_OUTCOME'), (gepa, 'GEPA_OUTCOME')):

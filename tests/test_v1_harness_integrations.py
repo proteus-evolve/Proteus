@@ -85,6 +85,45 @@ def test_existing_builtin_names_use_same_registration_flow_and_explicit_roles():
     assert matrix['dsh']['native']['plugin']['name'] == 'proteus.native.dsh'
 
 
+def test_parallel_capability_is_explicit_and_does_not_include_continuous_roles(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from proteus.core.methods import ActorRequest
+    barrier = Barrier(2)
+    instances = []
+
+    class ConcurrentHarness(ExtensionHarness):
+        def run_episode(self, spec):
+            (spec.root / 'harness/owner').write_text(spec.phase_prompts['act'])
+            barrier.wait(timeout=10)
+            assert (spec.root / 'harness/owner').read_text() == spec.phase_prompts['act']
+            return super().run_episode(spec)
+
+    def factory(*args):
+        instance = ConcurrentHarness()
+        instances.append(instance)
+        return instance
+
+    registry = builtin_registry()
+    definition = integration(factory)
+    bindings = register_harness(registry, replace(definition,
+        capabilities=(*definition.capabilities, 'harness.parallel')))
+    assert 'actor.parallel' in registry.get(bindings['actor']).capabilities
+    assert 'actor.parallel' not in registry.get(bindings['native']).capabilities
+    spec = replace(stage_recipe().actors['optimizer'], model=None, budget=BudgetLimits(),
+                   runtime=PluginSpec(plugin=bindings['actor']))
+    runtime = registry.create(spec.runtime, 'actor')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(runtime.execute, spec, ActorRequest(prompt=str(i)), tmp_path / str(i)) for i in range(2)]
+        assert all(f.result().status == OperationStatus.COMPLETED for f in futures)
+    assert len(instances) == 2 and instances[0] is not instances[1]
+    for name in ('pi', 'dsh'):
+        matrix = harness_support_matrix(registry)[name]
+        assert 'actor.parallel' in matrix['actor']['capabilities']
+        assert 'actor.parallel' in matrix['workspace']['capabilities']
+        assert 'actor.parallel' not in matrix['evolution']['capabilities']
+
+
 def test_unsupported_workspace_role_is_rejected_without_constructing_adapter():
     def never(*args):
         pytest.fail('unsupported role must not construct an adapter')

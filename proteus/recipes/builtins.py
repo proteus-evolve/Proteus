@@ -217,6 +217,10 @@ def builtin_registry() -> Registry:
         roles = {'actor': HarnessOptions, 'native': AdapterOptions}
         bindings = {'actor': f'proteus.harness.{name}', 'native': f'proteus.native.{name}'}
         capabilities = ['harness.custom_phases']
+        if name in ('pi', 'dsh'):
+            # Fresh actor/workspace calls construct independent adapters, source
+            # copies and uniquely named containers. Native continuity is separate.
+            capabilities.append('harness.parallel')
         if name == 'minimal':
             capabilities.append('harness.model_free')
         else:

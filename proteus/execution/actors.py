@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import time
 import urllib.request
@@ -276,7 +277,10 @@ def validate_workspace_harness(name, spec, options):
     require(name in ('dsh', 'pi', 'codex'), 'coding workspaces require a container coding harness')
     require(spec.session.value == 'fresh', 'coding workspaces use fresh sessions')
     require(options.image is not None, 'coding workspace runtime needs an explicit immutable image')
-    image_pin(options.image)
+    # Locally built production images have a content-addressed image ID before
+    # they have a registry manifest digest. Both identify immutable Docker input.
+    if re.fullmatch(r'sha256:[0-9a-f]{64}', options.image) is None:
+        image_pin(options.image)
     require(options.network in ('none', 'bridge'), 'coding workspace runtime uses none or bridge networking')
     require(options.phase_timeout_seconds is not None, 'coding workspace runtime needs an explicit phase timeout')
 

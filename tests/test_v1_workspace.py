@@ -224,6 +224,14 @@ def test_readonly_task_mount_paths_cannot_escape_or_follow_links(tmp_path):
         task_workspace_mounts(tmp_path,('link',))
 
 
+@pytest.mark.parametrize('image', ['sha256:' + 'a' * 64, 'example@sha256:' + 'b' * 64])
+def test_live_workspace_accepts_content_addressed_local_or_registry_image(tmp_path, image):
+    registry, recipe = configured(tmp_path)
+    actor = replace(recipe.actors['proposer'], runtime=plugin('proteus.workspace.pi',
+        image=image, network='bridge', phase_timeout_seconds=30), model='fixture')
+    registry.resolve(replace(recipe, actors={'proposer': actor}))
+
+
 def test_dsh_workspace_binds_requested_model_without_changing_legacy_selection(tmp_path, monkeypatch):
     from proteus.adapters.dsh import DshHarness
     from proteus.core.adapter import EpisodeSpec
