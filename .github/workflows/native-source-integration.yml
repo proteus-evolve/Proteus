@@ -346,6 +346,7 @@ jobs:
           docker run --rm --entrypoint sh "$IMAGE" -c '/opt/codex-target/release/codex --version; python3 --version' > "$OUT/runtime-versions.txt"
           pip freeze > "$OUT/python-packages.txt"
       - name: Probe native literal prompt parsing without credentials or network
+        id: literal_probe
         if: inputs.codex_reuse_run_id != ''
         run: |
           python - <<'CHECK'
@@ -366,7 +367,7 @@ jobs:
           CHECK
       - name: Live Codex ace minimum cycle
         id: live_ace
-        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -379,7 +380,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-ace"
       - name: Live Codex combee-ace minimum cycle
         id: live_combee_ace
-        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',combee-ace,')
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',combee-ace,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -392,7 +393,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-combee-ace"
       - name: Live Codex meta minimum cycle
         id: live_meta
-        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',meta,')
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',meta,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -405,7 +406,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-meta"
       - name: Live Codex coral minimum cycle
         id: live_coral
-        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',coral,')
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',coral,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
