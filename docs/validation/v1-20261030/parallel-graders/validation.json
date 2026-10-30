@@ -41,7 +41,10 @@
     "failed": 6,
     "passed": 8,
     "evidence": "after-tests.log",
-    "reason": "Initial provenance check rejected corrupt evidence but an ordinary exception terminally settled the cohort. Changed this boundary to RecoveryRequired so original evidence can be restored and resumed without redispatch."
+    "reason": "Initial provenance check rejected corrupt evidence but an ordinary exception terminally settled the cohort. Changed this boundary to RecoveryRequired so original evidence can be restored and resumed without redispatch.",
+    "archive_format": "Trailing whitespace removed from repository log only; raw log retained under /tmp/proteus-parallel-grader-fixes-20261030/after-tests.log.",
+    "raw_sha256": "98286383c31551f424f118b84c9efd6428f9a41cfcba7f6ae16f4a1b2fde203f",
+    "archived_sha256": "d41743a597c0e486c17b9a051e6d33d2d066752b74f91abf4731702130f28f10"
   },
   "regression_scope": "175 passed / 8 skipped are disjoint affected cases, not a full suite or coverage percentage. Concurrency uses local fixture actors; private native receipts use a separately declared parallel local LLM harness fixture and localhost responses, not provider calls or a broader bundled LLM capability claim.",
   "provider_calls": 0,

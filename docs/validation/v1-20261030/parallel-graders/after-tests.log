@@ -10,12 +10,12 @@ damage = 'input'
                                         "native_usage", "missing_native"])
     def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
         calls = []
-    
+
         def replies():
             for _ in range(3):
                 calls.append(1)
                 yield response('{"score":1}')
-    
+
         registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
         # Explicit local test integration; do not broaden the bundled LLM harness's
         # supported capabilities just to obtain real native receipts in this test.
@@ -30,10 +30,10 @@ damage = 'input'
                 budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
                     evaluator=plugin("proteus.model_judge"), actor="judge"),))
             join = TrialMap.join
-    
+
             def interrupt(self, records):
                 raise RecoveryRequired("injected interruption before joining completed grades")
-    
+
             monkeypatch.setattr(TrialMap, "join", interrupt)
             first, _ = run(tmp_path, registry, recipe)
             monkeypatch.setattr(TrialMap, "join", join)
@@ -78,7 +78,7 @@ damage = 'input'
                 events = book.events()
 >           assert book.events() == events
 E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
-E             
+E
 E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345157994414000, ...}
 E             Use -v to get more diff
 
@@ -93,12 +93,12 @@ damage = 'outcome'
                                         "native_usage", "missing_native"])
     def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
         calls = []
-    
+
         def replies():
             for _ in range(3):
                 calls.append(1)
                 yield response('{"score":1}')
-    
+
         registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
         # Explicit local test integration; do not broaden the bundled LLM harness's
         # supported capabilities just to obtain real native receipts in this test.
@@ -113,10 +113,10 @@ damage = 'outcome'
                 budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
                     evaluator=plugin("proteus.model_judge"), actor="judge"),))
             join = TrialMap.join
-    
+
             def interrupt(self, records):
                 raise RecoveryRequired("injected interruption before joining completed grades")
-    
+
             monkeypatch.setattr(TrialMap, "join", interrupt)
             first, _ = run(tmp_path, registry, recipe)
             monkeypatch.setattr(TrialMap, "join", join)
@@ -161,7 +161,7 @@ damage = 'outcome'
                 events = book.events()
 >           assert book.events() == events
 E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
-E             
+E
 E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345158969030000, ...}
 E             Use -v to get more diff
 
@@ -176,12 +176,12 @@ damage = 'missing_input'
                                         "native_usage", "missing_native"])
     def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
         calls = []
-    
+
         def replies():
             for _ in range(3):
                 calls.append(1)
                 yield response('{"score":1}')
-    
+
         registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
         # Explicit local test integration; do not broaden the bundled LLM harness's
         # supported capabilities just to obtain real native receipts in this test.
@@ -196,10 +196,10 @@ damage = 'missing_input'
                 budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
                     evaluator=plugin("proteus.model_judge"), actor="judge"),))
             join = TrialMap.join
-    
+
             def interrupt(self, records):
                 raise RecoveryRequired("injected interruption before joining completed grades")
-    
+
             monkeypatch.setattr(TrialMap, "join", interrupt)
             first, _ = run(tmp_path, registry, recipe)
             monkeypatch.setattr(TrialMap, "join", join)
@@ -244,7 +244,7 @@ damage = 'missing_input'
                 events = book.events()
 >           assert book.events() == events
 E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
-E             
+E
 E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345159914230000, ...}
 E             Use -v to get more diff
 
@@ -259,12 +259,12 @@ damage = 'missing_outcome'
                                         "native_usage", "missing_native"])
     def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
         calls = []
-    
+
         def replies():
             for _ in range(3):
                 calls.append(1)
                 yield response('{"score":1}')
-    
+
         registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
         # Explicit local test integration; do not broaden the bundled LLM harness's
         # supported capabilities just to obtain real native receipts in this test.
@@ -279,10 +279,10 @@ damage = 'missing_outcome'
                 budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
                     evaluator=plugin("proteus.model_judge"), actor="judge"),))
             join = TrialMap.join
-    
+
             def interrupt(self, records):
                 raise RecoveryRequired("injected interruption before joining completed grades")
-    
+
             monkeypatch.setattr(TrialMap, "join", interrupt)
             first, _ = run(tmp_path, registry, recipe)
             monkeypatch.setattr(TrialMap, "join", join)
@@ -327,7 +327,7 @@ damage = 'missing_outcome'
                 events = book.events()
 >           assert book.events() == events
 E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
-E             
+E
 E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345160838636000, ...}
 E             Use -v to get more diff
 
@@ -342,12 +342,12 @@ damage = 'native_usage'
                                         "native_usage", "missing_native"])
     def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
         calls = []
-    
+
         def replies():
             for _ in range(3):
                 calls.append(1)
                 yield response('{"score":1}')
-    
+
         registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
         # Explicit local test integration; do not broaden the bundled LLM harness's
         # supported capabilities just to obtain real native receipts in this test.
@@ -362,10 +362,10 @@ damage = 'native_usage'
                 budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
                     evaluator=plugin("proteus.model_judge"), actor="judge"),))
             join = TrialMap.join
-    
+
             def interrupt(self, records):
                 raise RecoveryRequired("injected interruption before joining completed grades")
-    
+
             monkeypatch.setattr(TrialMap, "join", interrupt)
             first, _ = run(tmp_path, registry, recipe)
             monkeypatch.setattr(TrialMap, "join", join)
@@ -410,7 +410,7 @@ damage = 'native_usage'
                 events = book.events()
 >           assert book.events() == events
 E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
-E             
+E
 E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345161749519000, ...}
 E             Use -v to get more diff
 
@@ -425,12 +425,12 @@ damage = 'missing_native'
                                         "native_usage", "missing_native"])
     def test_parallel_join_recovery_verifies_private_grader_evidence_without_redispatch(tmp_path, monkeypatch, damage):
         calls = []
-    
+
         def replies():
             for _ in range(3):
                 calls.append(1)
                 yield response('{"score":1}')
-    
+
         registry, _, _, recipe = setup(tmp_path, workers=2, cap=2, timing="after_prediction")
         # Explicit local test integration; do not broaden the bundled LLM harness's
         # supported capabilities just to obtain real native receipts in this test.
@@ -445,10 +445,10 @@ damage = 'missing_native'
                 budget=BudgetLimits(max_concurrency=2))}, evaluations=(replace(recipe.evaluations[0],
                     evaluator=plugin("proteus.model_judge"), actor="judge"),))
             join = TrialMap.join
-    
+
             def interrupt(self, records):
                 raise RecoveryRequired("injected interruption before joining completed grades")
-    
+
             monkeypatch.setattr(TrialMap, "join", interrupt)
             first, _ = run(tmp_path, registry, recipe)
             monkeypatch.setattr(TrialMap, "join", join)
@@ -493,7 +493,7 @@ damage = 'missing_native'
                 events = book.events()
 >           assert book.events() == events
 E           AssertionError: assert [{'sequence':...00, ...}, ...] == [{'sequence':...00, ...}, ...]
-E             
+E
 E             Left contains one more item: {'sequence': 21, 'entry': 'evaluation-037a2b2442d8c0b1c81828c3d9e6cae7cf657c6d5e5ea882e0bf1c1ff841e06b', 'kind': 'settled', 'time_ns': 1793345162699707000, ...}
 E             Use -v to get more diff
 
