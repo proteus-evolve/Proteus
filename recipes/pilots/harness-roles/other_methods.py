@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -36,10 +37,13 @@ def chat(model):
 
 
 def harness(model, backend, image, *, workspace=False):
+    # Docker is this pilot's process/filesystem boundary. The GitHub runner image
+    # has no usable nested DSH sandbox backend; declare its inner policy explicitly.
+    options = {'permission_mode': 'danger-full-access'} if backend == 'dsh' else {}
     return ActorSpec(model=model, runtime=plugin(
         f'proteus.{"workspace" if workspace else "harness"}.{backend}', image=image,
         network='bridge' if workspace else 'host', phase_timeout_seconds=240,
-        max_turns=16, model_selection='framework'))
+        max_turns=16, model_selection='framework', **options))
 
 
 def ace(root, *, method, model, backend, image, harness_model=None):
@@ -59,11 +63,12 @@ def ace(root, *, method, model, backend, image, harness_model=None):
     recipe = load_recipe(path)
     count = 2 if method == 'combee-ace' else 1
     words = {'train': ('aLpHa', 'dElTa'), 'validation': ('bEtA',), 'test': ('oMeGa',)}
-    data = TaskDataset(version='live-playbook-mechanism-1', records=tuple(
+    data = TaskDataset(version='live-playbook-mechanism-2', records=tuple(
         TaskRecord(task=Task(id=f'{split}-{i}', version='1', split=split, input={
             'question': f'Apply the transformation policy to the word {word}. Use bash or a file tool to check your transformation. '
                 'The current playbook is authoritative; if it has no learned policy, default to lowercase. '
-                'Return the required JSON with final_answer equal to the transformed word only.',
+                'Return exactly one complete JSON object with no Markdown fences or surrounding prose; '
+                'final_answer must equal the transformed word only.',
             'context': 'A synthetic formatting task. Learn the general policy from released training feedback.'}),
             reference=word.upper()) for split, items in words.items()
         for i, word in enumerate(items[:count] if split == 'train' else items)))
@@ -111,10 +116,11 @@ def meta(root, *, model, backend, image, harness_model=None):
             reference={'target': 'pilot-label', 'extras': {'raw_question': f'synthetic {split}'}})
         for split in ('train', 'val', 'test')))
     data_path.write_text(data.to_json() + '\n')
+    proposer = harness(harness_model or model, backend, image, workspace=True)
+    proposer = replace(proposer, runtime=replace(proposer.runtime, options={**proposer.runtime.options,
+        'phase_timeout_seconds': 480, 'max_turns': 64}))
     recipe = replace(recipe, name=f'live-{backend}-meta-one-iteration',
-        actors={'model': chat(model), 'proposer': replace(harness(harness_model or model, backend, image, workspace=True),
-            runtime=plugin(f'proteus.workspace.{backend}', image=image, network='bridge',
-                phase_timeout_seconds=480, max_turns=64, model_selection='framework'))},
+        actors={'model': chat(model), 'proposer': proposer},
         execution=replace(recipe.execution, timeout_seconds=180),
         evaluations=tuple(replace(e, tasks=replace(e.tasks, dataset_hash=content_hash(data),
             dataset_version=data.version)) for e in recipe.evaluations),
@@ -169,6 +175,22 @@ def prepare(root, *, method, **kwargs):
     return registry, store, recipe
 
 
+def generator_payload(text):
+    """Require a complete object; tolerate one whole Markdown JSON fence only.
+
+    This checks completeness without reusing ACE's permissive answer regex.
+    Empty replies, truncated objects and commentary mixed with JSON still fail.
+    """
+    text = text.strip()
+    if text.startswith('```'):
+        match = re.fullmatch(r'```(?:json)?\s*\n(.*?)\n```', text, re.DOTALL)
+        require(match is not None, 'generator fence is incomplete or contains extra prose')
+        text = match.group(1)
+    result = json.loads(text)
+    require(isinstance(result, dict), 'generator payload is not an object')
+    return result
+
+
 def verify(root, method):
     records = json.loads(sorted((root / 'run').glob('execution-*.json'))[-1].read_text())
     candidates = records['candidates']
@@ -190,7 +212,7 @@ def verify(root, method):
         require(('proteus.ace.curation@1' if method == 'ace' else 'proteus.combee.ace_result@1') in kinds,
                 'learning evidence missing')
         for rollout in records['rollouts']:
-            payload = json.loads(rollout['output']['response'])
+            payload = generator_payload(rollout['output']['response'])
             require(payload.get('final_answer') == rollout['output']['answer'],
                     'generator response was truncated, malformed, or parsed incorrectly')
     if method == 'combee-ace':

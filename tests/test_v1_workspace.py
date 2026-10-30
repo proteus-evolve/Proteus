@@ -269,7 +269,7 @@ def test_dsh_workspace_binds_requested_model_without_changing_legacy_selection(t
                 assert settings == {'agent-default-model': {'provider':'deepseek-official', 'model':self.expected}}
             from proteus.core.native_activation import FLAG, PREFIX, source_tree_hash
             assert command[:2] == [FLAG, source_tree_hash(root/'active/src')]
-            assert command[2:4] == ['--profile', 'headless'] and len(command) == 5
+            assert command[2:6] == ['--profile', 'headless', '--', '--'] and len(command) == 7
             stdout = PREFIX+json.dumps({'version': 1, 'backend': 'dsh', 'mode': 'pristine',
                 'source_sha256': command[1], 'cli_sha256': 'b'*64, 'boot_sha256': 'c'*64})+'\n'
             return subprocess.CompletedProcess(command, 0, stdout, '')

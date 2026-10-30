@@ -117,8 +117,12 @@ def validate_usage(value, request=None):
         elif value['source'] == 'dsh_sessions_v0':
             from proteus.core.native_activation import split_source_command
             argv, _ = split_source_command(request['payload'])
-            require(type(argv) is list and len(argv) == 3 and all(type(item) is str for item in argv)
-                    and argv[:2] == ['--profile', 'headless'], 'DSH usage requires a fresh headless invocation')
+            # Preserve historical receipts while accepting the two literal-argument
+            # separators required by the launcher and headless CLI parsers.
+            require(type(argv) is list and all(type(item) is str for item in argv)
+                    and argv[:-1] in (['--profile', 'headless'],
+                                      ['--profile', 'headless', '--', '--']),
+                    'DSH usage requires a fresh headless invocation')
         elif value['source'] in ('local_evaluator', 'evaluator_report'):
             require(type(request['payload']) is dict and type(request['payload'].get('model_free')) is bool
                     and request['payload']['model_free'] == (value['source'] == 'local_evaluator'),

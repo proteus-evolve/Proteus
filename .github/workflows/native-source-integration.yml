@@ -33,6 +33,14 @@ on:
         options: [both, pi, dsh, codex]
         default: both
 
+      pilot_cells:
+        description: Comma-separated additional method cells (ace,combee-ace,meta,coral)
+        type: string
+        default: ace,combee-ace,meta,coral
+
+env:
+  PILOT_CELLS: ${{ inputs.pilot_cells || 'ace,combee-ace,meta,coral' }}
+
 permissions:
   contents: read
 
@@ -117,7 +125,13 @@ jobs:
       - name: Install pinned GEPA for explicitly requested live role pilot
         id: pilot_deps
         if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
-        run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+        run: |
+          python - <<'CHECK'
+          import os
+          cells = os.environ['PILOT_CELLS'].split(',')
+          assert cells and len(cells) == len(set(cells)) and set(cells) <= {'ace', 'combee-ace', 'meta', 'coral'}
+          CHECK
+          pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
       - name: Live Native one-episode harness evolution
         id: live_native
         if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
@@ -144,7 +158,7 @@ jobs:
             2>&1 | tee "$OUT/live-gepa.log"
       - name: Live ace minimum cycle through coding harness
         id: live_ace
-        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery') && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -156,7 +170,7 @@ jobs:
             2>&1 | tee "$OUT/live-ace.log"
       - name: Live combee-ace minimum cycle through coding harness
         id: live_combee_ace
-        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery') && contains(format(',{0},', env.PILOT_CELLS), ',combee-ace,')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -168,7 +182,7 @@ jobs:
             2>&1 | tee "$OUT/live-combee-ace.log"
       - name: Live meta minimum cycle through coding harness
         id: live_meta
-        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery') && contains(format(',{0},', env.PILOT_CELLS), ',meta,')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -180,7 +194,7 @@ jobs:
             2>&1 | tee "$OUT/live-meta.log"
       - name: Live coral minimum cycle through coding harness
         id: live_coral
-        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods' && contains(format(',{0},', env.PILOT_CELLS), ',coral,')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -207,6 +221,10 @@ jobs:
           methods = os.environ['PILOT_METHODS']
           if methods in ('other-methods', 'other-recovery'):
               selected = ('ACE', 'COMBEE', 'META') + (('CORAL',) if methods == 'other-methods' else ())
+              requested = os.environ['PILOT_CELLS'].split(',')
+              names = {'ACE': 'ace', 'COMBEE': 'combee-ace', 'META': 'meta', 'CORAL': 'coral'}
+              selected = tuple(name for name in selected if names[name] in requested)
+              assert selected, 'No applicable cells selected'
               for name in selected:
                   if os.environ[name + '_OUTCOME'] != 'success':
                       raise RuntimeError(name + ': selected live cell did not pass')
@@ -272,6 +290,8 @@ jobs:
           python - <<'CHECK'
           import json, os, urllib.request
           from pathlib import Path
+          cells = os.environ['PILOT_CELLS'].split(',')
+          assert cells and len(cells) == len(set(cells)) and set(cells) <= {'ace', 'combee-ace', 'meta', 'coral'}
           request = urllib.request.Request('https://api.openai.com/v1/models/' + os.environ['CODEX_MODEL'],
               headers={'Authorization': 'Bearer ' + os.environ['CODEX_API_KEY']})
           with urllib.request.urlopen(request, timeout=30) as response:
@@ -300,7 +320,7 @@ jobs:
           pip freeze > "$OUT/python-packages.txt"
       - name: Live Codex ace minimum cycle
         id: live_ace
-        if: always() && !cancelled() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -313,7 +333,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-ace"
       - name: Live Codex combee-ace minimum cycle
         id: live_combee_ace
-        if: always() && !cancelled() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',combee-ace,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -326,7 +346,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-combee-ace"
       - name: Live Codex meta minimum cycle
         id: live_meta
-        if: always() && !cancelled() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',meta,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -339,7 +359,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-meta"
       - name: Live Codex coral minimum cycle
         id: live_coral
-        if: always() && !cancelled() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success' && contains(format(',{0},', env.PILOT_CELLS), ',coral,')
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -360,7 +380,8 @@ jobs:
         run: |
           python - <<'CHECK'
           import os
-          assert all(os.environ[k] == 'success' for k in ('ACE', 'COMBEE', 'META', 'CORAL'))
+          names = {'ace': 'ACE', 'combee-ace': 'COMBEE', 'meta': 'META', 'coral': 'CORAL'}
+          assert all(os.environ[names[cell]] == 'success' for cell in os.environ['PILOT_CELLS'].split(','))
           CHECK
       - name: Remove credential stores and scan both provider secrets
         if: always()

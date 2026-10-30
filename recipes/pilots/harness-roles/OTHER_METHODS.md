@@ -160,3 +160,41 @@ and private reasoning filtering are unchanged. Related regressions: 146 passed,
 one environment skip. DSH attempt `40993899029` was stopped during image build
 before inference to include this fix. Codex attempt `40993578545` continues on
 `44380da`; the DSH-only reader correction does not change its adapter.
+
+### DSH selective recovery
+
+Run `40994189131` at `68980e4` completed with failures. ACE and CORAL passed
+their full checks and completed resume, and their 13 evaluation rows were
+independently regraded. Combee-ACE and Meta-Harness remain rejected:
+
+- Combee's native logs contain `SANDBOX_UNAVAILABLE`: the requested nested
+  `workspace-write` sandbox has no usable backend inside this CI Docker image.
+  Repeated tool attempts exhausted two generator budgets (exit 137), leaving
+  incomplete replies. All nine rows are retained; infrastructure failures are
+  not accepted as zero performance scores.
+- Meta's proposer prompt starts with YAML `---`. DSH's launcher and headless
+  application each parse options, so both need a literal-argument separator.
+  The original invocation was rejected before a proposer session started. Its
+  six managed baseline calls and costs still belong to the failed attempt.
+
+The DSH pilot now explicitly sets the inner `permission_mode=danger-full-access`
+inside its existing Docker boundary; no privileged container flag is added.
+The general adapter default stays `workspace-write`. Recipes can select this
+DSH-only option, which is rejected for other backends. The adapter inserts two
+`--` separators before its literal prompt. Receipt validation accepts both the
+historical command shape and this delimited shape, while still rejecting resume
+flags. The image's model-free cold-start probe now uses a dash-prefixed task.
+
+The formatting dataset is version `live-playbook-mechanism-2`: it explicitly
+requests one complete JSON object. The completeness checker also accepts a
+single complete JSON Markdown fence, but rejects empty, truncated, multiple or
+prose-mixed replies. This does not rehabilitate the earlier failed Combee cell.
+Related local regressions passed 166 tests with one environment skip. A stale
+Codex fixture was also corrected to mock final responses separately from trace
+previews; its previous CI failure is retained.
+
+To retry only these rejected cells, dispatch with `pilot_backends=dsh`,
+`pilot_methods=other-methods`, and `pilot_cells=combee-ace,meta`. The workflow
+validates the cell list and requires each selected cell to pass. Accepted ACE
+and CORAL cells are not repeated. Results from distinct commits remain separately
+bound evidence and do not form a same-SHA release gate.

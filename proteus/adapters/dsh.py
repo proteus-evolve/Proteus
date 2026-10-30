@@ -455,7 +455,9 @@ class DshHarness:
             phase_timeout = min(self.phase_timeout_s, recovery.timeout_s) \
                 if recovery and phase == recovery.phase else self.phase_timeout_s
             try:
-                command = ["--profile", "headless", phase_prompt(
+                # The launcher and headless app each parse options. Preserve a
+                # literal task beginning with '-' (e.g. YAML '---') through both.
+                command = ["--profile", "headless", "--", "--", phase_prompt(
                     spec, phase, used, phase_start_used=start_used)]
                 command = source_command(spec, active, command)
                 with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',

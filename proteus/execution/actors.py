@@ -105,6 +105,7 @@ class AdapterOptions(Contract):
     base_url: str | None = field(default=None, metadata=TEXT)
     key_env: str | None = field(default=None, metadata={"pattern": r"^[A-Za-z_][A-Za-z0-9_]*$"})
     model_selection: Literal["legacy", "framework", "runtime"] = "legacy"
+    permission_mode: Literal["workspace-write", "danger-full-access"] | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -136,6 +137,7 @@ def validate_harness(name, spec, options):
                 and options.phase_timeout_seconds is None,
                 "this harness has no configurable container environment")
     require(name == "codex" or options.auth_file is None, "auth_file is a Codex harness option")
+    require(name == "dsh" or options.permission_mode is None, "permission_mode is a DSH harness option")
     require(name == "llm" or (options.base_url is None and options.key_env is None),
             "base_url/key_env apply to the LLM harness")
 
@@ -161,6 +163,8 @@ class HarnessActor:
                 args["auth_file"] = options.auth_file
             if self.name == "dsh" and self.model_selection(spec)["owner"] == "framework":
                 args["model"] = spec.model
+            if self.name == "dsh" and options.permission_mode is not None:
+                args['permission_mode'] = options.permission_mode
         elif self.name == "llm":
             if options.base_url is not None:
                 args["base_url"] = options.base_url

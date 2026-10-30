@@ -85,6 +85,19 @@ def test_existing_builtin_names_use_same_registration_flow_and_explicit_roles():
     assert matrix['dsh']['native']['plugin']['name'] == 'proteus.native.dsh'
 
 
+def test_dsh_inner_permission_policy_is_explicit_and_scoped_to_dsh():
+    from proteus.execution.actors import HarnessActor, validate_harness
+    from proteus.core.contracts import PluginRef
+    from proteus.recipes.config import ActorSpec
+    spec = ActorSpec(model='fixture', runtime=PluginSpec(plugin=PluginRef(name='proteus.harness.dsh', version='1')))
+    assert HarnessActor('dsh', HarnessOptions()).adapter(spec).permission_mode == 'workspace-write'
+    options = HarnessOptions(permission_mode='danger-full-access')
+    assert HarnessActor('dsh', options).adapter(spec).permission_mode == 'danger-full-access'
+    for name in ('pi', 'codex', 'llm'):
+        with pytest.raises(ContractError, match='permission_mode is a DSH'):
+            validate_harness(name, spec, options)
+
+
 def test_parallel_capability_is_explicit_and_does_not_include_continuous_roles(tmp_path):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier

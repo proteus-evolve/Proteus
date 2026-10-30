@@ -41,6 +41,22 @@ def failed_attempt(root):
     return DshPhaseResume.capture(root, 1, "act", timeout_s=11)
 
 
+def test_dash_prefixed_task_is_delimited_for_both_cli_parsers(tmp_path):
+    prompt = '---\nname: meta-harness\n---\nWrite the requested program.'
+    (tmp_path / 'harness').mkdir()
+
+    class Container:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            assert command == ['--profile', 'headless', '--', '--', prompt]
+            assert env['DSH_PERMISSION_MODE'] == 'danger-full-access'
+            return subprocess.CompletedProcess(command, 0, '', '')
+
+    adapter = DshHarness(key='fixture', sandbox=Container(), permission_mode='danger-full-access')
+    result = adapter.run_episode(EpisodeSpec(root=tmp_path, episode=1, model='fixture',
+        phase_prompts={'act': prompt}, phases=('act',)))
+    assert result.ok, result.error
+
+
 def spec(root):
     (root / "active").mkdir(exist_ok=True)
     (root / "active/src/apps").mkdir(parents=True, exist_ok=True)
