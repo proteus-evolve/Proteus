@@ -371,14 +371,14 @@ The checked mechanism items above do not close this real-worker acceptance rule.
 
 **验收：** 研究者按教程添加插件与配置即可完成两种扩展，不修改核心代码；安装包中的模板在仓库外可用。
 
-P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。历史真实模型结果、成本上界与部分计时已归档；完整 I14 验收仍缺 Combee 耗时对照与 CORAL 共享/干预证据，见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。
+P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。历史真实模型结果与成本上界已归档；Combee 四个 online 条件的 study elapsed 回执也已找到并核验，offline 连续耗时仍未知。I14 剩余验收是明确对照条件/固定 trace 证据与 CORAL 共享/干预证据，不能概括为所有 Combee 都没有耗时，见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。
 
 ### I14 统一实验输出
 
 - [ ] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计（历史归档及当前导出机制已有；缺失成本/连续耗时保持 unknown，完整比较覆盖尚未关闭）。
 - [x] 提供 baseline、模块消融与多 seed 实验配置和汇总（P10d：StudySpec、显式差异、paired seed 和缺失指标传播；各领域另含原始 baseline 配置）。
 - [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果（已有 15 个来源绑定的 adapted 单 seed profile；不是原论文条件匹配或跨方法受控排名）。
-- [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为（已有真实分数、API 成本上界和两种 worker 配置；Combee 的完整 elapsed 比较及 CORAL 的实际共享/干预/恢复映射仍未关闭，不能仅以 experimental 标签豁免）。
+- [ ] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为（Combee 四个 online 条件已具备质量/API 成本上界/study elapsed 观察表，待审固定 trace 与明确声明的比较条件；offline 连续计时缺口单列。CORAL 的实际共享/干预/恢复映射仍未关闭，不能仅以 experimental 标签豁免）。
 - [x] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离（P10s 已接入三类 codec 的显式测量接口、逐 parent edge 和指定 path；对应实现已通过 Python 3.10–3.14、wheel/sdist 与 Harbor 原始产物核验，见 [PR #97](https://github.com/proteus-evolve/Proteus/pull/97)。未知 codec/二进制表面保持 unavailable，不代表模型质量结果）。
 
 **验收：** 结果能由已保存的逐任务记录重新汇总；每张结果表能追溯到配置、候选与原始输出；缺失指标明确显示。
@@ -445,8 +445,8 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 - [x] 定义 reflection 到 update 的聚合接口，复用基础方法的产物与更新语义（P08b：ACE 返回 PlaybookDelta，GEPA 返回组件提案；方法仍负责正式评估与接纳）。
 - [x] 实现 augmented shuffle、parallel scan aggregation 和动态 batch controller（P08b/P08c/P08f/P08g 的已声明参考 profile 与适配范围）。
 - [x] 保存复制、分组、层次与提示顺序，统计所有聚合及 profiling 调用（P08b–P08g：来源、RNG、wave、计时与正式调用账本）。
-- [ ] 用固定 trace 集比较顺序基础方法、naive parallel 和 Combee；包含固定 batch 与动态 batch 条件。
-- [ ] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开（八个历史 Formula 条件已有质量/成本上界；四个 offline 条件连续耗时均为 null，共享主机且 core 不同，未完成要求的完整权衡对照。至少一个组合需关闭该项；延期必须显式修订发布范围）。
+- [ ] 用固定 trace 集比较顺序基础方法、naive parallel 和 Combee；包含固定 batch 与动态 batch 条件（[机制映射](../V1_RELEASE_EVIDENCE_MAP.md#fixed-trace-and-comparison-evidence-mapping) 已对应 sequential/upstream、同 reflection 的 naive/Combee、固定聚合及动态采样/恢复 checks；不把这些组件 checks 冒称同一份 frozen trace 的四组联合重放，完整覆盖仍待 review）。
+- [ ] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开（[四个 online 观察](../V1_RELEASE_EVIDENCE_MAP.md#combee-online-observations-offline-gaps-and-acceptance-scope) 已有 quality/API upper/study elapsed：ACE 16636.682s、naive 10114.331s、fixed 10808.138s、dynamic 10409.919s；offline continuous elapsed 仍为 null。需 review 声明的比较条件是否关闭本条；共享主机和 runtime I/O 差异限制 isolated speedup 归因，不新增“必须正加速/复现论文数值”门槛，也不因 offline null 自动要求付费重跑。延期仍须显式修订发布范围）。
 
 **依赖：** R01、R02、I10、I12、I14。**完成定义：** 两个组合都可运行；至少一个真实设置有完整权衡结果，动态控制器已实现并验证。
 
