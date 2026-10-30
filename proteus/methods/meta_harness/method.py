@@ -227,6 +227,7 @@ def proposer_prompt(iteration, options):
         + f"""
 
 ## Proteus runtime and directory adaptation (iteration {iteration})
+These runtime paths override source-checkout paths in the reference protocol above.
 There are {len({d.name for d in options.datasets})} datasets.
 The controlling coding harness is infrastructure; evolve memory-system source files.
 Read /workspace/task/input/config.yaml and /workspace/task/input/logs/ for summaries,
@@ -242,6 +243,20 @@ manifest to /workspace/task/output/pending_eval.json with iteration={iteration}.
 Use new unique module names. Shared Python helpers may also go under output/agents/.
 Write new post-evaluation reports under output/reports/. These will be retained.
 Only output/ is captured. Your final prose is not the candidate submission.
+Put the actual implementations and required helpers under output/agents/. Each
+declared module must expose a concrete MemorySystem subclass; do not submit a
+forwarding import of that same destination module. The controller places these files under
+text_classification/agents/ in the candidate package, so relative imports such as
+from ..memory_system import MemorySystem are correct. Do not create a mirrored
+output/text_classification/ tree: that tree is not merged into the candidate.
+Before finishing, check the exact submitted package with the existing loader:
+copy input/candidate.py and input/text_classification/ into a fresh scratch
+directory, overlay output/agents/ onto its text_classification/agents/, and write
+selected.json with system set to each manifest candidate's name in turn. For each
+name, run a fresh Python process from that scratch directory and instantiate
+candidate.Candidate with a model-free mock callable returning a JSON response.
+This checks import/class/constructor compatibility only; it is not a real-model
+evaluation. Do not validate a different mirror of the submitted files.
 The inherited MemorySystem/LLMCallable interface remains unchanged. Model calls in
 the evaluated candidate are managed by Proteus; dependencies must exist in its
 configured candidate image. Do not access hidden test data or run final benchmarks.

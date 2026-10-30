@@ -225,3 +225,13 @@ cells still have fresh run directories, recipe locks, traces and completed-resum
 checks. Preserve the failed producer's outcomes and costs, and select only the
 rejected method(s), for example `pilot_cells=meta`. Omitting the reuse input retains
 the full production build path.
+
+The first Codex Meta runtime recovery (`41009956547`) passed the native parser
+probe and completed its real coding turn, but all three generated systems failed
+loading. Full implementations were in an ignored `output/text_classification/`
+mirror; the submitted `output/agents/` files imported themselves. The proposer's
+mock checks tested the mirror instead of the candidate package. This failed
+attempt is retained. Runtime instructions now explicitly override the reference
+checkout paths and require a model-free check of the exact submitted package
+using the existing `candidate.py` loader in a fresh scratch process. The loader
+and acceptance criteria are unchanged; generated programs are not hand-edited.
