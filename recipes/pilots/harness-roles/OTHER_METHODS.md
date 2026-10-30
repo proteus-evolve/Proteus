@@ -21,6 +21,37 @@ the same pinned upstream image as the Native/GEPA pilot. DSH is a selectable
 configuration, not accepted evidence until that exact cell runs. No old study is
 rerun or retrospectively relabeled.
 
+## First attempt and corrections
+
+Run [40980909790](https://github.com/proteus-evolve/Proteus/actions/runs/40980909790)
+at `3e8a0e6` failed overall. Its original outcomes and all costs remain retained.
+
+- ACE's initial checker passed, but independent inspection found truncated JSON
+  responses. Its first acceptance is withdrawn: changing a playbook is insufficient
+  if the harness adapter loses the final answer before grading.
+- Combee-ACE completed its batch, two aggregation proposals and reduction, but the
+  checker looked for an incorrect evidence kind. Its generator replies also expose
+  the same truncation defect. Completed-resume acceptance was not reached.
+- Meta-Harness's real Pi proposer exhausted its tool budget without output files;
+  the authoring image also lacked Python. Only baseline systems were evaluated.
+  A controller that records a failed proposal is not a successful evolution pilot.
+- CORAL produced two real changed programs and seven task rollouts; released
+  validation progressed 0 → 0 → 1 and the selected program's private score was 1.
+  Completed resume added no dispatch. This is the bounded fresh-session worker
+  described above, not native continuation or multi-worker acceptance.
+
+Corrections separate the complete final assistant response from shortened trace
+previews (Pi/DSH/Codex), require parseable complete generator JSON, use the real
+Combee evidence kind, and add Python to the authoring image. Meta-Harness retains
+one proposal iteration but receives 64 tool-budget units and a 480-second phase
+deadline. Its original 16-unit run is not reinterpreted. Exact derived image IDs
+and installed Python versions are retained. The recovery selection runs only
+ACE, Combee-ACE and Meta-Harness; it does not repeat the accepted CORAL cell.
+
+The workflow now preserves actual failed step conclusions while allowing the next
+independent selected cell to run. A failed overall workflow never becomes an
+accepted all-method gate by combining successful steps from different runs.
+
 ## Execution
 
 Build the production image using the pinned source steps in

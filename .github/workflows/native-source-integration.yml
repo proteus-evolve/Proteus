@@ -25,7 +25,7 @@ on:
       pilot_methods:
         description: Which live minimum-cycle cells to run
         type: choice
-        options: [both, native, gepa, pi-gepa-dsh-both, other-methods]
+        options: [both, native, gepa, pi-gepa-dsh-both, other-methods, other-recovery]
         default: both
       pilot_backends:
         description: Harnesses for the opt-in pilot
@@ -103,13 +103,23 @@ jobs:
           set -euo pipefail
           python tests/check_native_source_repair.py --backend "$BACKEND" --image "$IMAGE" --out "$OUT/repair" \
             2>&1 | tee "$OUT/repair-check.log"
+      - name: Add Python authoring tools for additional method pilots
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --build-arg BASE="$IMAGE" -f recipes/pilots/harness-roles/Dockerfile.python \
+            -t "$IMAGE-python" recipes/pilots/harness-roles
+          docker image inspect "$IMAGE-python" > "$OUT/authoring-image.json"
+          docker run --rm --entrypoint sh "$IMAGE-python" -c 'python3 --version; dpkg-query -W python3' > "$OUT/authoring-python.txt"
+          echo "IMAGE=$IMAGE-python" >> "$GITHUB_ENV"
       - name: Install pinned GEPA for explicitly requested live role pilot
+        id: pilot_deps
         if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
       - name: Live Native one-episode harness evolution
         id: live_native
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
-        continue-on-error: true
+        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -121,8 +131,7 @@ jobs:
             2>&1 | tee "$OUT/live-native.log"
       - name: Live GEPA one-mutation harness policy evolution
         id: live_gepa
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'native'
-        continue-on-error: true
+        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'native'
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -134,8 +143,7 @@ jobs:
             2>&1 | tee "$OUT/live-gepa.log"
       - name: Live ace minimum cycle through coding harness
         id: live_ace
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
-        continue-on-error: true
+        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -147,8 +155,7 @@ jobs:
             2>&1 | tee "$OUT/live-ace.log"
       - name: Live combee-ace minimum cycle through coding harness
         id: live_combee_ace
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
-        continue-on-error: true
+        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -160,8 +167,7 @@ jobs:
             2>&1 | tee "$OUT/live-combee-ace.log"
       - name: Live meta minimum cycle through coding harness
         id: live_meta
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
-        continue-on-error: true
+        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -173,8 +179,7 @@ jobs:
             2>&1 | tee "$OUT/live-meta.log"
       - name: Live coral minimum cycle through coding harness
         id: live_coral
-        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
-        continue-on-error: true
+        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -199,8 +204,9 @@ jobs:
           python - <<'PY'
           import os
           methods = os.environ['PILOT_METHODS']
-          if methods == 'other-methods':
-              for name in ('ACE', 'COMBEE', 'META', 'CORAL'):
+          if methods in ('other-methods', 'other-recovery'):
+              selected = ('ACE', 'COMBEE', 'META') + (('CORAL',) if methods == 'other-methods' else ())
+              for name in selected:
                   if os.environ[name + '_OUTCOME'] != 'success':
                       raise RuntimeError(name + ': selected live cell did not pass')
               raise SystemExit(0)

@@ -110,7 +110,9 @@ def meta(root, *, model, backend, image):
         for split in ('train', 'val', 'test')))
     data_path.write_text(data.to_json() + '\n')
     recipe = replace(recipe, name=f'live-{backend}-meta-one-iteration',
-        actors={'model': chat(model), 'proposer': harness(model, backend, image, workspace=True)},
+        actors={'model': chat(model), 'proposer': replace(harness(model, backend, image, workspace=True),
+            runtime=plugin(f'proteus.workspace.{backend}', image=image, network='bridge',
+                phase_timeout_seconds=480, max_turns=64, model_selection='framework'))},
         execution=replace(recipe.execution, timeout_seconds=180),
         evaluations=tuple(replace(e, tasks=replace(e.tasks, dataset_hash=content_hash(data),
             dataset_version=data.version)) for e in recipe.evaluations),
@@ -182,7 +184,12 @@ def verify(root, method):
         texts = [store.files(ArtifactRef.from_dict(c['artifact']))['playbook.txt'].data for c in candidates]
         require(any(text != texts[0] and b'helpful=' in text for text in texts[1:]),
                 'curation did not add a learned playbook bullet')
-        require(any('curation' in kind or 'aggregation' in kind for kind in kinds), 'learning evidence missing')
+        require(('proteus.ace.curation@1' if method == 'ace' else 'proteus.combee.ace_result@1') in kinds,
+                'learning evidence missing')
+        for rollout in records['rollouts']:
+            payload = json.loads(rollout['output']['response'])
+            require(payload.get('final_answer') == rollout['output']['answer'],
+                    'generator response was truncated, malformed, or parsed incorrectly')
     if method == 'combee-ace':
         require('proteus.combee.ace_summary@1' in kinds, 'not a Combee method run')
         batches = [v['value'] for v in values if v['ref']['kind'] == 'proteus.combee.ace_batch@1']

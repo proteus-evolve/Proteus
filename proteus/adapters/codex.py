@@ -340,7 +340,7 @@ class CodexHarness:
             out[str(key)] = str(val)[:300]
         return out
 
-    def _jsonl_trace(self, text: str, phase: str) -> list[ActionEvent]:
+    def _jsonl_trace(self, text: str, phase: str, *, text_limit: int | None = 1000) -> list[ActionEvent]:
         """Normalize `codex exec --json` JSONL.
 
         One completed native tool item becomes one tool event, including multi-file
@@ -382,7 +382,7 @@ class CodexHarness:
                 if item.get("text"):
                     events.append(ActionEvent(turn=turn, phase=phase, tool=None,
                                               surface=None, params={},
-                                              text=str(item["text"])[:1000]))
+                                              text=str(item["text"])[:text_limit]))
             elif kind == "reasoning":
                 if item.get("text"):
                     events.append(ActionEvent(turn=turn, phase=phase, tool=None,
@@ -641,7 +641,16 @@ class CodexHarness:
             turns=sum(1 for e in trace if e.tool), error=error, counters=counters,
         )
 
-    def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:
+    def read_response(self, root: Path, episode: int) -> str:
+        """Complete final visible assistant response, independent of trace previews."""
+        events = [e for e in self.read_trace(root, episode, text_limit=None)
+                  if e.tool is None and e.text and not e.params.get('kind')]
+        if not events:
+            return ''
+        last = events[-1]
+        return '\n'.join(e.text for e in events if (e.phase, e.turn) == (last.phase, last.turn))
+
+    def read_trace(self, root: Path, episode: int, *, text_limit: int | None = 1000) -> Sequence[ActionEvent]:
         root = Path(root)
         map_path = root / "traces" / f"ep{episode:03d}.json"
         if not map_path.exists():
@@ -657,7 +666,7 @@ class CodexHarness:
             path = state / name
             if not path.exists():
                 continue
-            phase_events = self._jsonl_trace(path.read_text(encoding="utf-8", errors="replace"), phase)
+            phase_events = self._jsonl_trace(path.read_text(encoding="utf-8", errors="replace"), phase, text_limit=text_limit)
             for event in phase_events:
                 events.append(ActionEvent(
                     turn=offset + event.turn, phase=event.phase, tool=event.tool,

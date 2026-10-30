@@ -225,7 +225,7 @@ class HarnessActor:
             shutil.copytree(harness, active)
         prompt = (request.system + "\n\n" if request.system else "") + request.prompt
         started = time.monotonic()
-        result, trace, failure = None, (), None
+        result, trace, failure, response_text = None, (), None, ""
         try:
             result = adapter.run_episode(EpisodeSpec(root=workspace, episode=1, model=spec.model or "",
                 phase_prompts={"act": prompt}, phases=("act",), max_turns=self.options.max_turns,
@@ -233,6 +233,9 @@ class HarnessActor:
                 readonly_task_paths=('input', 'history') if self.supports_workspace else (),
                 continuity_mode=getattr(adapter, "continuity_mode", "native")))
             trace = tuple(asdict(event) for event in adapter.read_trace(workspace, 1))
+            read_response = getattr(adapter, 'read_response', None)
+            response_text = (read_response(workspace, 1) if read_response is not None
+                             else "\n".join(event["text"] for event in trace if event.get("text")))
         except Exception as exc:
             from proteus.core.recovery import RecoveryRequired
             if isinstance(exc, RecoveryRequired):
@@ -247,9 +250,8 @@ class HarnessActor:
                     "model_selection": self.model_selection(spec)}
         if marker is not None:
             settings['native_usage'] = marker
-        text = "\n".join(event["text"] for event in trace if event.get("text"))
         from proteus.core.continuity import _redact
-        outcome = ActorResult(text=text, trace=trace, runtime=RuntimeIdentity(runtime=spec.runtime.plugin, settings=settings),
+        outcome = ActorResult(text=response_text, trace=trace, runtime=RuntimeIdentity(runtime=spec.runtime.plugin, settings=settings),
             usage=replace(usage, wall_seconds=time.monotonic() - started),
             status=OperationStatus.COMPLETED if failure is None and result.ok else OperationStatus.FAILED,
             diagnostic=_redact(f'{type(failure).__name__}: {failure}') if failure is not None else result.error)

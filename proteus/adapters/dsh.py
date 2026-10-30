@@ -325,7 +325,7 @@ class DshHarness:
         return {p.parent for p in root.rglob("session.jsonl.zstd")} if root.exists() else set()
 
     def _session_trace(self, session_dir: Path, phase: str,
-                       partial: bool = False) -> list[ActionEvent]:
+                       partial: bool = False, *, text_limit: int | None = 500) -> list[ActionEvent]:
         """Normalize one native session without exposing provider-specific reasoning."""
         log = session_dir / "session.jsonl.zstd"
         if not log.exists():
@@ -359,7 +359,7 @@ class DshHarness:
                 if text:
                     events.append(ActionEvent(
                         turn=int(data.get("turn", last_turn)), phase=phase,
-                        tool=None, surface=None, params={}, text=text[:500],
+                        tool=None, surface=None, params={}, text=text[:text_limit],
                     ))
         return events
 
@@ -567,7 +567,16 @@ class DshHarness:
             return "loop"
         return None
 
-    def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:
+    def read_response(self, root: Path, episode: int) -> str:
+        """Complete final visible assistant response, independent of trace previews."""
+        events = [e for e in self.read_trace(root, episode, text_limit=None)
+                  if e.tool is None and e.text and not e.params.get('kind')]
+        if not events:
+            return ''
+        last = events[-1]
+        return '\n'.join(e.text for e in events if (e.phase, e.turn) == (last.phase, last.turn))
+
+    def read_trace(self, root: Path, episode: int, *, text_limit: int | None = 500) -> Sequence[ActionEvent]:
         root = Path(root)
         map_path = root / "traces" / f"ep{episode:03d}.json"
         if not map_path.exists():
@@ -588,7 +597,7 @@ class DshHarness:
                     continue
                 # A recovered attempt can end mid-frame. Keep its complete leading
                 # events instead of making every future combined trace unreadable.
-                phase_events = self._session_trace(log.parent, phase, partial=True)
+                phase_events = self._session_trace(log.parent, phase, partial=True, text_limit=text_limit)
                 for event in phase_events:
                     events.append(ActionEvent(
                         turn=turn_base + event.turn, phase=event.phase, tool=event.tool,
