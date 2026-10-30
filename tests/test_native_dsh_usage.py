@@ -157,11 +157,24 @@ def test_symlinked_parent_is_not_read_into_a_private_bundle(tmp_path):
     assert dsh_usage(source, transport_complete=True)["reported"]["input_tokens"] is None
 
 
-def test_source_requires_fresh_headless_command(tmp_path):
+@pytest.mark.parametrize('prefix', [
+    ['--profile', 'headless'], ['--profile', 'headless', '--', '--'],
+])
+def test_source_accepts_historical_and_delimited_fresh_commands(tmp_path, prefix):
+    usage = evidence(tmp_path)
+    assert validate_usage(usage, {'scope': 'harness_cli', 'payload': [*prefix, '--- literal prompt']}) == usage
+
+
+@pytest.mark.parametrize('prefix', [
+    ['--profile', 'headless', '--resume'],
+    ['--profile', 'headless', '--'],
+    ['--profile', 'headless', '--resume', '--', '--'],
+])
+def test_source_requires_fresh_headless_command(tmp_path, prefix):
     with pytest.raises(ContractError, match="fresh headless"):
         validate_usage(
             evidence(tmp_path),
-            {"scope": "harness_cli", "payload": ["--profile", "headless", "--resume", "prompt"]},
+            {"scope": "harness_cli", "payload": [*prefix, "prompt"]},
         )
 
 

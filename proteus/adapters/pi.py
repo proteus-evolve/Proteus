@@ -193,7 +193,7 @@ class PiHarness:
     def _sessions(state: Path) -> set[Path]:
         return set(state.glob("*.jsonl"))
 
-    def _session_trace(self, path: Path, phase: str) -> list[ActionEvent]:
+    def _session_trace(self, path: Path, phase: str, *, text_limit: int | None = 500) -> list[ActionEvent]:
         """Normalize one native Pi session for measurement and handoff fallback."""
         events: list[ActionEvent] = []
         turn = 0
@@ -228,7 +228,7 @@ class PiHarness:
                 elif kind == "text" and block.get("text"):
                     events.append(ActionEvent(
                         turn=turn, phase=phase, tool=None, surface=None,
-                        params={}, text=block["text"][:500],
+                        params={}, text=block["text"][:text_limit],
                     ))
         return events
 
@@ -399,7 +399,16 @@ class PiHarness:
             return "loop"
         return None
 
-    def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:
+    def read_response(self, root: Path, episode: int) -> str:
+        """Complete final visible assistant response, independent of trace previews."""
+        events = [e for e in self.read_trace(root, episode, text_limit=None)
+                  if e.tool is None and e.text and not e.params.get('kind')]
+        if not events:
+            return ''
+        last = events[-1]
+        return '\n'.join(e.text for e in events if (e.phase, e.turn) == (last.phase, last.turn))
+
+    def read_trace(self, root: Path, episode: int, *, text_limit: int | None = 500) -> Sequence[ActionEvent]:
         root = Path(root)
         map_path = root / "traces" / f"ep{episode:03d}.json"
         if not map_path.exists():
@@ -417,7 +426,7 @@ class PiHarness:
             for name in names:
                 if not (state / name).exists():
                     continue
-                phase_events = self._session_trace(state / name, phase)
+                phase_events = self._session_trace(state / name, phase, text_limit=text_limit)
                 for event in phase_events:
                     events.append(ActionEvent(
                         turn=turn + event.turn, phase=event.phase, tool=event.tool,

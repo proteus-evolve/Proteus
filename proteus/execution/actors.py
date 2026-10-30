@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import time
 import urllib.request
@@ -104,6 +105,7 @@ class AdapterOptions(Contract):
     base_url: str | None = field(default=None, metadata=TEXT)
     key_env: str | None = field(default=None, metadata={"pattern": r"^[A-Za-z_][A-Za-z0-9_]*$"})
     model_selection: Literal["legacy", "framework", "runtime"] = "legacy"
+    permission_mode: Literal["workspace-write", "danger-full-access"] | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -135,6 +137,7 @@ def validate_harness(name, spec, options):
                 and options.phase_timeout_seconds is None,
                 "this harness has no configurable container environment")
     require(name == "codex" or options.auth_file is None, "auth_file is a Codex harness option")
+    require(name == "dsh" or options.permission_mode is None, "permission_mode is a DSH harness option")
     require(name == "llm" or (options.base_url is None and options.key_env is None),
             "base_url/key_env apply to the LLM harness")
 
@@ -160,6 +163,8 @@ class HarnessActor:
                 args["auth_file"] = options.auth_file
             if self.name == "dsh" and self.model_selection(spec)["owner"] == "framework":
                 args["model"] = spec.model
+            if self.name == "dsh" and options.permission_mode is not None:
+                args['permission_mode'] = options.permission_mode
         elif self.name == "llm":
             if options.base_url is not None:
                 args["base_url"] = options.base_url
@@ -221,10 +226,12 @@ class HarnessActor:
         active = None
         if getattr(adapter, "staged_activation", False):
             active = workspace / "active"
-            shutil.copytree(harness, active)
+            # Preserve the pinned source identity. Dereferencing upstream aliases
+            # changes its hash and needlessly rebuilds a fixed runtime on every call.
+            shutil.copytree(harness, active, symlinks=True)
         prompt = (request.system + "\n\n" if request.system else "") + request.prompt
         started = time.monotonic()
-        result, trace, failure = None, (), None
+        result, trace, failure, response_text = None, (), None, ""
         try:
             result = adapter.run_episode(EpisodeSpec(root=workspace, episode=1, model=spec.model or "",
                 phase_prompts={"act": prompt}, phases=("act",), max_turns=self.options.max_turns,
@@ -232,6 +239,9 @@ class HarnessActor:
                 readonly_task_paths=('input', 'history') if self.supports_workspace else (),
                 continuity_mode=getattr(adapter, "continuity_mode", "native")))
             trace = tuple(asdict(event) for event in adapter.read_trace(workspace, 1))
+            read_response = getattr(adapter, 'read_response', None)
+            response_text = (read_response(workspace, 1) if read_response is not None
+                             else "\n".join(event["text"] for event in trace if event.get("text")))
         except Exception as exc:
             from proteus.core.recovery import RecoveryRequired
             if isinstance(exc, RecoveryRequired):
@@ -246,9 +256,8 @@ class HarnessActor:
                     "model_selection": self.model_selection(spec)}
         if marker is not None:
             settings['native_usage'] = marker
-        text = "\n".join(event["text"] for event in trace if event.get("text"))
         from proteus.core.continuity import _redact
-        outcome = ActorResult(text=text, trace=trace, runtime=RuntimeIdentity(runtime=spec.runtime.plugin, settings=settings),
+        outcome = ActorResult(text=response_text, trace=trace, runtime=RuntimeIdentity(runtime=spec.runtime.plugin, settings=settings),
             usage=replace(usage, wall_seconds=time.monotonic() - started),
             status=OperationStatus.COMPLETED if failure is None and result.ok else OperationStatus.FAILED,
             diagnostic=_redact(f'{type(failure).__name__}: {failure}') if failure is not None else result.error)
@@ -276,7 +285,10 @@ def validate_workspace_harness(name, spec, options):
     require(name in ('dsh', 'pi', 'codex'), 'coding workspaces require a container coding harness')
     require(spec.session.value == 'fresh', 'coding workspaces use fresh sessions')
     require(options.image is not None, 'coding workspace runtime needs an explicit immutable image')
-    image_pin(options.image)
+    # Locally built production images have a content-addressed image ID before
+    # they have a registry manifest digest. Both identify immutable Docker input.
+    if re.fullmatch(r'sha256:[0-9a-f]{64}', options.image) is None:
+        image_pin(options.image)
     require(options.network in ('none', 'bridge'), 'coding workspace runtime uses none or bridge networking')
     require(options.phase_timeout_seconds is not None, 'coding workspace runtime needs an explicit phase timeout')
 

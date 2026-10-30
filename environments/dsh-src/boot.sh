@@ -202,7 +202,8 @@ if [ "${1:-}" = "--proteus-headless-smoke" ]; then
         unset DEEPSEEK_API_KEY DEEPSEEK_KEY
         export DSH_HOME="$PROBE_ROOT/home"
         mkdir -p "$DSH_HOME"
-        node "$CLI" --profile headless "Proteus cold-start validation."
+        # Exercise a dash-prefixed task through both Commander parsing layers.
+        node "$CLI" --profile headless -- -- "--- Proteus cold-start validation."
     ) >"$PROBE_ROOT/stdout" 2>"$PROBE_ROOT/stderr"
     PROBE_RC=$?
     set -e

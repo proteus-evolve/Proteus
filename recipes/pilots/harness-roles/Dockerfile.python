@@ -1,0 +1,7 @@
+ARG BASE
+FROM ${BASE}
+# Candidate authoring requires a Python interpreter. The upstream harness source
+# and compiled CLI stay unchanged; the exact derived image ID is saved per cell.
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*

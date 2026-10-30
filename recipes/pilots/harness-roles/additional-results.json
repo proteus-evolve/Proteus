@@ -1,0 +1,1239 @@
+{
+  "schema_version": 1,
+  "audited_utc": "2026-10-30T01:01:25.470227+00:00",
+  "scope": "Live synthetic mechanism checks, not benchmark improvement or paper reproduction",
+  "api_cost_usd": null,
+  "billing_unknown_is_not_zero": true,
+  "cells": {
+    "ace": {
+      "backend": "pi",
+      "head": "ffa106e5a1614fe2c5d8c7c56c9d6de204bcf17d",
+      "run_id": 40982188649,
+      "artifact_id": 12945053185,
+      "image_id": "sha256:7e629878e1aa0ab4284e97f6e27437dd10d0025909ffa44503994e34f6b8fbf5",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "requested_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T00:52:34.040207+00:00",
+      "finished_utc": "2026-10-30T00:53:26.137857+00:00",
+      "candidate_count": 2,
+      "rollout_count": 6,
+      "regraded_rows": 6,
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "be528c6a0742a96fa849fee8cf7be0f11fbb0c1357b787c2fc6545d084c21cc3",
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.ace_playbook",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "index.json",
+                "content_hash": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+                "size_bytes": 106,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "playbook.txt",
+                "content_hash": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+                "size_bytes": 184,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "candidate-000002",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:d991544c297c0baa25c15827ce38b727b82f8e8b37b5797d21100a39e2383ea5",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.ace_playbook",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "index.json",
+                "content_hash": "sha256:e8a6cf1ef77fc4bb60e9a59bdb197ad26fd3871986326d9302666e2f973cc86e",
+                "size_bytes": 1149,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "playbook.txt",
+                "content_hash": "sha256:5467352a993d21462f9306655ef2071c528b9ced6eb10013708f6c5740f2ddfc",
+                "size_bytes": 967,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        }
+      ],
+      "batches": [
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000002:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000008:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "validation-0",
+              "rollout_id": "op-000009:rollout-1",
+              "prediction": "beta",
+              "reference": "BETA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000010:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000005:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000003:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "selected_candidate_id": "initial",
+        "last_candidate_id": "candidate-000002",
+        "observed_validation_accuracy": 0.0,
+        "full_json_responses": 6,
+        "responses_longer_than_500_chars": 3
+      }
+    },
+    "combee-ace": {
+      "backend": "pi",
+      "head": "ffa106e5a1614fe2c5d8c7c56c9d6de204bcf17d",
+      "run_id": 40982188649,
+      "artifact_id": 12945053185,
+      "image_id": "sha256:7e629878e1aa0ab4284e97f6e27437dd10d0025909ffa44503994e34f6b8fbf5",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "requested_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T00:53:26.392278+00:00",
+      "finished_utc": "2026-10-30T00:54:23.185774+00:00",
+      "candidate_count": 2,
+      "rollout_count": 9,
+      "regraded_rows": 9,
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "75f21da0147a04c24d9f0ce41960bf058c43489d135a2b046c1524fff629d824",
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.ace_playbook",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "index.json",
+                "content_hash": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+                "size_bytes": 106,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "playbook.txt",
+                "content_hash": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+                "size_bytes": 184,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "candidate-000002",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:df29a656f04a3929eaf6a089570d47daba0d9e7088048ce3ef14caa6c36d7aaf",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.ace_playbook",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "index.json",
+                "content_hash": "sha256:c597b5ec8971b174799886d1032bf9ae4285a35c81d594a197342a42a74eb608",
+                "size_bytes": 1316,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "playbook.txt",
+                "content_hash": "sha256:a0cccc308e020a7fc62ce8d454e0bd22f74811a9a3f55177b762fcbc4f09e645",
+                "size_bytes": 1159,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        }
+      ],
+      "batches": [
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000002:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000017:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-1",
+              "rollout_id": "workflow-b193e9ade7ca430e53f6001b9069344ffae6a4a293299faf00ebd64b6673c909:op-000006:rollout-1",
+              "prediction": "delta",
+              "reference": "DELTA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "validation-0",
+              "rollout_id": "op-000016:rollout-1",
+              "prediction": "beta",
+              "reference": "BETA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "workflow-6241dbc852bd4f4d1f72555663e7219aa2eed2e14c3bd2a444115934d6050f9a:op-000004:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-1",
+              "rollout_id": "workflow-b193e9ade7ca430e53f6001b9069344ffae6a4a293299faf00ebd64b6673c909:op-000004:rollout-1",
+              "prediction": "delta",
+              "reference": "DELTA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "workflow-6241dbc852bd4f4d1f72555663e7219aa2eed2e14c3bd2a444115934d6050f9a:op-000006:rollout-1",
+              "prediction": "ALPHA",
+              "reference": "ALPHA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000015:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            },
+            {
+              "task_id": "train-1",
+              "rollout_id": "op-000015:rollout-2",
+              "prediction": "delta",
+              "reference": "DELTA",
+              "score": 0.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "selected_candidate_id": "initial",
+        "last_candidate_id": "candidate-000002",
+        "observed_validation_accuracy": 0.0,
+        "full_json_responses": 9,
+        "responses_longer_than_500_chars": 4,
+        "learning_batches": 1,
+        "batch_samples": 2,
+        "map_proposals": 2,
+        "reducer_calls": 1
+      }
+    },
+    "meta": {
+      "backend": "pi",
+      "head": "ffa106e5a1614fe2c5d8c7c56c9d6de204bcf17d",
+      "run_id": 40982188649,
+      "artifact_id": 12945053185,
+      "image_id": "sha256:7e629878e1aa0ab4284e97f6e27437dd10d0025909ffa44503994e34f6b8fbf5",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "requested_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T00:54:23.471429+00:00",
+      "finished_utc": "2026-10-30T00:58:23.536876+00:00",
+      "candidate_count": 5,
+      "rollout_count": 12,
+      "regraded_rows": 12,
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "64f6da63a50b44889fcef19a4bf7ded7bd838ef0cc45c8ee81699834aa34bb91",
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:92faab50f4bd2dac75eaad77dcdbce256c99c28e220911341c540454f3cc7664",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "LICENSE-META-HARNESS.txt",
+                "content_hash": "sha256:6fda8a33f4381e19a48a6a597ff8353cc9fbe97eccc1377a5fb6dd6f9ed49f76",
+                "size_bytes": 1067,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "candidate.py",
+                "content_hash": "sha256:3c7eb2b5b50a37bfadc208356a19a10acb0ea2c1f442c9cd07312b4e6f969919",
+                "size_bytes": 1402,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "selected.json",
+                "content_hash": "sha256:c08662b4a42255c260a5d6857130bbbd2fa923002298e04e1b0d00b69cbe2846",
+                "size_bytes": 22,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_all.py",
+                "content_hash": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+                "size_bytes": 334,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_memory.py",
+                "content_hash": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+                "size_bytes": 4272,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/no_memory.py",
+                "content_hash": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+                "size_bytes": 1123,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/llm.py",
+                "content_hash": "sha256:d32df1064c5900c68e8d2b11927a9dbf0b44a8ff03c5bd0eaf4f0785ced57ae8",
+                "size_bytes": 238,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/memory_system.py",
+                "content_hash": "sha256:0128a4f1eb20352bcdb932f93e8c541dc16c6dd8e0de08e4abf489f44f21a0b7",
+                "size_bytes": 4334,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "fewshot_all",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:d988c0ccf84c6c18cc6bcd4acfe2aa58c28625d81c56c0a3c93267731fa5f349",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "LICENSE-META-HARNESS.txt",
+                "content_hash": "sha256:6fda8a33f4381e19a48a6a597ff8353cc9fbe97eccc1377a5fb6dd6f9ed49f76",
+                "size_bytes": 1067,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "candidate.py",
+                "content_hash": "sha256:3c7eb2b5b50a37bfadc208356a19a10acb0ea2c1f442c9cd07312b4e6f969919",
+                "size_bytes": 1402,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "selected.json",
+                "content_hash": "sha256:2ce854c97452a7f372d55c073b148b0bb60f4e3141437b0d087c09d28d91c262",
+                "size_bytes": 24,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_all.py",
+                "content_hash": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+                "size_bytes": 334,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_memory.py",
+                "content_hash": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+                "size_bytes": 4272,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/no_memory.py",
+                "content_hash": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+                "size_bytes": 1123,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/llm.py",
+                "content_hash": "sha256:d32df1064c5900c68e8d2b11927a9dbf0b44a8ff03c5bd0eaf4f0785ced57ae8",
+                "size_bytes": 238,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/memory_system.py",
+                "content_hash": "sha256:0128a4f1eb20352bcdb932f93e8c541dc16c6dd8e0de08e4abf489f44f21a0b7",
+                "size_bytes": 4334,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "contrastive_label_memory",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:75009020ea95e0e5bee527509c9aa8f2b77ae86075b27bff52c79d038a86c912",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "LICENSE-META-HARNESS.txt",
+                "content_hash": "sha256:6fda8a33f4381e19a48a6a597ff8353cc9fbe97eccc1377a5fb6dd6f9ed49f76",
+                "size_bytes": 1067,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "candidate.py",
+                "content_hash": "sha256:3c7eb2b5b50a37bfadc208356a19a10acb0ea2c1f442c9cd07312b4e6f969919",
+                "size_bytes": 1402,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "selected.json",
+                "content_hash": "sha256:40a78321f268493bb53f5c022d39d5a62ee57098da12d6a0c71e13a9fdf9231b",
+                "size_bytes": 37,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/adaptive_verification_memory.py",
+                "content_hash": "sha256:ba65a1df3415a86dfc8683a8e38c8195be4c834c5996215db3526224e2afb593",
+                "size_bytes": 16480,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/contrastive_label_memory.py",
+                "content_hash": "sha256:8ac9184a1c11eaa035901acbe7cc2742a333e730f923ccb5a1bc9fd5a1aaa783",
+                "size_bytes": 12401,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_all.py",
+                "content_hash": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+                "size_bytes": 334,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_memory.py",
+                "content_hash": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+                "size_bytes": 4272,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/no_memory.py",
+                "content_hash": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+                "size_bytes": 1123,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/reflection_lesson_memory.py",
+                "content_hash": "sha256:20112c4556dd03a0cf873450da320a6973d2328957c1359ccf704ab97c5d7cb6",
+                "size_bytes": 19131,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/llm.py",
+                "content_hash": "sha256:d32df1064c5900c68e8d2b11927a9dbf0b44a8ff03c5bd0eaf4f0785ced57ae8",
+                "size_bytes": 238,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/memory_system.py",
+                "content_hash": "sha256:0128a4f1eb20352bcdb932f93e8c541dc16c6dd8e0de08e4abf489f44f21a0b7",
+                "size_bytes": 4334,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "reflection_lesson_memory",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:e33e6d85118f41720ad29b8a70ae80a7746ec5e6c086e0245ead1cadd3f3dad2",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "LICENSE-META-HARNESS.txt",
+                "content_hash": "sha256:6fda8a33f4381e19a48a6a597ff8353cc9fbe97eccc1377a5fb6dd6f9ed49f76",
+                "size_bytes": 1067,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "candidate.py",
+                "content_hash": "sha256:3c7eb2b5b50a37bfadc208356a19a10acb0ea2c1f442c9cd07312b4e6f969919",
+                "size_bytes": 1402,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "selected.json",
+                "content_hash": "sha256:6875ed717a0540f30b8c62be24286efd1d29a9d81884241bf1657a7bc6ffc66f",
+                "size_bytes": 37,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/adaptive_verification_memory.py",
+                "content_hash": "sha256:ba65a1df3415a86dfc8683a8e38c8195be4c834c5996215db3526224e2afb593",
+                "size_bytes": 16480,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/contrastive_label_memory.py",
+                "content_hash": "sha256:8ac9184a1c11eaa035901acbe7cc2742a333e730f923ccb5a1bc9fd5a1aaa783",
+                "size_bytes": 12401,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_all.py",
+                "content_hash": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+                "size_bytes": 334,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_memory.py",
+                "content_hash": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+                "size_bytes": 4272,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/no_memory.py",
+                "content_hash": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+                "size_bytes": 1123,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/reflection_lesson_memory.py",
+                "content_hash": "sha256:20112c4556dd03a0cf873450da320a6973d2328957c1359ccf704ab97c5d7cb6",
+                "size_bytes": 19131,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/llm.py",
+                "content_hash": "sha256:d32df1064c5900c68e8d2b11927a9dbf0b44a8ff03c5bd0eaf4f0785ced57ae8",
+                "size_bytes": 238,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/memory_system.py",
+                "content_hash": "sha256:0128a4f1eb20352bcdb932f93e8c541dc16c6dd8e0de08e4abf489f44f21a0b7",
+                "size_bytes": 4334,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "adaptive_verification_memory",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:f30fc3e1b7e8ec0eff1e0fe2d3bed126a1fd1cb9ab4a4e687fba9e686455deaa",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "LICENSE-META-HARNESS.txt",
+                "content_hash": "sha256:6fda8a33f4381e19a48a6a597ff8353cc9fbe97eccc1377a5fb6dd6f9ed49f76",
+                "size_bytes": 1067,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "candidate.py",
+                "content_hash": "sha256:3c7eb2b5b50a37bfadc208356a19a10acb0ea2c1f442c9cd07312b4e6f969919",
+                "size_bytes": 1402,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "selected.json",
+                "content_hash": "sha256:3d93883ec6010a565f0593b7a35f5e86c09ba9fcb3f04b7a3b1b6c20b0f9cff8",
+                "size_bytes": 41,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/__init__.py",
+                "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size_bytes": 0,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/adaptive_verification_memory.py",
+                "content_hash": "sha256:ba65a1df3415a86dfc8683a8e38c8195be4c834c5996215db3526224e2afb593",
+                "size_bytes": 16480,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/contrastive_label_memory.py",
+                "content_hash": "sha256:8ac9184a1c11eaa035901acbe7cc2742a333e730f923ccb5a1bc9fd5a1aaa783",
+                "size_bytes": 12401,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_all.py",
+                "content_hash": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+                "size_bytes": 334,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/fewshot_memory.py",
+                "content_hash": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+                "size_bytes": 4272,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/no_memory.py",
+                "content_hash": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+                "size_bytes": 1123,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/agents/reflection_lesson_memory.py",
+                "content_hash": "sha256:20112c4556dd03a0cf873450da320a6973d2328957c1359ccf704ab97c5d7cb6",
+                "size_bytes": 19131,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/llm.py",
+                "content_hash": "sha256:d32df1064c5900c68e8d2b11927a9dbf0b44a8ff03c5bd0eaf4f0785ced57ae8",
+                "size_bytes": 238,
+                "executable": false
+              },
+              {
+                "schema_version": 1,
+                "path": "text_classification/memory_system.py",
+                "content_hash": "sha256:0128a4f1eb20352bcdb932f93e8c541dc16c6dd8e0de08e4abf489f44f21a0b7",
+                "size_bytes": 4334,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        }
+      ],
+      "batches": [
+        {
+          "candidate_id": "adaptive_verification_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000026:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000027:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000028:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000009:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "contrastive_label_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000016:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "adaptive_verification_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000025:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000010:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "reflection_lesson_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000020:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000006:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000005:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "contrastive_label_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000015:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "reflection_lesson_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000021:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "iterations": 1,
+        "generated_systems": [
+          "contrastive_label_memory",
+          "reflection_lesson_memory",
+          "adaptive_verification_memory"
+        ],
+        "selected_systems": [
+          "fewshot_all",
+          "no_memory"
+        ],
+        "generated_system_private_tests": 0,
+        "generated_systems_observed_accuracy": 1.0,
+        "baseline_observed_accuracy": 1.0
+      }
+    },
+    "coral": {
+      "backend": "pi",
+      "head": "3e8a0e69d1d0ea7a628266378812a481ce33e61b",
+      "run_id": 40980909790,
+      "artifact_id": 12945595368,
+      "image_id": "sha256:ec8fbfe48506341838db9724cd0ab078137e1682b7d350d6c63281be1980a507",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "requested_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T00:42:57.928626+00:00",
+      "finished_utc": "2026-10-30T00:43:31.235744+00:00",
+      "candidate_count": 3,
+      "rollout_count": 7,
+      "regraded_rows": 7,
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "1b0acb3d4e88ecebfcf9e4ae908ba9a74dfe41885762aa8a82b97dc0953ffdb0",
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:a39ea27c2e0dd0451ef4aea7fcf85d9cffbe88e5a30861fd96ae42ace4363e10",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "main.py",
+                "content_hash": "sha256:0229417c3a67a7cd000a662b0ae5c03bb8f10669b214ddb269edf8e41a78a6dd",
+                "size_bytes": 117,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "gateway-730c830e0a1e01acc3ee941bd093d8497e32e8d4ea64108fdd025b019bb233de",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:5488af3063c1bf481abfbff46484420e95fdd0ae23daa18909b8f841906290ce",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "main.py",
+                "content_hash": "sha256:72c3cfa585118024ea0faa768e3432513cdba390a092381d50c17ccbac42e250",
+                "size_bytes": 504,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        },
+        {
+          "id": "gateway-25f40db7ac2772411f7d9e3d18b0f6c43dfb395ff73265dcb5b618c318cc536f",
+          "artifact": {
+            "schema_version": 1,
+            "content_hash": "sha256:7d5aad27e9b97aface1fab21efb1cbc57826ea3229a20ea521ed6d1b24c7a8b5",
+            "codec": {
+              "schema_version": 1,
+              "name": "proteus.file_tree",
+              "version": "1"
+            },
+            "components": [
+              {
+                "schema_version": 1,
+                "path": "main.py",
+                "content_hash": "sha256:28346bbf05f256e5258a2023e5177b1b47b100d82fe95cea6a7a9c676871a4a5",
+                "size_bytes": 502,
+                "executable": false
+              }
+            ],
+            "runtime": null,
+            "environment_hash": null
+          }
+        }
+      ],
+      "batches": [
+        {
+          "candidate_id": "gateway-730c830e0a1e01acc3ee941bd093d8497e32e8d4ea64108fdd025b019bb233de",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "gateway:730c830e0a1e01acc3ee941bd093d8497e32e8d4ea64108fdd025b019bb233de:evaluation:rollout-1",
+              "prediction": 2,
+              "reference": 4,
+              "score": 0.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "gateway:730c830e0a1e01acc3ee941bd093d8497e32e8d4ea64108fdd025b019bb233de:evaluation:rollout-2",
+              "prediction": 3,
+              "reference": 6,
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "gateway-25f40db7ac2772411f7d9e3d18b0f6c43dfb395ff73265dcb5b618c318cc536f",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "seven",
+              "rollout_id": "coral:final-test:gateway-25f40db7ac2772411f7d9e3d18b0f6c43dfb395ff73265dcb5b618c318cc536f:rollout-1",
+              "prediction": 14,
+              "reference": 14,
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "gateway-25f40db7ac2772411f7d9e3d18b0f6c43dfb395ff73265dcb5b618c318cc536f",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "gateway:25f40db7ac2772411f7d9e3d18b0f6c43dfb395ff73265dcb5b618c318cc536f:evaluation:rollout-1",
+              "prediction": 4,
+              "reference": 4,
+              "score": 1.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "gateway:25f40db7ac2772411f7d9e3d18b0f6c43dfb395ff73265dcb5b618c318cc536f:evaluation:rollout-2",
+              "prediction": 6,
+              "reference": 6,
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "coral:baseline:rollout-1",
+              "prediction": 2,
+              "reference": 4,
+              "score": 0.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "coral:baseline:rollout-2",
+              "prediction": 3,
+              "reference": 6,
+              "score": 0.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "workers": 1,
+        "fresh_coding_turns": 2,
+        "formal_submissions": 2,
+        "provider_native_continuation_verified": false,
+        "multiple_worker_cooperation_verified": false
+      }
+    }
+  },
+  "first_attempt": {
+    "run": 40980909790,
+    "head": "3e8a0e69d1d0ea7a628266378812a481ce33e61b",
+    "conclusion": "failure",
+    "ace": "Checker initially passed; acceptance withdrawn: three truncated generator JSON replies.",
+    "combee-ace": "Checker used an incorrect evidence kind; three truncated generator JSON replies; resume acceptance not reached.",
+    "meta": "Proposer reached its configured budget without output files; authoring Python missing; baseline-only completion rejected.",
+    "coral": "Accepted bounded fresh-session worker; not persistent-session or multi-worker acceptance."
+  },
+  "source_and_gate_boundary": "ACE/Combee/Meta accepted at ffa106e; CORAL at 3e8a0e6. This matrix is not a same-SHA four-gate release acceptance."
+}

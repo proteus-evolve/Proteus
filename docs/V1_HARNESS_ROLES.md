@@ -47,6 +47,22 @@ source hash. Include all adapter/factory/helper dependencies in its source ident
 An integration must implement each advertised capability. Merely adding its name
 to a recipe does not add tools, isolation, timeouts or state support.
 
+Structured method roles consume the complete final visible assistant response.
+Adapters that shorten measurement traces must implement
+`read_response(root, episode)` separately from `read_trace`. Pi, DSH and Codex do
+so; progress, reasoning and diagnostic trace entries are not a task answer. Trace
+previews retain their existing limits, while response JSON must not be truncated.
+An extension without this hook retains the legacy trace-text fallback and must
+ensure that fallback actually satisfies its declared response contract.
+
+`harness.parallel` is an explicit declaration that fresh independent calls may
+overlap. Registration maps it to `actor.parallel` only for ordinary actor and
+workspace roles, never Native continuity/evolution roles. Built-in Pi/DSH create
+independent adapter instances, source copies and containers for these fresh calls.
+Live method coverage and failures are recorded in the
+[additional pilots](../recipes/pilots/harness-roles/OTHER_METHODS.md); a capability
+declaration alone is not experimental acceptance.
+
 Executable offline extension: [`harness_roles.py`](../proteus/examples/harness_roles.py).
 It registers one Python subprocess harness for actor, workspace and evolution
 roles. It is a deterministic mechanism fixture, not a production coding model.
@@ -79,7 +95,9 @@ Empty declared surface directories are recreated by adapter hooks; candidate sou
 and instructions are never reseeded or overwritten.
 
 The materialization environment is explicitly trusted host + unrestricted network.
-It enforces file bounds and identity, not process/network isolation. Containerized
+It enforces file bounds and identity, not process/network isolation. Static target
+`ActorSpec.prompt_hash` is rejected: harness instructions belong in the pinned
+candidate, so no configured prompt can be silently ignored. Containerized
 adapters retain their own process boundary. A requested unsupported per-trial
 transport deadline fails preflight; a container phase deadline is not substituted
 for it. This bridge currently requires independent, serial target trials.
@@ -94,7 +112,9 @@ Configure one `proteus.harness_episode` stage whose role uses
 `proteus.evolution.<harness>`, and the subject role uses
 `proteus.harness.<same-harness>`. Supply a complete initial file-tree artifact,
 observed evaluation IDs, an explicit evidence policy and optional hidden final tests.
-`NativeEvolutionOptions` names these IDs and the phase/turn controls.
+`NativeEvolutionOptions` names these IDs and the phase/turn controls. Built-in
+evolution bindings use adapter options only; generic-call `max_turns` and `seed`
+are rejected there. Episode turns belong to the method, and its seed to the recipe.
 
 ```text
 last-valid candidate ─> frozen executing harness ─────────────────────┐
@@ -182,10 +202,19 @@ Evidence currently distinguishes:
 3. Hard-exit tests distinguish settled versus unknown Native/grader work, and
    completed resume adds no dispatches. Corrupted subject/grader receipts block
    restore/export. Workspace input/history isolation is checked separately.
-4. Real Pi/DSH/Codex execution through these **new** bridges needs its own container
-   acceptance. Existing release/native-source results on PR #106 do not validate
-   this branch. Local Docker is unavailable in this environment; do not report that
-   missing coverage as a pass or zero-cost experiment.
+4. Real Pi/DSH Native and GEPA cells have separate
+   [source-bound live evidence](../recipes/pilots/harness-roles/RESULTS.md).
+   Additional Pi ACE/Combee generator, Meta coding-proposer and bounded CORAL worker
+   cells have [audited results](../recipes/pilots/harness-roles/ADDITIONAL_RESULTS.md).
+   These test specified roles and cycles; ACE/Combee/Meta did not outperform their
+   baselines in that Pi pilot. DSH and Codex now each have independently accepted
+   ACE, Combee-ACE, Meta proposer and bounded CORAL worker cycles in the
+   [eight-cell report](../recipes/pilots/harness-roles/DSH_CODEX_RESULTS.md).
+   Candidates execute through their specified roles; scores and selected versus
+   last candidates remain separate. Codex Native/GEPA and Combee-GEPA are not
+   covered by this expansion. Different recorded source commits
+   do not form a single-SHA release gate. Existing PR #106 source gates alone are
+   not evidence for new method/role combinations.
 
 ## Reproduce mechanism checks
 

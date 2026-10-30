@@ -401,6 +401,9 @@ def test_coding_harness_actor_has_fresh_workspace_and_frozen_active_tree(tmp_pat
     monkeypatch.setattr(CodexHarness, "run_episode", episode)
     monkeypatch.setattr(CodexHarness, "read_trace", lambda self, root, ep: [
         ActionEvent(turn=1, phase="act", tool="file_change", text="changed source")])
+    # This workspace fixture supplies no native Codex session. Keep its visible
+    # answer stub separate from the measurement trace, like the real adapter.
+    monkeypatch.setattr(CodexHarness, "read_response", lambda self, root, ep: 'completed fixture edit')
     registry = builtin_registry()
     recipe = stage_recipe()
     actor = ActorSpec(model="fixture-model", runtime=PluginSpec(
@@ -408,7 +411,7 @@ def test_coding_harness_actor_has_fresh_workspace_and_frozen_active_tree(tmp_pat
     recipe = replace(recipe, actors={"optimizer": actor}, budget=BudgetLimits(),
                      method=replace(recipe.method, options={**recipe.method.options, "iterations": 2}))
     result = run(recipe, registry, tmp_path / "run")
-    assert result.status == OperationStatus.COMPLETED
+    assert result.status == OperationStatus.COMPLETED, result.diagnostic
     assert len(seen) == 2 and seen[0] != seen[1]
     assert all(row["result"]["usage"]["model_calls"] is None for row in execution(tmp_path / "run")["actor_calls"])
 

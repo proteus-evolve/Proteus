@@ -17,23 +17,51 @@ on:
       - 'tests/check_native_source_docker.py'
       - 'tests/check_native_source_repair.py'
   workflow_dispatch:
+    inputs:
+      live_role_pilot:
+        description: Run one live DeepSeek Native and GEPA cycle per harness (paid, opt-in)
+        type: boolean
+        default: false
+      pilot_methods:
+        description: Which live minimum-cycle cells to run
+        type: choice
+        options: [both, native, gepa, pi-gepa-dsh-both, other-methods, other-recovery]
+        default: both
+      pilot_backends:
+        description: Harnesses for the opt-in pilot
+        type: choice
+        options: [both, pi, dsh, codex]
+        default: both
+
+      pilot_cells:
+        description: Comma-separated additional method cells (ace,combee-ace,meta,coral)
+        type: string
+        default: ace,combee-ace,meta,coral
+      codex_reuse_run_id:
+        description: Optional completed Codex pilot run whose verified fixed binaries can be reused
+        type: string
+        default: ''
+
+env:
+  PILOT_CELLS: ${{ inputs.pilot_cells || 'ace,combee-ace,meta,coral' }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: native-source-${{ github.ref }}
+  group: native-source-${{ github.ref }}-${{ inputs.pilot_backends || 'default' }}
   cancel-in-progress: true
 
 jobs:
   source:
+    if: inputs.pilot_backends != 'codex'
     name: Pinned native source (${{ matrix.backend }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        backend: [pi, dsh]
+        backend: ${{ fromJSON(inputs.pilot_backends == 'pi' && '["pi"]' || inputs.pilot_backends == 'dsh' && '["dsh"]' || '["pi","dsh"]') }}
     env:
       BACKEND: ${{ matrix.backend }}
       IMAGE: proteus-native-source:${{ matrix.backend }}
@@ -88,10 +116,351 @@ jobs:
           set -euo pipefail
           python tests/check_native_source_repair.py --backend "$BACKEND" --image "$IMAGE" --out "$OUT/repair" \
             2>&1 | tee "$OUT/repair-check.log"
+      - name: Add Python authoring tools for additional method pilots
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --build-arg BASE="$IMAGE" -f recipes/pilots/harness-roles/Dockerfile.python \
+            -t "$IMAGE-python" recipes/pilots/harness-roles
+          docker image inspect "$IMAGE-python" > "$OUT/authoring-image.json"
+          docker run --rm --entrypoint sh "$IMAGE-python" -c 'python3 --version; dpkg-query -W python3' > "$OUT/authoring-python.txt"
+          echo "IMAGE=$IMAGE-python" >> "$GITHUB_ENV"
+      - name: Install pinned GEPA for explicitly requested live role pilot
+        id: pilot_deps
+        if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
+        run: |
+          python - <<'CHECK'
+          import os
+          cells = os.environ['PILOT_CELLS'].split(',')
+          assert cells and len(cells) == len(set(cells)) and set(cells) <= {'ace', 'combee-ace', 'meta', 'coral'}
+          CHECK
+          pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+      - name: Live Native one-episode harness evolution
+        id: live_native
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
+            --backend "$BACKEND" --image "$IMAGE" --method native --out "$OUT/live-native" \
+            2>&1 | tee "$OUT/live-native.log"
+      - name: Live GEPA one-mutation harness policy evolution
+        id: live_gepa
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'native'
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1500 python recipes/pilots/harness-roles/run.py \
+            --backend "$BACKEND" --image "$IMAGE" --method gepa --out "$OUT/live-gepa" \
+            2>&1 | tee "$OUT/live-gepa.log"
+      - name: Live ace minimum cycle through coding harness
+        id: live_ace
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery') && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method ace --out "$OUT/live-ace" \
+            2>&1 | tee "$OUT/live-ace.log"
+      - name: Live combee-ace minimum cycle through coding harness
+        id: live_combee_ace
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery') && contains(format(',{0},', env.PILOT_CELLS), ',combee-ace,')
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method combee-ace --out "$OUT/live-combee-ace" \
+            2>&1 | tee "$OUT/live-combee-ace.log"
+      - name: Live meta minimum cycle through coding harness
+        id: live_meta
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery') && contains(format(',{0},', env.PILOT_CELLS), ',meta,')
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method meta --out "$OUT/live-meta" \
+            2>&1 | tee "$OUT/live-meta.log"
+      - name: Live coral minimum cycle through coding harness
+        id: live_coral
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods' && contains(format(',{0},', env.PILOT_CELLS), ',coral,')
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || exit 1
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend "$BACKEND" --image "$IMAGE" --method coral --out "$OUT/live-coral" \
+            2>&1 | tee "$OUT/live-coral.log"
+      - name: Require each selected live cell to pass
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
+        env:
+          NATIVE_OUTCOME: ${{ steps.live_native.outcome }}
+          ACE_OUTCOME: ${{ steps.live_ace.outcome }}
+          COMBEE_OUTCOME: ${{ steps.live_combee_ace.outcome }}
+          META_OUTCOME: ${{ steps.live_meta.outcome }}
+          CORAL_OUTCOME: ${{ steps.live_coral.outcome }}
+          GEPA_OUTCOME: ${{ steps.live_gepa.outcome }}
+          PILOT_METHODS: ${{ inputs.pilot_methods || 'both' }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          methods = os.environ['PILOT_METHODS']
+          if methods in ('other-methods', 'other-recovery'):
+              selected = ('ACE', 'COMBEE', 'META') + (('CORAL',) if methods == 'other-methods' else ())
+              requested = os.environ['PILOT_CELLS'].split(',')
+              names = {'ACE': 'ace', 'COMBEE': 'combee-ace', 'META': 'meta', 'CORAL': 'coral'}
+              selected = tuple(name for name in selected if names[name] in requested)
+              assert selected, 'No applicable cells selected'
+              for name in selected:
+                  if os.environ[name + '_OUTCOME'] != 'success':
+                      raise RuntimeError(name + ': selected live cell did not pass')
+              raise SystemExit(0)
+          native = methods != 'gepa' and (methods != 'pi-gepa-dsh-both' or os.environ['BACKEND'] == 'dsh')
+          gepa = methods != 'native'
+          for selected, name in ((native, 'NATIVE_OUTCOME'), (gepa, 'GEPA_OUTCOME')):
+              if selected and os.environ[name] != 'success':
+                  raise RuntimeError(f'{name}: {os.environ[name]}; selected live cell did not pass')
+          PY
+      - name: Exclude credential stores from live artifact upload and check for secret bytes
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ['OUT'])
+          key = os.environ.get('DEEPSEEK_API_KEY', '').encode()
+          # Native logs/receipts stay intact. Credential-store files are not evidence.
+          for path in root.rglob('*'):
+              if path.is_file() and path.name in ('auth.json', 'auth.yaml'):
+                  path.unlink()
+          for path in root.rglob('*'):
+              if path.is_file() and key and key in path.read_bytes():
+                  # Refuse uploading the entire artifact if any credential leaked.
+                  marker = root.parent / (root.name + '-secret-scan-failed')
+                  root.rename(marker)
+                  raise RuntimeError('Credential bytes detected; artifact upload disabled')
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: native-source-${{ matrix.backend }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/proteus-native-source-${{ matrix.backend }}/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  codex_roles:
+    name: Codex fixed-harness method pilots
+    if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_backends == 'codex' && inputs.pilot_methods == 'other-methods'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      actions: read
+    env:
+      OUT: /tmp/proteus-native-source-codex
+      IMAGE: proteus-codex-roles:pilot
+      CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+      CODEX_MODEL: gpt-5.4-mini
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check configured provider access without inference
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          test -n "$CODEX_API_KEY" && test -n "$DEEPSEEK_API_KEY"
+          mkdir -p "$OUT"
+          python - <<'CHECK'
+          import json, os, urllib.request
+          from pathlib import Path
+          cells = os.environ['PILOT_CELLS'].split(',')
+          assert cells and len(cells) == len(set(cells)) and set(cells) <= {'ace', 'combee-ace', 'meta', 'coral'}
+          request = urllib.request.Request('https://api.openai.com/v1/models/' + os.environ['CODEX_MODEL'],
+              headers={'Authorization': 'Bearer ' + os.environ['CODEX_API_KEY']})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              model = json.load(response)
+          assert model['id'] == os.environ['CODEX_MODEL']
+          Path(os.environ['OUT'], 'provider-model.json').write_text(json.dumps(model))
+          CHECK
+      - name: Install controller and pinned method dependency
+        run: |
+          pip install -e .
+          pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+      - name: Make room for pinned Rust production build
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h /
+      - name: Build existing production Codex image from fixed source
+        id: image
+        env:
+          REUSE_RUN_ID: ${{ inputs.codex_reuse_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$REUSE_RUN_ID" ]; then
+            [[ "$REUSE_RUN_ID" =~ ^[0-9]+$ ]]
+            gh api "repos/$GH_REPO/actions/runs/$REUSE_RUN_ID" > "$OUT/producer-run.json"
+            PRODUCER_SHA=$(python -c 'import json,os; print(json.load(open(os.environ["OUT"]+"/producer-run.json"))["head_sha"])')
+            gh run download "$REUSE_RUN_ID" --name "codex-method-pilots-$PRODUCER_SHA" --dir /tmp/codex-producer
+            python recipes/pilots/harness-roles/reuse_codex.py /tmp/codex-producer "$OUT/producer-run.json" /tmp/codex-reuse
+            cp /tmp/codex-reuse/reuse.json "$OUT/reuse.json"
+            cp environments/codex-src/boot.sh /tmp/codex-reuse/boot.sh
+            cp recipes/pilots/harness-roles/codex-fixed-boot.sh /tmp/codex-reuse/fixed-boot.sh
+            docker build --platform linux/amd64 --build-arg CODEX_REF="$CODEX_REF" \
+              --label "org.opencontainers.image.revision=$CODEX_REF" \
+              --label "proteus.runtime-scope=fixed-recovery" \
+              -f recipes/pilots/harness-roles/Dockerfile.codex-reuse -t "$IMAGE" /tmp/codex-reuse \
+              2>&1 | tee "$OUT/build.log"
+          else
+            docker build --platform linux/amd64 --build-arg CODEX_REF="$CODEX_REF" \
+              --build-arg CARGO_BUILD_JOBS=1 --label "org.opencontainers.image.revision=$CODEX_REF" \
+              -t "$IMAGE" environments/codex-src 2>&1 | tee "$OUT/build.log"
+          fi
+          docker image inspect "$IMAGE" > "$OUT/image.json"
+          docker run --rm --entrypoint sh "$IMAGE" -c '/opt/codex-target/release/codex --version; python3 --version' > "$OUT/runtime-versions.txt"
+          pip freeze > "$OUT/python-packages.txt"
+      - name: Probe native literal prompt parsing without credentials or network
+        id: literal_probe
+        if: inputs.codex_reuse_run_id != ''
+        run: |
+          python - <<'CHECK'
+          import json, os, subprocess
+          from pathlib import Path
+          base = ['docker', 'run', '--rm', '--network', 'none', '--entrypoint',
+              '/opt/codex-target/release/codex', os.environ['IMAGE'], 'exec',
+              '--json', '--skip-git-repo-check', '-c', 'pilot_missing_equals']
+          prompt = '---\nname: meta-harness\n---\nA literal task'
+          records = {}
+          for name, suffix in [('old', [prompt]), ('fixed', ['--', prompt])]:
+              result = subprocess.run(base + suffix, text=True, capture_output=True, timeout=45)
+              records[name] = {'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr}
+          Path(os.environ['OUT'], 'literal-parser-probe.json').write_text(json.dumps(records, indent=2))
+          assert records['old']['exit_code'] != 0 and 'unexpected argument' in records['old']['stderr'].lower()
+          assert records['fixed']['exit_code'] != 0 and 'pilot_missing_equals' in records['fixed']['stderr']
+          assert 'unexpected argument' not in records['fixed']['stderr'].lower()
+          CHECK
+      - name: Live Codex ace minimum cycle
+        id: live_ace
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',ace,')
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method ace --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-ace" 2>&1 | tee "$OUT/live-ace.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-ace"
+      - name: Live Codex combee-ace minimum cycle
+        id: live_combee_ace
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',combee-ace,')
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method combee-ace --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-combee-ace" 2>&1 | tee "$OUT/live-combee-ace.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-combee-ace"
+      - name: Live Codex meta minimum cycle
+        id: live_meta
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',meta,')
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method meta --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-meta" 2>&1 | tee "$OUT/live-meta.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-meta"
+      - name: Live Codex coral minimum cycle
+        id: live_coral
+        if: always() && !cancelled() && steps.image.outcome == 'success' && (inputs.codex_reuse_run_id == '' || steps.literal_probe.outcome == 'success') && contains(format(',{0},', env.PILOT_CELLS), ',coral,')
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method coral --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-coral" 2>&1 | tee "$OUT/live-coral.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-coral"
+      - name: Require all four selected cells to pass
+        if: always()
+        env:
+          ACE: ${{ steps.live_ace.outcome }}
+          COMBEE: ${{ steps.live_combee_ace.outcome }}
+          META: ${{ steps.live_meta.outcome }}
+          CORAL: ${{ steps.live_coral.outcome }}
+        run: |
+          python - <<'CHECK'
+          import os
+          names = {'ace': 'ACE', 'combee-ace': 'COMBEE', 'meta': 'META', 'coral': 'CORAL'}
+          assert all(os.environ[names[cell]] == 'success' for cell in os.environ['PILOT_CELLS'].split(','))
+          CHECK
+      - name: Remove credential stores and scan both provider secrets
+        if: always()
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python - <<'CHECK'
+          import os
+          from pathlib import Path
+          root = Path(os.environ['OUT'])
+          keys = [os.environ[k].encode() for k in ('CODEX_API_KEY', 'DEEPSEEK_API_KEY') if os.environ.get(k)]
+          for path in root.rglob('*'):
+              if path.is_file() and path.name in ('auth.json', 'auth.yaml'):
+                  path.unlink()
+          for path in root.rglob('*'):
+              if not path.is_file():
+                  continue
+              with path.open('rb') as stream:
+                  tail = b''
+                  while chunk := stream.read(1024 * 1024):
+                      data = tail + chunk
+                      if any(key in data for key in keys):
+                          root.rename(root.with_name(root.name + '-secret-scan-failed'))
+                          raise RuntimeError('Credential bytes detected; artifact upload disabled')
+                      tail = data[-max((len(key) for key in keys), default=1):]
+          CHECK
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codex-method-pilots-${{ github.sha }}
+          path: /tmp/proteus-native-source-codex/
+          compression-level: 1
           include-hidden-files: true
           if-no-files-found: error

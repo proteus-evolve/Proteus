@@ -94,6 +94,8 @@ def validate_subject(recipe, options, registry):
             'target role lacks harness.candidate_tree execution capability')
     require('actor.workspace' not in plugin.capabilities, 'target role must execute candidates, not a coding workspace')
     require(actor.session.value == 'fresh', 'harness trials require fresh target-role instances')
+    require(actor.prompt_hash is None,
+            'harness subject instructions must be part of its pinned candidate; static actor prompt_hash is unsupported')
     require(recipe.execution.timeout_seconds is None or 'request.timeout' in plugin.capabilities,
             'harness role cannot enforce the declared per-request execution timeout')
     require(subject.initial_artifact.codec.name in ('proteus.file_tree', 'proteus.text_components'),

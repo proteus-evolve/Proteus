@@ -224,6 +224,14 @@ def test_readonly_task_mount_paths_cannot_escape_or_follow_links(tmp_path):
         task_workspace_mounts(tmp_path,('link',))
 
 
+@pytest.mark.parametrize('image', ['sha256:' + 'a' * 64, 'example@sha256:' + 'b' * 64])
+def test_live_workspace_accepts_content_addressed_local_or_registry_image(tmp_path, image):
+    registry, recipe = configured(tmp_path)
+    actor = replace(recipe.actors['proposer'], runtime=plugin('proteus.workspace.pi',
+        image=image, network='bridge', phase_timeout_seconds=30), model='fixture')
+    registry.resolve(replace(recipe, actors={'proposer': actor}))
+
+
 def test_dsh_workspace_binds_requested_model_without_changing_legacy_selection(tmp_path, monkeypatch):
     from proteus.adapters.dsh import DshHarness
     from proteus.core.adapter import EpisodeSpec
@@ -261,7 +269,7 @@ def test_dsh_workspace_binds_requested_model_without_changing_legacy_selection(t
                 assert settings == {'agent-default-model': {'provider':'deepseek-official', 'model':self.expected}}
             from proteus.core.native_activation import FLAG, PREFIX, source_tree_hash
             assert command[:2] == [FLAG, source_tree_hash(root/'active/src')]
-            assert command[2:4] == ['--profile', 'headless'] and len(command) == 5
+            assert command[2:6] == ['--profile', 'headless', '--', '--'] and len(command) == 7
             stdout = PREFIX+json.dumps({'version': 1, 'backend': 'dsh', 'mode': 'pristine',
                 'source_sha256': command[1], 'cli_sha256': 'b'*64, 'boot_sha256': 'c'*64})+'\n'
             return subprocess.CompletedProcess(command, 0, stdout, '')
