@@ -63,9 +63,21 @@ def main() -> None:
         timing = "wall_seconds" if "wall_seconds" in receipt else "engine_wall_seconds"
         source = receipt.get("source_revision") or receipt["source"]["revision"]
         assert source == binding["sources"][0]["revision"]
-        row = {k: observation[k] for k in (
-            "profile", "baseline_correct", "optimized_correct", "tasks", "physical_calls",
-            "API_upper_USD_not_invoice")}
+        # The catalog locates receipts; it is not an authority for their metrics.
+        metrics = {
+            "baseline_correct": receipt["baseline_correct"],
+            "optimized_correct": receipt["online_correct"],
+            "tasks": receipt["denominator"],
+            "physical_calls": len(receipt["physical_http_pairs"]),
+            "API_upper_USD_not_invoice": (
+                receipt["known_api_cost_upper_USD"] if "known_api_cost_upper_USD" in receipt
+                else receipt["known_API_cost_upper_USD_not_invoice"]
+            ),
+        }
+        for metric, value in metrics.items():
+            if observation[metric] != value:
+                raise ValueError(f"Catalog metric disagrees with pinned receipt: {name}: {metric}")
+        row = {"profile": observation["profile"], **metrics}
         row.update({
             "receipt": name, "receipt_sha256": sha(path),
             "label": receipt["label"], "report_sha256": receipt["report_sha256"],

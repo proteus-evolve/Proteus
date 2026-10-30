@@ -68,8 +68,11 @@ does not establish equal runtime performance. No raw private bodies or credentia
 are published. All operations are local and read-only except writing this derived
 output; no provider, AWS or candidate execution occurs.
 
-This closes online elapsed *availability*, not automatically the R04 acceptance
-decision. See the [updated mechanism and comparison mapping](../../../V1_RELEASE_EVIDENCE_MAP.md#fixed-trace-and-comparison-evidence-mapping).
+Subsequent independent review accepts the four-arm adapted online table for R04's
+reporting subitem and the Combee portion of I14. R04's common frozen-trace comparison
+and the CORAL part of I14 remain open. The original generated JSON's `acceptance`
+string records the earlier pre-review disposition; its bytes are retained. See the
+[current mechanism and comparison mapping](../../../V1_RELEASE_EVIDENCE_MAP.md#fixed-trace-and-comparison-evidence-mapping).
 Frozen records are unchanged; missing offline continuous elapsed stays missing.
 
 Supplement validation: the four derived metric/config/source rows match the
@@ -78,3 +81,32 @@ original report hash matches. Frozen archive inspection again verifies 15 profil
 16 recipes and 182 files. Ruff and diff checks pass; local Markdown file targets
 resolve. Runtime code, frozen inputs and the original `evidence.json` are unchanged.
 No pytest suite or paid experiment was rerun for this documentation supplement.
+
+## Catalog-drift repair
+
+Review of `4e8e33c` found that the original extractor copied quality/cost values
+from an unpinned summary catalog while verifying only the linked receipt's hash.
+The [original failure](catalog-drift-before.json) is preserved: changing only the
+catalog emitted incorrect zero-valued observations despite valid original receipts.
+The committed table's original numbers were correct; this was a validation gap.
+
+The repaired reader derives baseline, online correctness, denominator, physical
+calls and either historical cost field directly from each hash-pinned receipt,
+then rejects any disagreement with the catalog before publishing output. The
+[repair validation](catalog-drift-validation.json) rechecks the original combined
+mutation. The [regression results](catalog-drift-checks.json) verify byte-identical
+output for the original evidence and reject 16 independent catalog-only changes
+(four metrics × four arms, covering both cost-field schemas), with no output file
+created for a rejected input. Original catalogs/receipts and the committed
+`combee-online-evidence.json` remain byte-identical.
+
+```sh
+python docs/validation/v1-20261030/release-scope/check_combee_online_readback.py \
+  --evidence-root /path/to/Proteus-v1-experiments \
+  --out /tmp/combee-online-readback-checks.json
+```
+
+The check mutates only a temporary catalog copy and reads original receipts through
+symlinks. It does not execute historical auditors, candidates, model calls or AWS
+operations. These are offline integrity regressions, not model experiments or
+the still-open common frozen-trace comparison.
