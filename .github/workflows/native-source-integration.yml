@@ -460,5 +460,6 @@ jobs:
         with:
           name: codex-method-pilots-${{ github.sha }}
           path: /tmp/proteus-native-source-codex/
+          compression-level: 1
           include-hidden-files: true
           if-no-files-found: error
