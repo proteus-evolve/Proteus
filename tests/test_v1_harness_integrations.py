@@ -117,7 +117,7 @@ def test_parallel_capability_is_explicit_and_does_not_include_continuous_roles(t
         futures = [pool.submit(runtime.execute, spec, ActorRequest(prompt=str(i)), tmp_path / str(i)) for i in range(2)]
         assert all(f.result().status == OperationStatus.COMPLETED for f in futures)
     assert len(instances) == 2 and instances[0] is not instances[1]
-    for name in ('pi', 'dsh'):
+    for name in ('pi', 'dsh', 'codex'):
         matrix = harness_support_matrix(registry)[name]
         assert 'actor.parallel' in matrix['actor']['capabilities']
         assert 'actor.parallel' in matrix['workspace']['capabilities']

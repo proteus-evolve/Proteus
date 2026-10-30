@@ -433,6 +433,40 @@ def test_model_phases_mount_only_the_active_publication_read_only(tmp_path):
         assert all(mount[1] != "/opt/proteus-bin" or mount[2] == "ro" for mount in mounts)
 
 
+def test_parallel_fresh_codex_calls_keep_auth_publications_and_receipts_separate(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from proteus.core.adapter import EpisodeSpec
+    from proteus.core.native_inputs import read_native_inputs
+    barrier = Barrier(2)
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            mounted = {m[1]: Path(m[0]) for m in mounts}
+            assert mounted['/state'] == root / '.codex-state'
+            assert mounted['/opt/proteus-bin'].is_relative_to(root / '.codex-builds')
+            auth = mounted['/state'] / 'codex-home/auth.json'
+            auth.write_text(root.name)
+            barrier.wait(timeout=10)
+            assert auth.read_text() == root.name
+            output = _jsonl({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': root.name}})
+            return subprocess.CompletedProcess(command, 0, output, '')
+
+    adapters = [_seeded_codex(tmp_path, Sandbox()) for _ in range(2)]
+    roots = [tmp_path / f'call-{i}' for i in range(2)]
+    for adapter, root in zip(adapters, roots):
+        adapter.seed(root / 'harness')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(adapter.run_episode, EpisodeSpec(root=root, episode=1,
+            model='fixture', phase_prompts={'act': root.name}, phases=('act',)))
+            for adapter, root in zip(adapters, roots)]
+        assert all(f.result().ok for f in futures)
+    for adapter, root in zip(adapters, roots):
+        assert adapter.read_response(root, 1) == root.name
+        assert len(read_native_inputs(root)) == 1
+    assert (tmp_path / 'fixture-auth.json').read_text() == '{}'
+
+
 def test_viable_rejected_candidate_does_not_change_next_active_publication(tmp_path):
     from proteus.core import EpisodeResult, EvaluatorSpec, GoalConfig, NEUTRAL
     from proteus.core.episode import RunConfig, run

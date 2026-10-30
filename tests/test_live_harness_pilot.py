@@ -64,25 +64,31 @@ def test_unrecognized_links_remain_rejected(tmp_path, pilot):
 
 
 @pytest.mark.parametrize('method', ('ace', 'combee-ace', 'meta', 'coral'))
-def test_additional_pilots_preflight_real_roles_and_lock_without_inference(tmp_path, method):
+@pytest.mark.parametrize('backend', ('pi', 'dsh', 'codex'))
+def test_additional_pilots_preflight_real_roles_and_lock_without_inference(tmp_path, method, backend):
     from proteus.recipes.manifest import SourcePin
     path = Path(__file__).parents[1] / 'recipes/pilots/harness-roles/other_methods.py'
     spec = importlib.util.spec_from_file_location('additional_harness_pilots', path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     registry, store, recipe = module.prepare(tmp_path / method, method=method,
-        model='deepseek-v4-flash', backend='pi', image='sha256:' + '1' * 64)
+        model='deepseek-v4-flash', backend=backend, image='sha256:' + '1' * 64,
+        harness_model='gpt-5.4-mini' if backend == 'codex' else None)
     source = SourcePin(name='proteus', repository='https://github.com/proteus-evolve/Proteus', revision='1' * 40)
     registry.make_lock(recipe, [source])
     assert all(not actor.runtime.plugin.name.startswith('example.') for actor in recipe.actors.values())
     assert any(e.visibility.value == 'hidden' for e in recipe.evaluations)
     assert not (tmp_path / method / 'run').exists()
     if method in ('ace', 'combee-ace'):
-        assert recipe.actors['generator'].runtime.plugin.name == 'proteus.harness.pi'
+        assert recipe.actors['generator'].runtime.plugin.name == f'proteus.harness.{backend}'
+        assert recipe.actors['generator'].model == ('gpt-5.4-mini' if backend == 'codex' else 'deepseek-v4-flash')
+        assert recipe.actors['reflector'].model == 'deepseek-v4-flash'
         assert recipe.subject.initial_artifact.codec.name == 'proteus.ace_playbook'
     elif method == 'meta':
-        assert recipe.actors['proposer'].runtime.plugin.name == 'proteus.workspace.pi'
+        assert recipe.actors['proposer'].runtime.plugin.name == f'proteus.workspace.{backend}'
         assert recipe.subject.runner.plugin.name == 'proteus.code_subject'
     else:
         assert recipe.workers[0].runtime.plugin.name == 'proteus.worker.command'
         assert 'coral_worker.py' in recipe.workers[0].runtime.options['command'][1]
+        assert recipe.workers[0].runtime.options['credential_env'] == (
+            ('CODEX_API_KEY',) if backend == 'codex' else ('DEEPSEEK_API_KEY',))

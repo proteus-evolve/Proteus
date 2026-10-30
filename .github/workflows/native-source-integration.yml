@@ -30,18 +30,19 @@ on:
       pilot_backends:
         description: Harnesses for the opt-in pilot
         type: choice
-        options: [both, pi, dsh]
+        options: [both, pi, dsh, codex]
         default: both
 
 permissions:
   contents: read
 
 concurrency:
-  group: native-source-${{ github.ref }}
+  group: native-source-${{ github.ref }}-${{ inputs.pilot_backends || 'default' }}
   cancel-in-progress: true
 
 jobs:
   source:
+    if: inputs.pilot_backends != 'codex'
     name: Pinned native source (${{ matrix.backend }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -243,5 +244,154 @@ jobs:
         with:
           name: native-source-${{ matrix.backend }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/proteus-native-source-${{ matrix.backend }}/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  codex_roles:
+    name: Codex fixed-harness method pilots
+    if: github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_backends == 'codex' && inputs.pilot_methods == 'other-methods'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      OUT: /tmp/proteus-native-source-codex
+      IMAGE: proteus-codex-roles:pilot
+      CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+      CODEX_MODEL: gpt-5.4-mini
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check configured provider access without inference
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          test -n "$CODEX_API_KEY" && test -n "$DEEPSEEK_API_KEY"
+          mkdir -p "$OUT"
+          python - <<'CHECK'
+          import json, os, urllib.request
+          from pathlib import Path
+          request = urllib.request.Request('https://api.openai.com/v1/models/' + os.environ['CODEX_MODEL'],
+              headers={'Authorization': 'Bearer ' + os.environ['CODEX_API_KEY']})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              model = json.load(response)
+          assert model['id'] == os.environ['CODEX_MODEL']
+          Path(os.environ['OUT'], 'provider-model.json').write_text(json.dumps(model))
+          CHECK
+      - name: Install controller and pinned method dependency
+        run: |
+          pip install -e .
+          pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+      - name: Make room for pinned Rust production build
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h /
+      - name: Build existing production Codex image from fixed source
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --build-arg CODEX_REF="$CODEX_REF" \
+            --build-arg CARGO_BUILD_JOBS=1 --label "org.opencontainers.image.revision=$CODEX_REF" \
+            -t "$IMAGE" environments/codex-src 2>&1 | tee "$OUT/build.log"
+          docker image inspect "$IMAGE" > "$OUT/image.json"
+          docker run --rm --entrypoint sh "$IMAGE" -c '/opt/codex-target/release/codex --version; python3 --version' > "$OUT/runtime-versions.txt"
+          pip freeze > "$OUT/python-packages.txt"
+      - name: Live Codex ace minimum cycle
+        id: live_ace
+        if: always() && steps.image.outcome == 'success'
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method ace --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-ace" 2>&1 | tee "$OUT/live-ace.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-ace"
+      - name: Live Codex combee-ace minimum cycle
+        id: live_combee_ace
+        if: always() && steps.image.outcome == 'success'
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method combee-ace --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-combee-ace" 2>&1 | tee "$OUT/live-combee-ace.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-combee-ace"
+      - name: Live Codex meta minimum cycle
+        id: live_meta
+        if: always() && steps.image.outcome == 'success'
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method meta --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-meta" 2>&1 | tee "$OUT/live-meta.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-meta"
+      - name: Live Codex coral minimum cycle
+        id: live_coral
+        if: always() && steps.image.outcome == 'success'
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30 1000 python recipes/pilots/harness-roles/other_methods.py \
+            --backend codex --image "$IMAGE" --method coral --harness-model "$CODEX_MODEL" \
+            --out "$OUT/live-coral" 2>&1 | tee "$OUT/live-coral.log"
+          python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-coral"
+      - name: Require all four selected cells to pass
+        if: always()
+        env:
+          ACE: ${{ steps.live_ace.outcome }}
+          COMBEE: ${{ steps.live_combee_ace.outcome }}
+          META: ${{ steps.live_meta.outcome }}
+          CORAL: ${{ steps.live_coral.outcome }}
+        run: |
+          python - <<'CHECK'
+          import os
+          assert all(os.environ[k] == 'success' for k in ('ACE', 'COMBEE', 'META', 'CORAL'))
+          CHECK
+      - name: Remove credential stores and scan both provider secrets
+        if: always()
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python - <<'CHECK'
+          import os
+          from pathlib import Path
+          root = Path(os.environ['OUT'])
+          keys = [os.environ[k].encode() for k in ('CODEX_API_KEY', 'DEEPSEEK_API_KEY') if os.environ.get(k)]
+          for path in root.rglob('*'):
+              if path.is_file() and path.name in ('auth.json', 'auth.yaml'):
+                  path.unlink()
+          for path in root.rglob('*'):
+              if not path.is_file():
+                  continue
+              with path.open('rb') as stream:
+                  tail = b''
+                  while chunk := stream.read(1024 * 1024):
+                      data = tail + chunk
+                      if any(key in data for key in keys):
+                          root.rename(root.with_name(root.name + '-secret-scan-failed'))
+                          raise RuntimeError('Credential bytes detected; artifact upload disabled')
+                      tail = data[-max((len(key) for key in keys), default=1):]
+          CHECK
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codex-method-pilots-${{ github.sha }}
+          path: /tmp/proteus-native-source-codex/
           include-hidden-files: true
           if-no-files-found: error

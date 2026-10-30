@@ -100,3 +100,33 @@ capability: only fresh actor/workspace roles inherit it; Native continuity and
 evolution roles do not. Built-in Pi/DSH use separate adapters, workspaces and
 container names. Local concurrent-call tests and the live Combee cell exercise
 these boundaries separately.
+
+## DSH and Codex expansion (pending live acceptance)
+
+The same four minimum cycles can be dispatched with `pilot_backends=dsh` or
+`pilot_backends=codex` and `pilot_methods=other-methods`. DSH uses the same
+DeepSeek configuration as Pi. Codex uses the existing production source image,
+source revision `a7b86b6201d35200280e3d24ca5ebccd8122d6ca`, and explicitly requests
+`gpt-5.4-mini` through the repository's existing OpenAI credential. The pinned
+Codex model catalog lists this model as API-supported. Managed reflector,
+curator and memory-system model roles still use `deepseek-v4-flash`; this is a
+mechanism check, not a controlled comparison between harnesses or models.
+
+Locally, supply `CODEX_API_KEY` (or `OPENAI_API_KEY`) and `DEEPSEEK_API_KEY`, and
+add `--backend codex --harness-model gpt-5.4-mini` to the command above. The
+CORAL bridge receives only the credential for its configured coding harness;
+the parent service retains its own managed-model configuration.
+
+Codex parallel capability is limited to fresh actor/workspace calls. Adapter
+instances, auth copies, sessions, binary publications and receipts are isolated
+per workspace. Offline concurrent tests cover these state boundaries; the live
+Combee cycle must independently pass before claiming live support.
+
+Codex builds its production Rust image once before all four cells. Previous
+release validation took about 147 minutes for this build; that infrastructure
+time is separate from method execution. After each successful completed-resume
+check, `compact_codex.py` replaces repeated fixed-runtime binary copies with
+size/SHA-256/source-hash manifests. Candidate programs, source snapshots,
+native traces, input/outcome receipts and usage remain. These compact artifacts
+are audit archives, not restartable working directories. Failed cells are not
+compacted. Unknown costs and failed-attempt usage remain in evidence.

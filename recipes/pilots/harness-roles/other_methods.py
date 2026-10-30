@@ -1,7 +1,7 @@
 """Live minimum cycles for ACE, Combee-ACE, Meta-Harness and CORAL.
 
 Synthetic mechanism checks, not benchmark reproductions. Each method retains its
-own candidate representation. A real Pi/DSH actor executes the relevant role.
+own candidate representation. A real Pi/DSH/Codex actor executes the relevant role.
 """
 
 import argparse
@@ -22,6 +22,8 @@ from proteus.recipes.export import report_run
 from proteus.recipes.manifest import SourcePin
 from proteus.recipes.runner import run_recipe
 
+CODEX_PIN = 'a7b86b6201d35200280e3d24ca5ebccd8122d6ca'
+
 
 def save(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
@@ -40,7 +42,7 @@ def harness(model, backend, image, *, workspace=False):
         max_turns=16, model_selection='framework'))
 
 
-def ace(root, *, method, model, backend, image):
+def ace(root, *, method, model, backend, image, harness_model=None):
     from proteus.examples.ace_playbook import prepare as prepare_ace, register as register_fixture
     from proteus.examples.combee_ace import prepare as prepare_combee
     from proteus.methods.ace.method import register as register_ace
@@ -80,7 +82,7 @@ def ace(root, *, method, model, backend, image):
             options=dict(w.operator.options, max_num_rounds=1, json_mode=False))) for w in workflows)
     recipe = replace(recipe, name=f'live-{backend}-{method}-one-cycle',
         method=replace(recipe.method, options=options),
-        actors={'generator': replace(harness(model, backend, image), budget=BudgetLimits(max_concurrency=2)),
+        actors={'generator': replace(harness(harness_model or model, backend, image), budget=BudgetLimits(max_concurrency=2)),
                 'reflector': replace(chat(model), budget=BudgetLimits(max_concurrency=2)),
                 'curator': replace(chat(model), budget=BudgetLimits(max_concurrency=2))},
         subject=replace(recipe.subject, initial_artifact=initial), evaluations=evaluations, workflows=workflows,
@@ -95,7 +97,7 @@ def ace(root, *, method, model, backend, image):
     return registry, store, recipe
 
 
-def meta(root, *, model, backend, image):
+def meta(root, *, model, backend, image, harness_model=None):
     from proteus.examples.meta_harness_fixture import prepare
     from proteus.methods.meta_harness.method import register
     registry = builtin_registry()
@@ -110,7 +112,7 @@ def meta(root, *, model, backend, image):
         for split in ('train', 'val', 'test')))
     data_path.write_text(data.to_json() + '\n')
     recipe = replace(recipe, name=f'live-{backend}-meta-one-iteration',
-        actors={'model': chat(model), 'proposer': replace(harness(model, backend, image, workspace=True),
+        actors={'model': chat(model), 'proposer': replace(harness(harness_model or model, backend, image, workspace=True),
             runtime=plugin(f'proteus.workspace.{backend}', image=image, network='bridge',
                 phase_timeout_seconds=480, max_turns=64, model_selection='framework'))},
         execution=replace(recipe.execution, timeout_seconds=180),
@@ -120,11 +122,11 @@ def meta(root, *, model, backend, image):
         reference=replace(recipe.reference, deviations=(*recipe.reference.deviations,
             'One synthetic example per split and one real coding proposer iteration; not benchmark quality.',
             'Candidate Python runs in managed local processes on an ephemeral CI runner; no isolation claim.',
-            'Pi/DSH is the coding proposer; generated memory programs call managed DeepSeek chat.')))
+            'Pi/DSH/Codex is the coding proposer; generated memory programs call managed DeepSeek chat.')))
     return registry, ArtifactStore(root / 'artifact-store', registry), recipe
 
 
-def coral(root, *, model, backend, image):
+def coral(root, *, model, backend, image, harness_model=None):
     from proteus.examples.coral_search import prepare, register
     from proteus.workers.records import CommandWorkerOptions
     registry = builtin_registry()
@@ -132,12 +134,13 @@ def coral(root, *, model, backend, image):
     recipe = load_recipe(prepare(root, workers=1))
     bridge = Path(__file__).with_name('coral_worker.py').resolve()
     actor_path = root / 'worker-actor.json'
-    actor_path.write_text(harness(model, backend, image, workspace=True).to_json() + '\n')
+    actor_path.write_text(harness(harness_model or model, backend, image, workspace=True).to_json() + '\n')
     command = (sys.executable, str(bridge), '--actor', str(actor_path))
     pins = (command[0], command[1], str(actor_path))
     runtime = plugin('proteus.worker.command', **CommandWorkerOptions(command=command,
         command_files={p: 'sha256:' + hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in pins},
-        credential_env=('DEEPSEEK_API_KEY',), timeout_seconds=650, shutdown_grace_seconds=10).to_dict())
+        credential_env=(('CODEX_API_KEY',) if backend == 'codex' else ('DEEPSEEK_API_KEY',)),
+        timeout_seconds=650, shutdown_grace_seconds=10).to_dict())
     recipe = replace(recipe, name=f'live-{backend}-coral-one-worker',
         workers=(replace(recipe.workers[0], runtime=runtime),),
         actors={'proposer': chat(model)},  # Worker service owns accounting; no hidden actor dispatch.
@@ -149,7 +152,7 @@ def coral(root, *, model, backend, image):
             'prompt': 'Review released feedback.'}])),),
         reference=replace(recipe.reference, deviations=(
             'Synthetic integer transformation, one real coding worker and two bounded submissions.',
-            'Command worker invokes fresh Pi/DSH coding workspaces; explicit files/feedback carry state.',
+            'Command worker invokes fresh Pi/DSH/Codex coding workspaces; explicit files/feedback carry state.',
             'The pilot bridge submits exact actor-produced files, not invented candidate code or scores.',
             'No persistent provider session, worker intervention, multi-worker cooperation or paper performance claim.')))
     return registry, ArtifactStore(root / 'artifact-store', registry), recipe
@@ -218,22 +221,30 @@ def verify(root, method):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--method', choices=('ace', 'combee-ace', 'meta', 'coral'), required=True)
-    parser.add_argument('--backend', choices=('pi', 'dsh'), default='pi')
+    parser.add_argument('--backend', choices=('pi', 'dsh', 'codex'), default='pi')
     parser.add_argument('--image', required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--model', default='deepseek-v4-flash')
+    parser.add_argument('--harness-model', help='Coding harness model; required separately for Codex')
     args = parser.parse_args()
     root = args.out.resolve()
     require(not root.exists(), 'fresh run required; never replay uncertain dispatches blindly')
     require(bool(os.environ.get('DEEPSEEK_API_KEY')), 'missing provider key')
+    if args.backend == 'codex':
+        require(bool(args.harness_model), 'Codex needs an explicit separate harness model')
+        require(bool(os.environ.get('CODEX_API_KEY') or os.environ.get('OPENAI_API_KEY')), 'missing Codex API key')
+        os.environ.setdefault('CODEX_API_KEY', os.environ.get('OPENAI_API_KEY', ''))
     image = json.loads(subprocess.check_output(['docker', 'image', 'inspect', args.image], text=True))[0]
     from run import PINS
-    require(image['Config']['Labels']['org.opencontainers.image.revision'] == PINS[args.backend], 'upstream pin differs')
+    pins = dict(PINS, codex=CODEX_PIN)
+    require(image['Config']['Labels']['org.opencontainers.image.revision'] == pins[args.backend], 'upstream pin differs')
     head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    evidence = dict(method=args.method, backend=args.backend, image_id=image['Id'], source_revision=PINS[args.backend],
-        proteus_head=head, requested_model=args.model, started_utc=datetime.now(timezone.utc).isoformat(), status='started')
+    evidence = dict(method=args.method, backend=args.backend, image_id=image['Id'], source_revision=pins[args.backend],
+        proteus_head=head, requested_model=args.model, harness_model=args.harness_model or args.model,
+        started_utc=datetime.now(timezone.utc).isoformat(), status='started')
     try:
-        registry, store, recipe = prepare(root, method=args.method, model=args.model, backend=args.backend, image=image['Id'])
+        registry, store, recipe = prepare(root, method=args.method, model=args.model, backend=args.backend,
+            image=image['Id'], harness_model=args.harness_model)
         lock = registry.make_lock(recipe, [SourcePin(name='proteus', repository='https://github.com/proteus-evolve/Proteus', revision=head)])
         (root / 'lock.json').write_text(lock.to_json() + '\n')
         save(root / 'evidence.json', evidence)
