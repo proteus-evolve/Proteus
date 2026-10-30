@@ -103,6 +103,27 @@ def _seeded_codex(tmp_path, sandbox):
     return SeededCodex(auth_file=auth, sandbox=sandbox)
 
 
+def test_dash_prefixed_prompt_is_a_literal_cli_argument(tmp_path):
+    from proteus.core.adapter import EpisodeSpec
+    from proteus.core.native_inputs import read_native_inputs
+
+    commands = []
+    prompt = '---\nname: meta-harness\n---\nWrite a candidate.'
+
+    class Sandbox:
+        def run(self, root, command, env, timeout_s, mounts=(), stop_check=None):
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0, '', '')
+
+    adapter = _seeded_codex(tmp_path, Sandbox())
+    root = tmp_path / 'run'
+    adapter.seed(root / 'harness')
+    assert adapter.run_episode(EpisodeSpec(root=root, episode=1, model='fixture-model',
+        phases=('act',), phase_prompts={'act': prompt})).ok
+    assert commands[0][-2:] == ['--', prompt]
+    assert read_native_inputs(root)[0]['input']['payload'] == commands[0]
+
+
 def test_multifile_patch_spends_one_call_in_budget_measurement_and_progress(tmp_path):
     from proteus.core import EvaluatorSpec, GoalConfig, NEUTRAL
     from proteus.core.episode import RunConfig, run

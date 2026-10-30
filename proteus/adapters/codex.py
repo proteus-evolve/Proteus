@@ -537,7 +537,9 @@ class CodexHarness:
             model = spec.model or self.model
             if model:
                 command += ["--model", model]
-            command += [prompt]
+            # A task can start with YAML '---' or another option-like string.
+            # Keep it literal for the native CLI's positional prompt parser.
+            command += ['--', prompt]
 
             fired = [False]
             def stop_check():

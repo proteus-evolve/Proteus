@@ -198,3 +198,10 @@ To retry only these rejected cells, dispatch with `pilot_backends=dsh`,
 validates the cell list and requires each selected cell to pass. Accepted ACE
 and CORAL cells are not repeated. Results from distinct commits remain separately
 bound evidence and do not form a same-SHA release gate.
+
+The pinned Codex `exec` CLI also declares a positional prompt without accepting
+hyphen-prefixed values. The adapter now inserts one `--` separator before its
+literal prompt. A new boundary regression fails on the prior command and passes
+after the change; related regressions passed 126 tests with one environment skip.
+This is separate from DSH's two-parser fix. Run `40993578545` retains its original
+`44380da` source; the newer delimiter change is not retroactively credited to it.
