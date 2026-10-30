@@ -4,6 +4,9 @@ These are **live synthetic mechanism checks**, distinct from the frozen research
 studies and the Native/GEPA results in `RESULTS.md`. A configuration that passes
 preflight is not an accepted live pilot. Each cell must retain its own outcome.
 
+See [audited results](ADDITIONAL_RESULTS.md) for accepted cells, unchanged scores,
+selected versus last candidates, and the preserved first-attempt failures.
+
 | Cell | Optimized candidate | Real coding harness role | Minimum cycle |
 | --- | --- | --- | --- |
 | ACE | Typed playbook | Generator executes tasks with the current playbook rendered in its prompt | One training sample, reflection, curation, subsequent validation and private test |

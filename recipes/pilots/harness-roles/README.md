@@ -8,6 +8,11 @@ a matched reproduction of any paper. No tool action or model reply is mocked.
 See [`RESULTS.md`](RESULTS.md) for source-bound outcomes, original failures and
 acceptance boundaries; [`results.json`](results.json) contains compact evidence.
 
+Additional Pi pilots for ACE, Combee-ACE, Meta-Harness and CORAL are described in
+[`OTHER_METHODS.md`](OTHER_METHODS.md), with audited outcomes in
+[`ADDITIONAL_RESULTS.md`](ADDITIONAL_RESULTS.md). Their role and source boundaries
+are distinct from the four Native/GEPA cells below.
+
 ## Four cells
 
 | Target harness | Method | Optimized artifact | Acceptance |
