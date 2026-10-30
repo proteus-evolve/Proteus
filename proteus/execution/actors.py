@@ -222,7 +222,9 @@ class HarnessActor:
         active = None
         if getattr(adapter, "staged_activation", False):
             active = workspace / "active"
-            shutil.copytree(harness, active)
+            # Preserve the pinned source identity. Dereferencing upstream aliases
+            # changes its hash and needlessly rebuilds a fixed runtime on every call.
+            shutil.copytree(harness, active, symlinks=True)
         prompt = (request.system + "\n\n" if request.system else "") + request.prompt
         started = time.monotonic()
         result, trace, failure, response_text = None, (), None, ""

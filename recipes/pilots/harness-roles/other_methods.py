@@ -218,6 +218,25 @@ def verify(root, method):
                     'rows': [{'task': r['task_id'], 'score': r['score']} for r in b['rows']]} for b in batches]}
 
 
+def verify_fixed_runtime(root, backend, expected_hash):
+    witnesses = []
+    if backend == 'codex':
+        for path in (root / 'run').rglob('ep001-runtime.json'):
+            value = json.loads(path.read_text())
+            require(value['active_source_sha256'] == expected_hash, 'fixed Codex source identity changed')
+            witnesses.append({'path': path.relative_to(root).as_posix(), **value})
+    else:
+        for path in (root / 'run').rglob('*.outcome.json'):
+            if path.parent.name != 'native-inputs':
+                continue
+            value = json.loads(path.read_text()).get('activation')
+            require(value and value['backend'] == backend and value['source_sha256'] == expected_hash
+                    and value['mode'] == 'pristine', 'fixed runtime missed its pinned pristine activation')
+            witnesses.append({'path': path.relative_to(root).as_posix(), **value})
+    require(witnesses, 'no fixed-runtime activation witnesses')
+    return witnesses
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--method', choices=('ace', 'combee-ace', 'meta', 'coral'), required=True)
@@ -233,14 +252,19 @@ def main():
     if args.backend == 'codex':
         require(bool(args.harness_model), 'Codex needs an explicit separate harness model')
         require(bool(os.environ.get('CODEX_API_KEY') or os.environ.get('OPENAI_API_KEY')), 'missing Codex API key')
-        os.environ.setdefault('CODEX_API_KEY', os.environ.get('OPENAI_API_KEY', ''))
+        os.environ['CODEX_API_KEY'] = os.environ.get('CODEX_API_KEY') or os.environ.get('OPENAI_API_KEY', '')
     image = json.loads(subprocess.check_output(['docker', 'image', 'inspect', args.image], text=True))[0]
     from run import PINS
     pins = dict(PINS, codex=CODEX_PIN)
     require(image['Config']['Labels']['org.opencontainers.image.revision'] == pins[args.backend], 'upstream pin differs')
+    source_marker = '/opt/codex-source.sha256' if args.backend == 'codex' else '/opt/pristine-hash'
+    pristine = subprocess.check_output(['docker', 'run', '--rm', '--network', 'none', '--entrypoint',
+        'cat', image['Id'], source_marker], text=True).strip()
+    require(len(pristine) == 64 and all(c in '0123456789abcdef' for c in pristine), 'invalid image source marker')
     head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     evidence = dict(method=args.method, backend=args.backend, image_id=image['Id'], source_revision=pins[args.backend],
         proteus_head=head, requested_model=args.model, harness_model=args.harness_model or args.model,
+        pristine_source_sha256=pristine,
         started_utc=datetime.now(timezone.utc).isoformat(), status='started')
     try:
         registry, store, recipe = prepare(root, method=args.method, model=args.model, backend=args.backend,
@@ -252,6 +276,7 @@ def main():
         save(root / 'result.json', result.to_dict())
         require(result.status.value == 'completed', result.diagnostic)
         evidence.update(verify(root, args.method))
+        evidence['fixed_runtime_witnesses'] = verify_fixed_runtime(root, args.backend, pristine)
         before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (root / 'run').rglob('*.input.json')}
         before_workers = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (root / 'run').rglob('dispatch.json')}
         resumed = run_recipe(recipe, registry=registry, lock=lock, root=root / 'run', artifact_source=store.root, resume=True)

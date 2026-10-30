@@ -17,10 +17,12 @@ def compact(root):
         for path in directory.glob('*/*'):
             if path.name not in ('codex', 'codex-code-mode-host') or not path.is_file() or path.is_symlink():
                 continue
+            digest = hashlib.sha256()
             with path.open('rb') as stream:
-                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                    digest.update(chunk)
             entries.append({'path': path.relative_to(root).as_posix(), 'size_bytes': path.stat().st_size,
-                'sha256': digest, 'source_hash': path.parent.name})
+                'sha256': digest.hexdigest(), 'source_hash': path.parent.name})
     manifest = {'purpose': 'Post-verification audit archive; repeated fixed-runtime binaries omitted.',
         'image_id': evidence['image_id'], 'source_revision': evidence['source_revision'], 'binaries': entries}
     (root / 'omitted-runtime-binaries.json').write_text(json.dumps(manifest, indent=2) + '\n')

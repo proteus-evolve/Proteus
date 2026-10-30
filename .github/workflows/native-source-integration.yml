@@ -120,7 +120,7 @@ jobs:
         run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
       - name: Live Native one-episode harness evolution
         id: live_native
-        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'gepa' && (inputs.pilot_methods != 'pi-gepa-dsh-both' || matrix.backend == 'dsh')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -132,7 +132,7 @@ jobs:
             2>&1 | tee "$OUT/live-native.log"
       - name: Live GEPA one-mutation harness policy evolution
         id: live_gepa
-        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'native'
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods != 'other-recovery' && inputs.pilot_methods != 'other-methods' && inputs.pilot_methods != 'native'
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -144,7 +144,7 @@ jobs:
             2>&1 | tee "$OUT/live-gepa.log"
       - name: Live ace minimum cycle through coding harness
         id: live_ace
-        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -156,7 +156,7 @@ jobs:
             2>&1 | tee "$OUT/live-ace.log"
       - name: Live combee-ace minimum cycle through coding harness
         id: live_combee_ace
-        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -168,7 +168,7 @@ jobs:
             2>&1 | tee "$OUT/live-combee-ace.log"
       - name: Live meta minimum cycle through coding harness
         id: live_meta
-        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && (inputs.pilot_methods == 'other-methods' || inputs.pilot_methods == 'other-recovery')
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -180,7 +180,7 @@ jobs:
             2>&1 | tee "$OUT/live-meta.log"
       - name: Live coral minimum cycle through coding harness
         id: live_coral
-        if: always() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
+        if: always() && !cancelled() && steps.pilot_deps.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.live_role_pilot && inputs.pilot_methods == 'other-methods'
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
@@ -300,7 +300,7 @@ jobs:
           pip freeze > "$OUT/python-packages.txt"
       - name: Live Codex ace minimum cycle
         id: live_ace
-        if: always() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success'
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -313,7 +313,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-ace"
       - name: Live Codex combee-ace minimum cycle
         id: live_combee_ace
-        if: always() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success'
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -326,7 +326,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-combee-ace"
       - name: Live Codex meta minimum cycle
         id: live_meta
-        if: always() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success'
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -339,7 +339,7 @@ jobs:
           python recipes/pilots/harness-roles/compact_codex.py "$OUT/live-meta"
       - name: Live Codex coral minimum cycle
         id: live_coral
-        if: always() && steps.image.outcome == 'success'
+        if: always() && !cancelled() && steps.image.outcome == 'success'
         env:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY || secrets.OPENAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}

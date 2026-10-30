@@ -14,6 +14,38 @@ from proteus.recipes.config import ActorSpec, PluginSpec
 from proteus.core.contracts import PluginRef
 
 
+def test_fresh_staged_actor_preserves_source_symlinks_and_pristine_hash(tmp_path):
+    class LinkedSeed:
+        supports_custom_phases = staged_activation = True
+        continuity_mode = 'framework'
+
+        def seed(self, root, seed):
+            source = root / 'src'
+            (source / 'real').mkdir(parents=True)
+            (source / 'real/tool.py').write_text('pinned source')
+            (source / 'tool.py').symlink_to('real/tool.py')
+            (source / 'alias').symlink_to('real', target_is_directory=True)
+
+        def run_episode(self, spec):
+            source = spec.root / 'harness/src'
+            active = spec.active_root / 'src'
+            assert CodexHarness._source_hash(active) == CodexHarness._source_hash(source), 'source identity changed during activation copy'
+            assert (active / 'tool.py').is_symlink() and (active / 'alias').is_symlink()
+            return EpisodeResult(episode=1, ok=True, turns=0)
+
+        def read_trace(self, *args):
+            return ()
+
+        def read_response(self, *args):
+            return 'ok'
+
+    runtime = HarnessActor('codex', HarnessOptions())
+    runtime.adapter = lambda spec: LinkedSeed()
+    actor = ActorSpec(model='fixture', runtime=PluginSpec(plugin=PluginRef(name='proteus.harness.codex', version='1')))
+    result = runtime.execute(actor, ActorRequest(prompt='Use the fixed runtime.'), tmp_path)
+    assert result.text == 'ok', result.diagnostic
+
+
 @pytest.mark.parametrize('backend', ('pi', 'dsh', 'codex'))
 def test_native_final_response_preserves_long_json_without_progress_or_reasoning(tmp_path, monkeypatch, backend):
     answer = json.dumps({'reasoning': 'visible explanation ' * 100, 'final_answer': 'ALPHA'})

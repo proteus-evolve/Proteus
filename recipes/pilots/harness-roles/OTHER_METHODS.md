@@ -130,3 +130,20 @@ size/SHA-256/source-hash manifests. Candidate programs, source snapshots,
 native traces, input/outcome receipts and usage remain. These compact artifacts
 are audit archives, not restartable working directories. Failed cells are not
 compacted. Unknown costs and failed-attempt usage remain in evidence.
+
+The first DSH/Codex expansion attempts (`40992089467` / `40992536635`) were
+stopped after detecting an activation-copy defect: generic actors dereferenced
+upstream source symlinks while copying the fixed harness to its active tree.
+That changes the source hash and can trigger an unnecessary rebuild on every
+actor invocation. A new source-identity regression failed before the fix and
+passes when `copytree(..., symlinks=True)` preserves the pinned source. The
+affected regression suite passed 75 tests with one environment skip. Codex was
+still building its image and had not reached live method steps. DSH had entered
+ACE; its partial provider usage remains unknown, not zero.
+
+New attempts additionally check every native activation: Pi/DSH must report
+the image's exact pristine source hash and `pristine` mode; Codex runtime
+publications must match its image's source marker. Workflow live-step conditions
+also refuse starting further cells after cancellation. Historical Pi results
+retain their original source bindings and have not been silently revalidated
+against this change.
