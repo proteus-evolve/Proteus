@@ -309,8 +309,9 @@ def verify(out, manifest=HERE / "trace.json"):
     tree = subprocess.check_output(["git", "rev-parse", f"{source.revision}:proteus"], cwd=REPO, text=True).strip()
     require(tree == report["runtime_tree"], "source commit/runtime tree mismatch")
     for filename, expected_hash in (("run.py", report["runner_sha256"]), ("trace.json", report["trace_sha256"])):
-        committed = subprocess.check_output(["git", "show", f"{source.revision}:recipes/validation/combee-shared-trace/{filename}"], cwd=REPO)
-        require(hashlib.sha256(committed).hexdigest() == expected_hash, "fixture bytes differ from source commit")
+        committed = subprocess.run(["git", "show", f"{source.revision}:recipes/validation/combee-shared-trace/{filename}"], cwd=REPO, capture_output=True)
+        require(committed.returncode == 0, "source commit lacks frozen fixture")
+        require(hashlib.sha256(committed.stdout).hexdigest() == expected_hash, "fixture bytes differ from source commit")
     registry = builtin_registry()
     register(registry)
     for arm in report["arms"]:
