@@ -149,12 +149,13 @@ proteus recipe resume "$PROTEUS_EXAMPLE/recipe.json" \
 proteus recipe export "$PROTEUS_EXAMPLE/run" --out "$PROTEUS_EXAMPLE/export"
 ```
 
-This creates immutable candidates, evaluates them, selects a final candidate and
-exports `report.json` plus eight CSV tables. The completed resume reuses settled
-work. Private final scores require an owner-side export with `--include-private`.
-The example uses fixed candidates to demonstrate the pipeline; it is not a model
-improvement result. See the [catalog](docs/V1_RECIPE_CATALOG.md) for method examples
-and benchmark preparation instructions.
+This creates two immutable, fixed candidates, evaluates each and exports
+`report.json` plus eight CSV tables. The completed resume reuses settled
+work. Private test scores require an owner-side export with `--include-private`.
+This offline fixture demonstrates the pipeline; it is not a model improvement
+result. The separate [search-policy example](docs/V1_RECIPE_CATALOG.md#replace-a-final-selector-without-changing-the-engine)
+demonstrates candidate selection. See the [catalog](docs/V1_RECIPE_CATALOG.md) for
+method examples and benchmark preparation instructions.
 
 To try the interactive viewer, generate a small **Native sweep** in the same environment:
 
