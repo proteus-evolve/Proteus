@@ -316,10 +316,10 @@ P10w 工程验收：通用 HTTP ChatActor 在响应格式校验失败时保留�
 P10u 工程验收：为内置 minimal/单请求 HTTP native recipe 接入 run/actor 两层模型调用预留，调用回执落盘后再结算；未知用量保留预留，恢复补结算或停止不确定调用，不自动补发额度。内置纯 evaluator 为零推理；不透明 backend、benchmark evaluator 和有限费用/时长仍拒绝不支持的限额。导出交叉核验预算账本与逐次回执；完整 Python 矩阵、Linux wheel/sdist 的实际 HTTP/预算/恢复检查及 Harbor 原始证据已通过，见 [PR #99](https://github.com/proteus-evolve/Proteus/pull/99)。此范围不代表 I09 整体完成，详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets)。
 
 - [x] 建立运行事件和用量账本，记录 operation、attempt、stage、worker 和 trial（P04a–P09h 的受管理 actor、subject、grader、build、cohort、workflow 与 worker 代际；native 不透明调用的完整覆盖仍在下一项）。
-- [ ] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（P04a–P10h 已覆盖受管理角色、build、profiling、并行分支及 worker 代际并去重；native 完整汇总和不透明 backend 用量仍未完成，unknown 不转为零）。
-- [ ] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（P04a/P08/P09 已接入 stage/workflow、并行评测和持久 worker 的共享预留与结算；native 和不透明 backend 的完整成本限制仍须补齐，不支持的有限限额必须拒绝）。
+- [x] 汇总优化者、反思者、curator、subject、grader、profiling 与重试的实际用量（November 1 独立 review 接受已声明可观察边界：受管理角色及 native 已报告 tokens/known subtotals 去重汇总；不透明调用量与成本保持 null，不承诺不可观察的完整计费。逐项证据见 [I09 disposition](../V1_FINAL_ACCEPTANCE.md#i09-disposition-of-the-three-earlier-unchecked-items)）。
+- [x] 并发调用预留预算并结算，未返回的用量保持 unknown，不能记录成零（November 1 独立 review 接受共享 run/role 账本及明确的能力边界：不支持的有限限额在 dispatch 前拒绝；terminal unknown usage 保留预算额但可释放并发 slot，外部结果不确定则保留 unsettled reservation/slot 等待 reconciliation。见 [I09 disposition](../V1_FINAL_ACCEPTANCE.md#i09-disposition-of-the-three-earlier-unchecked-items)）。
 - [x] 检查点包含 artifact、archive、MethodState、采样游标、随机状态、配置 hash 及待完成操作（P04d 保存服务快照、archive DataRef、方法 payload 与未完成评估请求；具体 archive 策略随 I07 接入）。
-- [ ] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略（P04d 已实现有序恢复、结果复用和不确定操作停止/报告；P04e 接回独立完成且有绑定回执的 Harbor worker，活 worker 保持运行和预算；无回执调用、未确认构建及其他 backend 策略仍需补齐）。
+- [x] 恢复复用已提交结果；不重复提交已完成的评估，不补发预算；外部副作用不确定时记录 attempt 并使用明确的恢复策略（November 1 独立 review 接受已提交结果复用、Harbor 独立完成回执 reconciliation，以及未知外部结果停止/保留 reservation 的显式策略；不承诺无回执时自动补发。配置/source/lock 漂移拒绝 resume。见 [I09 disposition](../V1_FINAL_ACCEPTANCE.md#i09-disposition-of-the-three-earlier-unchecked-items)）。
 - [x] 保留 native 的运行锁、候选修复和配置一致性检查（native 继续使用原事务引擎，P04d journal 单独显式启用并保持回归）。
 
 **验收：** 在候选生成、评估完成与结果提交等边界注入中断，能够恢复且账本一致；并发预算预留有效；修改实验条件不会伪装成续跑。
@@ -619,11 +619,11 @@ an explicit maintainer decision, not a new label.
 
 - [ ] I01–I15 的验收记录齐全，R00 与 R01–R05 均完成对应范围。
 - [ ] 每个 recipe 有版本锁、运行说明、机制核对、支持矩阵、真实结果与偏差说明。
-- [ ] 公共 API 与配置 schema 定义稳定，插件扩展教程通过实际验证。
+- [x] 公共 API 与配置 schema 定义稳定，插件扩展教程通过实际验证（November 1 冻结 100 exports/64 Contract schemas；wheel/sdist 仓库外模板执行与独立回验见 [preparation record](../V1_FINAL_ACCEPTANCE.md)）。
 - [ ] 原有功能回归通过；不支持的 adapter 能力被明确拒绝或限制。
 - [ ] 全局预算、检查点与恢复验证通过；持久 session 降级有记录。
 - [ ] 已保存的逐任务记录可重新汇总为报告中的表与曲线。
-- [ ] wheel、sdist 和可选依赖在新环境安装验证通过。
+- [x] wheel、sdist 和可选依赖在新环境安装验证通过（clean 9807a41 的未发布 1.0.0 artifacts；261 Python sources 逐字节一致，22 项仓库外检查通过；后续 production/build 输入未变。正式 tag 产物仍需按发布流程重建并验证）。
 - [ ] README、架构、recipe、迁移与 1.0.0 release notes 同步。
 - [ ] 对实际发布提交运行既有和新增的 release gates；需要的 live 检查不以静默 skip 代替。
 - [ ] 设置版本、打 tag 和发布按仓库发布流程执行；计划文档落地不代表已经发布 1.0.0。
