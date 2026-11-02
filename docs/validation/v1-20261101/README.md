@@ -58,3 +58,8 @@ required source jobs and the original artifact ZIP hashes. Per-backend original
 activation/repair evidence and distinct controller process records are retained.
 These are real source-built Docker harnesses with a deterministic provider, not
 the separate paid full-smoke gate.
+
+`native-source/independent-readback.json` records the separate reviewer's rehash
+of both original ZIPs and four successful source/repair verifier invocations.
+The review reconstructed archived Git checkpoints without Docker dispatch or
+provider calls; it accepts this preparation source gate only.

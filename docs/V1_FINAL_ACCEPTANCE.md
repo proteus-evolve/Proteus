@@ -105,7 +105,10 @@ validate supported adapters; they do not claim access to hidden provider billing
   source/image bindings, actual read/write witnesses, changed compiled activation,
   broken-source rejection and three distinct controller processes for repair/resume.
   Provider responses in this gate are deterministic fixtures. The optional Codex
-  role pilot was disabled by input; no required source job was skipped.
+  role pilot was disabled by input; no required source job was skipped. The
+  [independent readback](validation/v1-20261101/native-source/independent-readback.json)
+  rehashed both original ZIPs and passed all four source/repair verifiers using
+  reconstructed archived Git checkpoints, without new Docker or provider dispatch.
 - Prepare complete release-smoke: run `41390453875`, same `9807a41` source;
   required offline/minimal/LLM/Pi/DSH/Codex outcomes remain pending.
 
