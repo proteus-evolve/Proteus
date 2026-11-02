@@ -17,6 +17,7 @@
 </p>
 
 <p align="center">
+  <a href="#use-proteus-with-your-agent">Agent Skills</a> •
   <a href="#recipe-quick-start">Quick Start</a> •
   <a href="#harness-agnostic-by-design">Harnesses</a> •
   <a href="#method-families">Methods & Composition</a> •
@@ -55,6 +56,69 @@ method, agent runtime and evaluation protocol independently configurable.
 </p>
 
 https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
+
+## Use Proteus with your agent
+
+Give your coding agent the goal; let it configure the harnesses, method and evaluators,
+run the experiment, then explain the evidence. Proteus includes two companion
+**Agent Skills** in this repository:
+
+| Skill | Use it to |
+| --- | --- |
+| [`proteus-use`](skills/proteus-use/SKILL.md) | Choose or compose a method, bind harness roles, configure evaluation, run/resume experiments, export results and visualize Native sweeps |
+| [`proteus-contribute`](skills/proteus-contribute/SKILL.md) | Extend methods, stages, harnesses, evaluators and other framework components through the public contracts; validate and prepare a contribution |
+
+The contribution skill is **optional guidance**, not a requirement for submitting
+a PR. Both skills use `SKILL.md` instructions, with optional Codex display metadata;
+the workflows are not tied to Codex as the experiment's harness.
+
+### Install and invoke a skill
+
+In Codex, ask the built-in skill installer to install the usage skill from this
+preparation branch:
+
+```text
+$skill-installer install the skill at skills/proteus-use from
+proteus-evolve/Proteus, ref codex/v1-final-acceptance-20261101.
+```
+
+For framework development, install `skills/proteus-contribute` the same way.
+After installation, select the skill or invoke it by name. See the
+[Codex skill documentation](https://learn.chatgpt.com/docs/build-skills) for local
+discovery and installation behavior.
+
+With another agent, copy the selected skill folder into that agent's supported
+skills directory. An agent that can read files and run shell commands can also
+read `skills/proteus-use/SKILL.md` directly from a Proteus checkout. The skills
+are distributed through Git, separately from the Python wheel; use the same
+tag or commit as your Proteus checkout. Install the Python package using the
+[quick start](#recipe-quick-start) below, or ask your agent to do so.
+
+Try this first:
+
+```text
+Use $proteus-use to set up Proteus and run its offline candidate-comparison
+example. Check recovery, export the results, then create a small Native demo
+and open the visualization. Use no API calls or Docker.
+```
+
+For an experiment with your own agent:
+
+```text
+Use $proteus-use to improve my harness on the attached tasks. Compare Native
+self-evolution with a compatible method using a separate coding proposer.
+Keep the same visible/hidden split and external evaluator, explain which
+combinations are supported, and prepare a minimal pilot for each. Show me
+the exact recipes and resource estimates before starting paid runs.
+```
+
+For a contribution:
+
+```text
+Use $proteus-contribute to add a typed self-evaluation stage as an external
+plugin. Demonstrate that a later stage consumes its output, keep the external
+task score separate, and run the scaffold's offline checks.
+```
 
 ## Recipe quick start
 
@@ -265,6 +329,7 @@ Exact upstream pins and deviations are in [method references](docs/METHOD_REFERE
 
 | Start here | Extend or investigate |
 | --- | --- |
+| [Agent usage skill](skills/proteus-use/SKILL.md) | [Optional contribution skill](skills/proteus-contribute/SKILL.md) |
 | [Architecture and method coverage](docs/V1_OVERVIEW.md) | [Public API and plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md) |
 | [Recipe catalog](docs/V1_RECIPE_CATALOG.md) | [Harness roles and adapters](docs/V1_HARNESS_ROLES.md) |
 | [Evaluators and benchmarks](docs/BENCHMARKS.md) | [Search policies](docs/V1_SEARCH.md) |
@@ -284,6 +349,8 @@ checks separate.
 Add a method, stage, evaluator, subject, policy or harness integration through the
 [extension templates](docs/V1_PLUGIN_SCAFFOLDS.md). See
 [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines.
+An agent can follow the optional [`proteus-contribute`](skills/proteus-contribute/SKILL.md)
+skill to choose an extension point, preserve framework contracts and validate the change.
 
 Cite Proteus using [CITATION.cff](CITATION.cff), and cite the original papers and
 software for the methods you use. [Method references](docs/METHOD_REFERENCES.md)
