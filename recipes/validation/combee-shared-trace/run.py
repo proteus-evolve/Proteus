@@ -339,8 +339,9 @@ def verify(out, manifest=HERE / "trace.json"):
     require([row["variant"] for row in report["arms"]] == list(VARIANTS), "comparison arm coverage changed")
     source = SourcePin.from_dict(report["source"])
     require(source.dirty_patch_hash is None, "unsupported dirty validation source")
-    tree = subprocess.check_output(["git", "rev-parse", f"{source.revision}:proteus"], cwd=REPO, text=True).strip()
-    require(tree == report["runtime_tree"], "source commit/runtime tree mismatch")
+    tree = subprocess.run(["git", "rev-parse", f"{source.revision}:proteus"], cwd=REPO, text=True, capture_output=True)
+    require(tree.returncode == 0, "source commit is unavailable in this checkout")
+    require(tree.stdout.strip() == report["runtime_tree"], "source commit/runtime tree mismatch")
     for filename, expected_hash in (("run.py", report["runner_sha256"]), ("trace.json", report["trace_sha256"])):
         committed = subprocess.run(["git", "show", f"{source.revision}:recipes/validation/combee-shared-trace/{filename}"], cwd=REPO, capture_output=True)
         require(committed.returncode == 0, "source commit lacks frozen fixture")
