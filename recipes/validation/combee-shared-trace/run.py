@@ -191,6 +191,31 @@ def audit_arm(root, variant, trace, registry, recipe, readings, records_file=Non
     summary = next(row["value"] for row in records["values"] if row["ref"]["kind"] == kind)
     samples = [values[ref["id"]] for ref in summary["samples"]]
     expected = {row["id"]: row for row in trace["samples"]}
+    dataset = TaskDataset.from_json((root / "tasks.json").read_text())
+    require(all(spec.tasks.dataset_hash == content_hash(dataset) and spec.tasks.dataset_version == dataset.version
+                for spec in recipe.evaluations), "external task dataset differs from recipe")
+    task_records = {(record.task.split, record.task.id): record for record in dataset.records}
+    for key, row in expected.items():
+        record = task_records[("train", key)]
+        require(dict(record.task.input) == {"question": row["question"], "context": row["context"]}
+                and record.reference == row["reference"], "task payload differs from frozen trace")
+    consumed_inputs = {}
+    for item in records["values"]:
+        value, kind = item["value"], item["ref"]["kind"]
+        if kind == "proteus.eval.task_batch@1":
+            require(value["dataset_hash"] == content_hash(dataset), "recorded task dataset differs")
+            for task in value["tasks"]:
+                actual = Task.from_dict(task)
+                require(actual == task_records[(actual.split, actual.id)].task, "consumed task payload differs")
+                if actual.split == "train":
+                    consumed_inputs[actual.id] = actual.to_dict()
+        elif kind == "proteus.ace.reflection_input@1":
+            keys = re.findall(r"TASK_ID=(sample-[0-9]+)", value["question"])
+            require(len(keys) == 1 and keys[0] in expected, "reflection input lacks source task")
+            row = expected[keys[0]]
+            require(value["question"] == row["question"] and value["reasoning_trace"] == row["prediction_response"]
+                    and value["ground_truth"] == row["reference"], "reflection input differs from frozen source")
+    require(set(consumed_inputs) == set(expected), "actual task input coverage differs")
     require([row["task_id"] for row in samples] == list(expected), "sample order or coverage differs")
     for rollout in records["rollouts"]:
         key = rollout["task_id"]
@@ -205,7 +230,7 @@ def audit_arm(root, variant, trace, registry, recipe, readings, records_file=Non
         key = sample["task_id"]
         responses = [values[ref["id"]]["response"] for ref in sample["reflections"]]
         require(responses == [expected[key]["reflection_response"]], "sample reflection differs from frozen trace")
-        consumption.append({"task_id": key, "source_record_hash": content_hash(expected[key]),
+        consumption.append({"task_id": key, "consumed_task": consumed_inputs[key], "source_record_hash": content_hash(expected[key]),
                             "reflection_response_hash": content_hash(responses[0]),
                             "method_sample": sample})
     candidates = {item["id"]: item for item in records["candidates"]}
@@ -239,6 +264,14 @@ def audit_arm(root, variant, trace, registry, recipe, readings, records_file=Non
         if call["role"] in ("generator", "reflector"):
             key, = receipt["consumed"]
             field = "prediction_response" if call["role"] == "generator" else "reflection_response"
+            prompt, row = call["request"]["prompt"], expected[key]
+            require(f'**Question:**\n{row["question"]}\n\n' in prompt, "actual request question differs from source")
+            if call["role"] == "generator":
+                require(f'**Context:**\n{row["context"]}\n\n' in prompt, "actual request context differs from source")
+            else:
+                require(f"**Model's Reasoning Trace:**\n{row['prediction_response']}\n\n" in prompt
+                        and f'**Ground Truth Answer:**\n{row["reference"]}\n\n' in prompt,
+                        "actual reflection request differs from source prediction/reference")
             require(receipt["source_hash"] == content_hash(expected[key])
                     and call["result"]["text"] == expected[key][field], "actor source provenance mismatch")
         actual_receipts.append(receipt)

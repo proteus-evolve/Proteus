@@ -81,7 +81,7 @@ def test_damaged_execution_or_provenance_is_rejected(replay, damage):
         path.write_bytes(original)
 
 
-@pytest.mark.parametrize('damage', ['source', 'recipe', 'lock'])
+@pytest.mark.parametrize('damage', ['source', 'recipe', 'lock', 'tasks'])
 def test_recorded_source_config_and_lock_must_match_manifest(replay, damage):
     root, _ = replay
     path = root / ('comparison.json' if damage == 'source' else f'ace/{damage}.json')
@@ -93,6 +93,8 @@ def test_recorded_source_config_and_lock_must_match_manifest(replay, damage):
             data['runtime_tree'] = 'f9a0040634c388483f66882cf4a45dddc9d8636b'
         elif damage == 'recipe':
             data['budget']['max_model_calls'] += 1
+        elif damage == 'tasks':
+            data['records'][0]['task']['input']['question'] = 'changed question'
         else:
             data['sources'][0]['revision'] = '56d0eebfe4bcc71a1ab04d7eabf705196dd83f2b'
         runner.save(path, data)
