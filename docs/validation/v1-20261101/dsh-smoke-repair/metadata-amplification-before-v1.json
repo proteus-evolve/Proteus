@@ -1,0 +1,15 @@
+{
+  "baseline_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "input": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/metadata-amplification-before/sweep/runs/run-one/.pi-state/session.jsonl",
+  "input_bytes": 8192,
+  "input_sha256": "13f576095451d001d7aaf6b5b82e89c0a1ee8a6738e056bc8f94c724d943f475",
+  "invalid_line_total": 4096,
+  "retained_invalid_line_entries": 4096,
+  "data_output_limit": 0,
+  "data_output_bytes": 0,
+  "index_path": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/metadata-amplification-before/diagnostics/diagnostics.json",
+  "index_bytes": 541131,
+  "index_sha256": "58eaa9e00c9c68ce9077e0144c7181fa6c869437ad4578f3e54841aed957c195",
+  "demonstrates_unbounded_metadata_outside_data_budget": true,
+  "provider_calls": 0
+}

@@ -64,6 +64,9 @@ any scope change must be explicit and approved by maintainers before proceeding.
    explicitly. Their jobs export bounded diagnostics on success or failure as
    `release-smoke-<harness>-<run-id>-<attempt>`. The index records source/export
    hashes, missing or oversized records, partial outcomes and step status.
+   Diagnostics allow at most 8 MiB of derived file data plus a 512 KiB index.
+   Invalid-line samples are limited to 64 per source; full parsed counts and
+   omissions remain explicit, including when index pressure removes all samples.
    Authentication files, raw reasoning, build caches and opaque usage bytes are
    excluded; these sanitized copies are not complete resumable run archives.
    Missing usage or USD cost remains unknown. Preserve a failed run and inspect

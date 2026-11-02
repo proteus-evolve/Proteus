@@ -1,0 +1,23 @@
+{
+  "plain": {
+    "original_bytes": 8192,
+    "original_sha256": "13f576095451d001d7aaf6b5b82e89c0a1ee8a6738e056bc8f94c724d943f475",
+    "old_index_bytes": 541131,
+    "new_index_bytes": 10456,
+    "invalid_lines_total": 4096,
+    "samples": 64,
+    "samples_omitted": 4032,
+    "data_output_bytes": 0
+  },
+  "compressed_dsh": {
+    "original_bytes": 34,
+    "original_sha256": "e982c7f1d8fa3524ac8fbd78848e27d552dbf0c11447eb503e794130c9382f7a",
+    "index_bytes": 10565,
+    "decoded_bytes": 262144,
+    "invalid_lines_total": 131072,
+    "samples": 64,
+    "samples_omitted": 131008,
+    "data_output_bytes": 0
+  },
+  "provider_calls": 0
+}

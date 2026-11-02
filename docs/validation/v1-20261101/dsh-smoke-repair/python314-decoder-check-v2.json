@@ -1,0 +1,10 @@
+{
+  "python": "3.14.4",
+  "backend": "compression.zstd",
+  "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "source_script_sha256": "aa5bd12e049fd41bbeb71987271258a64445e968c7e49bcb6b9f394113a49faf",
+  "concatenated_frames": true,
+  "gateway_token_redacted": true,
+  "decoded_byte_limit": true,
+  "provider_calls": 0
+}

@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_release_smoke_diagnostics.py"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 3.8550379276275635,
+  "provider_calls": 0,
+  "workflow_dispatches_or_cancellations": 0,
+  "source_file_hashes": {
+    "scripts/release_smoke_diagnostics.py": "1fa040e604456b4bdce2d15299a38ebfc8e5136ef0bf62234a07d6a6018560ac",
+    "tests/test_release_smoke_diagnostics.py": "cde72228e3eb8c5bf31726d549abd25649585b0d592bf7b360aec7c84804de15"
+  },
+  "stdout": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/metadata-regression-final-v1.stdout",
+    "sha256": "9afb44122939476df718c9d472f21b97494f3bfc23df833c2270b4a3eae502dd"
+  },
+  "stderr": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/metadata-regression-final-v1.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

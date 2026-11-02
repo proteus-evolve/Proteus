@@ -95,3 +95,12 @@ The DSH repair's original code review is retained together with its later
 the initial readiness decision: a 34-byte compressed malformed input produced
 a 17,454,426-byte index outside the data-byte budget. This P2 requires a bounded
 metadata correction and independent recheck before the next paid workflow.
+
+The `bde937a` follow-up retains at most 64 invalid-line samples per source and
+bounds the complete index to 512 KiB. Parsed invalid counts, omitted sample counts
+and original source hashes remain. `metadata-amplification-after-v1.json` records
+the same compressed case reduced to 10,565 bytes; 21 targeted tests pass. The
+first new test run is also retained: its opaque-byte sentinel accidentally matched
+the index's explanatory prose; changing that synthetic sentinel to a unique value
+fixed the test without loosening the assertion or changing collector behavior.
+The independent metadata recheck and successful full workflow are still required.
