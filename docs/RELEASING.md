@@ -60,6 +60,15 @@ any scope change must be explicit and approved by maintainers before proceeding.
    the edited episode-1 checkpoint, and verifies rejection of a planted compile error.
    Allow up to six hours for the complete image build and offline boundary gates.
 
+   Pi/DSH required-edit goals name their pinned writable candidate entry files
+   explicitly. Their jobs export bounded diagnostics on success or failure as
+   `release-smoke-<harness>-<run-id>-<attempt>`. The index records source/export
+   hashes, missing or oversized records, partial outcomes and step status.
+   Authentication files, raw reasoning, build caches and opaque usage bytes are
+   excluded; these sanitized copies are not complete resumable run archives.
+   Missing usage or USD cost remains unknown. Preserve a failed run and inspect
+   its diagnostics before deciding whether a corrected new run is warranted.
+
    The separate native source gate builds fixed Pi/DSH upstream revisions with the
    production Dockerfiles. A local provider drives actual read/write tools, an
    observable next-episode source change, unchanged completed resume and compiler
