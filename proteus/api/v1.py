@@ -1,4 +1,4 @@
-"""Version 1 of the researcher API, proposed for the Proteus 1.0 release.
+"""Version 1 of the researcher API, frozen for Proteus 1.0 release preparation.
 
 These are aliases to the execution contracts, not a second implementation. A
 versioned import surface does not permit resuming an experiment with changed

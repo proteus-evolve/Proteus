@@ -1,0 +1,120 @@
+{
+  "H0_content_hash": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+  "samples": [
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-00",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-00: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-00] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-01",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-01: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-01] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-02",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-02: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-02] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-03",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-03: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-03] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-04",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-04: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-04] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-05",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-05: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-05] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-06",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-06: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-06] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-07",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-07: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-07] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-08",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-08: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-08] frozen insight\"}"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "Synthetic shared learning trace: method wiring, provenance and scheduling only; no provider calls, model quality, real latency or speedup claim.",
+  "seed": 0,
+  "timing_fixture": {
+    "batch_seconds": 1.0,
+    "scope": "Controlled TimingService clock, one synthetic second per batch; not wall-clock performance."
+  }
+}

@@ -12,9 +12,9 @@ surface does not authorize interpreting old experiment records with changed code
 | `PluginState.payload_version` | Plugin-private checkpoint shape | Register and validate the exact method state schema; unsupported states cannot silently resume |
 | Manifest/configuration/dependency hashes | Full immutable experiment identity | Resume requires the original resolved configuration and lock |
 
-The `v1` import surface is proposed for the 1.0 release. Before that release,
-changes on `dev/1.0.0` remain development changes and require regenerated locks for
-new runs. A stable import does not promise that a plugin can mutate service
+The `v1` import surface and documented service behavior are frozen for the
+1.0 release preparation. The package version is `1.0.0`, pending publication gates.
+Changed source still requires regenerated locks for new runs. A stable import does not promise that a plugin can mutate service
 internals, that every backend supports every capability, or that any new method
 can be implemented solely through configuration.
 
@@ -62,7 +62,7 @@ passing it now fails instead of silently doing nothing. Configure supported
 container environment values through `SandboxConfig.env` and named
 `env_passthrough`, or implement an explicit custom adapter configuration.
 `_repair_feedback` is retained as the documented former-private compatibility
-helper during this development transition. It is outside the proposed stable API;
+helper during this development transition. It is outside the stable API;
 its removal requires a separate compatibility review.
 
 Fresh actor calls, declared handoff context and native session continuation are

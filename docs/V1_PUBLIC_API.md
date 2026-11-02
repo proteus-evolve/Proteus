@@ -1,8 +1,8 @@
 # Versioned researcher API
 
 New method, stage, evaluator, subject, actor and search-policy plugins can import
-from `proteus.api.v1`. This is the proposed public import surface for 1.0; the
-project remains a development build until release acceptance is complete.
+from `proteus.api.v1`. This is the frozen public import surface for 1.0 release preparation.
+The source version is `1.0.0`; publication still requires the release gates.
 
 ```python
 from proteus.api.v1 import (
@@ -34,10 +34,12 @@ checks; importing `RunServices` is not a stability promise for every internal fi
 
 The October 30 review of `3518095` resolved all 100 unique exports, with no missing
 symbols or duplicates. The [source-bound inventory](validation/v1-20261030/release-scope/evidence.json)
-records their names. The release freeze remains proposed: maintainers must confirm
-this import surface, the service operations below and the documented schema/lock
-rules, then validate the final-version wheel/sdist outside the checkout. This
-inventory does not freeze additional internals or change the package version.
+records their names. The November 1 release preparation freezes those same
+100 aliases, the service operations below, and the documented schema/lock rules.
+The [freeze manifest](validation/v1-20261101/api-freeze.json) records their defining
+modules and contract schema hashes; regression checks detect an unintended change.
+Final-version wheel/sdist validation and publication are separate gates.
+This freeze does not include additional internal attributes or file formats.
 
 ## Service contracts used by extensions
 

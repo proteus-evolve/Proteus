@@ -83,3 +83,25 @@ assert outputs[0]==outputs[1]
     checked = subprocess.run([sys.executable, 'actor_check.py'], cwd=project, env=env,
                              capture_output=True, text=True, timeout=60)
     assert checked.returncode == 0, checked.stdout+checked.stderr
+
+
+def test_frozen_v1_exports_and_contract_schema_identities():
+    """An API or record change must explicitly update the reviewed freeze manifest."""
+    import inspect
+    import json
+    from proteus.api import v1
+    from proteus.core.serialization import Contract, content_hash
+
+    baseline = json.loads((Path(__file__).resolve().parents[1] /
+                           'docs/validation/v1-20261101/api-freeze.json').read_text())
+    assert v1.API_VERSION == baseline['api_version']
+    assert len(v1.__all__) == len(set(v1.__all__)) == 100
+    actual = []
+    for name in sorted(v1.__all__):
+        value = getattr(v1, name)
+        row = {'name': name, 'definition': f'{value.__module__}.{value.__qualname__}'
+               if hasattr(value, '__qualname__') else value}
+        if inspect.isclass(value) and issubclass(value, Contract):
+            row['schema_hash'] = content_hash(value.json_schema())
+        actual.append(row)
+    assert actual == baseline['exports']

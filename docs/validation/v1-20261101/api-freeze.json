@@ -1,0 +1,471 @@
+{
+  "api_version": 1,
+  "exports": [
+    {
+      "definition": 1,
+      "name": "API_VERSION"
+    },
+    {
+      "definition": "proteus.core.methods.ActorRequest",
+      "name": "ActorRequest",
+      "schema_hash": "sha256:1a98b5bae965584af6f7ad583c6d57be5adb7cda8acf027e43b2e3f572533103"
+    },
+    {
+      "definition": "proteus.core.methods.ActorResult",
+      "name": "ActorResult",
+      "schema_hash": "sha256:36b679aa6b11413ef57ad1827a35d3e447336c51f01a984384581f153db0f493"
+    },
+    {
+      "definition": "proteus.core.methods.ActorRuntime",
+      "name": "ActorRuntime"
+    },
+    {
+      "definition": "proteus.recipes.config.ActorSpec",
+      "name": "ActorSpec",
+      "schema_hash": "sha256:e08a437eb53dc02eb312ea556f720dd6314c2d75c6e830c8f25bda3fb59c00b1"
+    },
+    {
+      "definition": "proteus.core.search.ArchivePolicy",
+      "name": "ArchivePolicy"
+    },
+    {
+      "definition": "proteus.core.search.ArchiveSnapshot",
+      "name": "ArchiveSnapshot",
+      "schema_hash": "sha256:6e3cf04b61c0774cccca818ed216221b49b7be1a62d18ea767446870a19e264d"
+    },
+    {
+      "definition": "proteus.core.contracts.ArtifactComponent",
+      "name": "ArtifactComponent",
+      "schema_hash": "sha256:0505b5729dd7ddaddd0764e35ad9da65197d660cdaa71817d864ddba99cb15ef"
+    },
+    {
+      "definition": "proteus.core.contracts.ArtifactRef",
+      "name": "ArtifactRef",
+      "schema_hash": "sha256:67743ccb7ed9b024a4f5d7374a1588be805d183c1971081de89963eed9f4898b"
+    },
+    {
+      "definition": "proteus.artifacts.store.ArtifactStore",
+      "name": "ArtifactStore"
+    },
+    {
+      "definition": "proteus.core.contracts.BudgetLimits",
+      "name": "BudgetLimits",
+      "schema_hash": "sha256:8cdc9d9d9bb2f79d80ca9ba1c7cc07558f2348d186b48fc0ba87e8ddd5c427e8"
+    },
+    {
+      "definition": "proteus.core.contracts.Candidate",
+      "name": "Candidate",
+      "schema_hash": "sha256:670f6afc1857be04fc1c4f5a3fb735722272a3bf818cb0f4a895ff99d78b4ca6"
+    },
+    {
+      "definition": "proteus.core.serialization.Contract",
+      "name": "Contract",
+      "schema_hash": "sha256:8ff8c4277bdeb2f85ce2510d5c05957289ed1efe06c57dc505037e0b08e3920e"
+    },
+    {
+      "definition": "proteus.core.serialization.ContractError",
+      "name": "ContractError"
+    },
+    {
+      "definition": "proteus.core.contracts.DataRef",
+      "name": "DataRef",
+      "schema_hash": "sha256:e3ffe12a367b42e3efdde14a43a2523d0f7469e0cb6c21ed16ce93e306ac8820"
+    },
+    {
+      "definition": "proteus.recipes.manifest.DependencyLock",
+      "name": "DependencyLock",
+      "schema_hash": "sha256:96710bb288c909fdc97a999bd95a0a814e7b15fa57cde1f03e53ec036e5674dc"
+    },
+    {
+      "definition": "proteus.core.plugins.EmptyOptions",
+      "name": "EmptyOptions",
+      "schema_hash": "sha256:ee244d9009eef1b287c5dd1edf72d602a2613bdab7d071c567c6b6012250c179"
+    },
+    {
+      "definition": "proteus.recipes.config.EnvironmentSpec",
+      "name": "EnvironmentSpec",
+      "schema_hash": "sha256:47ef8d8212cb182d49914f3ff89cc9a4051decf97b75ae4df6bf67fa21ec7635"
+    },
+    {
+      "definition": "proteus.core.contracts.EvaluationBatch",
+      "name": "EvaluationBatch",
+      "schema_hash": "sha256:4b777179c5e7d871e10a2dc3f161abbe4722a72d7962a00ecf40ccda06c80759"
+    },
+    {
+      "definition": "proteus.evaluation.records.EvaluationReceipt",
+      "name": "EvaluationReceipt",
+      "schema_hash": "sha256:2290da7b6f6008c036df8ff1f4c638085a25d6eeab4acc24580bebd8e19a1850"
+    },
+    {
+      "definition": "proteus.core.contracts.EvaluationRow",
+      "name": "EvaluationRow",
+      "schema_hash": "sha256:69bab2bb22049d3ef1db0435d07fde0948c4d96ba9fe2e9aa801b8fd39d9fbcd"
+    },
+    {
+      "definition": "proteus.recipes.config.EvaluationSpec",
+      "name": "EvaluationSpec",
+      "schema_hash": "sha256:b2d687a53d92a7858e15cbe97cd1ad17b029f31fd9fbd5a0c04f0f7bf74d9ebf"
+    },
+    {
+      "definition": "proteus.evaluation.runners.Evaluator",
+      "name": "Evaluator"
+    },
+    {
+      "definition": "proteus.recipes.config.ExecutionSpec",
+      "name": "ExecutionSpec",
+      "schema_hash": "sha256:dcfd738b0dcfff262d608091b9bfb99033b3545d4cd6fed0e823ad6ac74015ee"
+    },
+    {
+      "definition": "proteus.evaluation.records.Feedback",
+      "name": "Feedback",
+      "schema_hash": "sha256:259491c4cb0eb05bdb2fecc57f0224cc6f04fad584e7c30da30a875a3ed47606"
+    },
+    {
+      "definition": "proteus.core.contracts.FeedbackVisibility",
+      "name": "FeedbackVisibility"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.FileContent",
+      "name": "FileContent"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.FileDelta",
+      "name": "FileDelta",
+      "schema_hash": "sha256:4e03c65e4eb7d6cc273bd8f82c4244f2b474da60809d6aa9eede2835e3c72317"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.FileWrite",
+      "name": "FileWrite",
+      "schema_hash": "sha256:94dbca6abcdc24ec22f4595db2c6cdd934ac3bcfafb6b5b3b30632f180ade6de"
+    },
+    {
+      "definition": "proteus.core.search.FinalSelector",
+      "name": "FinalSelector"
+    },
+    {
+      "definition": "proteus.evaluation.records.Grade",
+      "name": "Grade",
+      "schema_hash": "sha256:f276baa8d95a0db257f911951b214c50c316d3bac4af037d8464c06880697344"
+    },
+    {
+      "definition": "proteus.evaluation.graders.GradingContext",
+      "name": "GradingContext"
+    },
+    {
+      "definition": "proteus.execution.harness_candidate.HarnessEnvironmentOptions",
+      "name": "HarnessEnvironmentOptions",
+      "schema_hash": "sha256:a261fdda5ed23fdf4199b175884a6ad5fa933e5e2f866a225cfdbfd37a6e19a2"
+    },
+    {
+      "definition": "proteus.execution.workspace_records.HarnessEpisode",
+      "name": "HarnessEpisode",
+      "schema_hash": "sha256:8d0e6c8dbc782df0d907d961e7b267d90c3f23bb43b11beee22ae7a460aa0d13"
+    },
+    {
+      "definition": "proteus.execution.harnesses.HarnessIntegration",
+      "name": "HarnessIntegration"
+    },
+    {
+      "definition": "proteus.execution.harness_candidate.HarnessSubjectOptions",
+      "name": "HarnessSubjectOptions",
+      "schema_hash": "sha256:efe70898434c51fc0f8bbd820e7d40625df74c070852470a3c182a496eb39e15"
+    },
+    {
+      "definition": "proteus.measure.artifacts.MeasurementSpec",
+      "name": "MeasurementSpec",
+      "schema_hash": "sha256:03a313251a6d4f1a0a94f75ffbc44ab01190786e232460c34f48019a83f34d50"
+    },
+    {
+      "definition": "proteus.measure.artifacts.MeasurementSurface",
+      "name": "MeasurementSurface",
+      "schema_hash": "sha256:361904a2670aec0482e9321368a7fde04283cbc9dc2f758ed209f7e9cd1aa1d2"
+    },
+    {
+      "definition": "proteus.core.methods.Method",
+      "name": "Method"
+    },
+    {
+      "definition": "proteus.core.methods.MethodResult",
+      "name": "MethodResult",
+      "schema_hash": "sha256:1051ba5b35d3aa78427c44f1fd975123692ccbbfd5aa65a8f4a36bc564204972"
+    },
+    {
+      "definition": "proteus.core.contracts.MethodState",
+      "name": "MethodState",
+      "schema_hash": "sha256:072d878a121b694d458a1dbef76c721f84eaa04cee68acbe5a82fd19902cc011"
+    },
+    {
+      "definition": "proteus.evaluation.graders.ModelJudgeOptions",
+      "name": "ModelJudgeOptions",
+      "schema_hash": "sha256:b0e45897bac294da5bd94d353e003665735d0ec27f3996b04fd96ed9a8ba58c6"
+    },
+    {
+      "definition": "proteus.methods.native_evolution.NativeEvolutionOptions",
+      "name": "NativeEvolutionOptions",
+      "schema_hash": "sha256:5d2b9ef062db2a26ac54d87e532756d558ba6e9b0b353d42dae20f4b52ce3394"
+    },
+    {
+      "definition": "proteus.core.search.Objective",
+      "name": "Objective",
+      "schema_hash": "sha256:8e7b4b147996ce016459ca7408f3e6d1f6db440012bace49d70b0b4a68ee6445"
+    },
+    {
+      "definition": "proteus.core.contracts.OperationStatus",
+      "name": "OperationStatus"
+    },
+    {
+      "definition": "proteus.core.contracts.Outcome",
+      "name": "Outcome"
+    },
+    {
+      "definition": "proteus.core.search.ParentSelector",
+      "name": "ParentSelector"
+    },
+    {
+      "definition": "proteus.core.plugins.Plugin",
+      "name": "Plugin"
+    },
+    {
+      "definition": "proteus.recipes.manifest.PluginLock",
+      "name": "PluginLock",
+      "schema_hash": "sha256:7b29e8b12e32e59b554dff8a6a091f4cf003508c0dbca21e2885e6d7a78db1fd"
+    },
+    {
+      "definition": "proteus.core.contracts.PluginRef",
+      "name": "PluginRef",
+      "schema_hash": "sha256:75ca4040a5deb58349701a6a2d8c0121d8fb3ac3031c9d4f59d3b458ad58126c"
+    },
+    {
+      "definition": "proteus.recipes.config.PluginSpec",
+      "name": "PluginSpec",
+      "schema_hash": "sha256:8db61977cdc35c812b5d06157f1444a438a9e7127b4075b9879d23da0d6b297e"
+    },
+    {
+      "definition": "proteus.core.contracts.PluginState",
+      "name": "PluginState",
+      "schema_hash": "sha256:34b7a9cc7e948a41c7180895a8f1f75a78dd6dd0d9d002d85c9d2cc8e4936b01"
+    },
+    {
+      "definition": "proteus.core.search.PolicyResult",
+      "name": "PolicyResult",
+      "schema_hash": "sha256:88a93fe37c513b4c79e2e1d588d23e5e82e58854e39231a73811e1a50f8184e0"
+    },
+    {
+      "definition": "proteus.recipes.config.RecipeConfig",
+      "name": "RecipeConfig",
+      "schema_hash": "sha256:7acc6c03f684c508b12ce4c8380a96d786da9654bcfd1320ed9fca2cee198a5c"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.RecordsDelta",
+      "name": "RecordsDelta",
+      "schema_hash": "sha256:c6d2385500b09710e1fa3f0bcbaeb90c31c48a76009d55cb82e3605f997202a6"
+    },
+    {
+      "definition": "proteus.recipes.config.ReferenceSpec",
+      "name": "ReferenceSpec",
+      "schema_hash": "sha256:caf9e3fd46abc6fbe9d45dbae6a4312a527adce822a9f256b5e607fa87197f4d"
+    },
+    {
+      "definition": "proteus.core.plugins.Registry",
+      "name": "Registry"
+    },
+    {
+      "definition": "proteus.core.contracts.Rollout",
+      "name": "Rollout",
+      "schema_hash": "sha256:1f7a5b3fdfb695a307934e592b70f234dd8d41d1ce10637cb13dfdc5ddb87dd9"
+    },
+    {
+      "definition": "proteus.recipes.manifest.RunManifest",
+      "name": "RunManifest",
+      "schema_hash": "sha256:bad4badd0d8dc119f736166633e6d801a43c9e0621943b7d656b44ff63e4be29"
+    },
+    {
+      "definition": "proteus.core.methods.RunServices",
+      "name": "RunServices"
+    },
+    {
+      "definition": "proteus.core.contracts.RuntimeIdentity",
+      "name": "RuntimeIdentity",
+      "schema_hash": "sha256:b1343974be3bc01882fa9cc1738945ef4f9a4f8070292e40100596336cd74ba3"
+    },
+    {
+      "definition": "proteus.core.search.SearchDecision",
+      "name": "SearchDecision",
+      "schema_hash": "sha256:68af8418afda470b61837f0dd38570b8ec56a714ae03dfa9c9b7bddc2f217d2c"
+    },
+    {
+      "definition": "proteus.core.search.SelectionView",
+      "name": "SelectionView",
+      "schema_hash": "sha256:8e30ed985f78ae9adcedac8de06c93a7f60c5c54ecc7e2643cf6f34fee53b574"
+    },
+    {
+      "definition": "proteus.core.contracts.SessionPolicy",
+      "name": "SessionPolicy"
+    },
+    {
+      "definition": "proteus.recipes.manifest.SourcePin",
+      "name": "SourcePin",
+      "schema_hash": "sha256:664be85922855bf1899888a682ec135384d627e78855c3c01e4b960742e9a6f7"
+    },
+    {
+      "definition": "proteus.core.methods.Stage",
+      "name": "Stage"
+    },
+    {
+      "definition": "proteus.core.methods.StageContext",
+      "name": "StageContext"
+    },
+    {
+      "definition": "proteus.core.contracts.StageRequest",
+      "name": "StageRequest",
+      "schema_hash": "sha256:966145d75484d5f86e22cbe8ade7eb6c550a83cfa4312ea3cd146ced3d48cbbd"
+    },
+    {
+      "definition": "proteus.core.contracts.StageResult",
+      "name": "StageResult",
+      "schema_hash": "sha256:c298ac37c2cf229a4ef19f1df623753efbc91c45b18cb9277bbda0cf22dfeecb"
+    },
+    {
+      "definition": "proteus.recipes.config.StageSpec",
+      "name": "StageSpec",
+      "schema_hash": "sha256:5f5bbcff9cf7061b253eb5767fca5e98f26565a061c380b27748fd8622c21404"
+    },
+    {
+      "definition": "proteus.core.contracts.StatePolicy",
+      "name": "StatePolicy"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.StateValue",
+      "name": "StateValue",
+      "schema_hash": "sha256:d1441e8a8630270acfe68fdb36976b44b36677559fe237e8131351c136def7a2"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.StructuredRecords",
+      "name": "StructuredRecords",
+      "schema_hash": "sha256:b5f3a6c1dada10f85624eab88eb74c415332bbfda3ae793f24e1e92d1fdb47eb"
+    },
+    {
+      "definition": "proteus.evaluation.runners.SubjectContext",
+      "name": "SubjectContext"
+    },
+    {
+      "definition": "proteus.evaluation.records.SubjectResult",
+      "name": "SubjectResult",
+      "schema_hash": "sha256:e73095678f1bf973725ac18153c90569e1a6fa58554736aca247448c7d8e2f18"
+    },
+    {
+      "definition": "proteus.evaluation.runners.SubjectRunner",
+      "name": "SubjectRunner"
+    },
+    {
+      "definition": "proteus.recipes.config.SubjectSpec",
+      "name": "SubjectSpec",
+      "schema_hash": "sha256:375ddddf1080deb98e88ff886c9fd003c08c428d26c22d5155b05812f83c5ca1"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.Task",
+      "name": "Task",
+      "schema_hash": "sha256:f4eb3fcf091e3b0fe0dda6d67af496ed7488e7c81b6d6e8727b181697b526bc2"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.TaskBatch",
+      "name": "TaskBatch",
+      "schema_hash": "sha256:4b81292c6342b0630ed28f6cdf7b3fc3e563225609b0d62ee838ae9f0b7351d8"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.TaskDataset",
+      "name": "TaskDataset",
+      "schema_hash": "sha256:b2df749452e6ef576fa568a42b2978cb5f09483f9d24d342493f6fdeb3905e25"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.TaskRecord",
+      "name": "TaskRecord",
+      "schema_hash": "sha256:b5d425938bab8e6f2629e8b1ed4c0201135d850212b0cd65a5b3aae49cb40365"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.TaskSelection",
+      "name": "TaskSelection",
+      "schema_hash": "sha256:8bdb0f7cd3b26047f41ba911645f96ed4ad8f5abd2885f07609e028a5b3bc59f"
+    },
+    {
+      "definition": "proteus.evaluation.tasks.TaskSuite",
+      "name": "TaskSuite"
+    },
+    {
+      "definition": "proteus.recipes.config.TaskSuiteSpec",
+      "name": "TaskSuiteSpec",
+      "schema_hash": "sha256:209fbeb4a01f88cfc1c2678561654777962dd43eac03d61210ec8f76d007a2f0"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.TextComponents",
+      "name": "TextComponents",
+      "schema_hash": "sha256:f7e4e225f042353d9bddb64ee7dcdeb7c2b279449928aa50e35cac1615f0b3de"
+    },
+    {
+      "definition": "proteus.artifacts.codecs.TextDelta",
+      "name": "TextDelta",
+      "schema_hash": "sha256:ef2bb9b5f1bb27aa0390eaf63cdc77ce17f3a0f6886286fe52ca9c73fd25bfc8"
+    },
+    {
+      "definition": "proteus.core.contracts.Usage",
+      "name": "Usage",
+      "schema_hash": "sha256:e98f67d5ee333f0b5e363814e5be34643bb78329abc4734c6722b18de16a290b"
+    },
+    {
+      "definition": "proteus.core.contracts.ValidationStatus",
+      "name": "ValidationStatus"
+    },
+    {
+      "definition": "proteus.execution.workspace_records.WorkspaceInput",
+      "name": "WorkspaceInput",
+      "schema_hash": "sha256:e4a470357a525b8e0f6178ce69570494aa65ed682d24c0c654af246c120687e6"
+    },
+    {
+      "definition": "proteus.execution.workspace_records.WorkspaceOptions",
+      "name": "WorkspaceOptions",
+      "schema_hash": "sha256:41c4eaa296aef762521ab0a48267130d49cde774aa72effb575ad810d9a26f52"
+    },
+    {
+      "definition": "proteus.recipes.builtins.builtin_registry",
+      "name": "builtin_registry"
+    },
+    {
+      "definition": "proteus.core.serialization.canonical_json",
+      "name": "canonical_json"
+    },
+    {
+      "definition": "proteus.core.serialization.content_hash",
+      "name": "content_hash"
+    },
+    {
+      "definition": "proteus.execution.harnesses.harness_support_matrix",
+      "name": "harness_support_matrix"
+    },
+    {
+      "definition": "proteus.core.plugins.implementation_hash",
+      "name": "implementation_hash"
+    },
+    {
+      "definition": "proteus.recipes.config.load_recipe",
+      "name": "load_recipe"
+    },
+    {
+      "definition": "proteus.execution.harnesses.register_harness",
+      "name": "register_harness"
+    },
+    {
+      "definition": "proteus.core.contracts.require",
+      "name": "require"
+    },
+    {
+      "definition": "proteus.recipes.runner.run_recipe",
+      "name": "run_recipe"
+    },
+    {
+      "definition": "proteus.evaluation.records.zero_usage",
+      "name": "zero_usage"
+    }
+  ],
+  "package_version": "1.0.0",
+  "scope": "Only the aliases, documented service operations and schema/lock rules; excludes private internals and does not relax resume identity."
+}

@@ -13,7 +13,7 @@
   <a href="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml"><img src="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml/badge.svg" alt="release smoke"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/version-0.4.0-informational.svg" alt="v0.4.0">
+  <img src="https://img.shields.io/badge/version-1.0.0--unreleased-informational.svg" alt="v1.0.0 unreleased">
   <img src="https://img.shields.io/badge/status-research%20preview-orange.svg" alt="research preview">
 </p>
 
@@ -38,7 +38,7 @@ https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
   <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
   <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
   <a href="docs/VISUALIZE.md">Visualize Runs</a> •
-  <a href="docs/releases/v0.4.0.md">v0.4.0 Notes</a> •
+  <a href="docs/releases/v1.0.0.md">1.0 Preparation Notes</a> •
   <a href="environments/README.md">Environments</a> •
   <a href="#-measurement">Measurement</a>
 </p>
@@ -50,7 +50,7 @@ reproducible method recipes, reusable components, and shared execution, evaluati
 recovery and reporting infrastructure. The goal is an **ESPnet-style toolkit for
 RSI research** where methods can be implemented, compared and extended in one place.
 
-**1.0 is in development.** This source tree includes GEPA, ACE, Meta-Harness,
+**1.0.0 is in release preparation; it is not published yet.** This source tree includes GEPA, ACE, Meta-Harness,
 Combee and CORAL integrations with explicit profiles and deviations. Their
 original-domain catalog entries describe builders rather than a particular model run.
 The [frozen experiment recipes and results](recipes/README.md) now record all 15
@@ -58,7 +58,7 @@ accepted October single-seed profiles, including their actual settings, source
 overlays and limitations. Those adapted runs do not establish matched paper
 reproduction or recursive improvement.
 The published `0.4.0` package and the native workflow remain available; the new
-recipe commands below require the corresponding development checkout.
+recipe commands below require this preparation checkout (`pip install -e .`).
 
 ## Method families
 
@@ -361,8 +361,8 @@ contracts. Harbor gates execute real Docker trials; the separate live release-sm
 workflow covers minimal, LLM, Pi, DSH and Codex. These checks supplement the five
 families' required real-model studies. They do not replace those results.
 
-Work is integrated through feature PRs into `dev/1.0.0`. Final acceptance and main
-review precede a version change, release tag and publication. The full scope remains
+The source version is now `1.0.0` with a frozen public v1 API. Preparation checks
+and the PR into `main` precede a separately authorized release tag and publication. The full scope remains
 in the [1.0 implementation plan](docs/plans/proteus-1.0.0-implementation-plan.md).
 
 ## 🤝 Contributing
