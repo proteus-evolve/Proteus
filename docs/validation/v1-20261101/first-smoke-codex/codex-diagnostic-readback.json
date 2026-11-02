@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-11-02T09:00:48.612168+00:00",
+  "run_id": 41390453875,
+  "run_conclusion": "failure",
+  "job_id": 125109408447,
+  "job_conclusion": "success",
+  "source": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "original_log_sha256": "f265ece2064c98e029c415827690b17721d7d6d14f1f7747597ff99aa86769ca",
+  "strict_checks_recorded_success": [
+    "the agent edited its own source before the last episode",
+    "the final episode loaded the validated binary pair for the edited checkpoint",
+    "planted error refused by the boot gate",
+    "restore clears the gate"
+  ],
+  "build_release_profile_seconds": 7157,
+  "build_test_profile_seconds": 1380,
+  "image_build_seconds": 8940,
+  "source_edit_step_seconds": 3608,
+  "strict_verification_step_seconds": 472,
+  "complete_usage": null,
+  "cost_usd": null,
+  "scope": "Historical failed full workflow; Codex diagnostic only. Does not replace any corrected-run job. Same Codex build/runtime source inputs; current-run per-layer timings are unavailable while job runs."
+}

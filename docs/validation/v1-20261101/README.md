@@ -73,8 +73,8 @@ reporting requirement; it is separate from the original circle-packing quality r
 `release-smoke-41390453875-dsh-failed.log` preserves the first preparation DSH
 self-edit failure. The normal sweep and two self-edit episodes completed, but
 no source change existed before episode two. The workflow did not archive the
-raw DSH trace, so the cause is unproven; the complete release-smoke gate remains
-unaccepted while that failure is investigated.
+raw DSH trace, so the cause is unproven. That complete run remains failed; the
+separate corrected run and its readback are recorded below.
 
 `i14-output/i14-generic-disposition.json` and its saved-record readback close the
 two generic output requirements: five runs, 92 task rows and 30 candidates, with
@@ -105,16 +105,29 @@ first new test run is also retained: its opaque-byte sentinel accidentally match
 the index's explanatory prose; changing that synthetic sentinel to a unique value
 fixed the test without loosening the assertion or changing collector behavior.
 At that stage the independent metadata recheck and full workflow were still
-required; the metadata recheck has since closed, as recorded below. The complete
-live workflow remains pending.
+required; both now have their own subsequent evidence, recorded below.
 
 `bde937a-independent-p2-closure.json` closes the metadata P2 with the same original
 compressed probe, 21 independent tests and a new exact-source Python 3.14 probe.
 The earlier author `python314-decoder-check-v2.json` is explicitly old-source
 evidence, not this patch's validation. Corrected complete smoke `41398194611` was
-dispatched once at `1adaa8f`; its running status does not yet close the live gate.
+dispatched once at `1adaa8f`; its initial running status was not counted as acceptance.
+It subsequently completed with all six required jobs successful, as recorded below.
 
 [Final distributions](final-distributions/README.md) records the clean bad3c55
 rebuild after README metadata changed, with fresh artifact identities, twine, 22
 installed checks, all original logs and local helper failures. Earlier package
 identities remain historical evidence and are not relabeled as this rebuild.
+
+[Completed full preparation smoke](full-smoke/README.md) preserves run 41398194611
+at source `1adaa8f`: all six required jobs passed in one run, with 1,842 offline
+tests passing and 91 skips. The six original job logs, two original Pi/DSH ZIPs,
+strict live source-edit/activation/rejection checks and bounded artifact readback
+are retained. Codex's raw episode/binary archive was not exported; its evidence is
+the original fixed-source strict-checker log. Unknown usage/cost remains unknown.
+
+`first-smoke-codex/` preserves the first failed workflow's later successful Codex
+job as diagnostic history only. It does not contribute a cell to the accepted
+corrected workflow. The read-only Codex timing analysis in `full-smoke/` reports
+observable build/episode/check durations and the missing granular timing, without
+new model calls or a runtime change.

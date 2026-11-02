@@ -1,0 +1,1252 @@
+{
+  "review_date": "2026-11-02",
+  "timezone": "America/Los_Angeles",
+  "reviewed_head": "c1401fcf2038c5cbca9893d9cf7589bf72ec547d",
+  "disposition": "ACCEPT the complete preparation release-smoke. The preparation-scoped installation/runtime regression and preparation-complete checklist items may close, and the already authorized PR into main may be opened. This does not accept main-PR checks, merge, final tag gates or publication.",
+  "run": {
+    "id": 41398194611,
+    "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+    "run_attempt": 1,
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-02T06:09:49Z",
+    "updated_at": "2026-11-02T09:32:53Z",
+    "html_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41398194611"
+  },
+  "source_of_status": "Existing saved completed-run/jobs/artifacts GitHub response files, independently cross-checked with original logs and ZIPs. No network refresh or artifact download in this review.",
+  "required_jobs": [
+    {
+      "id": 125124037226,
+      "name": "offline",
+      "run_id": 41398194611,
+      "run_attempt": 1,
+      "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:09:53Z",
+      "completed_at": "2026-11-02T06:42:27Z"
+    },
+    {
+      "id": 125134436734,
+      "name": "codex",
+      "run_id": 41398194611,
+      "run_attempt": 1,
+      "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:29Z",
+      "completed_at": "2026-11-02T09:32:52Z"
+    },
+    {
+      "id": 125134436754,
+      "name": "minimal",
+      "run_id": 41398194611,
+      "run_attempt": 1,
+      "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:29Z",
+      "completed_at": "2026-11-02T06:42:44Z"
+    },
+    {
+      "id": 125134436808,
+      "name": "container (pi)",
+      "run_id": 41398194611,
+      "run_attempt": 1,
+      "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:30Z",
+      "completed_at": "2026-11-02T06:47:09Z"
+    },
+    {
+      "id": 125134436828,
+      "name": "llm",
+      "run_id": 41398194611,
+      "run_attempt": 1,
+      "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:29Z",
+      "completed_at": "2026-11-02T06:43:38Z"
+    },
+    {
+      "id": 125134436868,
+      "name": "container (dsh)",
+      "run_id": 41398194611,
+      "run_attempt": 1,
+      "head_sha": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:30Z",
+      "completed_at": "2026-11-02T07:03:14Z"
+    }
+  ],
+  "all_six_required_jobs_and_all_steps_success": true,
+  "failed_or_skipped_required_jobs": 0,
+  "log_files_verified": {
+    "offline": {
+      "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/offline-job.log",
+      "sha256": "db2e7c913a265e8f0edb53a8ca3c4dd2a4991f628dea4f94fa6e241b7b669393",
+      "bytes": 28956,
+      "source_checkout_matches": true
+    },
+    "codex": {
+      "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/codex-job.log",
+      "sha256": "66fb2be01fa3fa3c0504c318e2e8b7c7d3463727d0ffeccc7ccb3e1045e121cc",
+      "bytes": 310395,
+      "source_checkout_matches": true
+    },
+    "minimal": {
+      "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/minimal-job.log",
+      "sha256": "f68effc3c1356347f6ee9ca223971e6b3c085f7cf072396f79fc6085f951a655",
+      "bytes": 22480,
+      "source_checkout_matches": true
+    },
+    "pi": {
+      "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/pi-job.log",
+      "sha256": "782bbd5eb8f5ce170f9d5847250e0b5edc74cd4a8b1e8736dca7b02d1f9b7a49",
+      "bytes": 46077,
+      "source_checkout_matches": true
+    },
+    "llm": {
+      "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/llm-job.log",
+      "sha256": "74142a78d09db6d5d92b94b5fb2d377e511942e2db3e7cb3e9ca92dfffd0f4d7",
+      "bytes": 20605,
+      "source_checkout_matches": true
+    },
+    "dsh": {
+      "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/dsh-job.log",
+      "sha256": "fd2f88a852220183c44bf53bb5ec5d82006366a9be8effec48415a0c66eef624",
+      "bytes": 446745,
+      "source_checkout_matches": true
+    }
+  },
+  "offline": {
+    "lint": "passed",
+    "tests_passed": 1842,
+    "tests_skipped": 91,
+    "seconds": 1939.14,
+    "pinned_GEPA_required_environment_verified": true,
+    "scope": "91 offline test skips are explicitly retained; no required workflow job/step was skipped."
+  },
+  "minimal_benchmark": {
+    "episodes_scored": 2,
+    "scores": [
+      0.0,
+      0.0
+    ],
+    "scope": "Pipeline execution/grade coverage, not a benchmark quality claim."
+  },
+  "pi_dsh_original_artifacts": {
+    "pi": {
+      "artifact_id": 13122400389,
+      "archive_path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/pi-original.zip",
+      "sha256": "def4d918454097c6d5f94f620f220d3f8180e3e68e380b15ac04e223c978c4ca",
+      "bytes": 225412,
+      "matches_saved_github_digest": true,
+      "zip_members": 121,
+      "exported_files_verified": 120,
+      "index_sha256": "d8a826248a0e4cc49b0b2ddd640e826873ad072008970e5ef29f596f96b5f082",
+      "index_bytes": 76801,
+      "data_bytes": 486807,
+      "valid_jsonl_rows_read": 197,
+      "record_statuses": {
+        "retained_sanitized_derivative": 120,
+        "missing": 6,
+        "hash_only_opaque_usage_source_not_uploaded": 20
+      },
+      "missing_or_opaque_records": [
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/private/episode_checkpoint.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/private/pending_candidate.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/0deb773f48cc497f95417a4cf97032af.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/489976f7b45b42219670cc4ad9e9b560.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/4e879238c92244c0b4326fdd3320638f.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/8d41dbbe640e474cbff895b08f900b04.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/be2e491d1add4d35a3422d099d61ecfb.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/f804af9f7f264483b1d52bd4d5cdb24c.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/private/episode_checkpoint.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/private/pending_candidate.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/34ba530d995b4624b49af4b5bfb568d4.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/3ae06efb85ee487a9d9e7fa83ec8c5f0.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/4fd95e82349d424cb8a3a221a8ad7386.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/709d8d522bc74474ba7400208ea58e36.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/73346200fed84467b1ae1368f45068d9.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/cd676f74faf14eea83e5dc84cd50245f.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/private/episode_checkpoint.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/private/pending_candidate.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/0087b946b1ad4a8a89070508bc3b05f1.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/043b99ca5ee54da7a9f280a7dbc1e2ed.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/1091a108f19149b9a7f440079d423362.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/652c90317dc54466857ac6ae24ce8dc7.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/86b42e8959cb455785908eaea98a6170.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/9ef985463f224f98ad2fa842ec378aec.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/a9ba2c70961d4bce85e0d0284749f7a1.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/eaee36db94cb4f608433452794d15599.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        }
+      ],
+      "runs": [
+        {
+          "sweep": "sweep-0",
+          "run": "run-d4a4a971bfbc",
+          "arm": "neutral",
+          "episodes_complete": 2,
+          "turns": [
+            7,
+            7
+          ],
+          "evaluation_status": [
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            },
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            }
+          ],
+          "turn_capped": [
+            true,
+            true
+          ]
+        },
+        {
+          "sweep": "sweep-0",
+          "run": "run-78e494a75d4d",
+          "arm": "review_notes",
+          "episodes_complete": 2,
+          "turns": [
+            7,
+            7
+          ],
+          "evaluation_status": [
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            },
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            }
+          ],
+          "turn_capped": [
+            true,
+            true
+          ]
+        },
+        {
+          "sweep": "sweep-1",
+          "run": "run-d4a4a971bfbc",
+          "arm": "neutral",
+          "episodes_complete": 2,
+          "turns": [
+            20,
+            20
+          ],
+          "evaluation_status": [
+            {
+              "units:notes": "ok",
+              "structural-step": "ok"
+            },
+            {
+              "units:notes": "ok",
+              "structural-step": "ok"
+            }
+          ],
+          "turn_capped": [
+            true,
+            true
+          ]
+        }
+      ],
+      "native_record_hashes_verified": {
+        "input": 36,
+        "outcome": 36
+      },
+      "input_outcome_pairs_verified": 36,
+      "native_phase_dispatches": 20,
+      "native_returncode_counts": {
+        "137": 20
+      },
+      "usage_stream_status_counts": {
+        "incomplete": 20
+      },
+      "self_edit": {
+        "entry_path": "src/packages/coding-agent/src/cli.ts",
+        "episode_commits": {
+          "2": "24d902b12844921794713625aa23da5caa6316f8",
+          "1": "f743604b768515b611841d957cca8ef0ef7c4c68",
+          "0": "1213cf6651ce7c8b340111245538987b12287232"
+        },
+        "entry_sha256_by_episode": {
+          "0": "184e297bf71200d7947b0d28ba62f4c09b1f3071ea8c85c2255d1ab8617bca08",
+          "1": "bf9b73d384d54b4d4b93427d5e719cf7aae929a64e2ddaa22c0c426f3fda3f43",
+          "2": "bf9b73d384d54b4d4b93427d5e719cf7aae929a64e2ddaa22c0c426f3fda3f43"
+        },
+        "exact_marker_only_projected_diff": true,
+        "source_hash_by_active_episode": {
+          "1": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+          "2": "455278c819f197cfea58e669d24bd2546d09cc7d0716b4326ec67f453c325d3c"
+        },
+        "cli_hashes_by_active_episode": {
+          "1": [
+            "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521"
+          ],
+          "2": [
+            "5e05b195c1f49f4d79e27b6d36340a4c7e0784dfa5ca6642d82cc0fa6c38862d"
+          ]
+        },
+        "eight_input_outcome_activation_links_verified": true,
+        "phase_rows": [
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "043b99ca5ee54da7a9f280a7dbc1e2ed",
+            "episode": 1,
+            "phase": "act",
+            "input_hash": "sha256:2927f56e5e28e2eaee7d6ec506930549071c26a52e1b96de5268ce9a8920a323",
+            "payload_hash": "sha256:9914a2911c5d97ff6f4c2a4bfaf2043ecf3a1aac07ad3a7a0f92b811627ee789",
+            "outcome_hash": "sha256:5b02be450e39e2824d88ad9e9a76ffeabf6ad2fa06cbbc667878cda87a899cf7",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+              "mode": "pristine",
+              "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 10.099426041000015
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "eaee36db94cb4f608433452794d15599",
+            "episode": 1,
+            "phase": "observe",
+            "input_hash": "sha256:b44b84dc050557d85b4da024e060684e73c5f6efe520b1d08c909a9f4b7bfadb",
+            "payload_hash": "sha256:b2d17daff702ba4e97c061eb15cf2b2a8588500345afa8a33e62d31465d0bd36",
+            "outcome_hash": "sha256:51b3728b5b4350738e50f86345e502bc323c7b0b087140746f195501d0fe4f17",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+              "mode": "pristine",
+              "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 8.092920277000019
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "1091a108f19149b9a7f440079d423362",
+            "episode": 1,
+            "phase": "propose",
+            "input_hash": "sha256:3260361bcbb93b315b1303c956a8250819db2d4489df2845e5454a76a2ede3ff",
+            "payload_hash": "sha256:cfff8a7b82ac987d747e8709c839df154afdc51df6d085d127efc39ea0ddd3f9",
+            "outcome_hash": "sha256:e7a47a9396aef1a9d70f0449979e7473df3623f2c06f2d04c158c8b4a66eec99",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+              "mode": "pristine",
+              "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 8.093936420000034
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "a9ba2c70961d4bce85e0d0284749f7a1",
+            "episode": 1,
+            "phase": "reflect",
+            "input_hash": "sha256:65faa7da68d95d40ee9e590abbc3809756408b01f34e9389d67e3c8c1f463502",
+            "payload_hash": "sha256:1b337261e6c39e600036f57d90de837e369cf5fb0785b442d9fdd4cca22f781e",
+            "outcome_hash": "sha256:b5b26602a357ed055381b3a0216b3001bca2386ae061bd6b9070741167013977",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+              "mode": "pristine",
+              "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 8.090762245000008
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "652c90317dc54466857ac6ae24ce8dc7",
+            "episode": 2,
+            "phase": "act",
+            "input_hash": "sha256:6b1eb9b1ea6e9ad57a02d0b19ef032face438bc8e81a042dee10023415515f5c",
+            "payload_hash": "sha256:83d4601d61767bd4f4e2a63660bfc77be70493f7e8a1f412770dc2b2bf68994c",
+            "outcome_hash": "sha256:029d6ff5984de688d643f227079578d0e414251785bf50358d16ea1237540649",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "5e05b195c1f49f4d79e27b6d36340a4c7e0784dfa5ca6642d82cc0fa6c38862d",
+              "mode": "cache",
+              "source_sha256": "455278c819f197cfea58e669d24bd2546d09cc7d0716b4326ec67f453c325d3c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 20.459042753999995
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "86b42e8959cb455785908eaea98a6170",
+            "episode": 2,
+            "phase": "observe",
+            "input_hash": "sha256:1d4af8ef91ba739915854d826046f404bd75884e44edbd896e3f858a3d91a790",
+            "payload_hash": "sha256:3c5bfec87d40a4720ad9275c8668e6b82d41828ab0444968c3438229276a243c",
+            "outcome_hash": "sha256:4d67b33a9c530a350a563ce88c51c1abfcf4e60f150561aa9bb14fd4402a38d9",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "5e05b195c1f49f4d79e27b6d36340a4c7e0784dfa5ca6642d82cc0fa6c38862d",
+              "mode": "cache",
+              "source_sha256": "455278c819f197cfea58e669d24bd2546d09cc7d0716b4326ec67f453c325d3c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 12.462784227999975
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "9ef985463f224f98ad2fa842ec378aec",
+            "episode": 2,
+            "phase": "propose",
+            "input_hash": "sha256:c243d43f4330a239523f29818d286b4ce367e14a0185ca89a21d1e15c7172250",
+            "payload_hash": "sha256:33bcb69496cb8b76599726b0033929be36d485eac1a5815963048d943d2f420e",
+            "outcome_hash": "sha256:f233b6d644072f95e466832dd765e2efe39179306d5ba3d1a0b8b7a691ad92f4",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "5e05b195c1f49f4d79e27b6d36340a4c7e0784dfa5ca6642d82cc0fa6c38862d",
+              "mode": "cache",
+              "source_sha256": "455278c819f197cfea58e669d24bd2546d09cc7d0716b4326ec67f453c325d3c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 30.484405041000002
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "0087b946b1ad4a8a89070508bc3b05f1",
+            "episode": 2,
+            "phase": "reflect",
+            "input_hash": "sha256:48321637e006b33aae548fb1cf263cf7e698b3a010a737aa50031d8a23dbd092",
+            "payload_hash": "sha256:c797e348782167a6eb03717675a7ba698d30c6a54dcb2630484d1af5997db1f2",
+            "outcome_hash": "sha256:82d0bd6ae4fecba9b6408273fbdc533af2def5fc2090f2f464a7a9f172d08a44",
+            "returncode": 137,
+            "activation": {
+              "backend": "pi",
+              "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+              "cli_sha256": "5e05b195c1f49f4d79e27b6d36340a4c7e0784dfa5ca6642d82cc0fa6c38862d",
+              "mode": "cache",
+              "source_sha256": "455278c819f197cfea58e669d24bd2546d09cc7d0716b4326ec67f453c325d3c",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 10.47137576099999
+            }
+          }
+        ]
+      },
+      "scope": "Sanitized exported metadata and projected entry bytes verified independently; full source trees/snapshot Git repositories/compiler caches are not exported. Full-tree checkpoint binding and broken-source probes are established by source-bound strict live checker logs, not reconstructed from this ZIP. Returncode137 and partial/unknown usage remain explicit; returned is not complete inference or complete billing.",
+      "total_provider_cost_usd": null,
+      "complete_provider_call_total": null
+    },
+    "dsh": {
+      "artifact_id": 13122935125,
+      "archive_path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/dsh-original.zip",
+      "sha256": "6553dc986244d73bc0971da510918227b3328c0f073a685153664ebd74b0e28a",
+      "bytes": 695631,
+      "matches_saved_github_digest": true,
+      "zip_members": 133,
+      "exported_files_verified": 132,
+      "index_sha256": "9258fc153f58d278ecd696aebeb4bee41ec5a10345a3dd0da0c344dd499dc27d",
+      "index_bytes": 87797,
+      "data_bytes": 2429571,
+      "valid_jsonl_rows_read": 9,
+      "record_statuses": {
+        "retained_sanitized_derivative": 132,
+        "missing": 6,
+        "hash_only_opaque_usage_source_not_uploaded": 24
+      },
+      "missing_or_opaque_records": [
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/private/episode_checkpoint.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/private/pending_candidate.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/09a54f15ffda41948347ed7106e0db4b.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/11d03588f2004061b46952c16abfaa5c.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/212623fb861446cb809cd3d6bcce459e.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/2c6ccaa68ae146348aa0f3cb39e84c5c.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/8be0b0ca7966497eb67f0e716e84be33.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/976368bbbf164fb79031a1db10d28d0d.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/9b9d28a57cde40f5b57ad72649451e6e.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-78e494a75d4d/native-inputs/c00a0511b53e40ffbb7a4baf699d8595.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/private/episode_checkpoint.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/private/pending_candidate.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/2fc5e97ef44f4ded9a70704adc8016e3.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/5c1062d63ce34e9da43b2da0c0a29e7c.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/75b500af4bb24031bf1a156caab61418.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/8909d4087a1f4d1aa3efb07b52c31502.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/989195c83b4a4547a55762178647d015.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/9cc3610067a64f449d34d232f0f9307b.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/e223e49f478841fdb232a802a49279f3.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-0/runs/run-d4a4a971bfbc/native-inputs/ea5f1eb618d5464184ffda1c0f97a058.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/private/episode_checkpoint.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/private/pending_candidate.json",
+          "status": "missing"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/1a0ba19ae119425c8dc8ad0d8b3a64ff.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/2e1d582a3026459eb75a86e4099fc309.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/5c0d5d9c6c744bc6bbcf67a1e6872352.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/83c5b50d793e4741a25716246edc2171.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/a36a2b37185d4ae88ca45ba38ff02408.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/af294ecf24254bd7976f0d65aa7b67bf.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/bb003fe8e0e44c5d9b7eca32a7ba6c67.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        },
+        {
+          "source": "sweep-1/runs/run-d4a4a971bfbc/native-inputs/f68cf9e2b6114c418c2cbeeaafcc8047.usage-source",
+          "status": "hash_only_opaque_usage_source_not_uploaded"
+        }
+      ],
+      "runs": [
+        {
+          "sweep": "sweep-0",
+          "run": "run-d4a4a971bfbc",
+          "arm": "neutral",
+          "episodes_complete": 2,
+          "turns": [
+            10,
+            10
+          ],
+          "evaluation_status": [
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            },
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            }
+          ],
+          "turn_capped": [
+            true,
+            true
+          ]
+        },
+        {
+          "sweep": "sweep-0",
+          "run": "run-78e494a75d4d",
+          "arm": "review_notes",
+          "episodes_complete": 2,
+          "turns": [
+            10,
+            10
+          ],
+          "evaluation_status": [
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            },
+            {
+              "units:notes": "ok",
+              "structural-step": "ok",
+              "tool-calls": "ok"
+            }
+          ],
+          "turn_capped": [
+            true,
+            true
+          ]
+        },
+        {
+          "sweep": "sweep-1",
+          "run": "run-d4a4a971bfbc",
+          "arm": "neutral",
+          "episodes_complete": 2,
+          "turns": [
+            32,
+            30
+          ],
+          "evaluation_status": [
+            {
+              "units:notes": "ok",
+              "structural-step": "ok"
+            },
+            {
+              "units:notes": "ok",
+              "structural-step": "ok"
+            }
+          ],
+          "turn_capped": [
+            true,
+            false
+          ]
+        }
+      ],
+      "native_record_hashes_verified": {
+        "input": 40,
+        "outcome": 40
+      },
+      "input_outcome_pairs_verified": 40,
+      "native_phase_dispatches": 24,
+      "native_returncode_counts": {
+        "137": 20,
+        "0": 4
+      },
+      "usage_stream_status_counts": {
+        "incomplete": 20,
+        "reported": 4
+      },
+      "self_edit": {
+        "entry_path": "src/apps/cli/src/bin.ts",
+        "episode_commits": {
+          "2": "76cdd6f3cb56fae79f0379c227a4393fcbf72df8",
+          "1": "c7decd719ee635a33be2234c2b3cd4c3844f88d0",
+          "0": "5591b5d75df583dfbeff8048cf2a6e4d9c2ae16c"
+        },
+        "entry_sha256_by_episode": {
+          "0": "92583393a3975a1a7bd7fe0d0312e1a2733658197dcf7e5da4398127e358e297",
+          "1": "42a73302b5a4becc4f470c0e5a049503122721889bf0ad0fc6063371aaff3b56",
+          "2": "42a73302b5a4becc4f470c0e5a049503122721889bf0ad0fc6063371aaff3b56"
+        },
+        "exact_marker_only_projected_diff": true,
+        "source_hash_by_active_episode": {
+          "1": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+          "2": "28634a13088eebecb057ede20d906c453ee88b20217521d161c4ba55a5e959a2"
+        },
+        "cli_hashes_by_active_episode": {
+          "1": [
+            "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62"
+          ],
+          "2": [
+            "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62"
+          ]
+        },
+        "eight_input_outcome_activation_links_verified": true,
+        "phase_rows": [
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "1a0ba19ae119425c8dc8ad0d8b3a64ff",
+            "episode": 1,
+            "phase": "act",
+            "input_hash": "sha256:261ba027881ac653a44a86f0a045e5b28303ddb5755109406cae94309b991785",
+            "payload_hash": "sha256:6679198a7e82d11ea7217f52842f999d33bc592e26d36c52549421c265789eee",
+            "outcome_hash": "sha256:a23e49cd6eb4a17dd2cc5c766ff58c0c8829de58f57acb332e42ea470c9cb737",
+            "returncode": 137,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "pristine",
+              "source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 26.169466263000004
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "bb003fe8e0e44c5d9b7eca32a7ba6c67",
+            "episode": 1,
+            "phase": "observe",
+            "input_hash": "sha256:78ca114d50af54743dd392643d75d963999d777a5bfeca8f6d3fc58621e72460",
+            "payload_hash": "sha256:47ce1a37f2ea3e51b6fc775f7331458216ab12bea72c4ace097299b13e22d5b7",
+            "outcome_hash": "sha256:518523d8e82fee7dc1f6a3c9b678a05779a11e063158829be433999f820890d7",
+            "returncode": 137,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "pristine",
+              "source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 22.134242203999975
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "af294ecf24254bd7976f0d65aa7b67bf",
+            "episode": 1,
+            "phase": "propose",
+            "input_hash": "sha256:4d20d4db83ef6eb112874fd591cbd542d52b512d23050c141c56e3f99eedc7ec",
+            "payload_hash": "sha256:53b0ee8f641d8355c937035ad072056331dd064bf3ea0095e413b3ea9b5a281b",
+            "outcome_hash": "sha256:a62f555f78a6502935058c928651648674a668b8c9834fb8fd628fc7d41636ba",
+            "returncode": 0,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "pristine",
+              "source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+              "version": 1
+            },
+            "usage_stream_status": "reported",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 33.14808145200004
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "f68cf9e2b6114c418c2cbeeaafcc8047",
+            "episode": 1,
+            "phase": "reflect",
+            "input_hash": "sha256:f7c640dbd76ad945b50f5778c9979d18727f354a5c5be2562fd885c213414b48",
+            "payload_hash": "sha256:3111aeecc401b56bbeb27cf01349c2c02ae92600257e20222b8129a9c8dcee74",
+            "outcome_hash": "sha256:978be449d8fccb83e4fa9b3d570749eeddd6c216d09c8a8ad987a2a08589d9c5",
+            "returncode": 137,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "pristine",
+              "source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 34.21449472900008
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "5c0d5d9c6c744bc6bbcf67a1e6872352",
+            "episode": 2,
+            "phase": "act",
+            "input_hash": "sha256:9a56e10a6041873c57a8e1b4046f7e25276e98d6366f0accecf85dafccdca8f7",
+            "payload_hash": "sha256:68a2e3ff3963d8a72f18f72102cddbf548f80eb0ee1e40e23c919beeed1f87d3",
+            "outcome_hash": "sha256:bc76156416a8ba425807b33e81c844794f7b4beb2b36adc59c6155291dbdefde",
+            "returncode": 0,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "cache",
+              "source_sha256": "28634a13088eebecb057ede20d906c453ee88b20217521d161c4ba55a5e959a2",
+              "version": 1
+            },
+            "usage_stream_status": "reported",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 47.515911023999934
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "2e1d582a3026459eb75a86e4099fc309",
+            "episode": 2,
+            "phase": "observe",
+            "input_hash": "sha256:2c1588104fb46d36fb72707f339375cb0ee1556dd9dbae2ba69f1326e1ae6b26",
+            "payload_hash": "sha256:8b96bd1704a53c15bae3f8c3bf4fb30604bf902856aae3347e8aeee07e25bfa6",
+            "outcome_hash": "sha256:e012ba174a4879c546c066ad2962b381b5606a4f4612f0c3fd60d58c79b5d853",
+            "returncode": 137,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "cache",
+              "source_sha256": "28634a13088eebecb057ede20d906c453ee88b20217521d161c4ba55a5e959a2",
+              "version": 1
+            },
+            "usage_stream_status": "incomplete",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 43.3924092609999
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "a36a2b37185d4ae88ca45ba38ff02408",
+            "episode": 2,
+            "phase": "propose",
+            "input_hash": "sha256:c7fc47465ba667c71402db00ededc16ee85274589dbab0ac17d9041b14042ca1",
+            "payload_hash": "sha256:45b5d4eed5ad60051b4c99a6355d82fd6d5b82f24d170fc76c83f8f5bf976951",
+            "outcome_hash": "sha256:f7d7aa9758ce917f3225d2966f5be7c2802933276b8f470c7aaee7d645a734dc",
+            "returncode": 0,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "cache",
+              "source_sha256": "28634a13088eebecb057ede20d906c453ee88b20217521d161c4ba55a5e959a2",
+              "version": 1
+            },
+            "usage_stream_status": "reported",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": null,
+              "model_calls": null,
+              "output_tokens": null,
+              "schema_version": 1,
+              "wall_seconds": 57.15344035099997
+            }
+          },
+          {
+            "run_prefix": "sweep-1/runs/run-d4a4a971bfbc",
+            "id": "83c5b50d793e4741a25716246edc2171",
+            "episode": 2,
+            "phase": "reflect",
+            "input_hash": "sha256:f1b1d6af6e69d72a2df1ecf91a36adcd1ec85c1abd1f6880875c165e62753109",
+            "payload_hash": "sha256:17c5a058f43cd2cd9f25c0af2920217d5054e7a1a72926a0178c1e2c79c41cde",
+            "outcome_hash": "sha256:368139befc54d67c69c0aa7c5d495a71ba47c21e391b43e5333eac4fbb7a377b",
+            "returncode": 0,
+            "activation": {
+              "backend": "dsh",
+              "boot_sha256": "7232fe42d4eb236c755483f89fe5d449b4d59807f36bf8d05f12ddcaa0996f19",
+              "cli_sha256": "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62",
+              "mode": "cache",
+              "source_sha256": "28634a13088eebecb057ede20d906c453ee88b20217521d161c4ba55a5e959a2",
+              "version": 1
+            },
+            "usage_stream_status": "reported",
+            "reported_usage": {
+              "cost_usd": null,
+              "input_tokens": 143400,
+              "model_calls": null,
+              "output_tokens": 4923,
+              "schema_version": 1,
+              "wall_seconds": 42.31758726499993
+            }
+          }
+        ]
+      },
+      "scope": "Sanitized exported metadata and projected entry bytes verified independently; full source trees/snapshot Git repositories/compiler caches are not exported. Full-tree checkpoint binding and broken-source probes are established by source-bound strict live checker logs, not reconstructed from this ZIP. Returncode137 and partial/unknown usage remain explicit; returned is not complete inference or complete billing.",
+      "total_provider_cost_usd": null,
+      "complete_provider_call_total": null
+    }
+  },
+  "codex": {
+    "job_id": 125134436734,
+    "log_sha256": "66fb2be01fa3fa3c0504c318e2e8b7c7d3463727d0ffeccc7ccb3e1045e121cc",
+    "episodes_complete": 2,
+    "normalized_tool_event_counts": [
+      18,
+      27
+    ],
+    "parsed_last_episode_action_events": 44,
+    "strict_live_checks": [
+      "hashed final adapter inputs and terminal outcomes",
+      "gapless episode0/1/2 snapshot chain",
+      "every configured evaluator scored every episode",
+      "source changed before final episode",
+      "final episode loaded validated binary pair for the preceding edited checkpoint",
+      "evolved code boots",
+      "planted compiled Rust error is rejected and restoration clears gate"
+    ],
+    "workflow_step_elapsed": {
+      "image_build_seconds": 6930,
+      "two_episode_command_seconds": 2867,
+      "strict_postrun_check_seconds": 357
+    },
+    "upstream_source_ref": "a7b86b6201d35200280e3d24ca5ebccd8122d6ca",
+    "raw_trace_snapshot_binary_archive_exported": false,
+    "scope": "Accept the pinned-source strict checker log evidence required by this workflow. No independent reconstruction of the Codex source tree, binary pair or raw phase traces is claimed. Actual edit contents beyond checker-proven source change, resolved default model/effort, complete provider usage/USD, per-phase/build cost attribution remain unproven. Tool-event counts are not provider request counts.",
+    "cost_usd": null,
+    "complete_provider_call_total": null,
+    "observability_performance_diagnostic": "Separate read-only diagnosis is a limitation/follow-up, not a new release blocker or a reason to mix old run results."
+  },
+  "source_equivalence": {
+    "smoke_to_current": {
+      "proteus": {
+        "smoke_object": "0e73363387123ad067df3cfeff684af7d913fed2",
+        "review_head_object": "0e73363387123ad067df3cfeff684af7d913fed2",
+        "identical": true
+      },
+      "pyproject.toml": {
+        "smoke_object": "925afe20a3a3bb713fb230239ce08f3d96b15a47",
+        "review_head_object": "925afe20a3a3bb713fb230239ce08f3d96b15a47",
+        "identical": true
+      },
+      ".github/workflows/release-smoke.yml": {
+        "smoke_object": "3feafc6f2c00dd463b79d258a6227cbfc13aa83e",
+        "review_head_object": "3feafc6f2c00dd463b79d258a6227cbfc13aa83e",
+        "identical": true
+      },
+      "scripts/smoke_check.py": {
+        "smoke_object": "59894344b236c18c46ad520b105d12aa32510dac",
+        "review_head_object": "59894344b236c18c46ad520b105d12aa32510dac",
+        "identical": true
+      },
+      "scripts/release_smoke_diagnostics.py": {
+        "smoke_object": "275f1da28b136d14d2e19fbc1478f8bbff5ece3c",
+        "review_head_object": "275f1da28b136d14d2e19fbc1478f8bbff5ece3c",
+        "identical": true
+      },
+      "environments": {
+        "smoke_object": "d5625524f3f376945505e9e89531588bd01af366",
+        "review_head_object": "d5625524f3f376945505e9e89531588bd01af366",
+        "identical": true
+      }
+    },
+    "accepted_native_source_to_current": {
+      "proteus": {
+        "accepted_source_object": "0e73363387123ad067df3cfeff684af7d913fed2",
+        "review_head_object": "0e73363387123ad067df3cfeff684af7d913fed2",
+        "identical": true
+      },
+      "pyproject.toml": {
+        "accepted_source_object": "925afe20a3a3bb713fb230239ce08f3d96b15a47",
+        "review_head_object": "925afe20a3a3bb713fb230239ce08f3d96b15a47",
+        "identical": true
+      },
+      ".github/workflows/native-source-integration.yml": {
+        "accepted_source_object": "0223b8d2c84119440210e108c544093401e392e4",
+        "review_head_object": "0223b8d2c84119440210e108c544093401e392e4",
+        "identical": true
+      },
+      "environments": {
+        "accepted_source_object": "d5625524f3f376945505e9e89531588bd01af366",
+        "review_head_object": "d5625524f3f376945505e9e89531588bd01af366",
+        "identical": true
+      },
+      "tests/check_native_source_docker.py": {
+        "accepted_source_object": "a03eab39ae71098eaf407a3a7011f08bbdc12753",
+        "review_head_object": "a03eab39ae71098eaf407a3a7011f08bbdc12753",
+        "identical": true
+      },
+      "tests/check_native_source_repair.py": {
+        "accepted_source_object": "cc6502931b26e79c7ccc01e7a8186d3cb1020061",
+        "review_head_object": "cc6502931b26e79c7ccc01e7a8186d3cb1020061",
+        "identical": true
+      }
+    },
+    "accepted_final_package_to_current": {
+      "proteus": true,
+      "README.md": true,
+      "pyproject.toml": true
+    },
+    "strict_checker_sha256": "004695c87e65b43766e11a7ffea7ffe7122a5a50e0ca9e1a688beac709de985a",
+    "README_note": "README package metadata changed after smoke source and is covered by the independently accepted bad3c55 rebuild; no claim that old smoke/package artifacts equal the new distribution identity."
+  },
+  "previous_evidence_reused": {
+    "final_packages": {
+      "path": "/tmp/proteus-final-distributions-review-f68c807/independent-distribution-and-docs-closure.json",
+      "sha256": "402453d4a6e8231f8aac40a4642228e8e7cf0a5fa6b98612138aa7eb4ade7bd1",
+      "both_artifact_hashes_rechecked": true,
+      "recorded_installed_checks": 22
+    },
+    "native_source": {
+      "path": "/tmp/proteus-v1-native-review-41390451600/independent-native-readback.json",
+      "sha256": "b0638308a6c4eaa7f5b023492e186e1ed8ab4679bf1eaea4d52b21c2a28f8cd2",
+      "run_id": 41390451600,
+      "source": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e"
+    },
+    "prior_conditional_disposition": "/tmp/proteus-final-conditional-review-1adaa8f/conditional-release-disposition.json",
+    "prior_research_and_I09_I14": "Already accepted scopes and limitations unchanged. No new models or stronger research thresholds introduced."
+  },
+  "checklist_disposition": [
+    {
+      "item": "I15 wheel/sdist/extras/offline templates and real backend installation path",
+      "decision": "close preparation-scoped item",
+      "scope": "Accepted new distribution proof + unchanged required native-source gate inputs + this complete live workflow. Not wheel-by-every-backend Cartesian tests or final-tag artifacts."
+    },
+    {
+      "item": "Original functionality regression and unsupported adapter capability rejection",
+      "decision": "close preparation-scoped item",
+      "scope": "Accepted capability/offline regressions plus current full smoke; retain declared unsupported roles and unknown usage boundaries."
+    },
+    {
+      "item": "Preparation acceptance complete",
+      "decision": "close",
+      "scope": "One complete successful corrected smoke with independent readback now completes the previously missing prerequisite. Record exact source/run and accepted reports; open the already authorized main PR."
+    },
+    {
+      "item": "Unqualified I01-I15 / R00-R05 aggregate",
+      "decision": "remain open until mandatory main-PR CI/Harbor and review are accepted",
+      "scope": "Preparation completion does not fabricate future PR outcomes. Main PR should be opened now so those checks can run."
+    },
+    {
+      "item": "Current full coding-proposer benchmark",
+      "decision": "remain unvalidated extension boundary",
+      "scope": "Historical JSON proposer acceptance and integration pilots are unchanged; smoke is not a full coding-search benchmark."
+    },
+    {
+      "item": "Exact annotated release tag/SHA CI/Harbor/Native-source/full-smoke and publication",
+      "decision": "remain open",
+      "scope": "No merge/tag/release/PyPI authorization or execution follows from this readback."
+    }
+  ],
+  "old_failed_run": {
+    "run_id": 41390453875,
+    "disposition": "Retain failure history. Its successful Codex job is diagnostic only; no jobs or artifacts from it were used to complete the accepted six-job workflow."
+  },
+  "readback_files": {
+    "integrity": "/tmp/proteus-final-smoke-review-41398194611/original-file-integrity.json",
+    "strict_log_evidence": "/tmp/proteus-final-smoke-review-41398194611/strict-log-readback.json"
+  },
+  "original_files_before_after_identical": true,
+  "review_actions": {
+    "new_provider_calls": 0,
+    "Docker_executions": 0,
+    "CI_or_workflow_dispatches": 0,
+    "cancellations": 0,
+    "downloads": 0,
+    "new_runtime_tests": 0,
+    "worker_or_evaluator_starts": 0,
+    "original_evidence_mutations": 0,
+    "source_edits": 0
+  },
+  "new_blocking_findings": []
+}

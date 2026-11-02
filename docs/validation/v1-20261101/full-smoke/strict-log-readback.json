@@ -1,0 +1,662 @@
+{
+  "offline": {
+    "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/offline-job.log",
+    "sha256": "db2e7c913a265e8f0edb53a8ca3c4dd2a4991f628dea4f94fa6e241b7b669393",
+    "bytes": 28956,
+    "source_checkout_matches": true,
+    "checks": [
+      {
+        "line": 269,
+        "text": "2026-11-02T06:10:06.3467899Z All checks passed!"
+      },
+      {
+        "line": 297,
+        "text": "2026-11-02T06:42:25.8406873Z 1842 passed, 91 skipped in 1939.14s (0:32:19)"
+      }
+    ]
+  },
+  "codex": {
+    "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/codex-job.log",
+    "sha256": "66fb2be01fa3fa3c0504c318e2e8b7c7d3463727d0ffeccc7ccb3e1045e121cc",
+    "bytes": 310395,
+    "source_checkout_matches": true,
+    "checks": [
+      {
+        "line": 3932,
+        "text": "2026-11-02T09:32:50.0617360Z codex: 1 runs x 2 episodes, evaluators=['units:notes', 'structural-step', 'tool-calls'], announce=True"
+      },
+      {
+        "line": 3933,
+        "text": "2026-11-02T09:32:50.0622839Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 3934,
+        "text": "2026-11-02T09:32:50.0623207Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 3936,
+        "text": "2026-11-02T09:32:50.0623706Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 3937,
+        "text": "2026-11-02T09:32:50.0623970Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 3938,
+        "text": "2026-11-02T09:32:50.0624211Z   ok   trace parses (44 events in ep2)"
+      },
+      {
+        "line": 3939,
+        "text": "2026-11-02T09:32:50.0624387Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 3940,
+        "text": "2026-11-02T09:32:50.0624575Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 3941,
+        "text": "2026-11-02T09:32:50.1120893Z   ok   ep1: turns 18 within budget or capped"
+      },
+      {
+        "line": 3942,
+        "text": "2026-11-02T09:32:50.1121083Z   ok   ep2: turns 27 within budget or capped"
+      },
+      {
+        "line": 3943,
+        "text": "2026-11-02T09:32:50.1121257Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 3944,
+        "text": "2026-11-02T09:32:50.1121426Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 3945,
+        "text": "2026-11-02T09:32:50.1121621Z   ok   the agent edited its own source before the last episode"
+      },
+      {
+        "line": 3946,
+        "text": "2026-11-02T09:32:50.1121904Z   ok   the final episode loaded the validated binary pair for the edited checkpoint"
+      },
+      {
+        "line": 3947,
+        "text": "2026-11-02T09:32:50.1122190Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 3948,
+        "text": "2026-11-02T09:32:50.1122402Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 3949,
+        "text": "2026-11-02T09:32:50.1122576Z   ok   restore clears the gate"
+      },
+      {
+        "line": 3951,
+        "text": "2026-11-02T09:32:50.1122749Z codex: 0 failed checks"
+      }
+    ]
+  },
+  "minimal": {
+    "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/minimal-job.log",
+    "sha256": "f68effc3c1356347f6ee9ca223971e6b3c085f7cf072396f79fc6085f951a655",
+    "bytes": 22480,
+    "source_checkout_matches": true,
+    "checks": [
+      {
+        "line": 189,
+        "text": "2026-11-02T06:42:36.3201078Z minimal: 2 runs x 2 episodes, evaluators=['units:notes', 'structural-step', 'tool-calls'], announce=True"
+      },
+      {
+        "line": 190,
+        "text": "2026-11-02T06:42:36.3201706Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 191,
+        "text": "2026-11-02T06:42:36.3201968Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 193,
+        "text": "2026-11-02T06:42:36.3202464Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 194,
+        "text": "2026-11-02T06:42:36.3202764Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 195,
+        "text": "2026-11-02T06:42:36.3203086Z   ok   trace parses (2 events in ep2)"
+      },
+      {
+        "line": 196,
+        "text": "2026-11-02T06:42:36.3203330Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 197,
+        "text": "2026-11-02T06:42:36.3203585Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 198,
+        "text": "2026-11-02T06:42:36.3203817Z   ok   ep1: turns 2 <= 10"
+      },
+      {
+        "line": 199,
+        "text": "2026-11-02T06:42:36.3204004Z   ok   ep2: turns 2 <= 10"
+      },
+      {
+        "line": 201,
+        "text": "2026-11-02T06:42:36.3204609Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 202,
+        "text": "2026-11-02T06:42:36.3204905Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 203,
+        "text": "2026-11-02T06:42:36.3205213Z   ok   trace parses (3 events in ep2)"
+      },
+      {
+        "line": 204,
+        "text": "2026-11-02T06:42:36.3205445Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 205,
+        "text": "2026-11-02T06:42:36.3205705Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 206,
+        "text": "2026-11-02T06:42:36.3205941Z   ok   ep1: turns 3 <= 10"
+      },
+      {
+        "line": 207,
+        "text": "2026-11-02T06:42:36.3206389Z   ok   ep2: turns 3 <= 10"
+      },
+      {
+        "line": 208,
+        "text": "2026-11-02T06:42:36.3206582Z   ok   disposition fingerprint present"
+      },
+      {
+        "line": 210,
+        "text": "2026-11-02T06:42:36.3206810Z minimal: 0 failed checks"
+      },
+      {
+        "line": 250,
+        "text": "2026-11-02T06:42:42.1132369Z benchmark pipeline scored every episode: [0.0, 0.0]"
+      }
+    ]
+  },
+  "pi": {
+    "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/pi-job.log",
+    "sha256": "782bbd5eb8f5ce170f9d5847250e0b5edc74cd4a8b1e8736dca7b02d1f9b7a49",
+    "bytes": 46077,
+    "source_checkout_matches": true,
+    "checks": [
+      {
+        "line": 419,
+        "text": "2026-11-02T06:44:48.7359467Z pi: 2 runs x 2 episodes, evaluators=['units:notes', 'structural-step', 'tool-calls'], announce=True"
+      },
+      {
+        "line": 420,
+        "text": "2026-11-02T06:44:48.7360398Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 421,
+        "text": "2026-11-02T06:44:48.7361232Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 423,
+        "text": "2026-11-02T06:44:48.7362163Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 424,
+        "text": "2026-11-02T06:44:48.7362764Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 425,
+        "text": "2026-11-02T06:44:48.7363490Z   ok   trace parses (10 events in ep2)"
+      },
+      {
+        "line": 426,
+        "text": "2026-11-02T06:44:48.7363807Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 427,
+        "text": "2026-11-02T06:44:48.7364143Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 428,
+        "text": "2026-11-02T06:44:48.7364436Z   ok   ep1: turns 7 within budget or capped"
+      },
+      {
+        "line": 429,
+        "text": "2026-11-02T06:44:48.7364731Z   ok   ep2: turns 7 within budget or capped"
+      },
+      {
+        "line": 430,
+        "text": "2026-11-02T06:44:48.7365016Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 431,
+        "text": "2026-11-02T06:44:48.7365299Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 432,
+        "text": "2026-11-02T06:44:48.7365645Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 433,
+        "text": "2026-11-02T06:44:48.7366025Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 434,
+        "text": "2026-11-02T06:44:48.7366311Z   ok   restore clears the gate"
+      },
+      {
+        "line": 436,
+        "text": "2026-11-02T06:44:48.7366818Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 437,
+        "text": "2026-11-02T06:44:48.7367176Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 438,
+        "text": "2026-11-02T06:44:48.7367568Z   ok   trace parses (10 events in ep2)"
+      },
+      {
+        "line": 439,
+        "text": "2026-11-02T06:44:48.7367878Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 440,
+        "text": "2026-11-02T06:44:48.7368183Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 441,
+        "text": "2026-11-02T06:44:48.7368464Z   ok   ep1: turns 7 within budget or capped"
+      },
+      {
+        "line": 442,
+        "text": "2026-11-02T06:44:48.7368733Z   ok   ep2: turns 7 within budget or capped"
+      },
+      {
+        "line": 443,
+        "text": "2026-11-02T06:44:48.7369006Z   ok   disposition fingerprint present"
+      },
+      {
+        "line": 444,
+        "text": "2026-11-02T06:44:48.7369276Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 445,
+        "text": "2026-11-02T06:44:48.7369550Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 446,
+        "text": "2026-11-02T06:44:48.7369872Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 447,
+        "text": "2026-11-02T06:44:48.7370237Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 448,
+        "text": "2026-11-02T06:44:48.7370516Z   ok   restore clears the gate"
+      },
+      {
+        "line": 450,
+        "text": "2026-11-02T06:44:48.7371284Z pi: 0 failed checks"
+      },
+      {
+        "line": 475,
+        "text": "2026-11-02T06:47:04.4547176Z pi: 1 runs x 2 episodes, evaluators=['units:notes', 'structural-step'], announce=True"
+      },
+      {
+        "line": 476,
+        "text": "2026-11-02T06:47:04.4548389Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 477,
+        "text": "2026-11-02T06:47:04.4548832Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 479,
+        "text": "2026-11-02T06:47:04.4549642Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 480,
+        "text": "2026-11-02T06:47:04.4550248Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 481,
+        "text": "2026-11-02T06:47:04.4551118Z   ok   trace parses (27 events in ep2)"
+      },
+      {
+        "line": 482,
+        "text": "2026-11-02T06:47:04.4551610Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 483,
+        "text": "2026-11-02T06:47:04.4552107Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 484,
+        "text": "2026-11-02T06:47:04.4552561Z   ok   ep1: turns 20 within budget or capped"
+      },
+      {
+        "line": 485,
+        "text": "2026-11-02T06:47:04.4553012Z   ok   ep2: turns 20 within budget or capped"
+      },
+      {
+        "line": 486,
+        "text": "2026-11-02T06:47:04.4553442Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 487,
+        "text": "2026-11-02T06:47:04.4553877Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 488,
+        "text": "2026-11-02T06:47:04.4554377Z   ok   the agent edited its own source before the last episode"
+      },
+      {
+        "line": 489,
+        "text": "2026-11-02T06:47:04.4555024Z   ok   the final episode recorded startup from the edited checkpoint"
+      },
+      {
+        "line": 490,
+        "text": "2026-11-02T06:47:04.4555712Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 491,
+        "text": "2026-11-02T06:47:04.4556285Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 492,
+        "text": "2026-11-02T06:47:04.4556721Z   ok   restore clears the gate"
+      },
+      {
+        "line": 494,
+        "text": "2026-11-02T06:47:04.4557103Z pi: 0 failed checks"
+      }
+    ]
+  },
+  "llm": {
+    "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/llm-job.log",
+    "sha256": "74142a78d09db6d5d92b94b5fb2d377e511942e2db3e7cb3e9ca92dfffd0f4d7",
+    "bytes": 20605,
+    "source_checkout_matches": true,
+    "checks": [
+      {
+        "line": 209,
+        "text": "2026-11-02T06:43:35.5292154Z llm: 2 runs x 2 episodes, evaluators=['units:notes', 'structural-step', 'tool-calls'], announce=True"
+      },
+      {
+        "line": 210,
+        "text": "2026-11-02T06:43:35.5292758Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 211,
+        "text": "2026-11-02T06:43:35.5293038Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 213,
+        "text": "2026-11-02T06:43:35.5293521Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 214,
+        "text": "2026-11-02T06:43:35.5293826Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 215,
+        "text": "2026-11-02T06:43:35.5294151Z   ok   trace parses (10 events in ep2)"
+      },
+      {
+        "line": 216,
+        "text": "2026-11-02T06:43:35.5294392Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 217,
+        "text": "2026-11-02T06:43:35.5294684Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 218,
+        "text": "2026-11-02T06:43:35.5294911Z   ok   ep1: turns 10 <= 10"
+      },
+      {
+        "line": 219,
+        "text": "2026-11-02T06:43:35.5295123Z   ok   ep2: turns 10 <= 10"
+      },
+      {
+        "line": 221,
+        "text": "2026-11-02T06:43:35.5295587Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 222,
+        "text": "2026-11-02T06:43:35.5295878Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 223,
+        "text": "2026-11-02T06:43:35.5296188Z   ok   trace parses (10 events in ep2)"
+      },
+      {
+        "line": 224,
+        "text": "2026-11-02T06:43:35.5296420Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 225,
+        "text": "2026-11-02T06:43:35.5296671Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 226,
+        "text": "2026-11-02T06:43:35.5296898Z   ok   ep1: turns 10 <= 10"
+      },
+      {
+        "line": 227,
+        "text": "2026-11-02T06:43:35.5297096Z   ok   ep2: turns 10 <= 10"
+      },
+      {
+        "line": 228,
+        "text": "2026-11-02T06:43:35.5297296Z   ok   disposition fingerprint present"
+      },
+      {
+        "line": 230,
+        "text": "2026-11-02T06:43:35.5297520Z llm: 0 failed checks"
+      }
+    ]
+  },
+  "dsh": {
+    "path": "/tmp/proteus-v1-final-20261101/smoke-41398194611/dsh-job.log",
+    "sha256": "fd2f88a852220183c44bf53bb5ec5d82006366a9be8effec48415a0c66eef624",
+    "bytes": 446745,
+    "source_checkout_matches": true,
+    "checks": [
+      {
+        "line": 4160,
+        "text": "2026-11-02T06:54:40.4474597Z dsh: 2 runs x 2 episodes, evaluators=['units:notes', 'structural-step', 'tool-calls'], announce=True"
+      },
+      {
+        "line": 4161,
+        "text": "2026-11-02T06:54:40.4475488Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 4162,
+        "text": "2026-11-02T06:54:40.4476485Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 4164,
+        "text": "2026-11-02T06:54:40.4477427Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 4165,
+        "text": "2026-11-02T06:54:40.4478017Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 4166,
+        "text": "2026-11-02T06:54:40.4478733Z   ok   trace parses (14 events in ep2)"
+      },
+      {
+        "line": 4167,
+        "text": "2026-11-02T06:54:40.4479271Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 4168,
+        "text": "2026-11-02T06:54:40.4479817Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 4169,
+        "text": "2026-11-02T06:54:40.4480295Z   ok   ep1: turns 10 within budget or capped"
+      },
+      {
+        "line": 4170,
+        "text": "2026-11-02T06:54:40.4480768Z   ok   ep2: turns 10 within budget or capped"
+      },
+      {
+        "line": 4171,
+        "text": "2026-11-02T06:54:40.4481234Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 4172,
+        "text": "2026-11-02T06:54:40.4481943Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 4173,
+        "text": "2026-11-02T06:54:40.4482516Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 4174,
+        "text": "2026-11-02T06:54:40.4483181Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 4175,
+        "text": "2026-11-02T06:54:40.4483669Z   ok   restore clears the gate"
+      },
+      {
+        "line": 4177,
+        "text": "2026-11-02T06:54:40.4484624Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 4178,
+        "text": "2026-11-02T06:54:40.4485246Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 4179,
+        "text": "2026-11-02T06:54:40.4485917Z   ok   trace parses (11 events in ep2)"
+      },
+      {
+        "line": 4180,
+        "text": "2026-11-02T06:54:40.4486398Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 4181,
+        "text": "2026-11-02T06:54:40.4486726Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 4182,
+        "text": "2026-11-02T06:54:40.4487036Z   ok   ep1: turns 10 within budget or capped"
+      },
+      {
+        "line": 4183,
+        "text": "2026-11-02T06:54:40.4487325Z   ok   ep2: turns 10 within budget or capped"
+      },
+      {
+        "line": 4184,
+        "text": "2026-11-02T06:54:40.4487609Z   ok   disposition fingerprint present"
+      },
+      {
+        "line": 4185,
+        "text": "2026-11-02T06:54:40.4487895Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 4186,
+        "text": "2026-11-02T06:54:40.4488185Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 4187,
+        "text": "2026-11-02T06:54:40.4488537Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 4188,
+        "text": "2026-11-02T06:54:40.4489201Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 4189,
+        "text": "2026-11-02T06:54:40.4489491Z   ok   restore clears the gate"
+      },
+      {
+        "line": 4191,
+        "text": "2026-11-02T06:54:40.4489933Z dsh: 0 failed checks"
+      },
+      {
+        "line": 4216,
+        "text": "2026-11-02T07:03:09.0047773Z dsh: 1 runs x 2 episodes, evaluators=['units:notes', 'structural-step'], announce=True"
+      },
+      {
+        "line": 4217,
+        "text": "2026-11-02T07:03:09.0048379Z   ok   manifest lists the evaluators"
+      },
+      {
+        "line": 4218,
+        "text": "2026-11-02T07:03:09.0048681Z   ok   manifest records the goal text"
+      },
+      {
+        "line": 4220,
+        "text": "2026-11-02T07:03:09.0049249Z   ok   completed 2/2 with no error"
+      },
+      {
+        "line": 4221,
+        "text": "2026-11-02T07:03:09.0049654Z   ok   hashed final adapter inputs cover every episode with terminal outcomes"
+      },
+      {
+        "line": 4222,
+        "text": "2026-11-02T07:03:09.0050075Z   ok   trace parses (49 events in ep2)"
+      },
+      {
+        "line": 4223,
+        "text": "2026-11-02T07:03:09.0050393Z   ok   snapshot chain gapless (episodes [0, 1, 2])"
+      },
+      {
+        "line": 4224,
+        "text": "2026-11-02T07:03:09.0050730Z   ok   every evaluator scored every episode"
+      },
+      {
+        "line": 4225,
+        "text": "2026-11-02T07:03:09.0051035Z   ok   ep1: turns 32 within budget or capped"
+      },
+      {
+        "line": 4226,
+        "text": "2026-11-02T07:03:09.0051606Z   ok   ep2: turns 30 within budget or capped"
+      },
+      {
+        "line": 4227,
+        "text": "2026-11-02T07:03:09.0051951Z   ok   episode-0 snapshot contains src/"
+      },
+      {
+        "line": 4228,
+        "text": "2026-11-02T07:03:09.0052264Z   ok   evolved self-code still boots"
+      },
+      {
+        "line": 4229,
+        "text": "2026-11-02T07:03:09.0052600Z   ok   the agent edited its own source before the last episode"
+      },
+      {
+        "line": 4230,
+        "text": "2026-11-02T07:03:09.0053021Z   ok   the final episode recorded startup from the edited checkpoint"
+      },
+      {
+        "line": 4231,
+        "text": "2026-11-02T07:03:09.0053465Z   ok   a compiled source file is available for the rejection probe"
+      },
+      {
+        "line": 4232,
+        "text": "2026-11-02T07:03:09.0053853Z   ok   planted error refused by the boot gate"
+      },
+      {
+        "line": 4233,
+        "text": "2026-11-02T07:03:09.0054153Z   ok   restore clears the gate"
+      },
+      {
+        "line": 4235,
+        "text": "2026-11-02T07:03:09.0054413Z dsh: 0 failed checks"
+      }
+    ]
+  }
+}

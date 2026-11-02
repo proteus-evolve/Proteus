@@ -36,7 +36,7 @@ this record supplies their current per-requirement disposition.
 | I12 recipes | Immutable resolved manifests, exact source/dependency/plugin locks, profile and deviation metadata; changed conditions cannot masquerade as resume. | Frozen historical builders and current catalog builders have separate validation labels. |
 | I13 researcher entrypoints | Five external plugin templates, six dependency-free catalog examples, export and study comparison execute outside the checkout in both distributions. | Optional GEPA reference and real runtimes have their own CI/gates. |
 | I14 output | Historical 15 profiles, baseline/selected/last separation, task tables, cost bounds and missing values; online Combee elapsed table accepted. Common-trace comparison adds controlled mechanism evidence. | The independent generic export readback closes both remaining output items: five saved runs yield 92 task rows / 30 candidates with no missing rollout; reference/adapted and controlled records remain separate. Offline historical continuous timing stays unknown; no cross-method causal ranking. |
-| I15 release | API/schema/lock freeze, unreleased 1.0.0 metadata/notes, wheel+sdist build and twine; 22 installed checks, 261 Python files byte-matched. | Complete prepare full smoke and main PR CI/Harbor; later exact-tag gates and publication require separate authorization. |
+| I15 release | API/schema/lock freeze, unreleased 1.0.0 metadata/notes, wheel+sdist build and twine; 22 installed checks, 261 Python files byte-matched. | All six preparation smoke jobs passed at the recorded source; main PR CI/Harbor/review remain. Later exact-tag gates and publication require separate authorization. |
 
 ### I09: disposition of the three earlier unchecked items
 
@@ -128,7 +128,7 @@ paper-matched scores or a causal ranking across methods.
   [independent package and documentation closure](validation/v1-20261101/final-distributions/independent-distribution-and-docs-closure.json)
   rehashed both artifacts, all installed files, wheel RECORD entries and original
   logs; it accepts this rebuild and documentation synchronization, without closing
-  the remaining live or main/tag gates.
+  the then-pending live or main/tag gates. The completed live gate is recorded below.
 - Prepare Native source workflow: [run 41390451600](https://github.com/proteus-evolve/Proteus/actions/runs/41390451600)
   passed both required pinned Pi and DSH source jobs with `live_role_pilot=false`.
   The [artifact readback](validation/v1-20261101/native-source/readback.json) verifies
@@ -155,7 +155,10 @@ paper-matched scores or a causal ranking across methods.
   before episode two and failed both edit/edited-checkpoint checks. The
   [original failure log](validation/v1-20261101/release-smoke-41390453875-dsh-failed.log)
   is retained. This workflow did not export DSH's raw trace; the cause is not proven.
-  The full workflow is not accepted. The candidate-path/diagnostics correction
+  Its Codex job later passed all strict checks, as retained in the
+  [original diagnostic record](validation/v1-20261101/first-smoke-codex/codex-diagnostic-readback.json).
+  The full workflow remains failed; that Codex result is not pooled with another run.
+  The candidate-path/diagnostics correction
   at `12e02ff` passes 51 offline regressions and lint, with the production tree
   unchanged. It names each pinned harness's writable `/workspace/candidate/...`
   entry file and retains bounded sanitized diagnostic artifacts even after failure.
@@ -178,8 +181,18 @@ paper-matched scores or a causal ranking across methods.
 - Corrected complete preparation smoke [41398194611](https://github.com/proteus-evolve/Proteus/actions/runs/41398194611)
   was dispatched once at `1adaa8ffa729771b80ad0a29b407fb014e64a14c`, after code
   review and P2 closure. It uses the unchanged episode/turn/timeout bounds and
-  production tree; all six required jobs must pass in this one run. It is
-  currently in progress and is not yet an accepted gate.
+  production tree. All six required jobs (offline, minimal, LLM, Pi, DSH and Codex)
+  passed in this single run, completed November 2 at 09:32:53 UTC. Offline reports
+  1,842 passed / 91 skipped. Pi, DSH and Codex passed required source editing,
+  next-episode activation, planted compile-error rejection and restoration checks.
+  The [original logs, diagnostic ZIPs and readback](validation/v1-20261101/full-smoke/README.md)
+  preserve exact source and artifact identities. Pi/DSH sanitized exports were
+  independently reconstructed; Codex evidence is the original source-bound job log
+  and strict live checker, because this workflow exports no Codex raw episode
+  archive. Full Codex binary-state reconstruction and complete provider usage/cost
+  are not claimed. The [independent final smoke acceptance](validation/v1-20261101/full-smoke/independent-final-smoke-acceptance.json)
+  closes the preparation-scoped installation, regression and preparation-complete
+  items. Main PR checks and future exact-tag gates remain separate.
 
 The [independent review](validation/v1-20261101/independent-review.json) accepts
 R04 common-trace closure, the API/package evidence and the scoped I09 disposition.

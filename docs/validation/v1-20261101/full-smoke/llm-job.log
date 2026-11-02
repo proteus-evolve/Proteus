@@ -1,0 +1,249 @@
+﻿2026-11-02T06:42:30.5807948Z Current runner version: '2.338.2'
+2026-11-02T06:42:30.5830100Z ##[group]Runner Image Provisioner
+2026-11-02T06:42:30.5830957Z Hosted Compute Agent
+2026-11-02T06:42:30.5831489Z Version: 20261021.618
+2026-11-02T06:42:30.5832086Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-02T06:42:30.5832789Z Build Date: 2026-10-21T00:45:21Z
+2026-11-02T06:42:30.5833442Z Worker ID: {34e3a6c7-3738-4bbc-8673-9760f697737e}
+2026-11-02T06:42:30.5834168Z Region: westcentralus
+2026-11-02T06:42:30.5834678Z Cloud: Azure
+2026-11-02T06:42:30.5835179Z ##[endgroup]
+2026-11-02T06:42:30.5836627Z ##[group]Operating System
+2026-11-02T06:42:30.5837181Z Ubuntu
+2026-11-02T06:42:30.5837797Z 24.04.5
+2026-11-02T06:42:30.5838287Z LTS
+2026-11-02T06:42:30.5838971Z ##[endgroup]
+2026-11-02T06:42:30.5839544Z ##[group]Runner Image
+2026-11-02T06:42:30.5840084Z Image: ubuntu-24.04
+2026-11-02T06:42:30.5840618Z Version: 20261025.353.1
+2026-11-02T06:42:30.5841787Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261025.353/images/ubuntu/Ubuntu2404-Readme.md
+2026-11-02T06:42:30.5843148Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261025.353
+2026-11-02T06:42:30.5843964Z ##[endgroup]
+2026-11-02T06:42:30.5845437Z ##[group]GITHUB_TOKEN Permissions
+2026-11-02T06:42:30.5847295Z Contents: read
+2026-11-02T06:42:30.5847905Z Metadata: read
+2026-11-02T06:42:30.5848448Z Packages: read
+2026-11-02T06:42:30.5849203Z ##[endgroup]
+2026-11-02T06:42:30.5851138Z Secret source: Actions
+2026-11-02T06:42:30.5852032Z Cache mode: write
+2026-11-02T06:42:30.5852852Z Prepare workflow directory
+2026-11-02T06:42:30.6207255Z Prepare all required actions
+2026-11-02T06:42:30.6246734Z Getting action download info
+2026-11-02T06:42:30.8696664Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-02T06:42:30.9552482Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-11-02T06:42:31.1411886Z Complete job name: llm
+2026-11-02T06:42:31.2105121Z ##[group]Run actions/checkout@v4
+2026-11-02T06:42:31.2105808Z with:
+2026-11-02T06:42:31.2106198Z   repository: proteus-evolve/Proteus
+2026-11-02T06:42:31.2109429Z   token: ***
+2026-11-02T06:42:31.2109799Z   ssh-strict: true
+2026-11-02T06:42:31.2110169Z   ssh-user: git
+2026-11-02T06:42:31.2110542Z   persist-credentials: true
+2026-11-02T06:42:31.2110949Z   clean: true
+2026-11-02T06:42:31.2111325Z   sparse-checkout-cone-mode: true
+2026-11-02T06:42:31.2111755Z   fetch-depth: 1
+2026-11-02T06:42:31.2112127Z   fetch-tags: false
+2026-11-02T06:42:31.2112498Z   show-progress: true
+2026-11-02T06:42:31.2112875Z   lfs: false
+2026-11-02T06:42:31.2113223Z   submodules: false
+2026-11-02T06:42:31.2113597Z   set-safe-directory: true
+2026-11-02T06:42:31.2114011Z   allow-unsafe-pr-checkout: false
+2026-11-02T06:42:31.2114590Z env:
+2026-11-02T06:42:31.2114938Z   DSH_TAG: dsh-v0.1.0-rc.7
+2026-11-02T06:42:31.2115331Z   PI_TAG: v0.84.2
+2026-11-02T06:42:31.2115810Z   CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+2026-11-02T06:42:31.2116985Z   CELL: --arm neutral --arm review:notes --seeds 1 --episodes 2 --max-turns 10 --min-turns-per-phase 2 --announce-budget --evaluator units:notes --evaluator step@observe --evaluator tool-calls
+2026-11-02T06:42:31.2118120Z   GOAL: Get better at your work, however you judge it.
+2026-11-02T06:42:31.2119080Z   EDIT_CELL: --arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget
+2026-11-02T06:42:31.2119784Z ##[endgroup]
+2026-11-02T06:42:31.5602896Z Syncing repository: proteus-evolve/Proteus
+2026-11-02T06:42:31.5605221Z ##[group]Getting Git version info
+2026-11-02T06:42:31.5605894Z Working directory is '/home/runner/work/Proteus/Proteus'
+2026-11-02T06:42:31.5606785Z [command]/usr/bin/git version
+2026-11-02T06:42:31.5724088Z git version 2.56.0
+2026-11-02T06:42:31.5742883Z ##[endgroup]
+2026-11-02T06:42:31.5753156Z Temporarily overriding HOME='/home/runner/work/_temp/60ed2ffc-61d9-4408-97fa-fdae93bf3104' before making global git config changes
+2026-11-02T06:42:31.5755551Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-02T06:42:31.5758491Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Proteus/Proteus
+2026-11-02T06:42:31.5814031Z Deleting the contents of '/home/runner/work/Proteus/Proteus'
+2026-11-02T06:42:31.5822216Z ##[group]Initializing the repository
+2026-11-02T06:42:31.5824832Z [command]/usr/bin/git init /home/runner/work/Proteus/Proteus
+2026-11-02T06:42:31.6249957Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-02T06:42:31.6251804Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-02T06:42:31.6253295Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-02T06:42:31.6254517Z hint: call:
+2026-11-02T06:42:31.6255219Z hint:
+2026-11-02T06:42:31.6256077Z hint: 	git config --global init.defaultBranch <name>
+2026-11-02T06:42:31.6257078Z hint:
+2026-11-02T06:42:31.6258074Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-02T06:42:31.6259883Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-02T06:42:31.6261123Z hint:
+2026-11-02T06:42:31.6261833Z hint: 	git branch -m <name>
+2026-11-02T06:42:31.6262635Z hint:
+2026-11-02T06:42:31.6263649Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-02T06:42:31.6265471Z Initialized empty Git repository in /home/runner/work/Proteus/Proteus/.git/
+2026-11-02T06:42:31.6289805Z [command]/usr/bin/git remote add origin https://github.com/proteus-evolve/Proteus
+2026-11-02T06:42:31.6357866Z ##[endgroup]
+2026-11-02T06:42:31.6359326Z ##[group]Disabling automatic garbage collection
+2026-11-02T06:42:31.6362285Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-02T06:42:31.6410072Z ##[endgroup]
+2026-11-02T06:42:31.6410746Z ##[group]Setting up auth
+2026-11-02T06:42:31.6420108Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-02T06:42:31.6464647Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-02T06:42:31.6811539Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-02T06:42:31.6848056Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-02T06:42:31.7056865Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-02T06:42:31.7095531Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-02T06:42:31.7305221Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-02T06:42:31.7354513Z ##[endgroup]
+2026-11-02T06:42:31.7355524Z ##[group]Fetching the repository
+2026-11-02T06:42:31.7365569Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1adaa8ffa729771b80ad0a29b407fb014e64a14c:refs/remotes/origin/codex/v1-final-acceptance-20261101
+2026-11-02T06:42:32.8863673Z From https://github.com/proteus-evolve/Proteus
+2026-11-02T06:42:32.8866118Z  * [new ref]         1adaa8ffa729771b80ad0a29b407fb014e64a14c -> origin/codex/v1-final-acceptance-20261101
+2026-11-02T06:42:32.8869857Z ##[endgroup]
+2026-11-02T06:42:32.8870968Z ##[group]Determining the checkout info
+2026-11-02T06:42:32.8872223Z ##[endgroup]
+2026-11-02T06:42:32.8873560Z [command]/usr/bin/git sparse-checkout disable
+2026-11-02T06:42:32.8931235Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-02T06:42:32.8973807Z ##[group]Checking out the ref
+2026-11-02T06:42:32.8977315Z [command]/usr/bin/git checkout --progress --force -B codex/v1-final-acceptance-20261101 refs/remotes/origin/codex/v1-final-acceptance-20261101
+2026-11-02T06:42:32.9803256Z Switched to a new branch 'codex/v1-final-acceptance-20261101'
+2026-11-02T06:42:32.9806529Z branch 'codex/v1-final-acceptance-20261101' set up to track 'origin/codex/v1-final-acceptance-20261101'.
+2026-11-02T06:42:32.9816856Z ##[endgroup]
+2026-11-02T06:42:32.9863346Z [command]/usr/bin/git log -1 --format=%H
+2026-11-02T06:42:32.9894073Z 1adaa8ffa729771b80ad0a29b407fb014e64a14c
+2026-11-02T06:42:33.0308120Z ##[group]Run actions/setup-python@v5
+2026-11-02T06:42:33.0309450Z with:
+2026-11-02T06:42:33.0310217Z   python-version: 3.12
+2026-11-02T06:42:33.0311079Z   check-latest: false
+2026-11-02T06:42:33.0318904Z   token: ***
+2026-11-02T06:42:33.0319727Z   update-environment: true
+2026-11-02T06:42:33.0320641Z   allow-prereleases: false
+2026-11-02T06:42:33.0321549Z   freethreaded: false
+2026-11-02T06:42:33.0322342Z env:
+2026-11-02T06:42:33.0323058Z   DSH_TAG: dsh-v0.1.0-rc.7
+2026-11-02T06:42:33.0323917Z   PI_TAG: v0.84.2
+2026-11-02T06:42:33.0324847Z   CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+2026-11-02T06:42:33.0327617Z   CELL: --arm neutral --arm review:notes --seeds 1 --episodes 2 --max-turns 10 --min-turns-per-phase 2 --announce-budget --evaluator units:notes --evaluator step@observe --evaluator tool-calls
+2026-11-02T06:42:33.0330535Z   GOAL: Get better at your work, however you judge it.
+2026-11-02T06:42:33.0332382Z   EDIT_CELL: --arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget
+2026-11-02T06:42:33.0334094Z ##[endgroup]
+2026-11-02T06:42:33.1465625Z ##[group]Installed versions
+2026-11-02T06:42:33.1553451Z (node:2175) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-02T06:42:33.1556256Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-02T06:42:33.1557881Z Successfully set up CPython (3.12.15)
+2026-11-02T06:42:33.1559871Z ##[endgroup]
+2026-11-02T06:42:33.1855576Z ##[group]Run pip install -e .
+2026-11-02T06:42:33.1857283Z [36;1mpip install -e .[0m
+2026-11-02T06:42:33.1902834Z shell: /usr/bin/bash -e {0}
+2026-11-02T06:42:33.1904327Z env:
+2026-11-02T06:42:33.1905654Z   DSH_TAG: dsh-v0.1.0-rc.7
+2026-11-02T06:42:33.1907179Z   PI_TAG: v0.84.2
+2026-11-02T06:42:33.1908483Z   CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+2026-11-02T06:42:33.1913272Z   CELL: --arm neutral --arm review:notes --seeds 1 --episodes 2 --max-turns 10 --min-turns-per-phase 2 --announce-budget --evaluator units:notes --evaluator step@observe --evaluator tool-calls
+2026-11-02T06:42:33.1917190Z   GOAL: Get better at your work, however you judge it.
+2026-11-02T06:42:33.1919815Z   EDIT_CELL: --arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget
+2026-11-02T06:42:33.1922519Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:33.1924655Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-02T06:42:33.1926839Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:33.1928892Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:33.1930794Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:33.1932712Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-02T06:42:33.1934382Z ##[endgroup]
+2026-11-02T06:42:33.9060685Z Obtaining file:///home/runner/work/Proteus/Proteus
+2026-11-02T06:42:33.9077421Z   Installing build dependencies: started
+2026-11-02T06:42:34.6897927Z   Installing build dependencies: finished with status 'done'
+2026-11-02T06:42:34.6903613Z   Checking if build backend supports build_editable: started
+2026-11-02T06:42:34.9677642Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-11-02T06:42:34.9684667Z   Getting requirements to build editable: started
+2026-11-02T06:42:35.2614086Z   Getting requirements to build editable: finished with status 'done'
+2026-11-02T06:42:35.2621727Z   Preparing editable metadata (pyproject.toml): started
+2026-11-02T06:42:35.4414752Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-11-02T06:42:35.4454058Z Building wheels for collected packages: proteus-evolve
+2026-11-02T06:42:35.4460476Z   Building editable for proteus-evolve (pyproject.toml): started
+2026-11-02T06:42:35.6669105Z   Building editable for proteus-evolve (pyproject.toml): finished with status 'done'
+2026-11-02T06:42:35.6674299Z   Created wheel for proteus-evolve: filename=proteus_evolve-1.0.0-0.editable-py3-none-any.whl size=13011 sha256=de76bde490776f8ec6cc8a672ecf1be1545aa3fc1272442508841ebf97711895
+2026-11-02T06:42:35.6675514Z   Stored in directory: /tmp/pip-ephem-wheel-cache-xvd_0w08/wheels/bb/b5/c5/18240afb60642ee5a6d09022d36319d7bc7970923f2dd1b942
+2026-11-02T06:42:35.6703058Z Successfully built proteus-evolve
+2026-11-02T06:42:35.6812874Z Installing collected packages: proteus-evolve
+2026-11-02T06:42:35.7072902Z Successfully installed proteus-evolve-1.0.0
+2026-11-02T06:42:35.7608228Z ##[group]Run if [ -z "***" ]; then
+2026-11-02T06:42:35.7608803Z [36;1mif [ -z "***" ]; then[0m
+2026-11-02T06:42:35.7609157Z [36;1m  echo "::error::add DEEPSEEK_API_KEY under Settings -> Secrets -> Actions"; exit 1[0m
+2026-11-02T06:42:35.7609506Z [36;1mfi[0m
+2026-11-02T06:42:35.7628091Z shell: /usr/bin/bash -e {0}
+2026-11-02T06:42:35.7628306Z env:
+2026-11-02T06:42:35.7628483Z   DSH_TAG: dsh-v0.1.0-rc.7
+2026-11-02T06:42:35.7628869Z   PI_TAG: v0.84.2
+2026-11-02T06:42:35.7629090Z   CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+2026-11-02T06:42:35.7629718Z   CELL: --arm neutral --arm review:notes --seeds 1 --episodes 2 --max-turns 10 --min-turns-per-phase 2 --announce-budget --evaluator units:notes --evaluator step@observe --evaluator tool-calls
+2026-11-02T06:42:35.7630338Z   GOAL: Get better at your work, however you judge it.
+2026-11-02T06:42:35.7630734Z   EDIT_CELL: --arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget
+2026-11-02T06:42:35.7631202Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7631578Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-02T06:42:35.7631918Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7632222Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7632520Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7632813Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-02T06:42:35.7633065Z ##[endgroup]
+2026-11-02T06:42:35.7698983Z ##[group]Run python -m proteus.cli run --harness llm $CELL --goal "$GOAL" --out /tmp/rc/llm
+2026-11-02T06:42:35.7699489Z [36;1mpython -m proteus.cli run --harness llm $CELL --goal "$GOAL" --out /tmp/rc/llm[0m
+2026-11-02T06:42:35.7699885Z [36;1mpython scripts/smoke_check.py /tmp/rc/llm --harness llm[0m
+2026-11-02T06:42:35.7716119Z shell: /usr/bin/bash -e {0}
+2026-11-02T06:42:35.7716333Z env:
+2026-11-02T06:42:35.7716503Z   DSH_TAG: dsh-v0.1.0-rc.7
+2026-11-02T06:42:35.7716710Z   PI_TAG: v0.84.2
+2026-11-02T06:42:35.7716921Z   CODEX_REF: a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+2026-11-02T06:42:35.7717555Z   CELL: --arm neutral --arm review:notes --seeds 1 --episodes 2 --max-turns 10 --min-turns-per-phase 2 --announce-budget --evaluator units:notes --evaluator step@observe --evaluator tool-calls
+2026-11-02T06:42:35.7718173Z   GOAL: Get better at your work, however you judge it.
+2026-11-02T06:42:35.7718742Z   EDIT_CELL: --arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget
+2026-11-02T06:42:35.7719164Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7719500Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-02T06:42:35.7719827Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7720129Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7720429Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-02T06:42:35.7720921Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-02T06:42:35.7721268Z   DEEPSEEK_KEY: ***
+2026-11-02T06:42:35.7721435Z ##[endgroup]
+2026-11-02T06:43:35.4041617Z ran 2 seeds, 4 episodes -> /tmp/rc/llm
+2026-11-02T06:43:35.5292154Z llm: 2 runs x 2 episodes, evaluators=['units:notes', 'structural-step', 'tool-calls'], announce=True
+2026-11-02T06:43:35.5292758Z   ok   manifest lists the evaluators
+2026-11-02T06:43:35.5293038Z   ok   manifest records the goal text
+2026-11-02T06:43:35.5293300Z [neutral/0] run-d4a4a971bfbc
+2026-11-02T06:43:35.5293521Z   ok   completed 2/2 with no error
+2026-11-02T06:43:35.5293826Z   ok   hashed final adapter inputs cover every episode with terminal outcomes
+2026-11-02T06:43:35.5294151Z   ok   trace parses (10 events in ep2)
+2026-11-02T06:43:35.5294392Z   ok   snapshot chain gapless (episodes [0, 1, 2])
+2026-11-02T06:43:35.5294684Z   ok   every evaluator scored every episode
+2026-11-02T06:43:35.5294911Z   ok   ep1: turns 10 <= 10
+2026-11-02T06:43:35.5295123Z   ok   ep2: turns 10 <= 10
+2026-11-02T06:43:35.5295358Z [review_notes/0] run-78e494a75d4d
+2026-11-02T06:43:35.5295587Z   ok   completed 2/2 with no error
+2026-11-02T06:43:35.5295878Z   ok   hashed final adapter inputs cover every episode with terminal outcomes
+2026-11-02T06:43:35.5296188Z   ok   trace parses (10 events in ep2)
+2026-11-02T06:43:35.5296420Z   ok   snapshot chain gapless (episodes [0, 1, 2])
+2026-11-02T06:43:35.5296671Z   ok   every evaluator scored every episode
+2026-11-02T06:43:35.5296898Z   ok   ep1: turns 10 <= 10
+2026-11-02T06:43:35.5297096Z   ok   ep2: turns 10 <= 10
+2026-11-02T06:43:35.5297296Z   ok   disposition fingerprint present
+2026-11-02T06:43:35.5297440Z 
+2026-11-02T06:43:35.5297520Z llm: 0 failed checks
+2026-11-02T06:43:35.5501980Z Post job cleanup.
+2026-11-02T06:43:35.6484401Z (node:2314) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-02T06:43:35.6484994Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-02T06:43:35.6639079Z Post job cleanup.
+2026-11-02T06:43:35.7419930Z [command]/usr/bin/git version
+2026-11-02T06:43:35.7459512Z git version 2.56.0
+2026-11-02T06:43:35.7493201Z Temporarily overriding HOME='/home/runner/work/_temp/47adf384-4c95-4204-89bc-5962a419149a' before making global git config changes
+2026-11-02T06:43:35.7494039Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-02T06:43:35.7497771Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Proteus/Proteus
+2026-11-02T06:43:35.7535686Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-02T06:43:35.7580190Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-02T06:43:35.7803011Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-02T06:43:35.7847145Z http.https://github.com/.extraheader
+2026-11-02T06:43:35.7865108Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-02T06:43:35.7898159Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-02T06:43:35.8129381Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-02T06:43:35.8169577Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-02T06:43:35.8540062Z Cleaning up orphan processes
+2026-11-02T06:43:35.8861711Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -394,7 +394,7 @@ P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 p
 - [x] 不改写旧实验记录；不兼容的续跑要求原版本完成或新建 run（只读导出、锁校验及明确拒绝未知 schema/state；不隐式原地迁移）。
 - [x] 更新架构、recipe、扩展、Harbor、结果解释、迁移与发布文档（P10k：统一入口与支持矩阵；README 的 prepare/check/lock/run/resume/export 在新安装环境实际执行；1.0 release notes 标为 unreleased）。
 - [x] 保留既有 runtime 发布检查，并增加新 recipe 的端到端检查（P10g/P10v 绑定同一 tag/SHA 的 CI、Harbor、live smoke 和 Pi/DSH 源码集成验收；每个 workflow 必须有一次完整成功运行，实际发布提交仍须全部通过）。
-- [ ] 验证 wheel、sdist、可选依赖、离线模板与真实 backend 的安装路径。
+- [x] 准备阶段已验证 wheel、sdist、可选依赖、离线模板与声明支持的真实 backend 安装路径（bad3c55 新包 22 项仓库外检查、Native source 原产物回读，以及完整 smoke 41398194611 六项全部成功；[独立验收](../validation/v1-20261101/full-smoke/independent-final-smoke-acceptance.json)。不代表 wheel × 全 backend 笛卡尔积或未来 tag 产物验收）。
 
 **验收：** 新环境能按文档安装、运行、查看结果、恢复和导出；发布产物与验证的同一提交一致。
 
@@ -622,11 +622,11 @@ an explicit maintainer decision, not a new label. The November
 accepted Combee/CORAL closure and is the current checklist reference; the October
 statements above remain development history.
 
-- [ ] 准备阶段验收完成：在已接受的声明范围、安装包和 Native source 证据之上，完整 smoke 单次全部必需 jobs 通过并完成回读；之后按授权创建 main PR。main PR 的 CI/Harbor/review 和正式 tag/publication 另列。
+- [x] 准备阶段验收完成：在已接受的声明范围、安装包和 Native source 证据之上，完整 smoke 41398194611 在 1adaa8f 单次六个必需 jobs 全部通过并完成[原始产物独立回读](../validation/v1-20261101/full-smoke/independent-final-smoke-acceptance.json)；按授权创建 main PR。main PR 的 CI/Harbor/review 和正式 tag/publication 另列。
 - [ ] I01–I15 的验收记录齐全，R00 与 R01–R05 均完成对应范围。
 - [x] R00–R05 声明验收 profiles 有版本锁、运行说明、机制核对、支持矩阵、结果与偏差说明（14 个 adapted 方法 profile 加 1 个 Native 机制 profile，共 16 recipes；generic builders 保留 model_results_pending，离线 fixture 不冒充模型验证，见 [独立核对](../validation/v1-20261101/final-checklist/conditional-release-disposition.json)）。
 - [x] 公共 API 与配置 schema 定义稳定，插件扩展教程通过实际验证（November 1 冻结 100 exports/64 Contract schemas；wheel/sdist 仓库外模板执行与独立回验见 [preparation record](../V1_FINAL_ACCEPTANCE.md)）。
-- [ ] 原有功能回归通过；不支持的 adapter 能力被明确拒绝或限制。
+- [x] 准备阶段声明支持范围的原有功能回归通过；不支持的 adapter 能力被明确拒绝或限制（完整 smoke 41398194611：1,842 passed / 91 skips，六个必需 jobs 全部成功；[独立验收](../validation/v1-20261101/full-smoke/independent-final-smoke-acceptance.json)。未知用量、有限预算限制与后续 PR/tag 门禁保持独立）。
 - [x] 已声明支持范围内的全局预算、检查点与恢复验证通过；持久 session 与 fresh fallback 分开记录（I09、Native repair 和 CORAL 控制器恢复已验收；未知外部结果保留 reservation 并要求 reconciliation，见 [支持边界](../V1_FINAL_ACCEPTANCE.md)）。
 - [x] 已保存的逐任务记录可重新汇总为报告中的表与曲线（I14 独立回读 5 个 run、92 个任务/30 个候选，无漏报 rollout；历史领域报告单列，unknown 不补零，见 [输出验收](../validation/v1-20261101/i14-output/i14-generic-disposition.json)）。
 - [x] wheel、sdist 和可选依赖在新环境安装验证通过（9807a41 旧包证据保留；README 元数据改变后，clean bad3c55 的新 wheel/sdist 已重建并通过 build/twine、22 项仓库外检查，261 Python sources 逐字节一致；production Python 未变，293 个 wheel package payload 文件与旧包一致。见 [新包独立身份与日志](../validation/v1-20261101/final-distributions/README.md)。正式 tag 产物仍需按发布流程重建并验证）。

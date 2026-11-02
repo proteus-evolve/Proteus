@@ -1,0 +1,140 @@
+"""Read original sanitized Pi/DSH ZIPs; no worker, Docker or provider execution."""
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+import zipfile
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = '1adaa8ffa729771b80ad0a29b407fb014e64a14c'
+EXPECTED = {
+    'pi': ('def4d918454097c6d5f94f620f220d3f8180e3e68e380b15ac04e223c978c4ca', 13122400389, 125134436808),
+    'dsh': ('6553dc986244d73bc0971da510918227b3328c0f073a685153664ebd74b0e28a', 13122935125, 125134436868),
+}
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+report = {
+    'observed_at': datetime.now(timezone.utc).isoformat(),
+    'run_id': 41398194611, 'run_attempt': 1, 'source': SOURCE,
+    'scope': 'Partial preparation readback: completed Pi/DSH jobs only. Codex and the full workflow are not accepted by this report.',
+    'provider_requests': 0, 'docker_executions': 0, 'new_workflow_dispatches': 0,
+    'harnesses': {},
+}
+jobs = json.loads((ROOT / 'jobs-0706.json').read_text())['jobs']
+artifacts = json.loads((ROOT / 'artifacts-0706.json').read_text())['artifacts']
+run = json.loads((ROOT / 'run-0706.json').read_text())
+assert run['head_sha'] == SOURCE and run['id'] == report['run_id'] and run['run_attempt'] == 1
+for harness, (digest, artifact_id, job_id) in EXPECTED.items():
+    raw = (ROOT / f'{harness}-original.zip').read_bytes()
+    assert sha(raw) == digest
+    artifact = next(a for a in artifacts if a['id'] == artifact_id)
+    assert artifact['digest'] == 'sha256:' + digest and artifact['size_in_bytes'] == len(raw)
+    assert artifact['workflow_run']['head_sha'] == SOURCE
+    job = next(j for j in jobs if j['id'] == job_id)
+    assert job['status'] == 'completed' and job['conclusion'] == 'success'
+    assert job['run_id'] == 41398194611
+    with zipfile.ZipFile(ROOT / f'{harness}-original.zip') as z:
+        names = z.namelist()
+        assert len(names) == len(set(names))
+        assert all(not Path(n).is_absolute() and '..' not in Path(n).parts for n in names)
+        index_bytes = z.read('diagnostics.json')
+        d = json.loads(index_bytes)
+        assert d['execution_context'] == {
+            'GITHUB_SHA': SOURCE, 'GITHUB_RUN_ID': '41398194611', 'GITHUB_RUN_ATTEMPT': '1',
+            'SMOKE_BAKE_OUTCOME': 'success', 'SMOKE_SWEEP_OUTCOME': 'success',
+            'SMOKE_SELF_EDIT_OUTCOME': 'success',
+        }
+        assert d['harness'] == harness and d['non_resumable_sanitized_diagnostics'] is True
+        assert len(index_bytes) <= 512 * 1024 and d['index_degradation'] == 'none'
+        assert d['invalid_line_summary']['count'] == 0 and not d['file_limit_reached']
+        retained = [r for r in d['records'] if r['status'] == 'retained_sanitized_derivative']
+        assert set(names) == {'diagnostics.json'} | {r['exported'] for r in retained}
+        for r in retained:
+            data = z.read(r['exported'])
+            assert sha(data) == r['exported_sha256'] and len(data) == r['exported_bytes']
+        assert sum(r['exported_bytes'] for r in retained) == d['output_data_bytes'] <= 8 * 1024 * 1024
+        assert len(d['records']) <= 256
+        records = {r['source']: r for r in retained}
+        def read(source):
+            return z.read(records[source]['exported'])
+        def value(source):
+            return json.loads(read(source))
+        runs = []
+        for sweep in ('sweep-0', 'sweep-1'):
+            manifest = value(sweep + '/manifest.json')
+            assert manifest['episodes'] == 2 and manifest['seeds'] == 1
+            assert manifest['condition']['max_turns'] == (10 if sweep == 'sweep-0' else 32)
+            assert manifest['condition']['min_turns_per_phase'] == (2 if sweep == 'sweep-0' else 8)
+            assert manifest['arms'] == (['neutral', 'review_notes'] if sweep == 'sweep-0' else ['neutral'])
+            for seed in [json.loads(l) for l in read(sweep + '/seeds.jsonl').splitlines() if l.strip()]:
+                rid = Path(seed['root']).name
+                assert seed['episodes_complete'] == 2 and not seed.get('error')
+                progress = [json.loads(l) for l in read(f'{sweep}/progress/{rid}.jsonl').splitlines()]
+                assert [p['episode'] for p in progress] == [1, 2]
+                assert all(p['ok'] and p['accepted'] and not p['error'] for p in progress)
+                runs.append({'sweep': sweep, 'run': rid, 'arm': seed['arm'],
+                             'episodes_complete': 2, 'turns': [p['turns'] for p in progress],
+                             'evaluation_status': [p['evaluation_status'] for p in progress]})
+        prefix = 'sweep-1/runs/run-d4a4a971bfbc/'
+        cp = value(prefix + 'snapshot-checkpoints')
+        entries = {a['episode']: a for a in cp['entry_files']}
+        assert set(entries) == {0, 1, 2}
+        marker = '// PROTEUS-NOTE: CLI entry point; boots the agent session.\n'
+        for a in entries.values():
+            assert sha(a['sanitized_text'].encode()) == a['original_sha256']
+        base = entries[0]['sanitized_text']
+        changed = entries[1]['sanitized_text']
+        assert marker not in base and changed == base.replace('\n', '\n' + marker, 1)
+        assert entries[2]['sanitized_text'] == changed
+        assert cp['ep0_to_ep1_src_name_status'] == 'M\t' + entries[0]['path'] + '\n'
+        inputs = {}; outcomes = {}
+        for source in records:
+            if source.startswith(prefix + 'native-inputs/') and source.endswith(('.input.json', '.outcome.json')):
+                v = value(source)
+                (inputs if source.endswith('.input.json') else outcomes)[v['id']] = v
+        phase_rows = []
+        for ident, inp in inputs.items():
+            if inp['backend'] != harness:
+                continue
+            out = outcomes[ident]; activation = out['activation']; payload = inp['payload']
+            assert out['input_hash'] == inp['hash'] and out['status'] == 'returned'
+            assert isinstance(out['returncode'], int)
+            assert activation['backend'] == harness
+            assert payload[payload.index('--proteus-expect-source') + 1] == activation['source_sha256']
+            phase_rows.append({'episode': inp['episode'], 'phase': inp['phase'], 'id': ident,
+                               'input_hash': inp['hash'], 'activation': activation,
+                               'returncode': out['returncode'], 'reported_usage': out.get('usage', {}).get('reported')})
+        assert len(phase_rows) == 8
+        for ep in (1, 2):
+            assert {r['phase'] for r in phase_rows if r['episode'] == ep} == {'observe', 'propose', 'act', 'reflect'}
+        hashes = [{r['activation']['source_sha256'] for r in phase_rows if r['episode'] == ep} for ep in (1, 2)]
+        assert len(hashes[0]) == len(hashes[1]) == 1 and hashes[0] != hashes[1]
+        assert all(r['activation']['mode'] == ('pristine' if r['episode'] == 1 else 'cache') for r in phase_rows)
+        log = (ROOT / f'{harness}-job.log').read_text()
+        strict_checks = ['the agent edited its own source before the last episode',
+                         'the final episode recorded startup from the edited checkpoint',
+                         'planted error refused by the boot gate', 'restore clears the gate']
+        for check in strict_checks:
+            assert '  ok   ' + check in log
+        assert log.count(harness + ': 0 failed checks') == 2
+        report['harnesses'][harness] = {
+            'artifact_id': artifact_id, 'job_id': job_id, 'original_zip_bytes': len(raw),
+            'original_zip_sha256': digest, 'original_zip_entries': len(names),
+            'job_log_sha256': sha((ROOT / f'{harness}-job.log').read_bytes()),
+            'index_bytes': len(index_bytes), 'retained_files_verified': len(retained),
+            'output_data_bytes': d['output_data_bytes'], 'invalid_jsonl_lines': 0,
+            'record_statuses': dict(Counter(r['status'] for r in d['records'])),
+            'missing_or_excluded': [{'source': r['source'], 'status': r['status']} for r in d['records'] if r['status'] != 'retained_sanitized_derivative'],
+            'runs': runs, 'entry_path': entries[0]['path'], 'episode_commits': cp['episode_commits'],
+            'entry_sha256_by_episode': {str(ep): a['original_sha256'] for ep, a in entries.items()},
+            'exact_marker_only_source_diff': True, 'phase_activation_rows': sorted(phase_rows, key=lambda r: (r['episode'], r['phase'])),
+            'strict_live_log_checks': strict_checks,
+            'boundary': 'Archive independently verifies the projected entry diff and all eight phase activation/input links. The complete source-tree-to-Git-checkpoint binding and compiler error probe are recorded by the unchanged live smoke checker; full source trees and snapshot repositories are intentionally not exported, so they were not rebuilt from this ZIP. Some phases returned 137 under the controller run; original statuses and unknown or partial usage remain preserved. DSH comment-only edit can leave compiled CLI bytes unchanged.',
+            'total_provider_cost_usd': None, 'complete_provider_usage': None,
+        }
+report['result'] = 'Pi and DSH partial source-bound readback passed; full workflow and independent final review pending.'
+(ROOT / 'pi-dsh-partial-readback.json').write_text(json.dumps(report, indent=2) + '\n')
+print(json.dumps({h: {'zip_sha256': v['original_zip_sha256'], 'verified_exports': v['retained_files_verified'],
+                       'episodes': sum(r['episodes_complete'] for r in v['runs'])} for h, v in report['harnesses'].items()}))
