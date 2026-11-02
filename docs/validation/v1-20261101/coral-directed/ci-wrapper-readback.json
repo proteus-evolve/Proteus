@@ -1,0 +1,16 @@
+{
+  "source": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "base": "0c749a750d9090ce68f760d84fa9aba77523bbf6",
+  "comparison": "exact original normal-job YAML bytes after removing four specific if-lines",
+  "normal_jobs_steps_matrix_env_unchanged": [
+    "frontend",
+    "test",
+    "aime-reference",
+    "distribution"
+  ],
+  "only_normal_job_change": "skip workflow_dispatch, which previously had no trigger",
+  "push_and_pull_request_triggers_unchanged": true,
+  "fixture_has_no_secret_mapping": true,
+  "live_only_named_secret": "DEEPSEEK_API_KEY",
+  "initial_check_setup_failure": "Local validation venv lacked optional PyYAML; used exact source-byte comparison instead, no source changes."
+}

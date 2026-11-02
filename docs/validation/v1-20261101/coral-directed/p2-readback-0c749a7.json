@@ -1,0 +1,46 @@
+{
+  "source_commit": "0c749a750d9090ce68f760d84fa9aba77523bbf6",
+  "fixture_plan_sha256": "9802a7aa1c97579fae84013258e59a68a0326c327649f1cdc51ce0e703487e56",
+  "original_control_passed": true,
+  "export_control_passed": true,
+  "clean_source_pin_verified": true,
+  "paid_provider_dispatches": 0,
+  "original_request_bindings_preserved_in_export": true,
+  "export_files_hash_matched": 397,
+  "exported_gateway_credentials_empty": true,
+  "cases": [
+    {
+      "case": "fixture-mode-flip",
+      "exit_code": 1,
+      "last_error": "AssertionError"
+    },
+    {
+      "case": "plan-model-drift",
+      "exit_code": 1,
+      "last_error": "AssertionError"
+    },
+    {
+      "case": "missing-start-plan-hash",
+      "exit_code": 1,
+      "last_error": "KeyError: 'plan_sha256'"
+    },
+    {
+      "case": "changed-start-plan-hash",
+      "exit_code": 1,
+      "last_error": "AssertionError"
+    },
+    {
+      "case": "fixture-forwarded-relabel",
+      "exit_code": 1,
+      "last_error": "AssertionError"
+    },
+    {
+      "case": "negative-wire-usage",
+      "exit_code": 1,
+      "last_error": "AssertionError"
+    }
+  ],
+  "original_export_evidence_unchanged": true,
+  "qualifier_runs_by_reviewer": 0,
+  "provider_calls_by_reviewer": 0
+}
