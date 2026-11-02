@@ -1,6 +1,26 @@
 name: CORAL directed qualification
 
 on:
+  workflow_call:
+    inputs:
+      expected_sha:
+        required: true
+        type: string
+      mode:
+        required: false
+        default: fixture
+        type: string
+      model:
+        required: false
+        default: deepseek-flash
+        type: string
+      expected_live_plan_sha256:
+        required: false
+        default: ''
+        type: string
+    secrets:
+      DEEPSEEK_API_KEY:
+        required: false
   workflow_dispatch:
     inputs:
       expected_sha:

@@ -5,9 +5,31 @@ on:
     branches: [main, dev/1.0.0]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      coral_expected_sha:
+        description: Exact reviewed source commit for the bounded CORAL fixture only
+        required: true
+        type: string
+      coral_model:
+        description: Model identifier recorded in simulated requests; no provider is called
+        required: false
+        default: deepseek-flash
+        type: string
 
 jobs:
+  coral-directed-fixture:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/coral-directed-qualification.yml
+    with:
+      expected_sha: ${{ inputs.coral_expected_sha }}
+      mode: fixture
+      model: ${{ inputs.coral_model }}
+
   frontend:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Visualize presentation helpers
     runs-on: ubuntu-latest
     steps:
@@ -18,6 +40,7 @@ jobs:
       - run: node --test tests/visualize/model.test.mjs
 
   test:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -85,6 +108,7 @@ jobs:
         run: python tests/run_offline.py
 
   aime-reference:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Pinned AIME data and DSPy contract
     runs-on: ubuntu-latest
     steps:
@@ -111,6 +135,7 @@ jobs:
           path: /tmp/aime-pinned-data/provenance.json
 
   distribution:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Installed wheel and sdist
     runs-on: ubuntu-latest
     steps:
