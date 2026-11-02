@@ -218,5 +218,7 @@ usage stays unknown, with capability/budget limitations explicit.
 
 This October mapping itself granted no release-scope waiver or execution authority.
 The subsequent November user instruction authorizes the three preparation items and
-a PR to main. AWS and historical experiments remain stopped; tag, merge and
+a PR to main. No AWS instance or historical experiment was started for this
+preparation. A fresh read-only AWS inventory was unavailable with the existing
+profile, so this record does not assert the current fleet state. Tag, merge and
 publication require separate authorization.
