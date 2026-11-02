@@ -89,3 +89,9 @@ Native mechanism profile. This review does not close the full-smoke gate.
 original DSH failure and unknown cost are preserved. These checks do not establish
 a successful live self-edit: independent review and the complete workflow are
 separate. The exported diagnostics are bounded, sanitized, non-resumable copies.
+
+The DSH repair's original code review is retained together with its later
+`independent-code-review-addendum-invalid-index.json`. The addendum supersedes
+the initial readiness decision: a 34-byte compressed malformed input produced
+a 17,454,426-byte index outside the data-byte budget. This P2 requires a bounded
+metadata correction and independent recheck before the next paid workflow.

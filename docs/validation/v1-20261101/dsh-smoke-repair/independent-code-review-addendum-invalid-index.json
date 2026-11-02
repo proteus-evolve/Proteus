@@ -1,0 +1,44 @@
+{
+  "review_date": "2026-11-01",
+  "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "original_review_preserved": "independent-code-review.json",
+  "status": "New concrete P2 finding blocks treating the current collector as ready for the paid full-smoke retry until a narrow patch is independently verified. Existing path/gate/no-provider conclusions remain valid.",
+  "priority": 2,
+  "finding": "Unbounded invalid-line metadata amplification bypasses derivative data cap",
+  "source_file": "scripts/release_smoke_diagnostics.py",
+  "source_lines": {
+    "invalid_row_append": 169,
+    "invalid_rows_in_index": 170,
+    "unbudgeted_index_write": 287
+  },
+  "trigger": "One allowed DSH zstd session containing 131072 non-JSON lines (b\"x\\n\" * 131072). Input is 34 compressed bytes / 262144 decoded bytes, safely below both current limits.",
+  "observed": {
+    "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+    "compressed_input_bytes": 34,
+    "decoded_input_bytes": 262144,
+    "input_limit_bytes": 2097152,
+    "decoded_limit_bytes": 4194304,
+    "invalid_lines": 131072,
+    "capture_statuses": [
+      "retained_sanitized_derivative"
+    ],
+    "declared_data_limit_bytes": 8388608,
+    "recorded_data_bytes": 1,
+    "index_bytes": 17454426,
+    "total_artifact_bytes": 17454427,
+    "elapsed_seconds": 3.6811373326927423,
+    "index_sha256": "ef13a357f4f23c4aacc70eb350d1c6dc0635a2c8c398e5532316a38bda7eb061",
+    "provider_calls": 0,
+    "workflow_dispatches": 0
+  },
+  "impact": "Per-invalid-line dicts accumulate in memory and diagnostics.json is written outside the data budget. A tiny corrupt/changed-format native trace can create an oversized artifact; multiple traces amplify further and can exhaust collector resources precisely on the failure path intended to preserve evidence.",
+  "boundedness_note": "The original report accurately distinguished the 8 MiB data cap from the separate index, but did not establish a practical index bound. This reproducer is a concrete gap in the new bounded diagnostic requirement, not a new generic safety requirement.",
+  "minimal_fix_expectation": [
+    "Keep complete invalid-line count and original full source hash; retain only a fixed maximum number of invalid-line samples with explicit omitted count/status.",
+    "Bound total index metadata/serialized size (or a demonstrably bounded structure) without copying malformed payloads or relabeling a partial parse as complete.",
+    "Keep source/candidate goal, self-edit strictness, original budget and unrelated runtime unchanged; preserve this failing case as a regression."
+  ],
+  "validation_needed": "Exact new small commit, focused malformed/oversized/partial diagnostic regression and existing smoke gate checks; no model/workflow dispatch required by reviewer.",
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

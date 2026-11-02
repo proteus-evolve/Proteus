@@ -150,7 +150,12 @@ paper-matched scores or a causal ranking across methods.
   Episode/turn bounds, job timeout and strict source-diff/activation checks are
   unchanged. Path ambiguity remains a hypothesis, not a proved original cause.
   See the [frozen repair evidence](validation/v1-20261101/dsh-smoke-repair/DSH-smoke-fix-frozen-v1.json).
-  Independent review and a complete successful preparation workflow remain required.
+  Independent review accepted the candidate paths and unchanged strict gate, but
+  then reproduced a P2 in diagnostic metadata: a 34-byte compressed malformed log
+  produced a 17,454,426-byte index while only one byte counted against the data
+  budget. The [review addendum](validation/v1-20261101/dsh-smoke-repair/independent-code-review-addendum-invalid-index.json)
+  retains this real failure and suspends live requalification until the metadata
+  bound is corrected. A complete successful preparation workflow remains required.
 
 The [independent review](validation/v1-20261101/independent-review.json) accepts
 R04 common-trace closure, the API/package evidence and the scoped I09 disposition.
