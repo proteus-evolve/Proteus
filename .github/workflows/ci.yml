@@ -5,9 +5,54 @@ on:
     branches: [main, dev/1.0.0]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      coral_expected_sha:
+        description: Exact reviewed source commit for bounded CORAL qualification
+        required: true
+        type: string
+      coral_model:
+        description: Reviewed model identifier; fixture records it without calling a provider
+        required: false
+        default: deepseek-flash
+        type: string
+      coral_mode:
+        description: Fixture is free; live requires separate technical approval and the exact plan hash
+        required: false
+        default: fixture
+        type: choice
+        options: [fixture, live]
+      expected_live_plan_sha256:
+        description: Required only for a separately approved live execution
+        required: false
+        type: string
 
 jobs:
+  coral-directed-fixture:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.coral_mode == 'fixture' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/coral-directed-qualification.yml
+    with:
+      expected_sha: ${{ inputs.coral_expected_sha }}
+      mode: fixture
+      model: ${{ inputs.coral_model }}
+
+  coral-directed-live:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.coral_mode == 'live' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/coral-directed-qualification.yml
+    with:
+      expected_sha: ${{ inputs.coral_expected_sha }}
+      mode: live
+      model: ${{ inputs.coral_model }}
+      expected_live_plan_sha256: ${{ inputs.expected_live_plan_sha256 }}
+    secrets:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
   frontend:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Visualize presentation helpers
     runs-on: ubuntu-latest
     steps:
@@ -18,6 +63,7 @@ jobs:
       - run: node --test tests/visualize/model.test.mjs
 
   test:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -85,6 +131,7 @@ jobs:
         run: python tests/run_offline.py
 
   aime-reference:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Pinned AIME data and DSPy contract
     runs-on: ubuntu-latest
     steps:
@@ -111,6 +158,7 @@ jobs:
           path: /tmp/aime-pinned-data/provenance.json
 
   distribution:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Installed wheel and sdist
     runs-on: ubuntu-latest
     steps:
