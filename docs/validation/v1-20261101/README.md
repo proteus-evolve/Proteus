@@ -83,3 +83,9 @@ models, evaluators or mutations to the source copies. Unknown costs/timing remai
 unknown; historical reference/adapted results and common-condition records stay
 separate. Fourteen historical method profiles are adapted; the fifteenth is the
 Native mechanism profile. This review does not close the full-smoke gate.
+
+`dsh-smoke-repair/` freezes the candidate-path and diagnostic-export change at
+`12e02ff`, its 51 offline regressions and unchanged workflow-bound checks. The
+original DSH failure and unknown cost are preserved. These checks do not establish
+a successful live self-edit: independent review and the complete workflow are
+separate. The exported diagnostics are bounded, sanitized, non-resumable copies.

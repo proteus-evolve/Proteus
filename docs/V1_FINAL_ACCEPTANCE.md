@@ -143,8 +143,14 @@ paper-matched scores or a causal ranking across methods.
   before episode two and failed both edit/edited-checkpoint checks. The
   [original failure log](validation/v1-20261101/release-smoke-41390453875-dsh-failed.log)
   is retained. This workflow did not export DSH's raw trace; the cause is not proven.
-  The full workflow is not accepted. Codex is still running; correction and a
-  complete successful preparation workflow remain required.
+  The full workflow is not accepted. The candidate-path/diagnostics correction
+  at `12e02ff` passes 51 offline regressions and lint, with the production tree
+  unchanged. It names each pinned harness's writable `/workspace/candidate/...`
+  entry file and retains bounded sanitized diagnostic artifacts even after failure.
+  Episode/turn bounds, job timeout and strict source-diff/activation checks are
+  unchanged. Path ambiguity remains a hypothesis, not a proved original cause.
+  See the [frozen repair evidence](validation/v1-20261101/dsh-smoke-repair/DSH-smoke-fix-frozen-v1.json).
+  Independent review and a complete successful preparation workflow remain required.
 
 The [independent review](validation/v1-20261101/independent-review.json) accepts
 R04 common-trace closure, the API/package evidence and the scoped I09 disposition.

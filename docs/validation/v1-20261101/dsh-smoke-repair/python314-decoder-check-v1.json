@@ -1,0 +1,8 @@
+{
+  "python": "3.14.4",
+  "backend": "compression.zstd",
+  "concatenated_frames": true,
+  "gateway_token_redacted": true,
+  "decoded_byte_limit": true,
+  "provider_calls": 0
+}
