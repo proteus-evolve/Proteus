@@ -82,7 +82,7 @@ there is no automatic refund or forced redispatch.
 - Removed the unused `EpisodeSpec.extra_env` field. Unsupported input now fails
   instead of appearing to configure the environment. Use documented sandbox options.
 - Kept `_repair_feedback` as an explicit former-private compatibility helper during
-  the development transition. It is outside the proposed stable API; removal is a
+  the development transition. It is outside the stable API; removal is a
   separate compatibility decision.
 - Kept upstream reference branches/parameters and dynamic callbacks: static
   reachability does not establish that they are dead. Source conformance remains required.
@@ -246,3 +246,10 @@ remaining research acceptance is either satisfied or explicitly scoped by mainta
 After that, main integration, version/tag creation and the four successful tag-triggered
 workflows remain mandatory under [RELEASING.md](RELEASING.md). A branch gate is not a
 release-tag gate. No release or PyPI publication is implied by this document.
+
+## November 1 final preparation
+
+The [final preparation record](V1_FINAL_ACCEPTANCE.md) freezes the v1 API, records
+1.0.0 installed-distribution evidence and tracks the new common-trace Combee and
+CORAL qualification. Earlier evidence above retains its original source binding.
+Preparation checks are separate from exact-tag qualification and publication.

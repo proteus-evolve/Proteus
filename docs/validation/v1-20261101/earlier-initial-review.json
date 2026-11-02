@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-11-02T04:51:58.223Z",
+  "head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "base": "dc6ea2f14f391989c3944df6fc873d3786be0a99",
+  "files_reviewed": 12,
+  "verdict": "One P2 evidence-identity validation gap remains open. Four production method paths and current recorded outputs are valid; API freeze/version changes have no new finding in this scope. Not final release approval.",
+  "findings": [
+    {
+      "id": "COMMON-TRACE-IDENTITY-BINDING",
+      "priority": 2,
+      "file": "recipes/validation/combee-shared-trace/run.py",
+      "start": 300,
+      "end": 315,
+      "title": "Verify source, recipe and task identities against the saved run",
+      "details": "verify trusts top-level source/runtime metadata and does not bind external recipe/task bytes to the saved run manifest and trace. Source revision/runtime replacement, a recipe budget change, and a task-question change all return success on copied metadata with original raw runs untouched.",
+      "probes": [
+        "/tmp/proteus-v1-review-9807a41/identity-drift-probes.json",
+        "/tmp/proteus-v1-review-9807a41/task-payload-probe.json"
+      ],
+      "required_fix": "Validate typed RunManifest internal hashes; external recipe and lock against manifest; source pins against top-level provenance and commit/runtime-tree identity; task dataset hashes and frozen original input/feedback against actual consumed records. Reject or explicitly bind dirty execution source.",
+      "status": "reported to secretary for consolidated repair"
+    }
+  ],
+  "accepted": {
+    "production_execution": true,
+    "common_frozen_sample_prediction_feedback_reflection_inputs": true,
+    "four_variants": [
+      "ace",
+      "naive_parallel",
+      "combee_fixed",
+      "combee_dynamic"
+    ],
+    "actual_recorded_9807_batch_schedules": {
+      "ace": [],
+      "naive_parallel": [
+        3,
+        3,
+        3
+      ],
+      "combee_fixed": [
+        3,
+        3,
+        3
+      ],
+      "combee_dynamic": [
+        1,
+        2,
+        4,
+        2
+      ]
+    },
+    "current_dynamic_selected_size": 4,
+    "dynamic_strengthening": "11 samples are sufficient to observe profiling1/2/4 followed by a full selected-size4 batch. This is offline fixture evidence, not production algorithm or measured speed improvement.",
+    "api_exports": 100,
+    "contract_schema_hashes": 64,
+    "version": "1.0.0",
+    "publication_claim": false
+  },
+  "checks": {
+    "focused_tests": "10 passed in29.60s",
+    "log": "/tmp/proteus-v1-review-9807a41/focused.log",
+    "original_committed_run_verified_read_only": "/tmp/proteus-v1-final-20261101/combee-9807a41",
+    "ruff": "passed",
+    "diff_check": "passed",
+    "review_checkout_clean": true,
+    "suite_scope": "New common-trace and public API focused files only. No broad suite rerun or paid experiments.",
+    "raw_runs_unmodified": true
+  },
+  "remaining": {
+    "common_trace": "Identity/provenance repair and stronger observable selected batch need final recheck before closing R04 evidence.",
+    "coral": "Separate original evidence chain or concrete follow-up proposal; not inferred from fixtures.",
+    "release": "Final package/install validation and preparation gates remain separate. Existing9807 dispatches can retain exact source scope if only fixture/docs change; final tag gates still require exact tag/SHA."
+  },
+  "actions": {
+    "source_edits": false,
+    "paid_calls": 0,
+    "AWS_operations": 0,
+    "workflow_dispatch": false,
+    "merge": false,
+    "publish": false
+  }
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "mutation": "reported-source",
+    "exit_code": 0,
+    "verified": true,
+    "stderr": "",
+    "all_original_run_files_unchanged": true
+  },
+  {
+    "mutation": "recipe-budget",
+    "exit_code": 0,
+    "verified": true,
+    "stderr": "",
+    "all_original_run_files_unchanged": true
+  }
+]

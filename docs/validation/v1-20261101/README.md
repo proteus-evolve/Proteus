@@ -1,0 +1,49 @@
+# November 1 preparation evidence
+
+This directory contains new preparation evidence. It does not rewrite the frozen
+October model results or qualify an unpublished release tag.
+
+- `api-freeze.json`: 100 resolving v1 names and 64 public Contract schema hashes.
+- `installed-distributions.json`: 1.0.0 wheel/sdist artifact hashes and source
+  verification, plus 22 installed checks outside the checkout. The artifacts were
+  built from clean `9807a41`; the byte check occurred at `81ede83` after only
+  acceptance-runner/test changes. All 261 Python package files match. Four named
+  extras (`llm`, `sandbox`, `pi`, `dsh`) installed; optional fixed GEPA is separately
+  required in CI, and real runtimes have their dedicated gates.
+- `combee-shared-trace.json`: compact comparison and archive identity for the
+  source-bound `5794378` eleven-sample four-arm run, followed by read-only verification.
+- `combee-shared-trace-5794378.tar.gz`: 331 original fixture files sufficient for
+  independent readback, including actual request/response records, manifest/lock,
+  datasets, artifact bytes and invocation receipts. No provider was called. It is
+  a verification bundle, not a resumable run: private recovery journals are omitted.
+- `earlier-*.json`: original independent review and source/config/task drift probes
+  against `9807a41`. The probes really passed the old reader incorrectly. Later
+  identity checks reject those changes; these failures are not deleted.
+- `initial-focused.log`, `trace-final-tests.log`: initial 10 focused cases and the
+  final 10 trace-specific cases respectively. The sets overlap; do not sum them.
+- `archive-verify.json`: unchanged 15 profiles, 16 recipes and 182 frozen files.
+- `initial-build-missing-dependency.log`, `twine.log`: the initial local setup lacked
+  the `build` package; a fresh build-tool environment produced both successful
+  distributions. This was not a runtime failure.
+
+To verify the original common-trace records without executing methods or models:
+
+```sh
+# Use the repository with commit 5794378 available and the unchanged reader.
+# A shallow clone may need: git fetch origin 57943787369aff43fb180818af9eba5b6a68b1c6
+mkdir -p /tmp/proteus-trace-readback
+tar -xzf docs/validation/v1-20261101/combee-shared-trace-5794378.tar.gz \
+  -C /tmp/proteus-trace-readback
+python recipes/validation/combee-shared-trace/run.py \
+  --out /tmp/proteus-trace-readback/combee-shared-trace --verify
+```
+
+The archive preserves original absolute path strings inside locked records to
+retain their hashes. The reader reads the supplied extraction directory; those
+strings are provenance, not commands to execute. The archive was extracted into a
+different local directory and successfully verified before commit. Run a fresh
+comparison with the [recipe instructions](../../../recipes/validation/combee-shared-trace/README.md).
+
+The broader [preparation record](../../V1_FINAL_ACCEPTANCE.md) tracks unresolved
+CORAL qualification and required workflows separately. Prepared package version
+1.0.0 is not evidence of a published release.

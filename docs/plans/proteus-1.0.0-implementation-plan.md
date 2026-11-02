@@ -387,7 +387,7 @@ P10k 文档整合：README 转向通用 RSI 框架入口，统一架构/方法 p
 
 ### I15 兼容文档与发布
 
-- [x] 定义 1.0 稳定公共 API、schema 和插件版本兼容规则（P10e：proteus.api.v1、字段/状态版本、实现锁与迁移边界；发布前仍为 proposed API）。
+- [x] 定义 1.0 稳定公共 API、schema 和插件版本兼容规则（P10e：proteus.api.v1、字段/状态版本、实现锁与迁移边界；November 1 已冻结 100 个导出及 64 个合同 schema；见 V1_FINAL_ACCEPTANCE.md）。
 - [x] 保留旧 CLI 的兼容入口；记录旧 run 的读取、续跑与迁移支持边界（native 原入口、兼容 recipe 和 V1_COMPATIBILITY.md）。
 - [x] 不改写旧实验记录；不兼容的续跑要求原版本完成或新建 run（只读导出、锁校验及明确拒绝未知 schema/state；不隐式原地迁移）。
 - [x] 更新架构、recipe、扩展、Harbor、结果解释、迁移与发布文档（P10k：统一入口与支持矩阵；README 的 prepare/check/lock/run/resume/export 在新安装环境实际执行；1.0 release notes 标为 unreleased）。
@@ -664,3 +664,13 @@ an explicit maintainer decision, not a new label.
 - [Harbor separate verifier](https://docs.harborframework.com/tasks/separate-verifier)
 
 这些链接用于定位方法和接口。正式 recipe 以 M0 锁定的版本和实验配置为准，不能因上游 main 更新而静默改变复现目标。
+
+## November 1 final-preparation reconciliation
+
+The [per-requirement preparation record](../V1_FINAL_ACCEPTANCE.md) maps I01–I15,
+including the older I09/I14 checkboxes, to the supported capability and evidence
+boundaries. It freezes the public API and records actual 1.0.0 installed packages.
+A new shared frozen-trace four-arm Combee check and current-source CORAL two-worker
+qualification are tracked independently from the historical studies. No checkbox
+or “experimental” label waives a missing required observation. Exact-tag gates and
+publication are still separate future steps.

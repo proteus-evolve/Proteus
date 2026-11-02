@@ -1,5 +1,9 @@
 # 1.0 acceptance evidence and remaining decisions
 
+**November 1 update:** see the [final preparation record](V1_FINAL_ACCEPTANCE.md)
+for the frozen API, 1.0.0 installed packages, common-trace comparison and current
+CORAL qualification. The October evidence and source bindings below are retained.
+
 This October 30, 2026 mapping reconciles the implementation plan with existing
 results. It does not change the plan's mandatory scope, frozen experiments,
 catalog validation labels or package version. The reviewed development merge is
@@ -23,7 +27,7 @@ engineering blocker on this merge; **1.0 publication remains unapproved**.
 | R01: GEPA | [AIME seed 0](../recipes/gepa/aime/README.md): 45 train / 45 validation / 30 private, budget 500 metric calls, minibatch 3; H0 **23/30**, selected **24/30**. Pinned upstream mechanism, recovery and reference checks are mapped separately. | Historical single-mutation/full-validation/no-merge/no-cache adapted profile accepted. No original-model performance-parity or single-seed significance claim. No full rerun is required merely because the release SHA changed. |
 | R02: ACE | [Formula](../recipes/ace/formula/README.md): 500/300/200, one epoch, three refinement rounds. Offline **141 → 173/200**, selected after 200 training examples; online **141 → 163/200** on predictions made before each learning window. | Accept these historical Formula profiles. Offline selected is not last; online stream is not final-playbook held-out accuracy. FiNER/AppWorld and unimplemented delta extensions are outside validated scope. |
 | R03: Meta-Harness | [Three MCE domains](../recipes/meta-harness/mce/README.md): 450 learning callbacks and 260 visible predictions per system over 130 distinct validation tasks (30 USPTO + 50 Symptom2Disease + 50 LawBench, each evaluated twice); 412 private tasks per selected system. Archived proposer makes one JSON call producing three programs. Current Pi/DSH/Codex coding proposers have minimal live-cycle evidence. | Accept the historical JSON-proposer result only for that adapted profile. Current coding-search benchmark acceptance is pending; claiming it requires a complete audited declared-domain run. There is no paper-length-search or improvement threshold requirement. |
-| R04: Combee | Both ACE/GEPA combinations have mechanism checks. The [eight Formula conditions](../recipes/combee/formula/README.md) supply historical quality and API cost upper bounds; the four online conditions also have study-level elapsed receipts, mapped below. | Independent review accepts the quality/cost/elapsed **reporting subitem** for this declared single-seed adapted online comparison. The specific remaining R04 item is a common frozen-trace comparison across sequential, naive, fixed and dynamic methods. Offline gaps do not require new paid runs, positive speedup or paper-matched numbers. |
+| R04: Combee | Both ACE/GEPA combinations have mechanism checks. The [eight Formula conditions](../recipes/combee/formula/README.md) supply historical quality and API cost upper bounds; the four online conditions also have study-level elapsed receipts, mapped below. | Independent review accepts the quality/cost/elapsed **reporting subitem** for this declared single-seed adapted online comparison. A [common frozen-trace comparison](../recipes/validation/combee-shared-trace/README.md) now executes sequential, naive, fixed and dynamic methods; its final independent acceptance is tracked in the November record. Offline gaps do not require new paid runs, positive speedup or paper-matched numbers. |
 | R05 / I11: CORAL | [26-circle public task](../recipes/coral/circle-packing/README.md): one worker × 20 proposals versus two × 10, one evaluation worker; actual model requests, submitted code, own-worker measured feedback, publications and fresh-fallback generations are recorded. | Accept the two historical optimization arms and their declared fresh-context/persistent-workspace boundary. Actual cross-worker prompt use, applied interventions and interrupted recovery still require the evidence closure below. One-worker harness pilots do not establish current native-session multiworker support. |
 | R00: Native | Historical Pi integration, current activation/repair/recovery mechanisms, pinned Pi/DSH source gates and bounded live role pilots are distinct evidence. | Final preparation and exact-tag gates must bind the declared adapter inputs, activation, invalid-candidate repair and interruption/resume to the release source. Historical exit-137 phases and completed resume do not replace them. |
 | I14: comparable output | Frozen task metrics, selection, costs and failures are available, including all four Combee online study elapsed observations; offline continuous timing remains unknown. Current export/study mechanisms preserve missing values. | The Combee reporting portion is accepted for the declared adapted online comparison. The combined I14 checkbox remains open because CORAL sharing/intervention/recovery evidence is incomplete. Existing observations do not establish isolated speedup or controlled cross-method ranking. |
@@ -191,8 +195,8 @@ The independent review verified 100 unique resolving exports in
 `proteus.api.v1.__all__`. The proposed freeze covers these aliases, the
 [documented service operations](V1_PUBLIC_API.md#service-contracts-used-by-extensions)
 and [schema/lock compatibility](V1_COMPATIBILITY.md), not private attributes, SQL,
-recovery journals, method internals or worker transports. Maintainer freeze and
-final-version installed-distribution validation remain pending.
+recovery journals, method internals or worker transports. The November preparation freezes this surface and validates 1.0.0 distributions;
+see the [current source/artifact bindings](V1_FINAL_ACCEPTANCE.md).
 
 Earlier preparation commit `325ab5edb056f592209e23116e6ffabcb87ec9e8` did pass
 [CI](https://github.com/proteus-evolve/Proteus/actions/runs/40836739047),
@@ -212,5 +216,7 @@ needs one complete successful run at the exact tag/SHA. Identical source trees a
 successful earlier branch jobs do not satisfy those tag gates. Unknown external
 usage stays unknown, with capability/budget limitations explicit.
 
-No release-scope waiver, new paid experiment, AWS start, version change, tag or
-publication is authorized by this mapping. Existing paused monitors stay paused.
+This October mapping itself granted no release-scope waiver or execution authority.
+The subsequent November user instruction authorizes the three preparation items and
+a PR to main. AWS and historical experiments remain stopped; tag, merge and
+publication require separate authorization.

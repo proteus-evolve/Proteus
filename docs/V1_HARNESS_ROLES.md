@@ -1,6 +1,6 @@
 # Harness integrations and configurable roles
 
-This branch extends the proposed v1 API. It requires fresh configuration/source
+These integrations are part of the frozen v1 API. It requires fresh configuration/source
 locks; it does not reinterpret frozen studies or the acceptance of PR #106.
 
 ## What is shared
