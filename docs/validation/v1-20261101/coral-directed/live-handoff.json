@@ -1,0 +1,186 @@
+{
+  "schema": "proteus.coral.live.final-handoff.v1",
+  "status": "one_live_completed__saved_record_audits_passed__independent_final_acceptance_pending",
+  "ci_run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41394999162",
+  "ci_run_id": 41394999162,
+  "ci_attempt": 1,
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "source_branch": "codex/coral-release-directed-qualification-20261101",
+  "source_still_clean_and_frozen": true,
+  "production_tree_unchanged": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "script_sha256": "1fe2eb30c7474de86d8d739a08522f29f7c3fdb26cacd68850df5f3711ae1d73",
+  "exact_live_plan_sha256": "bded2fa9e62422e5d224d610b6e252264d847a5585bb7922bfc42c744e611dca",
+  "scope": "Bounded current-production CORAL qualification only; not full normal-CI/release-smoke or historical benchmark evidence.",
+  "ci_unit_tests": "22 passed in 11.96s; live wrapper also ran a new fixture preflight.",
+  "ci_jobs": [
+    {
+      "name": "coral-directed-live / qualification",
+      "conclusion": "success"
+    },
+    {
+      "name": "test",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "coral-directed-fixture",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Pinned AIME data and DSPy contract",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Visualize presentation helpers",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Installed wheel and sdist",
+      "conclusion": "skipped"
+    }
+  ],
+  "raw_run": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-run-raw-v1.json",
+    "sha256": "76ee6b402aebbe90b14eda3b60878766294b44d5a3df2597e0385262e646ab7f",
+    "size": 12752
+  },
+  "raw_jobs": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-jobs-raw-v1.json",
+    "sha256": "870b4acd5f17f37dc1a9ae8757943b6425fb7f7ce092e69b1ebb66941404bf2b",
+    "size": 8278
+  },
+  "raw_job_log": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-log-raw-v1.txt",
+    "sha256": "e28def7b6d8fdfc16d53fbb2defea9ee38aa7a566457d2411573dc7bd0654c78",
+    "size": 114531
+  },
+  "raw_artifact_metadata": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-metadata-raw-v1.json",
+    "sha256": "3b86e0b048227ddcbbf51e78c3c27c4f19ef21a2202119c2a3b56b027885d039",
+    "size": 824
+  },
+  "artifact_id": 13119390321,
+  "artifact_download_count": 1,
+  "original_zip": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/coral-directed-live-41394999162-original.zip",
+    "sha256": "13f28f94be0918f1e49604a3ce9536fed55bc8c1abaf88c293f923c812100eb4",
+    "size": 1523952
+  },
+  "matches_github_zip_digest": true,
+  "extracted_root": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162",
+  "download_receipt": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-download-result-v1.json",
+    "sha256": "030e38e05278b74a8e7a94bcb99410064bf99f471a5f2718195dc80b5e6368c5",
+    "size": 595
+  },
+  "audit_execution": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-audit-v1.json",
+    "sha256": "a2d1ab53bc2b50efde179ffad10063795f88ff5c1eb05ef0754f13db79af5f77",
+    "size": 2583
+  },
+  "live_saved_record_audit": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-live-audit-v1.stdout",
+    "sha256": "22f4401e3be8a17dd25ba33d43f62e1a92c6fb5b6426e2c1d41b7dc9155a5047",
+    "size": 6361
+  },
+  "fixture_saved_record_audit": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-fixture-audit-v1.stdout",
+    "sha256": "dc746de5df68ed31c9e62edcf7a6af7f73b3327126fea5e340b5012df348286c",
+    "size": 6284
+  },
+  "native_report_derived_from_saved_records": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/CORAL-live-native-report-v1.json",
+    "sha256": "8f955c2b56e9a65d17d3416419ba6894bb044effe2eda608cf7e68a93cb213fe",
+    "size": 73515
+  },
+  "native_report_path_hash_explanation": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/CORAL-live-report-path-hash-explanation-v1.json",
+    "sha256": "9c9389e9e96cd6bd53933cd4e4337a5b1d45d3d908d2b69e70646d5dc20f01a7",
+    "size": 743
+  },
+  "path_hash_difference_is_explained_and_not_relabelled": true,
+  "all_original_extracted_artifact_bytes_unchanged": true,
+  "audit_empty_advisory_lock_side_effects": {
+    "fixture/.proteus-locks/0f72de99c6173083ea9adc610a1a2eadfbf8ea236a1b5d03136b2dfc4851c179.lock": 0,
+    "live/.proteus-locks/c3f92c3c6b9fa55fc3a15e68c28eaafc6ced9600ff5ca14f65104f3e54703a9e.lock": 0
+  },
+  "original_zip_remains_canonical": "The extra empty locks exist only in the local extracted audit copy. No old scientific records were changed.",
+  "provider_usage": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/CORAL-live-usage-and-acceptance-v2.json",
+    "sha256": "467aec3a1882de88b869e4cd47101ec482f339530d097402df00915f5e0f85c2",
+    "size": 4780
+  },
+  "usage_summary": {
+    "prompt_tokens": 1141,
+    "completion_tokens": 113,
+    "total_tokens": 1254,
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 1141
+  },
+  "real_paid_provider_dispatches": 3,
+  "all_three_http_responses": 200,
+  "provider_reported_model_names": [
+    "deepseek-flash"
+  ],
+  "model_failure_or_unknown_slots": 0,
+  "failed_provider_attempt_files": [],
+  "USD_cost": null,
+  "USD_cost_status": "unknown; no cost was reported in provider usage and three native model-cost entries remain unknown",
+  "native_ledger": {
+    "charged": {
+      "model_calls": 3.0,
+      "evaluations": 4.0,
+      "cost_usd": null,
+      "wall_seconds": 16.110490528999996
+    },
+    "unknown": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 3,
+      "wall_seconds": 0
+    },
+    "active_slots": 0,
+    "entries": 15
+  },
+  "native_stop_reason": "submission_limit",
+  "controlled_submission_scores": [
+    0.0,
+    1.0
+  ],
+  "controlled_scores_are_not_benchmark_performance_claims": true,
+  "interventions": 1,
+  "worker_generations": {
+    "a": 2,
+    "b": 1
+  },
+  "worker_restarts": {
+    "a": 0,
+    "b": 0
+  },
+  "acceptance_checks": {
+    "cross_worker_publication_in_actual_B_request": true,
+    "one_intervention_in_actual_A_next_generation_request": true,
+    "controller_actual_hard_exit_code": 86,
+    "same_workspace_resume_count": 1,
+    "sealed_responses_and_physical_dispatches_unchanged_after_resume": true,
+    "already_settled_evaluation_identities_and_settlements_preserved": true,
+    "no_duplicate_native_settlement": true,
+    "evaluation_workers": 1,
+    "cached_shared_files_match_native_knowledge_artifact_blobs": true
+  },
+  "english_recipe_readme_new_external_file": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/CORAL_DIRECTED_QUALIFICATION_README.md",
+    "sha256": "f8e1e84584e2f637ecc65b514724fa84e17262ce1e82aa8fb6df440e0995be14",
+    "size": 3890
+  },
+  "no_frozen_source_or_old_result_edits": true,
+  "new_live_dispatches_by_this_chat": 0,
+  "old_AWS_resumed": false,
+  "extra_provider_calls_by_auditor_or_exporter": 0,
+  "first_workflow_dispatch_404_preserved": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-fixture-dispatch-v1.json",
+    "sha256": "374b6ed6dff24226ff68d23ef96edeaf5b1016c0168a7ba7c711774be8dcc009",
+    "size": 948
+  },
+  "historical_v5_1_missing_request_chains_still_distinct": true,
+  "next_owner_action": "Coordinator and independent reviewer may reuse this one original ZIP and saved-record audits; no other live should be started as part of this qualification."
+}

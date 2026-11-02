@@ -1,0 +1,150 @@
+{
+  "schema": "proteus.coral.directed.request-level-acceptance.v1",
+  "mode": "fixture",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "plan_sha256": "22486acaca46c34aed94720279d81bfb928888df431930a85556d74799ad7de1",
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "script_sha256": "1fe2eb30c7474de86d8d739a08522f29f7c3fdb26cacd68850df5f3711ae1d73",
+  "frozen_source_pin_matches_manifest_lock_and_static_source": true,
+  "dirty_source_nonfinal_fixture_only": false,
+  "model_transport_dispatches": 3,
+  "real_paid_provider_dispatches": 0,
+  "simulated_model_usage_is_NOT_paid_usage": true,
+  "all_model_requests_max_output_tokens": 4096,
+  "model_unknown_rows": 0,
+  "native_command_worker_model_budget_NOT_falsely_claimed_bounded": true,
+  "physical_attempt_cap_enforced_by_durable_broker": 3,
+  "cross_worker_publication_in_actual_B_request": true,
+  "one_intervention_in_actual_A_next_generation_request": true,
+  "controller_actual_hard_exit_code": 86,
+  "same_workspace_resume_count": 1,
+  "sealed_responses_and_physical_dispatches_unchanged_after_resume": true,
+  "already_settled_evaluation_identities_and_settlements_preserved": true,
+  "no_duplicate_native_settlement": true,
+  "evaluation_workers": 1,
+  "native_cost_unknowns_unchanged": {
+    "charged": {
+      "model_calls": 3.0,
+      "evaluations": 4.0,
+      "cost_usd": null,
+      "wall_seconds": 6.872409101999992
+    },
+    "unknown": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 3,
+      "wall_seconds": 0
+    },
+    "active_slots": 0,
+    "entries": 15
+  },
+  "actual_two_process_async_overlap_at_A_publication": {
+    "host_process": {
+      "command_sha256": "4a1e31ef5ca9598ceb26edc6e17b746859adcca99731826a0991d1a905499cbd",
+      "parent_pid": 2646,
+      "pid": 2648,
+      "process_state": "Ss"
+    },
+    "input_sha256": "a93795f7091b1859cc3a968c2d364a55e54778f6bf06aaaf870236a8ae8e402f",
+    "kind": "/published",
+    "observed_monotonic_ns": 42942717235,
+    "other_waiting_worker": {
+      "command_sha256": "4a1e31ef5ca9598ceb26edc6e17b746859adcca99731826a0991d1a905499cbd",
+      "input_sha256": "745106ad80be35bf4fe185118350dd00dce1f9e2d86790e44467357d8a95a9e7",
+      "parent_pid": 2649,
+      "pid": 2651,
+      "process_state": "Ss"
+    },
+    "published_ref": {
+      "content_hash": "sha256:4204d324cae106f52ee49f15baea13c1dbef6c937c50ff9361599099c5c99845",
+      "id": "sha256:4963a384c7c92f741613c4e52ea2d47d93e24a6279308fd29489b7dfbda64664",
+      "kind": "proteus.knowledge.revision@1",
+      "schema_version": 1
+    },
+    "worker": "a"
+  },
+  "actual_two_process_overlap_before_A_first_forward": {
+    "a_input_sha256": "a93795f7091b1859cc3a968c2d364a55e54778f6bf06aaaf870236a8ae8e402f",
+    "a_process": {
+      "command_sha256": "4a1e31ef5ca9598ceb26edc6e17b746859adcca99731826a0991d1a905499cbd",
+      "parent_pid": 2646,
+      "pid": 2648,
+      "process_state": "Ss"
+    },
+    "b_input_sha256": "745106ad80be35bf4fe185118350dd00dce1f9e2d86790e44467357d8a95a9e7",
+    "b_waiting_process": {
+      "command_sha256": "4a1e31ef5ca9598ceb26edc6e17b746859adcca99731826a0991d1a905499cbd",
+      "parent_pid": 2649,
+      "pid": 2651,
+      "process_state": "Ss"
+    },
+    "observed_monotonic_ns": 42891068854
+  },
+  "cached_shared_files_match_native_knowledge_artifact_blobs": true,
+  "request_bindings": [
+    {
+      "slot": "a:0",
+      "worker": "a",
+      "phase": "a_initial",
+      "body_sha256": "2387795f0cae1f3caf79f86fe5b8875b38926a607efb9fd17356018dfb0ceb54",
+      "requested_model": "deepseek-flash",
+      "actual_provider_model": "deepseek-flash",
+      "provider_id": "fixture-a:0",
+      "response_sha256": "9f135c03c15597438c5a711cd0f1a4e03068b13d0cedc6b4fb559758d70554de",
+      "launch_hash": "sha256:2ce7794233f536a0584f0e134f07eec7d2f942bae3d015f6fe9ac88e553d6bde",
+      "supervisor_input_sha256": "a93795f7091b1859cc3a968c2d364a55e54778f6bf06aaaf870236a8ae8e402f",
+      "sources": [],
+      "input_tokens": 20,
+      "output_tokens": 12
+    },
+    {
+      "slot": "a:1",
+      "worker": "a",
+      "phase": "a_intervention",
+      "body_sha256": "39f78965af3d5e271af23140d4e4c4faf3b0e6fa87152980a9448a8152534e92",
+      "requested_model": "deepseek-flash",
+      "actual_provider_model": "deepseek-flash",
+      "provider_id": "fixture-a:1",
+      "response_sha256": "22736ac0de39981a0c54475f03e0fb173f2b5a10f2648efe8e299bc7d5f9a1e1",
+      "launch_hash": "sha256:8eb396b204f741b21be28a0085652d2e57970be4bf084ecf0ad4b78b0b2255f4",
+      "supervisor_input_sha256": "29a671280f659fa80dbb8174e6d2655261d6df1a3753bf1a1704c9c3deff2324",
+      "sources": [
+        {
+          "source_hash": "sha256:4204d324cae106f52ee49f15baea13c1dbef6c937c50ff9361599099c5c99845",
+          "writer_id": "a",
+          "content_sha256": "b27c64a680a153535fe4570491f077347172d66e2feb8e06d424401b87c5ff9b"
+        }
+      ],
+      "input_tokens": 20,
+      "output_tokens": 12
+    },
+    {
+      "slot": "b:0",
+      "worker": "b",
+      "phase": "b_shared",
+      "body_sha256": "1d7227fc208ca0795516113da39dfbfc131896d0b4a482bad7390de7ac340b2c",
+      "requested_model": "deepseek-flash",
+      "actual_provider_model": "deepseek-flash",
+      "provider_id": "fixture-b:0",
+      "response_sha256": "5da8750a733fe64290c58d69a44aad41ed06269e716c188a052b131698a8fe47",
+      "launch_hash": "sha256:960432c21595e6a49995254ff571cefb2924b632f0f2a964aa85fd0379aa4c27",
+      "supervisor_input_sha256": "745106ad80be35bf4fe185118350dd00dce1f9e2d86790e44467357d8a95a9e7",
+      "sources": [
+        {
+          "source_hash": "sha256:c7712e505c5862d207a524f9ee22cf19f40a8e0c4ee54b30468165d0ec4afa3e",
+          "writer_id": "a",
+          "content_sha256": "d69e4c3d3d3f306167f304e806e205616a1f6dc7df4a3e9a92042f5f25c42f03"
+        },
+        {
+          "source_hash": "sha256:4204d324cae106f52ee49f15baea13c1dbef6c937c50ff9361599099c5c99845",
+          "writer_id": "a",
+          "content_sha256": "b27c64a680a153535fe4570491f077347172d66e2feb8e06d424401b87c5ff9b"
+        }
+      ],
+      "input_tokens": 20,
+      "output_tokens": 12
+    }
+  ],
+  "native_report_hash": "sha256:d02228cacc2dfa2a4d1f72b2a5929ebe195f183ee09c23356c2ca690ecb26e73",
+  "not_historical_v5_1_or_benchmark_or_native_model_session_evidence": true
+}

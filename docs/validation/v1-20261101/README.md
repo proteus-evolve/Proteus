@@ -44,8 +44,8 @@ strings are provenance, not commands to execute. The archive was extracted into 
 different local directory and successfully verified before commit. Run a fresh
 comparison with the [recipe instructions](../../../recipes/validation/combee-shared-trace/README.md).
 
-The broader [preparation record](../../V1_FINAL_ACCEPTANCE.md) tracks unresolved
-CORAL qualification and required workflows separately. Prepared package version
+The broader [preparation record](../../V1_FINAL_ACCEPTANCE.md) tracks accepted
+CORAL qualification and outstanding required workflows separately. Prepared package version
 1.0.0 is not evidence of a published release.
 
 The final `independent-review.json`, `independent-trace-probes.json`,
@@ -63,3 +63,15 @@ the separate paid full-smoke gate.
 of both original ZIPs and four successful source/repair verifier invocations.
 The review reconstructed archived Git checkpoints without Docker dispatch or
 provider calls; it accepts this preparation source gate only.
+
+The [CORAL evidence index](coral-directed/README.md) contains the original fixture
+and single paid-workflow ZIPs, the frozen recipe, three actual request receipts,
+usage, retained initial audit/dispatch failures, and independent acceptance.
+Its current-source directed protocol closes I11/R05 and the corresponding I14
+reporting requirement; it is separate from the original circle-packing quality runs.
+
+`release-smoke-41390453875-dsh-failed.log` preserves the first preparation DSH
+self-edit failure. The normal sweep and two self-edit episodes completed, but
+no source change existed before episode two. The workflow did not archive the
+raw DSH trace, so the cause is unproven; the complete release-smoke gate remains
+unaccepted while that failure is investigated.

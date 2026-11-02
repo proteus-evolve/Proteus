@@ -1,0 +1,302 @@
+{
+  "review_date": "2026-11-01 America/Los_Angeles",
+  "decision": "Accepted: the remaining I11/R05 sharing, intervention and interrupted-controller-recovery evidence chains, and the corresponding CORAL reporting portion of I14, are closed within the declared current-source directed protocol scope.",
+  "new_blocking_findings": [],
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "script_sha256": "1fe2eb30c7474de86d8d739a08522f29f7c3fdb26cacd68850df5f3711ae1d73",
+  "live_plan_sha256": "bded2fa9e62422e5d224d610b6e252264d847a5585bb7922bfc42c744e611dca",
+  "workflow": {
+    "run_id": 41394999162,
+    "url": "https://github.com/proteus-evolve/Proteus/actions/runs/41394999162",
+    "event": "workflow_dispatch",
+    "run_attempt": 1,
+    "conclusion": "success",
+    "required_qualification_job": "coral-directed-live / qualification",
+    "normal_CI_jobs": "intentionally skipped for manual qualification; not complete release CI"
+  },
+  "artifact": {
+    "id": 13119390321,
+    "filename": "coral-directed-live-41394999162-original.zip",
+    "bytes": 1523952,
+    "sha256": "13f28f94be0918f1e49604a3ce9536fed55bc8c1abaf88c293f923c812100eb4",
+    "original_files": 1168,
+    "reviewer_redownloaded": false,
+    "local_original_zip": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/coral-directed-live-41394999162-original.zip"
+  },
+  "scope_disposition": {
+    "I11": "Close the real-worker acceptance gap: independent A/B command processes demonstrably overlap, shared content reaches a later actual request, one production intervention reaches the next generation, and a new controller resumes the same run with original workers/receipts. Fresh-context fallback is the declared continuity mode.",
+    "R05": "Close the remaining three evidence chains for current production CORAL. Keep the previously accepted historical circle26 one-worker and two-worker optimization arms under their original source/protocol. This new qualification is a separately named tiny doubling protocol, not reconstructed historical v5.1 sharing or a new optimization benchmark.",
+    "I14": "Close the CORAL sharing/budget/intervention/recovery reporting component and the previously blocked Combee/CORAL composite item using existing accepted historical reports plus this separately source-bound current protocol report. Other generic I14 table/export claims retain their existing evidence; this three-call run is not a replacement for those studies."
+  },
+  "physical_calls": {
+    "slots": [
+      "a:0",
+      "a:1",
+      "b:0"
+    ],
+    "actual_https_provider_requests": 3,
+    "all_responses_http_200_and_completed": true,
+    "distinct_provider_ids": 3,
+    "maximum_output_tokens_per_request": 4096,
+    "reported_input_tokens": 1141,
+    "reported_output_tokens": 113,
+    "reported_total_tokens": 1254,
+    "model_requested": "deepseek-flash",
+    "model_reported": "deepseek-flash",
+    "unknown_dispatch_rows": 0,
+    "new_physical_requests_on_resume": 0,
+    "cost_usd": null,
+    "usage_is_provider_reported_not_invoice_verification": true
+  },
+  "shared_knowledge": {
+    "publication_revision": "sha256:dd5d28a866e943ffa1faf81f5cbf5d6533fc22c36ae39b4d2c93a2086ba5f17e",
+    "writer": "a",
+    "consumer_slot": "b:0",
+    "additional_A_ready_revision": "sha256:5d9f540015178954a384ccaf61952c522330027a34197e4def6a6a23352b9788",
+    "chain_verified": "Native revision/writer and artifact component bytes -> cached revision -> exact B request context -> canonical forwarded body hash -> original provider response/usage",
+    "process_overlap": {
+      "host_process": {
+        "command_sha256": "974ffc6728e583279aabf7398aed50e59d8465bdb42f6d50d628aff2c35c2bd7",
+        "parent_pid": 2746,
+        "pid": 2748,
+        "process_state": "Ss"
+      },
+      "input_sha256": "f5e98626ef6384159091ee917e42607dbd5db8f7fbb4dd1e7b7cf4088d7b603e",
+      "kind": "/published",
+      "observed_monotonic_ns": 50080741209,
+      "other_waiting_worker": {
+        "command_sha256": "974ffc6728e583279aabf7398aed50e59d8465bdb42f6d50d628aff2c35c2bd7",
+        "input_sha256": "352442278bb5b2b25ad8cf325d1bb64c5be08d5853b6507a78b5354794a43a5f",
+        "parent_pid": 2749,
+        "pid": 2751,
+        "process_state": "Ss"
+      },
+      "published_ref": {
+        "content_hash": "sha256:dd5d28a866e943ffa1faf81f5cbf5d6533fc22c36ae39b4d2c93a2086ba5f17e",
+        "id": "sha256:3f16d9646cec6a493866736583ede8e0a21d6a12362577b4c689a6893f95289b",
+        "kind": "proteus.knowledge.revision@1",
+        "schema_version": 1
+      },
+      "worker": "a"
+    },
+    "before_first_forward": {
+      "a_input_sha256": "f5e98626ef6384159091ee917e42607dbd5db8f7fbb4dd1e7b7cf4088d7b603e",
+      "a_process": {
+        "command_sha256": "974ffc6728e583279aabf7398aed50e59d8465bdb42f6d50d628aff2c35c2bd7",
+        "parent_pid": 2746,
+        "pid": 2748,
+        "process_state": "Ss"
+      },
+      "b_input_sha256": "352442278bb5b2b25ad8cf325d1bb64c5be08d5853b6507a78b5354794a43a5f",
+      "b_waiting_process": {
+        "command_sha256": "974ffc6728e583279aabf7398aed50e59d8465bdb42f6d50d628aff2c35c2bd7",
+        "parent_pid": 2749,
+        "pid": 2751,
+        "process_state": "Ss"
+      },
+      "observed_monotonic_ns": 48849314765
+    },
+    "causal_quality_benefit_claimed": false
+  },
+  "intervention": {
+    "count": 1,
+    "action": "reflect",
+    "target_worker": "a",
+    "actual_model_slot": "a:1",
+    "chain_verified": "Production observation/decision/plan -> next-generation launch -> supervisor input -> actual request orientation including released formal score 0.0 and intervention text",
+    "continuity": "fresh_fallback"
+  },
+  "recovery": {
+    "fault": "os._exit(86) after B gateway evaluation settles and before controller result publication",
+    "first_controller_pid": 2744,
+    "first_return_code": 86,
+    "resumed_controller_pid": 2885,
+    "resumed_return_code": 0,
+    "same_original_workspace": "/tmp/proteus-coral-directed-live/run",
+    "resume_count": 1,
+    "physical_rows_unchanged": true,
+    "original_subject_trials_preserved": 3,
+    "final_subject_trials": 4,
+    "only_new_subject_trial": "Declared final hidden confirmation, not duplicate completed work",
+    "all_original_ledger_identities_and_settlements_preserved": true,
+    "ledger_entries": 15,
+    "settlement_events": 15,
+    "duplicate_settlements": 0,
+    "active_slots_after": 0,
+    "worker_crash_or_native_model_session_resume_claimed": false
+  },
+  "accounting_boundary": {
+    "cost_usd": null,
+    "unknown_cost_entries": 3,
+    "native_worker_calls_observed": 3,
+    "physical_hard_cap_owner": "Qualification broker; no unsupported native command-worker finite-call capability is claimed",
+    "ledger_wall_seconds": 16.110490528999996,
+    "wall_seconds_interpretation": "Cumulative ledger resource usage, not isolated speedup or comparative study elapsed time"
+  },
+  "request_bindings": [
+    {
+      "slot": "a:0",
+      "worker": "a",
+      "phase": "a_initial",
+      "body_sha256": "6c926f88b49dba512dc01f9b61e44f03e633040544b6614abf3245233d8ea069",
+      "requested_model": "deepseek-flash",
+      "actual_provider_model": "deepseek-flash",
+      "provider_id": "26f56254-7f99-4adb-a59f-d45492426ba9",
+      "response_sha256": "a45b60e0286974904ce890231544f6be66c544b592f7f24b6a2b2f7aed360d87",
+      "launch_hash": "sha256:9ced02e0466d17b5025c2d5b4a6379f041c18b08da89be63b5d16e7381c469ed",
+      "supervisor_input_sha256": "f5e98626ef6384159091ee917e42607dbd5db8f7fbb4dd1e7b7cf4088d7b603e",
+      "sources": [],
+      "input_tokens": 185,
+      "output_tokens": 33
+    },
+    {
+      "slot": "a:1",
+      "worker": "a",
+      "phase": "a_intervention",
+      "body_sha256": "76900ead27a3d9302950500926890f37cf092788204b4025653dae7af37a9338",
+      "requested_model": "deepseek-flash",
+      "actual_provider_model": "deepseek-flash",
+      "provider_id": "8eab2b7c-43a9-412f-974f-e7be1bcaf0df",
+      "response_sha256": "261bdc05b81982378c4a1cb6ce7f82e9ac73b82dd624cf1f7e8ead000b074ce1",
+      "launch_hash": "sha256:efafc679916820c6990ae373a73699035ef59f22e779046e2712cd01718ad623",
+      "supervisor_input_sha256": "8035128caf8a6438dc1f7c99320872a89182754601232b5c8754dbb069fb52c8",
+      "sources": [
+        {
+          "source_hash": "sha256:dd5d28a866e943ffa1faf81f5cbf5d6533fc22c36ae39b4d2c93a2086ba5f17e",
+          "writer_id": "a",
+          "content_sha256": "1db009db083751b30c56aab185fb1bc93681b8495062fcd82092d5972282f351"
+        }
+      ],
+      "input_tokens": 458,
+      "output_tokens": 36
+    },
+    {
+      "slot": "b:0",
+      "worker": "b",
+      "phase": "b_shared",
+      "body_sha256": "08329c2aae5511c4d66af3c0da23000c893745c42e28b44a4a69b65d1e08bab7",
+      "requested_model": "deepseek-flash",
+      "actual_provider_model": "deepseek-flash",
+      "provider_id": "6b873df9-2d19-4644-b391-11ec2a2b73d4",
+      "response_sha256": "0c31073b70c69839b1df8776666b2ddff9217ea32f6cbd0c190f057d4c5493c0",
+      "launch_hash": "sha256:abf7d705b3d3bbecb807cee154de65665ae635e1d30fba7e480edb80e9eb0ad5",
+      "supervisor_input_sha256": "352442278bb5b2b25ad8cf325d1bb64c5be08d5853b6507a78b5354794a43a5f",
+      "sources": [
+        {
+          "source_hash": "sha256:5d9f540015178954a384ccaf61952c522330027a34197e4def6a6a23352b9788",
+          "writer_id": "a",
+          "content_sha256": "c18e0feb387706aacd37a9f9d0bd32ec0c76baa11b757775f5694c0b8f7da6dd"
+        },
+        {
+          "source_hash": "sha256:dd5d28a866e943ffa1faf81f5cbf5d6533fc22c36ae39b4d2c93a2086ba5f17e",
+          "writer_id": "a",
+          "content_sha256": "1db009db083751b30c56aab185fb1bc93681b8495062fcd82092d5972282f351"
+        }
+      ],
+      "input_tokens": 498,
+      "output_tokens": 44
+    }
+  ],
+  "independent_verification": {
+    "frozen_reader_audit_fixture": "passed",
+    "frozen_reader_audit_live": "passed",
+    "copy_indexes_and_ledger": {
+      "zip_original_files_byte_unchanged": 1168,
+      "added_audit_coordination_files": [
+        "fixture/.proteus-locks/0c5df1618b4bb3751fe40d028efcd7cf45b3138b43f71c5829e24b5fc025b3ed.lock",
+        "live/.proteus-locks/f84feaa6c0bab0647175d8917059a79f66d4efdd0a60533cd91bdffdfc2dd35e.lock"
+      ],
+      "indexes": {
+        "fixture": {
+          "records_verified": 397,
+          "failed_exports": 0,
+          "gateway_credential_rows": 0,
+          "broker_permit_present": false
+        },
+        "live": {
+          "records_verified": 765,
+          "failed_exports": 0,
+          "gateway_credential_rows": 0,
+          "broker_permit_present": false
+        }
+      },
+      "physical_requests": 3,
+      "physical_rows_identical_before_after_resume": true,
+      "provider_input_tokens": 1141,
+      "provider_output_tokens": 113,
+      "worker_usage_matches_provider_rows": [
+        {
+          "slot": "a:0",
+          "model_calls": 1,
+          "input_tokens": 185,
+          "output_tokens": 33,
+          "cost_usd": null
+        },
+        {
+          "slot": "a:1",
+          "model_calls": 1,
+          "input_tokens": 458,
+          "output_tokens": 36,
+          "cost_usd": null
+        },
+        {
+          "slot": "b:0",
+          "model_calls": 1,
+          "input_tokens": 498,
+          "output_tokens": 44,
+          "cost_usd": null
+        }
+      ],
+      "ledger_entries": 15,
+      "settlement_events": 15,
+      "duplicate_settlements": 0,
+      "subject_trials_before": 3,
+      "subject_trials_after": 4,
+      "new_subject_trials_after_resume": 1,
+      "new_trial_scope": "Declared final hidden confirmation, not a repeated completed evaluation",
+      "all_original_identities_and_settlements_preserved": true,
+      "active_slots_after": 0,
+      "native_budget": {
+        "charged": {
+          "model_calls": 3.0,
+          "evaluations": 4.0,
+          "cost_usd": null,
+          "wall_seconds": 16.110490528999996
+        },
+        "unknown": {
+          "model_calls": 0,
+          "evaluations": 0,
+          "cost_usd": 3,
+          "wall_seconds": 0
+        },
+        "active_slots": 0,
+        "entries": 15
+      },
+      "unknown_money_not_converted_to_zero": true,
+      "reviewer_provider_calls": 0
+    },
+    "prior_P2_status": "closed via original/export readback and six negative probes before this attempt",
+    "audit_outputs": [
+      "/tmp/proteus-coral-live-review-41394999162/independent-fixture-audit.stdout",
+      "/tmp/proteus-coral-live-review-41394999162/independent-live-audit.stdout"
+    ],
+    "integrity_report": "/tmp/proteus-coral-live-review-41394999162/independent-integrity-ledger-readback.json"
+  },
+  "not_established": [
+    "Circle26 quality replication or causal benefit from shared knowledge",
+    "Paper parity, multi-seed significance or native persistent model-session support",
+    "Concurrent provider-call speedup or all harness/method/role combinations",
+    "Complete release CI, full release-smoke, main merge or exact-tag publication readiness"
+  ],
+  "remaining_release_scope": "Final documentation/requirement mapping and remaining release gates proceed separately. The coordinator has reported a required DSH release-smoke failure for separate investigation; it is not adjudicated by this CORAL review.",
+  "reviewer_actions": {
+    "qualification_runs": 0,
+    "controller_or_worker_starts": 0,
+    "provider_calls": 0,
+    "workflow_dispatches": 0,
+    "downloads": 0,
+    "original_evidence_changed": false
+  },
+  "preservation": "All 1168 archived file bytes remain identical. Saved-record readers created only two zero-byte coordination lock files in reviewer-owned extraction. Author ZIP, author extraction and historical studies were not modified."
+}

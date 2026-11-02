@@ -28,9 +28,9 @@ engineering blocker on this merge; **1.0 publication remains unapproved**.
 | R02: ACE | [Formula](../recipes/ace/formula/README.md): 500/300/200, one epoch, three refinement rounds. Offline **141 → 173/200**, selected after 200 training examples; online **141 → 163/200** on predictions made before each learning window. | Accept these historical Formula profiles. Offline selected is not last; online stream is not final-playbook held-out accuracy. FiNER/AppWorld and unimplemented delta extensions are outside validated scope. |
 | R03: Meta-Harness | [Three MCE domains](../recipes/meta-harness/mce/README.md): 450 learning callbacks and 260 visible predictions per system over 130 distinct validation tasks (30 USPTO + 50 Symptom2Disease + 50 LawBench, each evaluated twice); 412 private tasks per selected system. Archived proposer makes one JSON call producing three programs. Current Pi/DSH/Codex coding proposers have minimal live-cycle evidence. | Accept the historical JSON-proposer result only for that adapted profile. Current coding-search benchmark acceptance is pending; claiming it requires a complete audited declared-domain run. There is no paper-length-search or improvement threshold requirement. |
 | R04: Combee | Both ACE/GEPA combinations have mechanism checks. The [eight Formula conditions](../recipes/combee/formula/README.md) supply historical quality and API cost upper bounds; the four online conditions also have study-level elapsed receipts, mapped below. | Independent review accepts the quality/cost/elapsed **reporting subitem** for this declared single-seed adapted online comparison. A [common frozen-trace comparison](../recipes/validation/combee-shared-trace/README.md) now executes sequential, naive, fixed and dynamic methods; its remaining R04 mechanism requirement is now independently accepted in the November record. Offline gaps do not require new paid runs, positive speedup or paper-matched numbers. |
-| R05 / I11: CORAL | [26-circle public task](../recipes/coral/circle-packing/README.md): one worker × 20 proposals versus two × 10, one evaluation worker; actual model requests, submitted code, own-worker measured feedback, publications and fresh-fallback generations are recorded. | Accept the two historical optimization arms and their declared fresh-context/persistent-workspace boundary. Actual cross-worker prompt use, applied interventions and interrupted recovery still require the evidence closure below. One-worker harness pilots do not establish current native-session multiworker support. |
+| R05 / I11: CORAL | [26-circle public task](../recipes/coral/circle-packing/README.md): one worker × 20 proposals versus two × 10, one evaluation worker; actual model requests, submitted code, own-worker measured feedback, publications and fresh-fallback generations are recorded. | Accept the two historical optimization arms and their declared fresh-context/persistent-workspace boundary. The separately source-bound November directed qualification below independently closes actual cross-worker delivery, applied intervention and controller interruption/recovery. One-worker harness pilots do not establish current native-session multiworker support. |
 | R00: Native | Historical Pi integration, current activation/repair/recovery mechanisms, pinned Pi/DSH source gates and bounded live role pilots are distinct evidence. | Final preparation and exact-tag gates must bind the declared adapter inputs, activation, invalid-candidate repair and interruption/resume to the release source. Historical exit-137 phases and completed resume do not replace them. |
-| I14: comparable output | Frozen task metrics, selection, costs and failures are available, including all four Combee online study elapsed observations; offline continuous timing remains unknown. Current export/study mechanisms preserve missing values. | The Combee reporting portion is accepted for the declared adapted online comparison. The combined I14 checkbox remains open because CORAL sharing/intervention/recovery evidence is incomplete. Existing observations do not establish isolated speedup or controlled cross-method ranking. |
+| I14: comparable output | Frozen task metrics, selection, costs and failures are available, including all four Combee online study elapsed observations; offline continuous timing remains unknown. Current export/study mechanisms preserve missing values. | The Combee reporting portion is accepted for the declared adapted online comparison. The combined I14 checkbox is now closed by the separately accepted November CORAL request/ledger readback. Existing observations do not establish isolated speedup or controlled cross-method ranking. |
 
 The five general benchmark catalog entries can still say `model_results_pending`:
 that label belongs to their current builders, not to the separately archived
@@ -169,7 +169,7 @@ delayed-response fixture. Those belong to different profiles or synthetic checks
 they cannot be combined into evidence of final v5.1 two-worker sharing or successful
 live crash/restart. The accepted v5.1 optimization arms remain unchanged.
 
-To close I11/R05 without unnecessarily rerunning optimization:
+The October review identified three missing chains to close I11/R05:
 
 1. Recover the original worker request, rendering and intent receipts. Match their
    hashes to the paid dispatch receipts, and match rendered shared source references
@@ -188,6 +188,29 @@ If those original receipts are unavailable or do not cover a promised behavior,
 record the proven gap, then obtain authorization for targeted additional evidence
 or an explicit release-scope decision. “Experimental” is not a waiver of the
 existing sharing, heartbeat and recovery acceptance requirements.
+
+## CORAL: November current-source closure
+
+The user subsequently authorized a new bounded qualification. [Run 41394999162](https://github.com/proteus-evolve/Proteus/actions/runs/41394999162)
+executes the production CORAL/worker/knowledge/gateway/event/ledger paths at
+`cebc1a9e808a25e8c7ee0144f525138325008253` on a directed integer-multiplier task.
+Two actual worker processes overlap. Three paid requests bind A's published
+revision bytes to B's actual request, and the production reflect decision plus
+released evaluation feedback to A's next generation. A real controller exit 86
+is followed by a distinct process resuming the same workspace; all three prior
+evaluation settlements and broker receipts are reused. The fourth evaluation is
+the declared final confirmation, not a duplicated prior trial. Fifteen distinct
+settlement events leave no active reservations. Reported tokens total 1,141 input
+and 113 output; provider USD charges remain unknown.
+
+The [independent final acceptance](validation/v1-20261101/coral-directed/independent-live-acceptance.json)
+closes the remaining I11/R05 evidence chains and I14's CORAL reporting portion.
+The [frozen recipe](../recipes/validation/coral-directed/README.md) and original
+artifact ZIP retain request bodies, HTTP receipts, plan/source bindings, original
+failure records and review. The old v5.1 request-content gap stays a historical
+gap. This small qualification establishes no quality benefit, native model-session
+continuation, worker-crash recovery or simultaneous provider calls. No historical
+optimization result was changed and no additional CORAL paid run is required.
 
 ## Release preparation boundary
 

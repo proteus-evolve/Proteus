@@ -32,10 +32,10 @@ this record supplies their current per-requirement disposition.
 | I08 knowledge | Versioned sourced shared knowledge, CAS publication, role-scoped evidence; source/worker provenance preserved. | CORAL's real-worker delivery is a separate qualification below. |
 | I09 usage and recovery | Managed calls reserve/settle once; native receipts retain reported tokens and known subtotals; uncertainty retains reservations. Settled results recover without reissue. | Opaque model-call/cost totals remain unknown. Unsupported finite caps fail preflight. Lost external results stop for reconciliation, rather than promising automatic recovery. See the detailed disposition below. |
 | I10 parallelism | Shared concurrency caps, ordered joins, copy-aware grouping, reducer lineage, production dynamic controller. | Controlled clock observations in the common-trace check are not model speedup. |
-| I11 persistent workers | Managed generations, real worker processes, knowledge/evaluation gateway and events; historical fresh fallback supported. | Current real two-worker sharing/intervention/interruption qualification is pending. |
+| I11 persistent workers | Managed generations, real worker processes, knowledge/evaluation gateway and events; historical fresh fallback supported. | The separately qualified three-request current-source protocol verifies cross-worker delivery, intervention and controller-crash recovery; it does not prove worker-crash or native model-session recovery. |
 | I12 recipes | Immutable resolved manifests, exact source/dependency/plugin locks, profile and deviation metadata; changed conditions cannot masquerade as resume. | Frozen historical builders and current catalog builders have separate validation labels. |
 | I13 researcher entrypoints | Five external plugin templates, six dependency-free catalog examples, export and study comparison execute outside the checkout in both distributions. | Optional GEPA reference and real runtimes have their own CI/gates. |
-| I14 output | Historical 15 profiles, baseline/selected/last separation, task tables, cost bounds and missing values; online Combee elapsed table accepted. Common-trace comparison adds controlled mechanism evidence. | CORAL real sharing/intervention/recovery qualification is pending. Offline historical continuous timing stays unknown; no cross-method causal ranking. |
+| I14 output | Historical 15 profiles, baseline/selected/last separation, task tables, cost bounds and missing values; online Combee elapsed table accepted. Common-trace comparison adds controlled mechanism evidence. | CORAL's independently accepted request/ledger readback closes its reporting requirement. Offline historical continuous timing stays unknown; no cross-method causal ranking. |
 | I15 release | API/schema/lock freeze, unreleased 1.0.0 metadata/notes, wheel+sdist build and twine; 22 installed checks, 261 Python files byte-matched. | Complete prepare full smoke and main PR CI/Harbor; later exact-tag gates and publication require separate authorization. |
 
 ### I09: disposition of the three earlier unchecked items
@@ -80,7 +80,7 @@ validate supported adapters; they do not claim access to hidden provider billing
 | ACE | Formula 500/300/200; offline 141 → selected 173/200, online 141 → pre-learning stream 163/200. | Selected is not last; online is not final-playbook held-out accuracy. |
 | Meta-Harness | Three historical MCE domains, 450 learn callbacks, 260 visible predictions over 130 distinct tasks, 412 private tasks; JSON proposer protocol. | Current Pi/DSH/Codex coding proposers have bounded integration pilots, not a full coding-search benchmark claim. That stronger claim would require its own audited full run. |
 | Combee | Eight historical Formula conditions; four online quality/API-upper/study-elapsed rows. Additional common frozen trace across four actual ACE variants. | Model-free common trace checks mechanism only; no isolated speedup, paper parity or multi-seed claim. |
-| CORAL | Historical one worker ×20 versus two ×10, own measured feedback, publications and fresh-fallback generations. | Historical cross-worker delivery/intervention/interruption chains were not recovered locally. New qualification must remain separately labeled and is pending. |
+| CORAL | Historical one worker ×20 versus two ×10, own measured feedback, publications and fresh-fallback generations. | Historical cross-worker chains were not recovered locally. A new three-request current-source directed qualification independently closes delivery, intervention and controller recovery; no historical or quality-benefit relabeling. |
 | Native | Compatibility transaction engine plus common Native evolution with last-valid activation and independent external evaluation; real role pilots and pinned source gates. | No outer-score selection in the common evolution profile; no all-role/runtime matrix or native-session multiworker claim. |
 
 ## Preparation evidence
@@ -109,8 +109,24 @@ validate supported adapters; they do not claim access to hidden provider billing
   [independent readback](validation/v1-20261101/native-source/independent-readback.json)
   rehashed both original ZIPs and passed all four source/repair verifiers using
   reconstructed archived Git checkpoints, without new Docker or provider dispatch.
-- Prepare complete release-smoke: run `41390453875`, same `9807a41` source;
-  required offline/minimal/LLM/Pi/DSH/Codex outcomes remain pending.
+- CORAL directed qualification: [live run 41394999162](https://github.com/proteus-evolve/Proteus/actions/runs/41394999162)
+  passed at `cebc1a9`, with the same production tree. Exactly three HTTPS requests
+  reported 1,141 input and 113 output tokens; USD cost is unknown. A's actual
+  publications reached B, and the production intervention/released feedback reached
+  A's next generation. Controller PID 2744 exited 86; PID 2885 resumed the same run.
+  The three prior subject settlements were preserved; only the declared fourth
+  final-confirmation trial was new. Broker rows were unchanged; fifteen unique
+  ledger settlements left zero active slots. The [independent acceptance](validation/v1-20261101/coral-directed/independent-live-acceptance.json)
+  closes I11/R05 and the CORAL portion of I14. The [recipe and original ZIP](../recipes/validation/coral-directed/README.md)
+  preserve the frozen protocol, failure history and non-resumable audit copy.
+- Prepare complete release-smoke: run `41390453875`, same `9807a41` source.
+  Offline passed (1,794 tests, 91 skips), and minimal/LLM/Pi passed. DSH's ordinary
+  four-episode sweep passed, but its required-edit cell recorded no source change
+  before episode two and failed both edit/edited-checkpoint checks. The
+  [original failure log](validation/v1-20261101/release-smoke-41390453875-dsh-failed.log)
+  is retained. This workflow did not export DSH's raw trace; the cause is not proven.
+  The full workflow is not accepted. Codex is still running; correction and a
+  complete successful preparation workflow remain required.
 
 The [independent review](validation/v1-20261101/independent-review.json) accepts
 R04 common-trace closure, the API/package evidence and the scoped I09 disposition.

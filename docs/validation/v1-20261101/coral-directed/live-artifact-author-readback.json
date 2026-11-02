@@ -1,0 +1,60 @@
+{
+  "checks": [
+    {
+      "mode": "fixture",
+      "argv": [
+        "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/venv/bin/python",
+        "tools/validation/coral_directed.py",
+        "audit",
+        "--out",
+        "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/fixture"
+      ],
+      "exit_code": 0,
+      "seconds": 0.3493611812591553,
+      "provider_calls_by_auditor": 0,
+      "stdout": {
+        "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-fixture-audit-v1.stdout",
+        "sha256": "dc746de5df68ed31c9e62edcf7a6af7f73b3327126fea5e340b5012df348286c"
+      },
+      "stderr": {
+        "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-fixture-audit-v1.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": "live",
+      "argv": [
+        "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/venv/bin/python",
+        "tools/validation/coral_directed.py",
+        "audit",
+        "--out",
+        "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live"
+      ],
+      "exit_code": 0,
+      "seconds": 0.3214988708496094,
+      "provider_calls_by_auditor": 0,
+      "stdout": {
+        "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-live-audit-v1.stdout",
+        "sha256": "22f4401e3be8a17dd25ba33d43f62e1a92c6fb5b6426e2c1d41b7dc9155a5047"
+      },
+      "stderr": {
+        "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-live-audit-v1.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "before_file_count": 1168,
+  "after_file_count": 1170,
+  "added": [
+    "fixture/.proteus-locks/0f72de99c6173083ea9adc610a1a2eadfbf8ea236a1b5d03136b2dfc4851c179.lock",
+    "live/.proteus-locks/c3f92c3c6b9fa55fc3a15e68c28eaafc6ced9600ff5ca14f65104f3e54703a9e.lock"
+  ],
+  "removed": [],
+  "changed": [],
+  "all_original_file_bytes_unchanged": true,
+  "extra_added_file_sizes": {
+    "fixture/.proteus-locks/0f72de99c6173083ea9adc610a1a2eadfbf8ea236a1b5d03136b2dfc4851c179.lock": 0,
+    "live/.proteus-locks/c3f92c3c6b9fa55fc3a15e68c28eaafc6ced9600ff5ca14f65104f3e54703a9e.lock": 0
+  },
+  "provider_calls_by_auditor": 0
+}

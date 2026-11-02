@@ -1,0 +1,10 @@
+{
+  "local_derived_report_hash": "sha256:76b8bd482507dec75055cff40ed38b702318ef71c99e4f0acd680818b8493e23",
+  "original_CI_acceptance_report_hash": "sha256:8f0b23af20c962bd45398046f6070e66f3a99e34257b6dd4bacb7a51f0ccc380",
+  "local_source_run_path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/run",
+  "original_source_run_path": "/tmp/proteus-coral-directed-live/run",
+  "recomputing_only_source_run_field_gives": "sha256:8f0b23af20c962bd45398046f6070e66f3a99e34257b6dd4bacb7a51f0ccc380",
+  "sole_report_payload_difference_is_source_run_path": true,
+  "source_reference": "proteus/methods/coral/report.py:421-435",
+  "original_report_or_acceptance_was_not_modified": true
+}
