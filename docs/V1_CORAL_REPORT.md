@@ -68,7 +68,13 @@ Tests execute independent worker processes, verify public/private output,
 read-only operation, native/fresh continuations, liveness restarts, pending
 cancellation, unchanged counting after resume, single/multi-worker comparisons
 and rejection of corrupted worker, ledger, gateway, knowledge and event records.
-Installed wheel/sdist checks run the actual CLI outside the checkout. Five-family
-real-model studies and the full I14/R05 release acceptance remain outstanding.
+Installed wheel/sdist checks run the actual CLI outside the checkout. Historical
+method results, the separate current-source CORAL directed qualification, and the
+I14 saved-record export requirements have now passed their scoped independent
+reviews. See the [current disposition](V1_FINAL_ACCEPTANCE.md) and
+[field-by-field output review](validation/v1-20261101/i14-output/i14-generic-disposition.json).
+The directed qualification is not a quality-improvement claim or historical
+recovery result. Complete preparation smoke, main PR checks, and future exact-tag
+gates remain separate requirements.
 
 For saved original-task geometry and complete controller/container acceptance, see [CORAL container study and domain regrade](V1_CORAL_CONTAINER_STUDY.md).

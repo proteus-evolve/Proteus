@@ -1,0 +1,446 @@
+[
+  {
+    "name": "ace",
+    "status": "completed",
+    "history_scope": "cumulative_journal",
+    "reference": {
+      "schema_version": 1,
+      "profile": "adapted",
+      "status": "experimental",
+      "paper": null,
+      "code": "https://github.com/ace-agent/ace",
+      "revision": "82709de050e1db6e6ef2f07bcb0393560b94992a",
+      "deviations": [
+        "Shared frozen synthetic sample/prediction/reflection trace; no model-quality claim.",
+        "Actual ACE/Combee methods and update services; deterministic fixture curator.",
+        "Dynamic TimingService uses declared synthetic durations, not measured performance."
+      ],
+      "evidence": []
+    },
+    "tasks": 22,
+    "candidates": 12,
+    "roles_stages": [
+      {
+        "role": "curator",
+        "stage": "curate",
+        "kind": "actor",
+        "entries": 11
+      },
+      {
+        "role": "framework",
+        "stage": "evaluation",
+        "kind": "evaluation_cohort",
+        "entries": 22
+      },
+      {
+        "role": "generator",
+        "stage": "subject",
+        "kind": "actor",
+        "entries": 22
+      },
+      {
+        "role": "grader",
+        "stage": null,
+        "kind": "grader",
+        "entries": 22
+      },
+      {
+        "role": "reflector",
+        "stage": "reflect",
+        "kind": "actor",
+        "entries": 11
+      },
+      {
+        "role": "subject",
+        "stage": null,
+        "kind": "subject",
+        "entries": 22
+      }
+    ],
+    "attempts": {
+      "statuses": {
+        "completed": 56
+      },
+      "recorded_attempts": 56,
+      "operations_with_multiple_attempts": 0,
+      "additional_attempts": 0,
+      "unfinished_requests": 0
+    },
+    "timing_coverage": "complete_controller_intervals",
+    "unknown_actual_entries": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 0,
+      "wall_seconds": 0
+    },
+    "unreported_rollout_ids": [],
+    "source_copy_unchanged": true,
+    "report": "/tmp/proteus-i14-review-20261101/exports/ace/report.json",
+    "report_hash": "sha256:e3a94e6735fefa225da089480178b3ca68dfc21689bec73190e435d41ab1ea25",
+    "report_file_sha256": "97e15b705af327f64496c5ae66c6323cdee0a414ab1903208244733141e3e20e",
+    "exported_files": [
+      "candidates.csv",
+      "cohorts.csv",
+      "controller-intervals.csv",
+      "costs.csv",
+      "native-usage.csv",
+      "report.json",
+      "role-stage-costs.csv",
+      "stage-attempts.csv",
+      "tasks.csv"
+    ]
+  },
+  {
+    "name": "naive_parallel",
+    "status": "completed",
+    "history_scope": "cumulative_journal",
+    "reference": {
+      "schema_version": 1,
+      "profile": "adapted",
+      "status": "experimental",
+      "paper": null,
+      "code": "https://github.com/ace-agent/ace",
+      "revision": "82709de050e1db6e6ef2f07bcb0393560b94992a",
+      "deviations": [
+        "Shared frozen synthetic sample/prediction/reflection trace; no model-quality claim.",
+        "Actual ACE/Combee methods and update services; deterministic fixture curator.",
+        "Dynamic TimingService uses declared synthetic durations, not measured performance."
+      ],
+      "evidence": []
+    },
+    "tasks": 22,
+    "candidates": 5,
+    "roles_stages": [
+      {
+        "role": "curator",
+        "stage": "aggregate",
+        "kind": "actor",
+        "entries": 4
+      },
+      {
+        "role": "framework",
+        "stage": "evaluation",
+        "kind": "evaluation_cohort",
+        "entries": 15
+      },
+      {
+        "role": "generator",
+        "stage": "subject",
+        "kind": "actor",
+        "entries": 22
+      },
+      {
+        "role": "grader",
+        "stage": null,
+        "kind": "grader",
+        "entries": 22
+      },
+      {
+        "role": "reflector",
+        "stage": "reflect",
+        "kind": "actor",
+        "entries": 11
+      },
+      {
+        "role": "subject",
+        "stage": null,
+        "kind": "subject",
+        "entries": 22
+      }
+    ],
+    "attempts": {
+      "statuses": {
+        "completed": 35
+      },
+      "recorded_attempts": 35,
+      "operations_with_multiple_attempts": 0,
+      "additional_attempts": 0,
+      "unfinished_requests": 0
+    },
+    "timing_coverage": "complete_controller_intervals",
+    "unknown_actual_entries": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 0,
+      "wall_seconds": 0
+    },
+    "unreported_rollout_ids": [],
+    "source_copy_unchanged": true,
+    "report": "/tmp/proteus-i14-review-20261101/exports/naive_parallel/report.json",
+    "report_hash": "sha256:d8a4dfb57042cce713c95020dedfc626d509bd2e78ef970c6b2d9892e8d7e6fd",
+    "report_file_sha256": "eb0ffc7e3d10c8d11f63af1c9ea040f9c7becbe017757bbc23b92b95e9392457",
+    "exported_files": [
+      "candidates.csv",
+      "cohorts.csv",
+      "controller-intervals.csv",
+      "costs.csv",
+      "native-usage.csv",
+      "report.json",
+      "role-stage-costs.csv",
+      "stage-attempts.csv",
+      "tasks.csv"
+    ]
+  },
+  {
+    "name": "combee_fixed",
+    "status": "completed",
+    "history_scope": "cumulative_journal",
+    "reference": {
+      "schema_version": 1,
+      "profile": "adapted",
+      "status": "experimental",
+      "paper": null,
+      "code": "https://github.com/ace-agent/ace",
+      "revision": "82709de050e1db6e6ef2f07bcb0393560b94992a",
+      "deviations": [
+        "Shared frozen synthetic sample/prediction/reflection trace; no model-quality claim.",
+        "Actual ACE/Combee methods and update services; deterministic fixture curator.",
+        "Dynamic TimingService uses declared synthetic durations, not measured performance."
+      ],
+      "evidence": []
+    },
+    "tasks": 22,
+    "candidates": 5,
+    "roles_stages": [
+      {
+        "role": "curator",
+        "stage": "aggregate",
+        "kind": "actor",
+        "entries": 12
+      },
+      {
+        "role": "framework",
+        "stage": "evaluation",
+        "kind": "evaluation_cohort",
+        "entries": 15
+      },
+      {
+        "role": "generator",
+        "stage": "subject",
+        "kind": "actor",
+        "entries": 22
+      },
+      {
+        "role": "grader",
+        "stage": null,
+        "kind": "grader",
+        "entries": 22
+      },
+      {
+        "role": "reflector",
+        "stage": "reflect",
+        "kind": "actor",
+        "entries": 11
+      },
+      {
+        "role": "subject",
+        "stage": null,
+        "kind": "subject",
+        "entries": 22
+      }
+    ],
+    "attempts": {
+      "statuses": {
+        "completed": 43
+      },
+      "recorded_attempts": 43,
+      "operations_with_multiple_attempts": 0,
+      "additional_attempts": 0,
+      "unfinished_requests": 0
+    },
+    "timing_coverage": "complete_controller_intervals",
+    "unknown_actual_entries": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 0,
+      "wall_seconds": 0
+    },
+    "unreported_rollout_ids": [],
+    "source_copy_unchanged": true,
+    "report": "/tmp/proteus-i14-review-20261101/exports/combee_fixed/report.json",
+    "report_hash": "sha256:63cdcf30a0ed20ca60be2a3ad5eccbb13422e2e03cde6589122accab239446cd",
+    "report_file_sha256": "73b136333145ecf7cb75174fc7472013f35131b6d1e2c2fa3afdb7e7d4b38b5b",
+    "exported_files": [
+      "candidates.csv",
+      "cohorts.csv",
+      "controller-intervals.csv",
+      "costs.csv",
+      "native-usage.csv",
+      "report.json",
+      "role-stage-costs.csv",
+      "stage-attempts.csv",
+      "tasks.csv"
+    ]
+  },
+  {
+    "name": "combee_dynamic",
+    "status": "completed",
+    "history_scope": "cumulative_journal",
+    "reference": {
+      "schema_version": 1,
+      "profile": "adapted",
+      "status": "experimental",
+      "paper": null,
+      "code": "https://github.com/ace-agent/ace",
+      "revision": "82709de050e1db6e6ef2f07bcb0393560b94992a",
+      "deviations": [
+        "Shared frozen synthetic sample/prediction/reflection trace; no model-quality claim.",
+        "Actual ACE/Combee methods and update services; deterministic fixture curator.",
+        "Dynamic TimingService uses declared synthetic durations, not measured performance."
+      ],
+      "evidence": []
+    },
+    "tasks": 22,
+    "candidates": 5,
+    "roles_stages": [
+      {
+        "role": "curator",
+        "stage": "aggregate",
+        "kind": "actor",
+        "entries": 12
+      },
+      {
+        "role": "framework",
+        "stage": "evaluation",
+        "kind": "evaluation_cohort",
+        "entries": 15
+      },
+      {
+        "role": "generator",
+        "stage": "subject",
+        "kind": "actor",
+        "entries": 22
+      },
+      {
+        "role": "grader",
+        "stage": null,
+        "kind": "grader",
+        "entries": 22
+      },
+      {
+        "role": "reflector",
+        "stage": "reflect",
+        "kind": "actor",
+        "entries": 11
+      },
+      {
+        "role": "subject",
+        "stage": null,
+        "kind": "subject",
+        "entries": 22
+      }
+    ],
+    "attempts": {
+      "statuses": {
+        "completed": 43
+      },
+      "recorded_attempts": 43,
+      "operations_with_multiple_attempts": 0,
+      "additional_attempts": 0,
+      "unfinished_requests": 0
+    },
+    "timing_coverage": "complete_controller_intervals",
+    "unknown_actual_entries": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 0,
+      "wall_seconds": 0
+    },
+    "unreported_rollout_ids": [],
+    "source_copy_unchanged": true,
+    "report": "/tmp/proteus-i14-review-20261101/exports/combee_dynamic/report.json",
+    "report_hash": "sha256:2f3e58c3b7c43c2e8cea818118638617250d5761b164acf1deecc91c1412e97f",
+    "report_file_sha256": "ee4db9c3bd17dc17d0d88a5a246f76a4cf0be85ddea06380b95553db104d942d",
+    "exported_files": [
+      "candidates.csv",
+      "cohorts.csv",
+      "controller-intervals.csv",
+      "costs.csv",
+      "native-usage.csv",
+      "report.json",
+      "role-stage-costs.csv",
+      "stage-attempts.csv",
+      "tasks.csv"
+    ]
+  },
+  {
+    "name": "coral-directed",
+    "status": "completed",
+    "history_scope": "cumulative_journal",
+    "reference": {
+      "schema_version": 1,
+      "profile": "adapted",
+      "status": "experimental",
+      "paper": null,
+      "code": "https://github.com/Human-Agent-Society/CORAL",
+      "revision": "0123dfb939b35228cf2c1fde224cd0561e727408",
+      "deviations": [
+        "Directed tiny-task current-source protocol qualification, not circle optimization.",
+        "Two real command workers; fixture transport in dry-run and bounded live model only after approval.",
+        "Structured integer candidate evaluated by a model-free trusted subject; no generated code execution.",
+        "Fresh-context fallback, not native model-session continuation."
+      ],
+      "evidence": []
+    },
+    "tasks": 4,
+    "candidates": 3,
+    "roles_stages": [
+      {
+        "role": "framework",
+        "stage": "evaluation",
+        "kind": "evaluation_cohort",
+        "entries": 4
+      },
+      {
+        "role": "grader",
+        "stage": null,
+        "kind": "grader",
+        "entries": 4
+      },
+      {
+        "role": "proposer",
+        "stage": null,
+        "kind": "worker",
+        "entries": 3
+      },
+      {
+        "role": "subject",
+        "stage": null,
+        "kind": "subject",
+        "entries": 4
+      }
+    ],
+    "attempts": {
+      "statuses": {
+        "completed": 8
+      },
+      "recorded_attempts": 8,
+      "operations_with_multiple_attempts": 0,
+      "additional_attempts": 0,
+      "unfinished_requests": 0
+    },
+    "timing_coverage": "partial_controller_intervals",
+    "unknown_actual_entries": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 3,
+      "wall_seconds": 0
+    },
+    "unreported_rollout_ids": [],
+    "source_copy_unchanged": true,
+    "report": "/tmp/proteus-i14-review-20261101/exports/coral-directed/report.json",
+    "report_hash": "sha256:aaddd35acc0f23c0109428661f44d36b5b64f37a52e374a8f28322891a1ddc85",
+    "report_file_sha256": "e9164669b3363af6e5b514ef0b4aa309af09c6f0789a4d8524f03ef4c07ff96f",
+    "exported_files": [
+      "candidates.csv",
+      "cohorts.csv",
+      "controller-intervals.csv",
+      "costs.csv",
+      "native-usage.csv",
+      "report.json",
+      "role-stage-costs.csv",
+      "stage-attempts.csv",
+      "tasks.csv"
+    ]
+  }
+]

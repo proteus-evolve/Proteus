@@ -6,10 +6,12 @@ checkpointed research loop. Workers own editable workspaces and choose when to
 submit candidates. The controller evaluates immutable submissions and delivers
 policy interventions using each worker's declared session protocol.
 
-The current runnable study uses long-lived deterministic subprocesses. It
-demonstrates the orchestration and recovery mechanisms without model calls. A
-production agent bridge, an original non-training task, and real single-worker
-versus multi-worker results remain required for R05 acceptance.
+The offline study below uses long-lived deterministic subprocesses and no model
+calls. Separate [historical circle-packing results](../recipes/coral/circle-packing/README.md)
+cover the original task and one-versus-two-worker optimization. The independently
+accepted [current-source directed qualification](../recipes/validation/coral-directed/README.md)
+closes actual cross-worker delivery, intervention and controller-crash recovery.
+These evidence profiles remain distinct; see the [current disposition](V1_FINAL_ACCEPTANCE.md).
 
 ## Components and control flow
 

@@ -1,0 +1,174 @@
+{
+  "review_date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "reviewed_commit": "7231dac0ee7e1a82aed0d624b57ef8b2201b54eb",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "decision": "Both remaining generic I14 checkboxes may be closed within the already accepted supported contracts and explicitly labeled evidence profiles. No remaining functional/data-path blocker was identified by this reconciliation.",
+  "not_a_release_approval": "Macro I01-I15/final preparation and exact-head/tag release gates remain open; DSH full-smoke failure is independent and unresolved. No merge/tag/publication decision is made here.",
+  "verification_performed": {
+    "provider_calls": 0,
+    "workers_started": 0,
+    "evaluators_executed": 0,
+    "workflow_dispatches": 0,
+    "new_tests_run": 0,
+    "saved_record_exports": 5,
+    "task_rows_reconstructed": 92,
+    "candidate_rows_reconstructed": 30,
+    "original_records_modified": false,
+    "reviewer_source_copies_unchanged": true,
+    "historical_verification": {
+      "profiles": 15,
+      "recipes": 16,
+      "files_verified": 182,
+      "provider_calls": 0,
+      "runtime_imports": 0
+    },
+    "reused_installed_logs_rehashed": 6
+  },
+  "items": [
+    {
+      "requirement": "I14-1 per-task metrics, candidate lineage, role/stage cost, elapsed time, failure/retry statistics",
+      "disposition": "close",
+      "implementation_evidence": {
+        "tasks": "proteus/recipes/export.py:108-225: actual occurrence/rollout/candidate/artifact/protocol/status/score/metrics and complete cohort coverage; missing scores preserve denominator",
+        "lineage": "proteus/recipes/export.py:80-104,409-412: checked candidate entry/artifact bytes and parent DAG, creation operation/attempt identity",
+        "costs": "proteus/recipes/export.py:227-297: one settled ledger entry per identity; role/stage/kind grouping, actual separate from budget_charged, unknown counts and actor tokens",
+        "failure_retry": "proteus/recipes/export.py:374-394: operation+attempt identities, stage result statuses, additional_attempts and unfinished_requests; per-task and ledger statuses remain separately queryable. tests/test_v1_result_export.py:138-200 cover failed candidate denominators and failure+retry+unchanged resume",
+        "timing": "proteus/recipes/controller_timing.py and docs/V1_CONTROLLER_TIMING.md: controller intervals, missing coverage, replay exclusion, summed operation time and ledger span are separately named",
+        "native": "proteus/core/native_usage.py:138-165: distinct adapter attempts, episode/phase/scope/status, reported/known subtotal/unknown coverage; opaque internals are not inferred",
+        "provenance": "proteus/recipes/export.py:413-438: manifest/config/lock, reference profile/deviations, snapshot/history_scope, evidence paths+hashes, final report hash",
+        "artifacts": "report.json plus tasks/cohorts/candidates/costs/role-stage-costs/stage-attempts/controller-intervals/native-usage CSVs"
+      },
+      "new_readback": "generic-export-readback.json: four accepted Combee arms and accepted CORAL live record, 92 task rows / 30 candidate rows, 0 unreported rollout IDs. All nine files exported per run. CORAL retains null USD/continuous/controller totals and one unknown timing interval after crash.",
+      "boundaries": [
+        "Managed supported records are covered; opaque native internal calls/costs remain unknown and non-journal evidence is explicitly latest_invocation_only.",
+        "Stage attempts and worker generations are distinct; a completed replay is not a retry.",
+        "No provider price, hidden internal phase attribution or elapsed time is invented. Missing metrics are a disclosed supported contract, not an experimental exemption."
+      ]
+    },
+    {
+      "requirement": "I14-2 separately save reference-setting/adapted results and common-condition method comparisons",
+      "disposition": "close",
+      "implementation_evidence": {
+        "recipe_label": "proteus/recipes/config.py:157-173: ReferenceSpec.profile native/reference/adapted/extended, immutable source and deviations/evidence",
+        "export_label": "proteus/recipes/export.py:413-418 preserves exact original reference and configuration/lock identity",
+        "study_mode": "proteus/recipes/study.py:30-48 separates reference_profiles from controlled and refuses paired baseline deltas in reference_profiles",
+        "controlled_validation": "proteus/recipes/study.py:99-192 validates completed cumulative records, final cohorts, actual tasks/evaluator/state/feedback, declared variations, paired seed mapping and source/plugin/package pins",
+        "retained_result_identity": "proteus/recipes/study.py:154-236 keeps mode, study/report/manifest/config hashes, reference/deviations, selected cohorts, randomization, aggregate missingness and comparison hash",
+        "output_is_separate": "proteus/recipes/study.py:240-250 and export.py:440-470 write new files outside source records and refuse overwrite"
+      },
+      "saved_evidence": {
+        "historical": "recipes/experiments/single-seed-20261020/{index.json,results.json,profiles/*,sources.json,SHA256SUMS}: 15 profiles / 16 recipes, all 182 indexed files and recipe/lock hashes independently verified in this pass. 14 adapted method profiles (15 recipes) plus 1 Native mechanism profile; no relabeling of historical status.",
+        "source_mapping": "docs/validation/v1-20261028/profile-mapping.json preserves original source trees/runtime bindings and corresponding current validation paths.",
+        "common": "docs/validation/v1-20261101/combee-shared-trace-5794378.tar.gz contains separately stored source-bound four-arm comparison.json + individual audits and raw records, already independently accepted. Same H0/11 input trace/seed and checked actual invocation payloads; scheduling/lineage mechanism only.",
+        "qualified": "docs/validation/v1-20261101/coral-directed/ live/fixture artifacts and recipe are separate from the historical circle-packing quality arms; independently accepted three-request protocol is not substituted for those outcomes.",
+        "installed": "Rehashed both wheel/sdist check_study_comparison logs and their source checks: actual offline two-condition/two-seed execution + CLI summary preserves profiles, paired results and unknowns."
+      },
+      "interpretation": "The checklist asks for distinct configuration/result records and defensible comparison semantics. It does not require equal original-paper scores or a single causal ranking across all method families. Existing accepted adapted results and common-condition mechanism comparison meet this storage/reporting requirement with explicit labels; neither a fixture nor experimental status substitutes for the separately accepted real-method evidence.",
+      "boundaries": [
+        "Reference profiles are descriptive; common trace is mechanism evidence, not matched-quality or latency benchmarking.",
+        "Historical single-seed deviations, unmeasured costs/timing, and unavailable paper-matched evidence remain visible.",
+        "No new paid run or arbitrary cross-family ranking is required to close this output-separation requirement."
+      ]
+    }
+  ],
+  "minor_documentation_reconciliation": [
+    {
+      "file": "docs/V1_CORAL_REPORT.md",
+      "line": 72,
+      "issue": "Unqualified statement that full I14/R05 acceptance remains outstanding is stale after accepted November record. Replace with link to current per-requirement disposition; retain exact-tag/full-smoke limits."
+    },
+    {
+      "file": "docs/plans/proteus-1.0.0-implementation-plan.md",
+      "lines": [
+        62,
+        84,
+        110
+      ],
+      "issue": "Historical P08h/P10d/P10s progress notes still say work/results/I14 pending. Preserve dated development history but add a current-status cross-reference so it cannot contradict final acceptance."
+    },
+    {
+      "file": "docs/plans/proteus-1.0.0-implementation-plan.md",
+      "line": 382,
+      "issue": "Avoid saying all 15 profiles are adapted quality studies: there are 14 adapted method profiles plus one Native mechanism profile (16 recipe files total)."
+    }
+  ],
+  "recommended_checklist_text": [
+    "[x] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计（已验收的 saved-run export/ledger/native usage/timing 合同和 wheel/sdist CLI 覆盖；November 1 独立只读回读 5 个已存运行、92 条任务/30 个候选，无漏报 rollout。unknown、未完成/不透明运行覆盖及累计/单次调用范围明确保留）。",
+    "[x] 分别保存参考设置及其 adapted 结果与共同实验条件下的方法比较结果（15 个来源绑定历史 profile / 16 recipes，其中 14 个 adapted 方法 profile 与 1 个 Native 机制 profile；ReferenceSpec/StudySpec 分离描述性参考汇总和 controlled 比较，另存四臂共同冻结 trace 与 CORAL 定向验收。保持各自配置、来源与偏差，不将机制结果或 adapted 观察改写为论文匹配/因果排名）。"
+  ],
+  "reused_installed_evidence": [
+    {
+      "distribution": "wheel",
+      "check": "check_harness_accounting_package.py",
+      "exit_code": 0,
+      "seconds": 1.015,
+      "log_sha256": "26be0cae988664372d0d0d2d1b12404f492bd8391036093fc578f4f29caeb1d9",
+      "original_log": "/tmp/proteus-v1-final-20261101/installed-out/wheel-check_harness_accounting_package.py.log",
+      "independently_rehashed": true
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_result_export.py",
+      "exit_code": 0,
+      "seconds": 1.744,
+      "log_sha256": "af3e4e874831fb75ba6038afdcbaa24e0c5d8c21cc82b967934e51927fd56ccf",
+      "original_log": "/tmp/proteus-v1-final-20261101/installed-out/wheel-check_result_export.py.log",
+      "independently_rehashed": true
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_study_comparison.py",
+      "exit_code": 0,
+      "seconds": 3.647,
+      "log_sha256": "65b71ae751038266868f98884b75109d6ff80f2d086b05eec065452631ca4075",
+      "original_log": "/tmp/proteus-v1-final-20261101/installed-out/wheel-check_study_comparison.py.log",
+      "independently_rehashed": true
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_harness_accounting_package.py",
+      "exit_code": 0,
+      "seconds": 1.222,
+      "log_sha256": "26be0cae988664372d0d0d2d1b12404f492bd8391036093fc578f4f29caeb1d9",
+      "original_log": "/tmp/proteus-v1-final-20261101/installed-out/sdist-check_harness_accounting_package.py.log",
+      "independently_rehashed": true
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_result_export.py",
+      "exit_code": 0,
+      "seconds": 1.697,
+      "log_sha256": "af3e4e874831fb75ba6038afdcbaa24e0c5d8c21cc82b967934e51927fd56ccf",
+      "original_log": "/tmp/proteus-v1-final-20261101/installed-out/sdist-check_result_export.py.log",
+      "independently_rehashed": true
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_study_comparison.py",
+      "exit_code": 0,
+      "seconds": 4.172,
+      "log_sha256": "65b71ae751038266868f98884b75109d6ff80f2d086b05eec065452631ca4075",
+      "original_log": "/tmp/proteus-v1-final-20261101/installed-out/sdist-check_study_comparison.py.log",
+      "independently_rehashed": true
+    }
+  ],
+  "source_file_hashes": {
+    "proteus/recipes/export.py": "ef3705eb061e3cd3422768d3ab1116e81b5ba050534f1da6c0c885d12bf45d46",
+    "proteus/recipes/study.py": "d766de152f0c9072d0c46312da71f4d0a502155ec51061ad4aa1e9fdd7ba0192",
+    "proteus/recipes/config.py": "8a5d1583e1cc9ea5e5438655228e35b4ebe00f35f099053f53f89335dcb6a1ea",
+    "proteus/recipes/controller_timing.py": "cccc5ab58d670a47380d644e9b4f9d66beed00f0b9c94f3a1cbdc881b63da31b",
+    "proteus/core/native_usage.py": "f4e447932dbde7e5f42a84831ad29d57f922b97bc14891d6c6599d99633b2756",
+    "tests/test_v1_result_export.py": "776948073cca6e1b6e342d19bcb8e9feb0ceed48b9e086c447f8a17ea093e38a",
+    "tests/test_v1_study_comparison.py": "86ed0174b016bf8b8a62a82059b0a68d37b725ed0d64c11a7d3dc21946e30909",
+    "tests/test_v1_controller_timing.py": "2378f51ae18d32fe39cb44b0eaa30c338115f39dd44890842e29e0e18e8192f4",
+    "tests/check_result_export.py": "903a1cfd1d0a79d568c0fc62847c9d147a28b46445b4da2f32c9feffaedd3268",
+    "tests/check_study_comparison.py": "47fe12d45449dc77b5c8d99543b379e430fdeecdf222db6aaa7af6e9af59c5fd",
+    "tests/check_harness_accounting_package.py": "e322431502fc28a5478bf438bf1d7f460bba37a96ca77f1d5abc2d0418bbfc78"
+  },
+  "supporting_records": [
+    "generic-export-readback.json",
+    "historical-profile-verification.stdout",
+    "historical-profile-verification.stderr"
+  ]
+}

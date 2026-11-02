@@ -75,3 +75,11 @@ self-edit failure. The normal sweep and two self-edit episodes completed, but
 no source change existed before episode two. The workflow did not archive the
 raw DSH trace, so the cause is unproven; the complete release-smoke gate remains
 unaccepted while that failure is investigated.
+
+`i14-output/i14-generic-disposition.json` and its saved-record readback close the
+two generic output requirements: five runs, 92 task rows and 30 candidates, with
+no omitted rollout. All nine report files per run were reconstructed without
+models, evaluators or mutations to the source copies. Unknown costs/timing remain
+unknown; historical reference/adapted results and common-condition records stay
+separate. Fourteen historical method profiles are adapted; the fifteenth is the
+Native mechanism profile. This review does not close the full-smoke gate.

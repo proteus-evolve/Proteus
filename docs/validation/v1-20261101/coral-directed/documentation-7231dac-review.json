@@ -1,0 +1,56 @@
+{
+  "reviewed_commit": "7231dac0ee7e1a82aed0d624b57ef8b2201b54eb",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "scope": "Read-only documentation/archive reconciliation after independently accepted CORAL live record audit. No model/workflow/test dispatch.",
+  "decision": "accepted; no new blocker in this documentation delta",
+  "compared_archives_and_reports": [
+    {
+      "original": "/tmp/proteus-coral-live-review-41394999162/final-coral-acceptance.json",
+      "archived": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/coral-directed/independent-live-acceptance.json",
+      "sha256": "1ab186e6ceca1bf5c1d91905a34db0d043d823d6ddc2ea8e5c6afd5768c9e5e5",
+      "byte_identical": true
+    },
+    {
+      "original": "/tmp/proteus-coral-live-review-41394999162/independent-integrity-ledger-readback.json",
+      "archived": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/coral-directed/independent-live-integrity.json",
+      "sha256": "f94668ec88cc572917c850c99a5f66d53edc5f72c6cd010c3d347888317b62aa",
+      "byte_identical": true
+    },
+    {
+      "original": "/tmp/proteus-coral-live-review-41394999162/independent-live-audit.stdout",
+      "archived": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/coral-directed/independent-live-audit.json",
+      "sha256": "e4f8494075dd08b743dc649c2503f3dbbcf3345abd13410196931590f89df294",
+      "byte_identical": true
+    },
+    {
+      "original": "/tmp/proteus-coral-live-review-41394999162/independent-fixture-audit.stdout",
+      "archived": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/coral-directed/independent-paired-fixture-audit.json",
+      "sha256": "36ec64228085bcc09fb6edf20f297a15f2e812ffbb70527127fc0bfe382a7694",
+      "byte_identical": true
+    },
+    {
+      "original": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/coral-directed-live-41394999162-original.zip",
+      "archived": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/coral-directed/live-41394999162.zip",
+      "sha256": "13f28f94be0918f1e49604a3ce9536fed55bc8c1abaf88c293f923c812100eb4",
+      "byte_identical": true
+    },
+    {
+      "original": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/coral-directed-fixture-41394652342-original.zip",
+      "archived": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/coral-directed/fixture-41394652342.zip",
+      "sha256": "5aeebbea5fcb5becd3f23355478bd2d64c339140713f87efe72e0c672fdf5a93",
+      "byte_identical": true
+    }
+  ],
+  "scope_checks": [
+    "I11/R05 closure refers only to source-bound directed delivery/intervention/controller recovery",
+    "I14 closure is only CORAL reporting and previously open Combee/CORAL composite item; two generic I14 items remain open",
+    "Historical v5.1 missing request chains remain gaps; no worker-crash/native-session/quality/causal claim",
+    "Full release-smoke failure and unproven DSH cause retained; publication/main/exact-tag gates not marked complete"
+  ],
+  "dsh_read_only_findings": {
+    "original_run": 41390453875,
+    "facts": "ordinary four-episode sweep passes; two-episode required edit finishes but no src change from ep0 to ep1; edited-checkpoint startup check fails; raw trace not archived",
+    "path_hypothesis": "Common EDIT_GOAL uses relative src path; Docker WORKDIR /workspace is frozen/read-only and staged candidate is writable /workspace/candidate. Absolute candidate path is a reasonable isolated clarification, not proven root cause.",
+    "required_review_boundary": "Keep source diff and actual next-episode activation strict, preserve episode/turn/phase bounds and original failed evidence; add always-run credential-safe diagnostic export; code/offline review before new paid dispatch."
+  }
+}

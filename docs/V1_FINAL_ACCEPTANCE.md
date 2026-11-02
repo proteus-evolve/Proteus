@@ -35,7 +35,7 @@ this record supplies their current per-requirement disposition.
 | I11 persistent workers | Managed generations, real worker processes, knowledge/evaluation gateway and events; historical fresh fallback supported. | The separately qualified three-request current-source protocol verifies cross-worker delivery, intervention and controller-crash recovery; it does not prove worker-crash or native model-session recovery. |
 | I12 recipes | Immutable resolved manifests, exact source/dependency/plugin locks, profile and deviation metadata; changed conditions cannot masquerade as resume. | Frozen historical builders and current catalog builders have separate validation labels. |
 | I13 researcher entrypoints | Five external plugin templates, six dependency-free catalog examples, export and study comparison execute outside the checkout in both distributions. | Optional GEPA reference and real runtimes have their own CI/gates. |
-| I14 output | Historical 15 profiles, baseline/selected/last separation, task tables, cost bounds and missing values; online Combee elapsed table accepted. Common-trace comparison adds controlled mechanism evidence. | CORAL's independently accepted request/ledger readback closes its reporting requirement. Offline historical continuous timing stays unknown; no cross-method causal ranking. |
+| I14 output | Historical 15 profiles, baseline/selected/last separation, task tables, cost bounds and missing values; online Combee elapsed table accepted. Common-trace comparison adds controlled mechanism evidence. | The independent generic export readback closes both remaining output items: five saved runs yield 92 task rows / 30 candidates with no missing rollout; reference/adapted and controlled records remain separate. Offline historical continuous timing stays unknown; no cross-method causal ranking. |
 | I15 release | API/schema/lock freeze, unreleased 1.0.0 metadata/notes, wheel+sdist build and twine; 22 installed checks, 261 Python files byte-matched. | Complete prepare full smoke and main PR CI/Harbor; later exact-tag gates and publication require separate authorization. |
 
 ### I09: disposition of the three earlier unchecked items
@@ -71,6 +71,24 @@ this record supplies their current per-requirement disposition.
 These are the documented capability boundaries in `V1_NATIVE_INPUTS.md`,
 `V1_RECOVERY.md` and the prior release acceptance record. The final live gates
 validate supported adapters; they do not claim access to hidden provider billing.
+
+### I14: saved output and comparison separation
+
+The [independent output review](validation/v1-20261101/i14-output/i14-generic-disposition.json)
+closes the two generic checklist items. A read-only export of four saved Combee
+arms and the accepted CORAL live record produced all nine report/CSV files per
+run: 92 task rows and 30 candidates, with zero unreported rollouts. Source copies
+were unchanged. CORAL retains unknown USD cost, unknown continuous/controller
+totals and one unfinished timing interval; reservations do not replace missing
+measurements. Six original wheel/sdist export, study and accounting logs were
+independently rehashed.
+
+Historical results retain 15 profiles / 16 recipes / 182 indexed files: fourteen
+adapted method profiles and one Native mechanism profile. Reference/adapted
+summaries, controlled comparisons, the model-free common trace, and the separate
+CORAL directed qualification keep their own source/configuration labels and
+artifacts. This closes output coverage and result separation, without implying
+paper-matched scores or a causal ranking across methods.
 
 ## Method acceptance
 

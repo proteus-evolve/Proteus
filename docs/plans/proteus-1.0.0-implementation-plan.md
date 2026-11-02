@@ -59,7 +59,7 @@ Proteus 1.0.0 的目标是成为面向 agent 自进化研究的通用框架，�
 
 - P08g：实现共享动态 batch controller，接入 Combee-ACE 与 GEPA 的正常学习迭代；持久计时区分连续测量、已提交结果与中断后的未知时长。采样保持 GEPA 未访问的 epoch 尾部，ACE 保持 online 窗口边界。上游曲线/采样对照、原始计时绑定及中断恢复检查通过，说明见 [V1_DYNAMIC_BATCHING.md](../V1_DYNAMIC_BATCHING.md)。真实领域实验包、模型实验、CORAL 和发布验收继续推进；不将 R04 整体标为完成。
 
-- P08h：接入 Formula 上顺序 ACE、naive parallel、固定/动态 Combee 四组 offline/online 实验配置，共用已锁定数据、角色和预算上限；增加私有重评分、样本/更新/调用完整性审计与可恢复的端到端计时。完整 HTTP fixture、500/300/200 数据准备、跨实验硬退出恢复及 wheel/sdist 安装验证通过。说明见 [V1_COMBEE_FORMULA.md](../V1_COMBEE_FORMULA.md)。该 common-condition 设置明确不同于论文中尚未确定精确子集的 250 个训练样本；真实模型质量/成本/耗时结果仍待完成。
+- P08h：接入 Formula 上顺序 ACE、naive parallel、固定/动态 Combee 四组 offline/online 实验配置，共用已锁定数据、角色和预算上限；增加私有重评分、样本/更新/调用完整性审计与可恢复的端到端计时。完整 HTTP fixture、500/300/200 数据准备、跨实验硬退出恢复及 wheel/sdist 安装验证通过。说明见 [V1_COMBEE_FORMULA.md](../V1_COMBEE_FORMULA.md)。该 common-condition 设置明确不同于论文中尚未确定精确子集的 250 个训练样本；真实模型质量/成本/耗时结果仍待完成。（以上为该阶段历史进度；当前 R04/R05/I14 已声明范围的独立验收见 [November 1 disposition](../V1_FINAL_ACCEPTANCE.md)，完整发布门禁另行跟踪。）
 
 - P09c：加入 worker 主动提交候选的 EvaluationGateway，冻结提交字节、事务化入队、按原认领恢复、复用正式评分并返回授权证据；可自动发布共享 attempt。首个传输为可信本地 worker 的 loopback HTTP，候选执行可接 Harbor。恢复、安装包及容器验收见 [V1_EVALUATION_GATEWAY.md](../V1_EVALUATION_GATEWAY.md)。CORAL 事件策略、完整 recipe、真实模型实验与发布验收仍未完成。
 
@@ -81,7 +81,7 @@ P10b 开发中：增加不导入可选优化器的 recipe catalog，区分八个
 
 P10c 开发中：加入通用离线结果导出，核对标准保存记录中的任务、候选谱系、评分、阶段尝试及账本，提供 JSON/CSV 与逐角色/阶段成本；默认隐藏私有成绩，未知实际用量保持为空。八个机制示例和已保存 Docker 记录已开始验收，说明见 [V1_RESULT_EXPORT.md](../V1_RESULT_EXPORT.md)。跨运行比较、多 seed 汇总、真实模型结果及发布验收继续推进。
 
-P10d 开发中：增加显式条件、多 seed 与 paired baseline 的离线汇总，受控比较核验声明差异、实际任务/评分协议与代码依赖身份；参考设置单独作描述性汇总。提供双条件、双 seed 的可执行搜索策略消融配置，详见 [V1_STUDY_COMPARISON.md](../V1_STUDY_COMPARISON.md)。实际模型实验、完整耗时/共享行为报告与发布验收仍待完成。
+P10d 开发中：增加显式条件、多 seed 与 paired baseline 的离线汇总，受控比较核验声明差异、实际任务/评分协议与代码依赖身份；参考设置单独作描述性汇总。提供双条件、双 seed 的可执行搜索策略消融配置，详见 [V1_STUDY_COMPARISON.md](../V1_STUDY_COMPARISON.md)。实际模型实验、完整耗时/共享行为报告与发布验收仍待完成。（以上为该阶段历史进度；当前 R04/R05/I14 已声明范围的独立验收见 [November 1 disposition](../V1_FINAL_ACCEPTANCE.md)，完整发布门禁另行跟踪。）
 
 P10e 开发中：整理 `proteus.api.v1` 公共导入与兼容边界，将四类插件模板切换到该入口并新增外部 ParentSelector 模板。同一父候选/评分下仅替换 parent policy，记录不同子候选谱系与实际输出；补父选择/子创建/最终测试的硬退出恢复，以及相同 stage recipe 的第二 actor runtime 验证。详见 [V1_PUBLIC_API.md](../V1_PUBLIC_API.md) 和 [V1_COMPATIBILITY.md](../V1_COMPATIBILITY.md)。native 最终消息覆盖、真实模型与发布门禁仍待完成。
 
@@ -107,7 +107,7 @@ P10q 开发中：通用 harness/workspace actor 使用 native 原始回执汇总
 
 P10r 开发中：将容器目录 read/write scopes 和公共 `resources.pids` 接入 Harbor code backend；限制在候选代码和子进程启动前生效，控制器核验 bootstrap 回执后才转发任务输入。旧空 scopes 保留兼容行为，未支持的内核/后端明确拒绝配置。实际 Linux 文件访问、安装包及 Harbor sequence/resume 验收见 [V1_ENVIRONMENT_SCOPES.md](../V1_ENVIRONMENT_SCOPES.md)。其他 provider、资源类型与完整 I06 验收继续保持待完成。
 
-P10s 开发中：保存结果导出支持按 codec/声明表面计算 artifact units、逐 parent edge 变化，以及显式 lineage path 累计；复用原生文件表面测量，文本组件与结构化记录使用独立单位。未知 codec、二进制表面和跨类型比较保持不可用，度量绑定配置、实现和原始产物；不会将 DAG 创建顺序拼成演化路径。详见 [V1_ARTIFACT_MEASUREMENTS.md](../V1_ARTIFACT_MEASUREMENTS.md)。真实模型比较与完整 I14 验收仍待完成。
+P10s 开发中：保存结果导出支持按 codec/声明表面计算 artifact units、逐 parent edge 变化，以及显式 lineage path 累计；复用原生文件表面测量，文本组件与结构化记录使用独立单位。未知 codec、二进制表面和跨类型比较保持不可用，度量绑定配置、实现和原始产物；不会将 DAG 创建顺序拼成演化路径。详见 [V1_ARTIFACT_MEASUREMENTS.md](../V1_ARTIFACT_MEASUREMENTS.md)。真实模型比较与完整 I14 验收仍待完成。（以上为该阶段历史进度；当前 R04/R05/I14 已声明范围的独立验收见 [November 1 disposition](../V1_FINAL_ACCEPTANCE.md)，完整发布门禁另行跟踪。）
 
 P10t 开发中：Pi/DSH staged dispatch 将固定源码哈希交给 source-image wrapper，启动前核对并记录源码、CLI 入口和 wrapper 的哈希；源码缺失不得退回 baked CLI。Release self-edit gate 对照最后一轮开始前的 checkpoint，不再以事后缓存作为启动证明；允许保留被 turn cap 终止前的有效启动回执。离线验证覆盖真实 wrapper 控制流及小型本地 CLI，不代表真实上游构建或模型验收。需要重建 source images，R00 和 live release gates 继续待验收。详见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md#pidsh-source-activation)。
 
@@ -377,9 +377,9 @@ P10j 工程实现：为通用运行器增加独立于重放日志的控制器计
 
 ### I14 统一实验输出
 
-- [ ] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计（历史归档及当前导出机制已有；缺失成本/连续耗时保持 unknown，完整比较覆盖尚未关闭）。
+- [x] 输出逐任务指标、候选谱系、阶段与角色成本、耗时、失败与重试统计（November 1 独立只读回读 5 个已存运行、92 条任务/30 个候选，无漏报 rollout；wheel/sdist 导出与账本检查通过。unknown、未完成/不透明运行覆盖及累计/单次调用范围明确保留，见 [逐字段验收](../validation/v1-20261101/i14-output/i14-generic-disposition.json)）。
 - [x] 提供 baseline、模块消融与多 seed 实验配置和汇总（P10d：StudySpec、显式差异、paired seed 和缺失指标传播；各领域另含原始 baseline 配置）。
-- [ ] 分别保存参考设置复现结果与共同实验条件下的方法比较结果（已有 15 个来源绑定的 adapted 单 seed profile；不是原论文条件匹配或跨方法受控排名）。
+- [x] 分别保存参考设置及其 adapted 结果与共同实验条件下的方法比较结果（15 个历史 profile / 16 recipes，其中 14 个 adapted 方法 profile 与 1 个 Native 机制 profile；ReferenceSpec/StudySpec 分离描述性参考汇总与 controlled 比较，四臂共同冻结 trace 与 CORAL 定向验收另存。各自配置、来源、偏差和未知项保持原标签，不改写为论文匹配或因果排名，见 [独立验收](../validation/v1-20261101/i14-output/i14-generic-disposition.json)）。
 - [x] Combee 报告质量、成本与 wall-clock 的权衡；CORAL 报告单 worker 与多 worker 条件的预算及共享行为（Combee 四组 adapted online 报告与共同固定 trace 已独立接受；历史 CORAL 单/双 worker 结果不变，November 1 [current-source 三请求验收](../validation/v1-20261101/coral-directed/independent-live-acceptance.json)补齐共享/干预/controller 恢复及账本。独立 reviewer 接受关闭此复合报告项；offline 连续计时、USD cost unknown 及因果归因边界仍明确保留）。
 - [x] 保留原有测量工具；仅对支持的 artifact 和 lineage 计算对应测量，不把不同对象强行合成可比较的结构距离（P10s 已接入三类 codec 的显式测量接口、逐 parent edge 和指定 path；对应实现已通过 Python 3.10–3.14、wheel/sdist 与 Harbor 原始产物核验，见 [PR #97](https://github.com/proteus-evolve/Proteus/pull/97)。未知 codec/二进制表面保持 unavailable，不代表模型质量结果）。
 
