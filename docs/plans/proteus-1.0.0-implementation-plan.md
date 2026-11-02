@@ -629,8 +629,8 @@ statements above remain development history.
 - [ ] 原有功能回归通过；不支持的 adapter 能力被明确拒绝或限制。
 - [x] 已声明支持范围内的全局预算、检查点与恢复验证通过；持久 session 与 fresh fallback 分开记录（I09、Native repair 和 CORAL 控制器恢复已验收；未知外部结果保留 reservation 并要求 reconciliation，见 [支持边界](../V1_FINAL_ACCEPTANCE.md)）。
 - [x] 已保存的逐任务记录可重新汇总为报告中的表与曲线（I14 独立回读 5 个 run、92 个任务/30 个候选，无漏报 rollout；历史领域报告单列，unknown 不补零，见 [输出验收](../validation/v1-20261101/i14-output/i14-generic-disposition.json)）。
-- [x] wheel、sdist 和可选依赖在新环境安装验证通过（clean 9807a41 的未发布 1.0.0 artifacts；261 Python sources 逐字节一致，22 项仓库外检查通过；后续 production/build 输入未变。正式 tag 产物仍需按发布流程重建并验证）。
-- [ ] README、架构、recipe、迁移与 1.0.0 release notes 同步。
+- [x] wheel、sdist 和可选依赖在新环境安装验证通过（9807a41 旧包证据保留；README 元数据改变后，clean bad3c55 的新 wheel/sdist 已重建并通过 build/twine、22 项仓库外检查，261 Python sources 逐字节一致；production Python 未变，293 个 wheel package payload 文件与旧包一致。见 [新包独立身份与日志](../validation/v1-20261101/final-distributions/README.md)。正式 tag 产物仍需按发布流程重建并验证）。
+- [x] README、架构、recipe、迁移与未发布的 1.0.0 release notes 同步（[独立文档核对](../validation/v1-20261101/final-checklist/documentation-bad3c55-review.json) 的两处尾项已协调：新 README 包元数据绑定 bad3c55 新包，P2 待补验文字标为历史状态。live/main/tag 门禁仍按实际状态单列）。
 - [ ] 对实际发布提交运行既有和新增的 release gates；需要的 live 检查不以静默 skip 代替。
 - [ ] 设置版本、打 tag 和发布按仓库发布流程执行；计划文档落地不代表已经发布 1.0.0。
 

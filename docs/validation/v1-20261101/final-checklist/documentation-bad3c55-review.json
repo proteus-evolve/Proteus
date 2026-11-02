@@ -1,0 +1,166 @@
+{
+  "review_date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "reviewed_commit": "bad3c550fdd09e149658be864399259cd9188ac3",
+  "base_commit": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+  "disposition": "Substantive documentation reconciliation accepted. Before checking documentation synchronization, make the two precise current-state wording corrections below. No new research run or runtime test is required by this review.",
+  "changed_files": [
+    "README.md",
+    "docs/V1_EXPERIMENT_ACCEPTANCE.md",
+    "docs/V1_FINAL_ACCEPTANCE.md",
+    "docs/V1_OVERVIEW.md",
+    "docs/plans/proteus-1.0.0-implementation-plan.md",
+    "docs/releases/v1.0.0.md",
+    "docs/validation/v1-20261101/README.md",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-34-byte-probe.json",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-p2-closure.json",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-python314-index-probe.json",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-regression.json",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-regression.stderr",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-regression.stdout",
+    "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-source-readback.json",
+    "docs/validation/v1-20261101/final-checklist/conditional-release-disposition.json",
+    "docs/validation/v1-20261101/final-checklist/document-readback.json"
+  ],
+  "only_readme_docs_or_evidence_changed": true,
+  "unchanged_objects": {
+    "proteus": true,
+    "pyproject.toml": true,
+    ".github/workflows": true,
+    "scripts/release_smoke_diagnostics.py": true,
+    "tests/test_release_smoke_diagnostics.py": true,
+    "environments": true,
+    "recipes": true
+  },
+  "package_metadata": {
+    "readme_declared_in_pyproject": true,
+    "readme_changed": true,
+    "new_distribution_validation": "Coordinator already rebuilding clean bad3c55; not reviewed or assumed passed here.",
+    "old_package_evidence": "Preserved as evidence for 9807a41, not the current package metadata."
+  },
+  "document_source_sha256": {
+    "README.md": "b22976f9a6e75f14fcea6d1d6b567570b3205c2b9a7c49804e13fb362db89323",
+    "docs/V1_FINAL_ACCEPTANCE.md": "d7509c9e1574791f95ba8af892d3f591a54e4218b1e2ae38c189d8b87e64d582",
+    "docs/V1_RELEASE_EVIDENCE_MAP.md": "3d4746ae44456ad0babaa1dae853c1607db83365f06b8ae447f129ffee9bf484",
+    "docs/V1_OVERVIEW.md": "533914c0b6e86fe75e5d3bc953e33157ff8697ba404e66d73040493e7d646074",
+    "docs/V1_HARNESS_ROLES.md": "03e843a4384d68d28e1181f2576e0abc78a8caa1bcca3d29fc7cf078d56f8d27",
+    "docs/V1_NATIVE_INPUTS.md": "b6cd813a91ea96648891facdb5129b1de07b01aac24128fb855676f28927575c",
+    "docs/V1_COMPATIBILITY.md": "862b38f08ae683d31069257c6939ffd66b95dc11b94b6826b4830624cf929b47",
+    "docs/V1_EXPERIMENT_ACCEPTANCE.md": "b5050bc99284fad2ad41321e1c1dc3a01a01353909b7f813e7f9cccc493d67dd",
+    "docs/RELEASING.md": "22f99527fd2e51377283e6ecb50dfe30c73ac752cbaf52b33638067e95cd5e67",
+    "docs/releases/v1.0.0.md": "db889fbb06a7c80a27b07d53ab0f902e7b2325d3a1ee44b7aaa7839bf2ba143a",
+    "docs/plans/proteus-1.0.0-implementation-plan.md": "693380ec4a24099e225964b80334f3fffe6a411d9d19c708f6a4ab7a018de025",
+    "docs/validation/v1-20261101/README.md": "9c0a9806c4076aebf2e070be9106bb02e3c345d6c0f84fce131517d4edfaa2d6"
+  },
+  "relative_link_readback": {
+    "documents": 12,
+    "checked_targets": 333,
+    "missing": [],
+    "scope": "Markdown inline relative target paths; not a general fragment/link-network validator.",
+    "new_matrix_fragment_verified": true
+  },
+  "archived_reviewer_files": [
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/independent-34-byte-probe.json",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-34-byte-probe.json",
+      "sha256": "e016f4ccf834391578cece2be9abc1e155b8b93f1a4cee0a7d6318b6590463ab",
+      "bytes": 708,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/independent-p2-closure.json",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-p2-closure.json",
+      "sha256": "6dcaf04dee7b7db22ae5df4f395e7ed0f71d1b8669f1c68d4cc8d1605201087d",
+      "bytes": 7193,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/independent-python314-index-probe.json",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-python314-index-probe.json",
+      "sha256": "34879f97486c195bfbcee587b181a251cb19d3858c616eb4e477b15560e3aa5b",
+      "bytes": 385,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/independent-regression.json",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-regression.json",
+      "sha256": "b89c8be9d15ec2de4f708afb1dca11dd0838741ebf18c5da8d218bb0290e70d6",
+      "bytes": 770,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/independent-regression.stderr",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-regression.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/independent-regression.stdout",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-independent-regression.stdout",
+      "sha256": "f10b371e9d33bf2ce56f667685cb3c1dd2f6f063499d023101a184df2b0c9450",
+      "bytes": 100,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-dsh-smoke-review-bde937a/source-readback.json",
+      "archive": "docs/validation/v1-20261101/dsh-smoke-repair/bde937a-source-readback.json",
+      "sha256": "ee8fa6753115a59b3180ef9e4d00e74048db62f3e1ced390e5f82743ae665c6b",
+      "bytes": 1000,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-final-conditional-review-1adaa8f/conditional-release-disposition.json",
+      "archive": "docs/validation/v1-20261101/final-checklist/conditional-release-disposition.json",
+      "sha256": "855a9dbb6aa928bdab5535672c34c0182f6a1890cb1dbc4dd035f6171c7602a4",
+      "bytes": 18708,
+      "byte_identical": true
+    },
+    {
+      "source": "/tmp/proteus-final-conditional-review-1adaa8f/document-readback.json",
+      "archive": "docs/validation/v1-20261101/final-checklist/document-readback.json",
+      "sha256": "6a0d85685f4e3c4a770f728d944f95a57cb4bbf07aa9f2225101a2a496336e31",
+      "bytes": 4629,
+      "byte_identical": true
+    }
+  ],
+  "preexisting_dsh_repair_evidence": {
+    "files": 20,
+    "all_byte_identical": true
+  },
+  "accepted_changes": [
+    "I02 closes only final inputs owned and observable by Proteus; opaque harness internals remain declared.",
+    "Historical profiles are fourteen adapted method profiles plus one Native mechanism profile, fifteen total/sixteen recipes. Generic builders remain model_results_pending.",
+    "I09 and I14 macro rows close only already accepted supported contracts.",
+    "Preparation aggregate explicitly separated and remains open; unqualified I01-I15 aggregate, current coding benchmark, main/PR/tag/publication gates are not closed.",
+    "Overview identifies new-builder benchmark requirements, exact sixteen-cell matrix, and historical/current evidence split.",
+    "Corrected smoke stays bound to 1adaa8f / 41398194611, remains in progress; newer documentation commits do not replace its source identity.",
+    "P2 closure uses independent bde937a Python3.14 probe, not older 12e02ff v2 record; both author/reviewer index sizes retain their contexts."
+  ],
+  "required_text_followups": [
+    {
+      "priority": "P3",
+      "file": "docs/plans/proteus-1.0.0-implementation-plan.md",
+      "line": 632,
+      "issue": "README is a package metadata input (pyproject.toml:9), and it changed at bad3c55. The current checklist statement that subsequent production/build inputs are unchanged is no longer true.",
+      "action": "Retain the clean 9807a41 artifacts as historical evidence. State that runtime Python sources are unchanged but README/package metadata changed; link the already planned clean bad3c55 distribution rebuild and its own install/metadata checks when accepted. Do not claim old artifact identity for the new package. This is a documentation correction, not a new research requirement."
+    },
+    {
+      "priority": "P3",
+      "file": "docs/validation/v1-20261101/README.md",
+      "line": 106,
+      "issue": "The immediately preceding current-tense paragraph still says independent metadata recheck is required, while the next paragraph correctly archives its completed closure. Earlier P2 requirement prose is also undated.",
+      "action": "Mark the earlier requirement as the historical pre-bde/pre-review state and explicitly say the independent recheck is now accepted; only the full live workflow remains pending. Preserve all original failure records and reviewer addenda unchanged."
+    }
+  ],
+  "close_documentation_checkbox_after": "Both wording corrections are made and exact current package metadata validation status is reflected. Document synchronization can be closed separately from passing the package/smoke/PR/tag/publication gates, provided their outstanding status is explicit.",
+  "remaining_gates": "The corrected full smoke, current package validation/readback, authorized main PR plus its CI/Harbor/review, and separately authorized final tag/publication remain distinct. No result is assumed here.",
+  "review_actions": {
+    "model_calls": 0,
+    "workflow_dispatches": 0,
+    "workflow_cancellations": 0,
+    "worker_or_evaluator_starts": 0,
+    "runtime_tests": 0,
+    "original_record_mutations": 0
+  }
+}

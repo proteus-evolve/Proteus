@@ -1,0 +1,6 @@
+{
+  "commit": "bad3c550fdd09e149658be864399259cd9188ac3",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "reason": "Rebuild after final README/package metadata reconciliation; preserve original preparation artifacts separately.",
+  "helper_python": "3.12.13 (main, Mar  3 2026, 15:35:03) [Clang 21.1.4 ]"
+}

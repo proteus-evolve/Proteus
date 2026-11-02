@@ -1,0 +1,6 @@
+candidate-comparison actual example passed: 2 candidates, 6 trials; no-repeat resume
+search-policy actual example passed: 3 candidates, 7 trials; no-repeat resume
+ace actual example passed: 7 candidates, 16 trials; no-repeat resume
+meta-harness actual example passed: 5 candidates, 22 trials; no-repeat resume
+combee-ace actual example passed: 7 candidates, 17 trials; no-repeat resume
+coral actual example passed: 4 candidates, 9 trials; no-repeat resume

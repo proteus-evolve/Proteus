@@ -1,0 +1,184 @@
+{
+  "source_commit": "bad3c550fdd09e149658be864399259cd9188ac3",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "artifacts": [
+    {
+      "file": "proteus_evolve-1.0.0-py3-none-any.whl",
+      "sha256": "c30fa0b175201db308a95a0a3a493e1032a653ae94880ebc2c8b12272b0de319",
+      "bytes": 784588,
+      "python_sources_byte_matched": 261
+    },
+    {
+      "file": "proteus_evolve-1.0.0.tar.gz",
+      "sha256": "817e92ba44ef0d0c6c27ee89963e4ecb04d4d7c392774f8b8884c1bf6e1e08ca",
+      "bytes": 958498,
+      "python_sources_byte_matched": 261
+    }
+  ],
+  "installed_checks": [
+    {
+      "distribution": "wheel",
+      "check": "installed metadata/extras/public API",
+      "exit_code": 0,
+      "result": {
+        "version": "1.0.0",
+        "metadata": "1.0.0",
+        "module": "/tmp/proteus-v1-final-20261101/final-distributions/wheel-venv/lib/python3.12/site-packages/proteus/__init__.py",
+        "exports": 100,
+        "zstandard": "0.25.0"
+      }
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_plugin_templates.py",
+      "exit_code": 0,
+      "seconds": 24.57,
+      "log_sha256": "c27f8354c2656125901c25716642702c35d35a439f8db854b76861c49f5287dc"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_recipe_catalog.py",
+      "exit_code": 0,
+      "seconds": 24.189,
+      "log_sha256": "fe4ae5ff7aeef440ff20cd2c3d5354c398f25393876720b367f8b14784841f27"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_native_inputs_package.py",
+      "exit_code": 0,
+      "seconds": 1.53,
+      "log_sha256": "442bb92ff3de72694abcfcd6e7351733019b8f311cfc5f929b7efc51ae3c3c8b"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_native_budget_package.py",
+      "exit_code": 0,
+      "seconds": 1.887,
+      "log_sha256": "d0cc546069a2410ab6453ca1fbf20d8b2b3c5d5c42d07c4986ed1869aed7ecf2"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_harness_accounting_package.py",
+      "exit_code": 0,
+      "seconds": 1.415,
+      "log_sha256": "26be0cae988664372d0d0d2d1b12404f492bd8391036093fc578f4f29caeb1d9"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_harness_roles_package.py",
+      "exit_code": 0,
+      "seconds": 4.406,
+      "log_sha256": "4e3bb8586f22b423b88565032d8b6cf9c707af060286a1117686c79e350ec443"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_result_export.py",
+      "exit_code": 0,
+      "seconds": 4.247,
+      "log_sha256": "af3e4e874831fb75ba6038afdcbaa24e0c5d8c21cc82b967934e51927fd56ccf"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_study_comparison.py",
+      "exit_code": 0,
+      "seconds": 6.408,
+      "log_sha256": "65b71ae751038266868f98884b75109d6ff80f2d086b05eec065452631ca4075"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_parallel_package.py",
+      "exit_code": 0,
+      "seconds": 0.651,
+      "log_sha256": "57a46e6309c67d92210f343a49cd4c983597328eb4cc8e6c31465f07c5e33def"
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_workflow_package.py",
+      "exit_code": 0,
+      "seconds": 5.998,
+      "log_sha256": "d7d0c84e243d4b735421775c83e9b9ab1e1852ee4dfad3fa5d0cfd0146239d59"
+    },
+    {
+      "distribution": "sdist",
+      "check": "installed metadata/extras/public API",
+      "exit_code": 0,
+      "result": {
+        "version": "1.0.0",
+        "metadata": "1.0.0",
+        "module": "/tmp/proteus-v1-final-20261101/final-distributions/sdist-venv/lib/python3.12/site-packages/proteus/__init__.py",
+        "exports": 100,
+        "zstandard": "0.25.0"
+      }
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_plugin_templates.py",
+      "exit_code": 0,
+      "seconds": 22.229,
+      "log_sha256": "c27f8354c2656125901c25716642702c35d35a439f8db854b76861c49f5287dc"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_recipe_catalog.py",
+      "exit_code": 0,
+      "seconds": 25.348,
+      "log_sha256": "fe4ae5ff7aeef440ff20cd2c3d5354c398f25393876720b367f8b14784841f27"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_native_inputs_package.py",
+      "exit_code": 0,
+      "seconds": 1.697,
+      "log_sha256": "442bb92ff3de72694abcfcd6e7351733019b8f311cfc5f929b7efc51ae3c3c8b"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_native_budget_package.py",
+      "exit_code": 0,
+      "seconds": 2.006,
+      "log_sha256": "d0cc546069a2410ab6453ca1fbf20d8b2b3c5d5c42d07c4986ed1869aed7ecf2"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_harness_accounting_package.py",
+      "exit_code": 0,
+      "seconds": 1.278,
+      "log_sha256": "26be0cae988664372d0d0d2d1b12404f492bd8391036093fc578f4f29caeb1d9"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_harness_roles_package.py",
+      "exit_code": 0,
+      "seconds": 2.604,
+      "log_sha256": "4e3bb8586f22b423b88565032d8b6cf9c707af060286a1117686c79e350ec443"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_result_export.py",
+      "exit_code": 0,
+      "seconds": 2.592,
+      "log_sha256": "af3e4e874831fb75ba6038afdcbaa24e0c5d8c21cc82b967934e51927fd56ccf"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_study_comparison.py",
+      "exit_code": 0,
+      "seconds": 5.927,
+      "log_sha256": "65b71ae751038266868f98884b75109d6ff80f2d086b05eec065452631ca4075"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_parallel_package.py",
+      "exit_code": 0,
+      "seconds": 0.672,
+      "log_sha256": "57a46e6309c67d92210f343a49cd4c983597328eb4cc8e6c31465f07c5e33def"
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_workflow_package.py",
+      "exit_code": 0,
+      "seconds": 6.177,
+      "log_sha256": "d7d0c84e243d4b735421775c83e9b9ab1e1852ee4dfad3fa5d0cfd0146239d59"
+    }
+  ]
+}

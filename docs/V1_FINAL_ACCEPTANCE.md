@@ -117,6 +117,14 @@ paper-matched scores or a causal ranking across methods.
   export/study/parallel/workflow checks outside the checkout (22 checks including
   metadata/extras/API). Initial missing local `build` dependency is retained as a
   setup failure, followed by a fresh build-tool environment and success.
+- Final distribution rebuild: README changed package metadata at `bad3c55`,
+  so the original `9807a41` artifact identities are retained as historical evidence.
+  The [new package proof and raw logs](validation/v1-20261101/final-distributions/README.md)
+  record build/twine success and all 22 fresh installed checks outside the checkout.
+  Each package contains 261 matching Python files; all 293 wheel package payload
+  files match the earlier accepted wheel byte-for-byte. The new wheel metadata and
+  sdist README match the final source. Local helper/setup failures and their fixes
+  are retained without changes to package runtime code.
 - Prepare Native source workflow: [run 41390451600](https://github.com/proteus-evolve/Proteus/actions/runs/41390451600)
   passed both required pinned Pi and DSH source jobs with `live_role_pilot=false`.
   The [artifact readback](validation/v1-20261101/native-source/readback.json) verifies

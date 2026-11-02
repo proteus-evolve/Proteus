@@ -1,0 +1,5 @@
+{
+  "initial_assertion": "email compat32 get_payload text differs from UTF-8 README",
+  "raw_utf8_body_bytes_match_source": true,
+  "cause": "Legacy email parser decodes unlabelled non-ASCII payload using replacement characters; byte-preserving UTF-8 comparison succeeds. No package/runtime edit."
+}

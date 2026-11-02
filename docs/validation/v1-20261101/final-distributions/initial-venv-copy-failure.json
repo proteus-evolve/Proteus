@@ -1,0 +1,6 @@
+{
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "dyld[99511]: Library not loaded: @rpath/libpython3.12.dylib\n  Referenced from: <4C4C44D5-5555-3144-A1A9-AD2983375B47> /private/tmp/proteus-v1-final-20261101/final-distributions/wheel-venv/bin/python\n  Reason: tried: '/private/tmp/proteus-v1-final-20261101/final-distributions/wheel-venv/lib/libpython3.12.dylib' (no such file), '/private/tmp/proteus-v1-final-20261101/final-distributions/wheel-venv/lib/libpython3.12.dylib' (no such file)\n",
+  "context": "venv.EnvBuilder default copied uv-managed interpreter; ensurepip died SIGABRT before artifact install"
+}

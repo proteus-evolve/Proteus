@@ -93,8 +93,9 @@ separate. The exported diagnostics are bounded, sanitized, non-resumable copies.
 The DSH repair's original code review is retained together with its later
 `independent-code-review-addendum-invalid-index.json`. The addendum supersedes
 the initial readiness decision: a 34-byte compressed malformed input produced
-a 17,454,426-byte index outside the data-byte budget. This P2 requires a bounded
-metadata correction and independent recheck before the next paid workflow.
+a 17,454,426-byte index outside the data-byte budget. At that point, this P2 required a bounded
+metadata correction and independent recheck before another paid workflow; the
+subsequent closure is recorded below.
 
 The `bde937a` follow-up retains at most 64 invalid-line samples per source and
 bounds the complete index to 512 KiB. Parsed invalid counts, omitted sample counts
@@ -103,10 +104,17 @@ the same compressed case reduced to 10,565 bytes; 21 targeted tests pass. The
 first new test run is also retained: its opaque-byte sentinel accidentally matched
 the index's explanatory prose; changing that synthetic sentinel to a unique value
 fixed the test without loosening the assertion or changing collector behavior.
-The independent metadata recheck and successful full workflow are still required.
+At that stage the independent metadata recheck and full workflow were still
+required; the metadata recheck has since closed, as recorded below. The complete
+live workflow remains pending.
 
 `bde937a-independent-p2-closure.json` closes the metadata P2 with the same original
 compressed probe, 21 independent tests and a new exact-source Python 3.14 probe.
 The earlier author `python314-decoder-check-v2.json` is explicitly old-source
 evidence, not this patch's validation. Corrected complete smoke `41398194611` was
 dispatched once at `1adaa8f`; its running status does not yet close the live gate.
+
+[Final distributions](final-distributions/README.md) records the clean bad3c55
+rebuild after README metadata changed, with fresh artifact identities, twine, 22
+installed checks, all original logs and local helper failures. Earlier package
+identities remain historical evidence and are not relabeled as this rebuild.
