@@ -124,7 +124,11 @@ paper-matched scores or a causal ranking across methods.
   Each package contains 261 matching Python files; all 293 wheel package payload
   files match the earlier accepted wheel byte-for-byte. The new wheel metadata and
   sdist README match the final source. Local helper/setup failures and their fixes
-  are retained without changes to package runtime code.
+  are retained without changes to package runtime code. The
+  [independent package and documentation closure](validation/v1-20261101/final-distributions/independent-distribution-and-docs-closure.json)
+  rehashed both artifacts, all installed files, wheel RECORD entries and original
+  logs; it accepts this rebuild and documentation synchronization, without closing
+  the remaining live or main/tag gates.
 - Prepare Native source workflow: [run 41390451600](https://github.com/proteus-evolve/Proteus/actions/runs/41390451600)
   passed both required pinned Pi and DSH source jobs with `live_role_pilot=false`.
   The [artifact readback](validation/v1-20261101/native-source/readback.json) verifies

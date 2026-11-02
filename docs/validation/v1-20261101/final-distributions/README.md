@@ -20,3 +20,8 @@ succeeded). These did not require package runtime changes or provider calls.
 
 These checks establish preparation package behavior. Current full live smoke,
 main PR CI/Harbor and later exact-tag distribution gates remain separate.
+
+The [independent readback](independent-distribution-and-docs-closure.json) accepts
+the new artifact identities, all 293 package files, 298 wheel RECORD entries,
+installed source/metadata/direct_url identities, all 22 check records and 20 raw
+logs. It also closes the two documentation corrections, with no new execution.

@@ -1,0 +1,392 @@
+{
+  "review_date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "reviewed_document_commit": "f68c807d4847daf80f15b12eb37e08bb050fc116",
+  "package_source_commit": "bad3c550fdd09e149658be864399259cd9188ac3",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "disposition": "ACCEPT: clean bad3c55 preparation package rebuild and both requested documentation corrections are independently verified; package-rebuild and documentation-synchronization items may close.",
+  "method": "Read-only archive, Git-object, installed-file, raw-log and hash verification. Existing 22 checks are verified, not rerun.",
+  "artifacts": [
+    {
+      "kind": "wheel",
+      "path": "/tmp/proteus-v1-final-20261101/final-distributions/dist/proteus_evolve-1.0.0-py3-none-any.whl",
+      "sha256": "c30fa0b175201db308a95a0a3a493e1032a653ae94880ebc2c8b12272b0de319",
+      "bytes": 784588,
+      "python_sources_byte_matched_to_git": 261,
+      "package_payload_files_byte_matched_to_git": 293,
+      "wheel_record_hashes_checked": 298
+    },
+    {
+      "kind": "sdist",
+      "path": "/tmp/proteus-v1-final-20261101/final-distributions/dist/proteus_evolve-1.0.0.tar.gz",
+      "sha256": "817e92ba44ef0d0c6c27ee89963e4ecb04d4d7c392774f8b8884c1bf6e1e08ca",
+      "bytes": 958498,
+      "python_sources_byte_matched_to_git": 261,
+      "package_payload_files_byte_matched_to_git": 293,
+      "wheel_record_hashes_checked": null
+    }
+  ],
+  "metadata": {
+    "wheel": {
+      "name": "proteus-evolve",
+      "version": "1.0.0",
+      "provides_extra": [
+        "llm",
+        "sandbox",
+        "dsh",
+        "pi",
+        "dev"
+      ],
+      "readme_body_sha256": "b22976f9a6e75f14fcea6d1d6b567570b3205c2b9a7c49804e13fb362db89323",
+      "readme_matches_frozen_git_source": true
+    },
+    "sdist": {
+      "name": "proteus-evolve",
+      "version": "1.0.0",
+      "provides_extra": [
+        "llm",
+        "sandbox",
+        "dsh",
+        "pi",
+        "dev"
+      ],
+      "readme_body_sha256": "b22976f9a6e75f14fcea6d1d6b567570b3205c2b9a7c49804e13fb362db89323",
+      "readme_matches_frozen_git_source": true
+    }
+  },
+  "old_wheel_comparison": {
+    "path": "/tmp/proteus-v1-final-20261101/dist/proteus_evolve-1.0.0-py3-none-any.whl",
+    "sha256": "a6f5956f4ff139bb02546ef26ffb200010359a773a8030059a4180ada7ff4f53",
+    "package_payload_identical_files": 293,
+    "old_artifact_identity_retained": true,
+    "new_artifact_identity_distinct": true
+  },
+  "installed_check_evidence": {
+    "total_recorded_checks": 22,
+    "all_recorded_exit_codes_zero": true,
+    "raw_check_logs_rehashed": 20,
+    "raw_output_rows_match_proof": true,
+    "validation_json_matches_proof": true,
+    "copied_test_sources_match_frozen_git": 10,
+    "external_cwd_and_removed_PYTHONPATH_in_helper": true,
+    "logs": [
+      {
+        "distribution": "wheel",
+        "check": "check_plugin_templates.py",
+        "sha256": "c27f8354c2656125901c25716642702c35d35a439f8db854b76861c49f5287dc",
+        "bytes": 536,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "method: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\nstage: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\nevaluator: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\nsubject: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\npolicy: external parent selector, identical parent evidence, changed child lineage/predictions, resume and private export passed\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_recipe_catalog.py",
+        "sha256": "fe4ae5ff7aeef440ff20cd2c3d5354c398f25393876720b367f8b14784841f27",
+        "bytes": 456,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "candidate-comparison actual example passed: 2 candidates, 6 trials; no-repeat resume\nsearch-policy actual example passed: 3 candidates, 7 trials; no-repeat resume\nace actual example passed: 7 candidates, 16 trials; no-repeat resume\nmeta-harness actual example passed: 5 candidates, 22 trials; no-repeat resume\ncombee-ace actual example passed: 7 candidates, 17 trials; no-repeat resume\ncoral actual example passed: 4 candidates, 9 trials; no-repeat resume\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_native_inputs_package.py",
+        "sha256": "442bb92ff3de72694abcfcd6e7351733019b8f311cfc5f929b7efc51ae3c3c8b",
+        "bytes": 229,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "installed native recipe: ten immutable adapter/evaluator receipts, zero mock inference, unchanged resume and CSV export passed\ninstalled native Codex: immutable raw JSON receipt, strict parser and unknown call/cost totals passed\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_native_budget_package.py",
+        "sha256": "d0cc546069a2410ab6453ca1fbf20d8b2b3c5d5c42d07c4986ed1869aed7ecf2",
+        "bytes": 111,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "installed native budgets: real local HTTP, actor/run caps, free evaluators, no-refill resume and export passed\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_harness_accounting_package.py",
+        "sha256": "26be0cae988664372d0d0d2d1b12404f492bd8391036093fc578f4f29caeb1d9",
+        "bytes": 218,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "installed harness actor: real local HTTP usage, ledger/token export, private receipt validation and unchanged resume passed\ninstalled chat actor: failed response usage, retry totals, export and unchanged resume passed\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_harness_roles_package.py",
+        "sha256": "4e3bb8586f22b423b88565032d8b6cf9c707af060286a1117686c79e350ec443",
+        "bytes": 128,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "{\"installed_harness_roles\": \"passed\", \"task_evaluations\": 4, \"model_calls\": 0, \"episodes\": 3, \"completed_resume_dispatches\": 0}\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_result_export.py",
+        "sha256": "af3e4e874831fb75ba6038afdcbaa24e0c5d8c21cc82b967934e51927fd56ccf",
+        "bytes": 97,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed result export: saved task scores, lineage, unknown costs and private visibility passed\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_study_comparison.py",
+        "sha256": "65b71ae751038266868f98884b75109d6ff80f2d086b05eec065452631ca4075",
+        "bytes": 91,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed multi-seed study: four real runs, controlled comparison and paired deltas passed\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_parallel_package.py",
+        "sha256": "57a46e6309c67d92210f343a49cd4c983597328eb4cc8e6c31465f07c5e33def",
+        "bytes": 76,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed parallel map/join/reduce and settled resume passed; no inference.\n"
+      },
+      {
+        "distribution": "wheel",
+        "check": "check_workflow_package.py",
+        "sha256": "d7d0c84e243d4b735421775c83e9b9ab1e1852ee4dfad3fa5d0cfd0146239d59",
+        "bytes": 127,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed adaptive workflows: isolated artifacts, formal evaluations, ordered joins and call-free resume passed; no inference.\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_plugin_templates.py",
+        "sha256": "c27f8354c2656125901c25716642702c35d35a439f8db854b76861c49f5287dc",
+        "bytes": 536,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "method: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\nstage: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\nevaluator: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\nsubject: plugin run, semantic assertions, private test receipt, call-free resume and code lock passed\npolicy: external parent selector, identical parent evidence, changed child lineage/predictions, resume and private export passed\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_recipe_catalog.py",
+        "sha256": "fe4ae5ff7aeef440ff20cd2c3d5354c398f25393876720b367f8b14784841f27",
+        "bytes": 456,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "candidate-comparison actual example passed: 2 candidates, 6 trials; no-repeat resume\nsearch-policy actual example passed: 3 candidates, 7 trials; no-repeat resume\nace actual example passed: 7 candidates, 16 trials; no-repeat resume\nmeta-harness actual example passed: 5 candidates, 22 trials; no-repeat resume\ncombee-ace actual example passed: 7 candidates, 17 trials; no-repeat resume\ncoral actual example passed: 4 candidates, 9 trials; no-repeat resume\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_native_inputs_package.py",
+        "sha256": "442bb92ff3de72694abcfcd6e7351733019b8f311cfc5f929b7efc51ae3c3c8b",
+        "bytes": 229,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "installed native recipe: ten immutable adapter/evaluator receipts, zero mock inference, unchanged resume and CSV export passed\ninstalled native Codex: immutable raw JSON receipt, strict parser and unknown call/cost totals passed\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_native_budget_package.py",
+        "sha256": "d0cc546069a2410ab6453ca1fbf20d8b2b3c5d5c42d07c4986ed1869aed7ecf2",
+        "bytes": 111,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "installed native budgets: real local HTTP, actor/run caps, free evaluators, no-refill resume and export passed\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_harness_accounting_package.py",
+        "sha256": "26be0cae988664372d0d0d2d1b12404f492bd8391036093fc578f4f29caeb1d9",
+        "bytes": 218,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "installed harness actor: real local HTTP usage, ledger/token export, private receipt validation and unchanged resume passed\ninstalled chat actor: failed response usage, retry totals, export and unchanged resume passed\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_harness_roles_package.py",
+        "sha256": "4e3bb8586f22b423b88565032d8b6cf9c707af060286a1117686c79e350ec443",
+        "bytes": 128,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "{\"installed_harness_roles\": \"passed\", \"task_evaluations\": 4, \"model_calls\": 0, \"episodes\": 3, \"completed_resume_dispatches\": 0}\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_result_export.py",
+        "sha256": "af3e4e874831fb75ba6038afdcbaa24e0c5d8c21cc82b967934e51927fd56ccf",
+        "bytes": 97,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed result export: saved task scores, lineage, unknown costs and private visibility passed\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_study_comparison.py",
+        "sha256": "65b71ae751038266868f98884b75109d6ff80f2d086b05eec065452631ca4075",
+        "bytes": 91,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed multi-seed study: four real runs, controlled comparison and paired deltas passed\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_parallel_package.py",
+        "sha256": "57a46e6309c67d92210f343a49cd4c983597328eb4cc8e6c31465f07c5e33def",
+        "bytes": 76,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed parallel map/join/reduce and settled resume passed; no inference.\n"
+      },
+      {
+        "distribution": "sdist",
+        "check": "check_workflow_package.py",
+        "sha256": "d7d0c84e243d4b735421775c83e9b9ab1e1852ee4dfad3fa5d0cfd0146239d59",
+        "bytes": 127,
+        "original_archive_hash_identical": true,
+        "recorded_exit_code": 0,
+        "text": "Installed adaptive workflows: isolated artifacts, formal evaluations, ordered joins and call-free resume passed; no inference.\n"
+      }
+    ]
+  },
+  "installed_payload_readback": [
+    {
+      "kind": "wheel",
+      "source_artifact_binding_sha256": "c30fa0b175201db308a95a0a3a493e1032a653ae94880ebc2c8b12272b0de319",
+      "site_packages": "/tmp/proteus-v1-final-20261101/final-distributions/wheel-venv/lib/python3.12/site-packages",
+      "package_payload_files_match": 293,
+      "python_files_match": 261,
+      "metadata_readme_matches": true,
+      "isolated_venv": true,
+      "python_symlink": true,
+      "reported_api_exports": 100,
+      "metadata_observation_matches_install_path": true
+    },
+    {
+      "kind": "sdist",
+      "source_artifact_binding_sha256": "817e92ba44ef0d0c6c27ee89963e4ecb04d4d7c392774f8b8884c1bf6e1e08ca",
+      "site_packages": "/tmp/proteus-v1-final-20261101/final-distributions/sdist-venv/lib/python3.12/site-packages",
+      "package_payload_files_match": 293,
+      "python_files_match": 261,
+      "metadata_readme_matches": true,
+      "isolated_venv": true,
+      "python_symlink": true,
+      "reported_api_exports": 100,
+      "metadata_observation_matches_install_path": true
+    }
+  ],
+  "archived_originals": [
+    {
+      "file": "source.json",
+      "sha256": "8f7091c543458853eeb6d5847caa4703f68ffbaeff09eeaec4755bfdecfe45ac",
+      "bytes": 324,
+      "original_archive_identical": true
+    },
+    {
+      "file": "installed-distributions.json",
+      "sha256": "e88176d1954ca78d16e5cdd17808cd121d341f11a2daa596f329b918680d4505",
+      "bytes": 5841,
+      "original_archive_identical": true
+    },
+    {
+      "file": "metadata-readback.json",
+      "sha256": "4c6a5096777e3ea661b955159c12c26035e287f93bd3b6a7f761c60d98b21e59",
+      "bytes": 527,
+      "original_archive_identical": true
+    },
+    {
+      "file": "initial-export-helper-failure.txt",
+      "sha256": "ef94f95ea9a8070d29e180ee7aa7f3d5c0374dbf859c001e6a0c8795375021e1",
+      "bytes": 315,
+      "original_archive_identical": true
+    },
+    {
+      "file": "initial-metadata-parser-failure.json",
+      "sha256": "7f37584f70e40baef7e9c598bcc23d666e677243d53aefddbf2f508ecf51ced9",
+      "bytes": 300,
+      "original_archive_identical": true
+    },
+    {
+      "file": "initial-venv-copy-failure.json",
+      "sha256": "d2a8b970ebb36c3bdfef89820a0896540e3b6c6c0e7cdc9fde93d5e7ac98bc25",
+      "bytes": 615,
+      "original_archive_identical": true
+    },
+    {
+      "file": "twine.log",
+      "sha256": "48c78619bc5db5a19e3e86a004dba3c7708ebad911a3664bb44fc4c552497fd7",
+      "bytes": 216,
+      "original_archive_identical": true
+    }
+  ],
+  "other_original_log_hashes": {
+    "build.log": {
+      "sha256": "b272412651f1459c1c0949dcc66bd915cd1c249c412071ea7d973949f201238e",
+      "bytes": 110963
+    },
+    "wheel-install.log": {
+      "sha256": "3682d8337f62de1da6c98ac1d82fc5f2cfc19f186b9225d874e279902dc8c5b3",
+      "bytes": 677
+    },
+    "sdist-install.log": {
+      "sha256": "4ca596c18efa8b0fe21d89518a62795eea06410e6430412927927ed84cd8f340",
+      "bytes": 1468
+    },
+    "installed.log": {
+      "sha256": "46d4d54c8a9d9cf7a36304d62963543593cb2d58d66f4c9c2f97767664baafc1",
+      "bytes": 3642
+    },
+    "check-installed.py": {
+      "sha256": "f7b40c0b35756e13f97c7d6aff747020b75315a0501549cb22f811401c23a12b",
+      "bytes": 3498
+    }
+  },
+  "build_and_twine": {
+    "build_log_success": true,
+    "twine_successes": 2
+  },
+  "helper_failures": {
+    "retained": 3,
+    "source_runtime_changes_required": false,
+    "scope": "Initial export/venv-copy/email-parser helper failures; symlink isolated installs and raw metadata bytes independently confirmed. No need to rerun failed helpers."
+  },
+  "previous_review_archived_byte_identical": true,
+  "documentation_corrections": {
+    "package_metadata_identity_updated": true,
+    "P2_pending_text_explicitly_historical": true,
+    "documentation_checkbox_closed_with_scope": true,
+    "preparation_regression_main_tag_publication_not_closed": true
+  },
+  "source_binding": {
+    "bad3c55_to_f68c807_only_docs_changed": true,
+    "unchanged_objects": {
+      "proteus": true,
+      "README.md": true,
+      "pyproject.toml": true,
+      ".github/workflows": true,
+      "environments": true,
+      "recipes": true,
+      "tests": true,
+      "scripts": true
+    },
+    "prior_dsh_and_final_checklist_files_unchanged": 29
+  },
+  "links": {
+    "documents": 13,
+    "relative_targets": 337,
+    "missing": 0,
+    "scope": "Target path validation, not a full URL/fragment crawl."
+  },
+  "remaining": "Complete exact-source full smoke 41398194611 at 1adaa8f and its strict evidence readback. Preparation aggregate remains open; then already authorized main PR, required CI/Harbor/review, and separately authorized merge/tag/publication. New package metadata proof does not substitute for these gates.",
+  "review_actions": {
+    "runtime_or_model_tests": 0,
+    "builds_or_installs": 0,
+    "provider_calls": 0,
+    "worker_or_evaluator_starts": 0,
+    "workflow_dispatches_or_cancellations": 0,
+    "original_artifact_or_evidence_mutations": 0
+  }
+}
