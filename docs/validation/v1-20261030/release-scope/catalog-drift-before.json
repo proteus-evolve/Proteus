@@ -1,0 +1,13 @@
+{
+  "changed_only_catalog_metrics": true,
+  "original_receipts_unmodified": true,
+  "exit_code": 0,
+  "stdout": "{\"rows\": 4, \"receipt_hashes_matched\": true, \"ACE_original_report_matched\": true, \"new_provider_calls\": 0}\n",
+  "stderr": "",
+  "incorrect_emitted_metrics": {
+    "baseline_correct": 0,
+    "optimized_correct": 0,
+    "API_upper_USD_not_invoice": 0.0,
+    "receipt_sha256": "15c6eba79112bfe0d7b71e8385254e33e3112b8c11201a02f3f4642a455b6b95"
+  }
+}

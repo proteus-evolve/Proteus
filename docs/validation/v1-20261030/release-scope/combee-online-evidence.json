@@ -1,0 +1,437 @@
+{
+  "schema_version": 1,
+  "reviewed_merge": "58910e1181d4e7fc0b4a91d9e6a5317f71dd6565",
+  "historical_catalog": {
+    "name": "review-results.json",
+    "sha256": "0d6b0ba20fd8d5994406a092bfcc1c7f7e43c0a553716df1179ab602c323e340"
+  },
+  "rows": [
+    {
+      "profile": "Combee ACE online",
+      "baseline_correct": 139,
+      "optimized_correct": 160,
+      "tasks": 200,
+      "physical_calls": 1255,
+      "API_upper_USD_not_invoice": 1.7377083119999999,
+      "receipt": "Combee-online-ACE-final-independent-acceptance.json",
+      "receipt_sha256": "15c6eba79112bfe0d7b71e8385254e33e3112b8c11201a02f3f4642a455b6b95",
+      "label": "linux-combee-formula-online-ace-v2",
+      "report_sha256": "d5b5872da40573fd35dfd711b60c144b484a42a57ecac72e9ad4a8bde2683d3d",
+      "config_hash": "sha256:da1f8828f6a3ab85fdae831f098ad76bd949b596634e3892c83bae5ccbdbbe51",
+      "lock_hash": "sha256:61421766ec341e558b4ba6c25782eec15c4951bebf87b6d6d060f6b80ac96a57",
+      "source_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "study_elapsed_seconds": 16636.682046916,
+      "receipt_timing_field": "wall_seconds",
+      "canonical_cost_USD": null,
+      "quality_scope": "200 pre-learning stream predictions",
+      "seed": 0,
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "method_options": {
+        "curation_stage": "curate",
+        "curator_frequency": 1,
+        "eval_steps": 500,
+        "json_mode": false,
+        "max_num_rounds": 3,
+        "mode": "online",
+        "no_ground_truth": false,
+        "num_epochs": 1,
+        "online_eval_frequency": 15,
+        "reflection_stage": "reflect",
+        "schema_version": 1,
+        "stream": "stream",
+        "test_evaluations": [],
+        "token_budget": 80000,
+        "train": "learn",
+        "validation": null
+      },
+      "budget": {
+        "max_concurrency": 1,
+        "max_cost_usd": null,
+        "max_evaluations": 1400,
+        "max_model_calls": 2400,
+        "max_wall_seconds": null,
+        "schema_version": 1
+      },
+      "actor_settings": {
+        "curator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "generator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "reflector": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        }
+      },
+      "elapsed_provenance": "full original local report hash matched, plus historical auditor source",
+      "formal_report": {
+        "name": "Combee-online-ACE-completed-formal-report.json",
+        "sha256": "d5b5872da40573fd35dfd711b60c144b484a42a57ecac72e9ad4a8bde2683d3d",
+        "elapsed": {
+          "schema_version": 1,
+          "start_hash": "sha256:6461b096c34b4340cc434d1a678590211009143c7b2d12158cb0a809c7018347",
+          "wall_seconds": 16636.682046916,
+          "interrupted": false
+        }
+      }
+    },
+    {
+      "profile": "Combee Naive online",
+      "baseline_correct": 137,
+      "optimized_correct": 157,
+      "tasks": 200,
+      "physical_calls": 1071,
+      "API_upper_USD_not_invoice": 0.705109362,
+      "receipt": "Combee-online-naive-212-final-independent-acceptance.json",
+      "receipt_sha256": "994dfb1c68d367cea691648d8a54001c0c320883b434605b33b4b06d0b9c2b51",
+      "label": "linux-combee-formula-online-naive_parallel-v5-ledger-io",
+      "report_sha256": "dcd8094476eb37f8aa130e1e838fdb61fd7935b9376b7204c63e8a9916c9ac0b",
+      "config_hash": "sha256:a288826eba67c43f1024f0cf333cd1f6068b2cef6c4697faca76c5f1c7b138a7",
+      "lock_hash": "sha256:83acd53b9d9fc69c3a9ae0b086963ea2d7698f3b0b7e4ad9c7e64b27f3381c6a",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "study_elapsed_seconds": 10114.331202217996,
+      "receipt_timing_field": "wall_seconds",
+      "canonical_cost_USD": null,
+      "quality_scope": "200 pre-learning stream predictions",
+      "seed": 0,
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "method_options": {
+        "aggregation_mode": "single_pass",
+        "aggregation_stage": "aggregate",
+        "batch_size": 50,
+        "dynamic_batch": null,
+        "eval_steps": 500,
+        "grouping": {
+          "duplication_factor": 1,
+          "num_groups": 1,
+          "profile": "ace",
+          "schema_version": 1
+        },
+        "json_mode": false,
+        "max_num_rounds": 3,
+        "max_workers": 8,
+        "mode": "online",
+        "no_ground_truth": false,
+        "num_epochs": 1,
+        "online_eval_frequency": 15,
+        "reflection_stage": "reflect",
+        "sample_workflow": "learn-sample",
+        "schema_version": 1,
+        "stream": "stream",
+        "test_evaluations": [],
+        "token_budget": 80000,
+        "train": "learn",
+        "validation": null
+      },
+      "budget": {
+        "max_concurrency": 8,
+        "max_cost_usd": null,
+        "max_evaluations": 1400,
+        "max_model_calls": 2400,
+        "max_wall_seconds": null,
+        "schema_version": 1
+      },
+      "actor_settings": {
+        "curator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "generator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "reflector": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        }
+      },
+      "elapsed_provenance": "historical receipt and auditor source; full original report not reopened"
+    },
+    {
+      "profile": "Combee Fixed online",
+      "baseline_correct": 140,
+      "optimized_correct": 159,
+      "tasks": 200,
+      "physical_calls": 1116,
+      "API_upper_USD_not_invoice": 0.7716085140000003,
+      "receipt": "Combee-online-fixed-v6-final-independent-acceptance.json",
+      "receipt_sha256": "d07bcdc4d69d54e8bc58f17ecee8b62e5156129723d7f8b10e08a55c9bb0a778",
+      "label": "linux-combee-formula-online-combee_fixed-v6-ledger-io",
+      "report_sha256": "59da52f8d83902e6c3a0054e4884923d8d4213e4e5e20471d0997507551a0b23",
+      "config_hash": "sha256:06605409215806baa0ddf177d2c134ad6b7ff451fa39adb8a3fb625429d18662",
+      "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "study_elapsed_seconds": 10808.137560284002,
+      "receipt_timing_field": "engine_wall_seconds",
+      "canonical_cost_USD": null,
+      "quality_scope": "200 pre-learning stream predictions",
+      "seed": 0,
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "method_options": {
+        "aggregation_mode": "combee",
+        "aggregation_stage": "aggregate",
+        "batch_size": 50,
+        "dynamic_batch": null,
+        "eval_steps": 500,
+        "grouping": {
+          "duplication_factor": 2,
+          "num_groups": null,
+          "profile": "ace",
+          "schema_version": 1
+        },
+        "json_mode": false,
+        "max_num_rounds": 3,
+        "max_workers": 8,
+        "mode": "online",
+        "no_ground_truth": false,
+        "num_epochs": 1,
+        "online_eval_frequency": 15,
+        "reflection_stage": "reflect",
+        "sample_workflow": "learn-sample",
+        "schema_version": 1,
+        "stream": "stream",
+        "test_evaluations": [],
+        "token_budget": 80000,
+        "train": "learn",
+        "validation": null
+      },
+      "budget": {
+        "max_concurrency": 8,
+        "max_cost_usd": null,
+        "max_evaluations": 1400,
+        "max_model_calls": 2400,
+        "max_wall_seconds": null,
+        "schema_version": 1
+      },
+      "actor_settings": {
+        "curator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "generator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "reflector": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        }
+      },
+      "elapsed_provenance": "historical receipt and auditor source; full original report not reopened"
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "baseline_correct": 137,
+      "optimized_correct": 162,
+      "tasks": 200,
+      "physical_calls": 1115,
+      "API_upper_USD_not_invoice": 0.7421233079999985,
+      "receipt": "Combee-online-dynamic-v6-final-independent-acceptance.json",
+      "receipt_sha256": "1166f85dcb0bfe0bc9ac4e2643ce8cf3a363bf258bec7dc73342ed17850804ac",
+      "label": "linux-combee-formula-online-combee_dynamic-v6-ledger-io",
+      "report_sha256": "25dc363894cf9b785fa3aca46646c858d16aea2066d64aa8f8491a53624832a3",
+      "config_hash": "sha256:87d253c95e357008c7d22417d1c62f42e09b9379e1a0a9f4d98bc12769c23512",
+      "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "study_elapsed_seconds": 10409.918718731999,
+      "receipt_timing_field": "engine_wall_seconds",
+      "canonical_cost_USD": null,
+      "quality_scope": "200 pre-learning stream predictions",
+      "seed": 0,
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "method_options": {
+        "aggregation_mode": "combee",
+        "aggregation_stage": "aggregate",
+        "batch_size": 50,
+        "dynamic_batch": {
+          "max_batch_size": 100,
+          "min_batch_size": 1,
+          "profile_batch_sizes": null,
+          "schema_version": 1,
+          "slope_threshold": 0.016
+        },
+        "eval_steps": 500,
+        "grouping": {
+          "duplication_factor": 2,
+          "num_groups": null,
+          "profile": "ace",
+          "schema_version": 1
+        },
+        "json_mode": false,
+        "max_num_rounds": 3,
+        "max_workers": 8,
+        "mode": "online",
+        "no_ground_truth": false,
+        "num_epochs": 1,
+        "online_eval_frequency": 15,
+        "reflection_stage": "reflect",
+        "sample_workflow": "learn-sample",
+        "schema_version": 1,
+        "stream": "stream",
+        "test_evaluations": [],
+        "token_budget": 80000,
+        "train": "learn",
+        "validation": null
+      },
+      "budget": {
+        "max_concurrency": 8,
+        "max_cost_usd": null,
+        "max_evaluations": 1400,
+        "max_model_calls": 2400,
+        "max_wall_seconds": null,
+        "schema_version": 1
+      },
+      "actor_settings": {
+        "curator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "generator": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        },
+        "reflector": {
+          "model": "deepseek-flash",
+          "model_settings": {
+            "max_tokens": 4096,
+            "temperature": 0,
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "session": "fresh"
+        }
+      },
+      "elapsed_provenance": "historical receipt and auditor source; full original report not reopened"
+    }
+  ],
+  "auditors": [
+    {
+      "name": "audit_completed_combee_online_ace.py",
+      "sha256": "c7c788fcf72451bba373e1d27023c759092dfdf273c390dd6164518912936a97",
+      "embedded_source_lines": [
+        52
+      ],
+      "extracts": "r['elapsed']['wall_seconds']",
+      "executed": false
+    },
+    {
+      "name": "audit_completed_combee_online_naive_212.py",
+      "sha256": "986d36cb2167b23e3c41349c75a86b1f1dd2016e011bc4ddcad936064f23ddf7",
+      "embedded_source_lines": [
+        56
+      ],
+      "extracts": "r['elapsed']['wall_seconds']",
+      "executed": false
+    },
+    {
+      "name": "audit_completed_combee_online_v6.py",
+      "sha256": "4b34a8ba8b89d5a833aad243d518ccf39aaedbcbee814e7e64cc686d57fb98ea",
+      "embedded_source_lines": [
+        93
+      ],
+      "extracts": "r['elapsed']['wall_seconds']",
+      "executed": false
+    }
+  ],
+  "historical_method_file_hash_witness": {
+    "name": "scientific-source-hash-comparison.json",
+    "sha256": "e2575c35aa879be02bf0fc8237015fe861294261452bb2106d5cf95c754bded7",
+    "four_files_identical": true,
+    "old_git_objects_reverified": false,
+    "interpretation": "Method/operator source witness only; not identical runtime I/O or performance."
+  },
+  "acceptance": "Online quality/API-upper/study-elapsed observations available; R04 fixed-trace and declared-comparison acceptance require separate review.",
+  "limits": [
+    "Single seed; shared host; baseline and parallel arms use different runtime cores.",
+    "Pre-learning stream accuracy, not final-playbook held-out accuracy.",
+    "API upper bounds, not invoices or known canonical USD.",
+    "Elapsed includes study execution/persistence, not actor-clock sums or paper training latency.",
+    "Only ACE full original report reopened; other three values rechecked from historical receipts and auditor sources.",
+    "Offline unknown continuous time does not imply missing online elapsed or require paid reruns.",
+    "No isolated speedup, significance, paper parity or current-runtime benchmark claim."
+  ],
+  "new_provider_calls": 0,
+  "aws_operations": 0,
+  "frozen_records_modified": false
+}

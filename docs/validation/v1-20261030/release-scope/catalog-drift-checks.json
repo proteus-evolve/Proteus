@@ -1,0 +1,106 @@
+{
+  "control_output_byte_identical": true,
+  "control_output_sha256": "6227821359f4c6b2db9bebb1eeb141f6852a6949876f11f7bc66f7ab5ef3ac57",
+  "catalog_only_drift_cases_rejected": 16,
+  "cases": [
+    {
+      "profile": "Combee ACE online",
+      "changed_field": "baseline_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee ACE online",
+      "changed_field": "optimized_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee ACE online",
+      "changed_field": "tasks",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee ACE online",
+      "changed_field": "API_upper_USD_not_invoice",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Naive online",
+      "changed_field": "baseline_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Naive online",
+      "changed_field": "optimized_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Naive online",
+      "changed_field": "tasks",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Naive online",
+      "changed_field": "API_upper_USD_not_invoice",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Fixed online",
+      "changed_field": "baseline_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Fixed online",
+      "changed_field": "optimized_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Fixed online",
+      "changed_field": "tasks",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Fixed online",
+      "changed_field": "API_upper_USD_not_invoice",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "changed_field": "baseline_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "changed_field": "optimized_correct",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "changed_field": "tasks",
+      "exit_code": 1,
+      "output_created": false
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "changed_field": "API_upper_USD_not_invoice",
+      "exit_code": 1,
+      "output_created": false
+    }
+  ],
+  "original_catalog_and_receipts_unchanged": true,
+  "new_provider_calls": 0,
+  "aws_operations": 0
+}
