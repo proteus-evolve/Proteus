@@ -2,10 +2,10 @@
   <img src="docs/assets/proteus-logo.png" alt="Proteus logo" width="340">
 </p>
 
-<h3 align="center">A modular framework for agent self-improvement.</h3>
+<h3 align="center">Harness-agnostic agent self-improvement.</h3>
 
 <p align="center">
-  <b>Reusable methods. Explicit experiments. Inspectable results.</b>
+  <b>Bring your harness. Compose the method. Evaluate and visualize the evolution.</b>
 </p>
 
 <p align="center">
@@ -14,82 +14,54 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/version-1.0.0--unreleased-informational.svg" alt="v1.0.0 unreleased">
-  <img src="https://img.shields.io/badge/status-research%20preview-orange.svg" alt="research preview">
 </p>
 
 <p align="center">
-  <b>Choose your harness. Start evolving.</b><br>
-  A 15-second evolution trace. <a href="https://proteus-evolve.github.io/">Explore the interactive demo →</a>
-</p>
-
-https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
-
-<p align="center">
-  <a href="#recipe-quick-start">Recipe Quick Start</a> •
-  <a href="docs/V1_OVERVIEW.md">1.0 Architecture</a> •
-  <a href="#method-families">Methods</a> •
-  <a href="#-60-second-demo-no-api-key-no-docker">Native Demo</a> •
-  <a href="#-harnesses-in-the-box">Harnesses</a> •
-  <a href="docs/V1_OVERVIEW.md#architecture">How It Works</a> •
-  <a href="docs/EPISODE.md">The Episode Loop</a> •
-  <a href="docs/ADAPTERS.md">Onboard Your Harness</a> •
-  <a href="docs/RECIPES.md">Recipes</a> •
-  <a href="docs/plans/proteus-1.0.0-implementation-plan.md">1.0.0 Plan</a> •
-  <a href="docs/BENCHMARKS.md">Bring a Benchmark</a> •
-  <a href="docs/MEASUREMENTS.md">Add a Measurement</a> •
-  <a href="docs/VISUALIZE.md">Visualize Runs</a> •
-  <a href="docs/releases/v1.0.0.md">1.0 Preparation Notes</a> •
-  <a href="environments/README.md">Environments</a> •
-  <a href="#-measurement">Measurement</a>
+  <a href="#recipe-quick-start">Quick Start</a> •
+  <a href="#harness-agnostic-by-design">Harnesses</a> •
+  <a href="#method-families">Methods & Composition</a> •
+  <a href="#evaluation-as-part-of-the-experiment">Evaluators</a> •
+  <a href="#visualize-the-evolution">Visualization</a> •
+  <a href="recipes/README.md">Experiments</a> •
+  <a href="#documentation">Docs</a>
 </p>
 
 ---
 
-Proteus is developing a general framework for agent self-improvement research:
-reproducible method recipes, reusable components, and shared execution, evaluation,
-recovery and reporting infrastructure. The goal is an **ESPnet-style toolkit for
-RSI research** where methods can be implemented, compared and extended in one place.
+**Proteus is a modular framework for building and studying self-improving agents.**
+Optimize prompts, memory, skills or harness source code while keeping the optimization
+method, agent runtime and evaluation protocol independently configurable.
 
-**1.0.0 is in release preparation; it is not published yet.** This source tree includes GEPA, ACE, Meta-Harness,
-Combee and CORAL integrations with explicit profiles and deviations. Their
-original-domain catalog entries describe builders rather than a particular model run.
-The [frozen experiment recipes and results](recipes/README.md) now record all 15
-accepted October single-seed profiles, including their actual settings, source
-overlays and limitations. Those adapted runs do not establish matched paper
-reproduction or recursive improvement.
-The published `0.4.0` package and the native workflow remain available; the new
-recipe commands below require this preparation checkout (`pip install -e .`).
+- **Harness-agnostic:** use Pi, DeepSeek Harness, Codex, an HTTP model adapter, or
+  your own integration in supported roles. The agent proposing changes and the
+  agent executing the candidate can use different harnesses and models.
+- **Composable methods:** reuse stages, search policies, parallel aggregation and
+  worker infrastructure. Included combinations span Combee + ACE, Combee + GEPA,
+  and explicit self-evaluation stages.
+- **Flexible evaluation:** combine task verifiers, model judges, visible feedback,
+  hidden tests and agent self-assessment, with explicit control over which evidence
+  can guide the next update.
+- **Visual evolution:** replay Native sweeps, compare trajectories, inspect candidate
+  changes and evaluator scores, and export recipe results for further analysis.
 
-## Method families
+> **1.0 is in release preparation, not published yet.** The quick start below uses
+> the preparation branch. Release status and the published Native workflow are
+> tracked in the [release notes](docs/releases/v1.0.0.md) and
+> [GitHub releases](https://github.com/proteus-evolve/Proteus/releases).
 
-| Family | Included profile | Study entry |
-| --- | --- | --- |
-| GEPA | Pinned single-mutation search, text components, instance frontier; no merge/cache | AIME baseline and optimized study |
-| ACE | Playbook, three roles, offline/online update loops | Formula baseline and ACE |
-| Meta-Harness | Historical code/evidence retrieval, multiple proposals, memory learning and final selection | Three pinned MCE datasets |
-| Combee | Reusable parallel aggregation in ACE and GEPA; fixed/dynamic batches | Formula sequential/naive-parallel/Combee comparison |
-| CORAL | One shared space, persistent workers, formal submissions and event interventions | Original 26-circle packing; one/two workers |
-| Native | Existing harness evolution, goals/no-goal, feedback and surface measurements | Existing native CLI and compatibility recipe |
+<p align="center">
+  <b>Watch a Native evolution replay.</b><br>
+  <a href="https://proteus-evolve.github.io/">Explore the interactive demo →</a>
+</p>
 
-See the [support matrix and architecture](docs/V1_OVERVIEW.md) for exact boundaries,
-reference links, shared modules and declared validation boundaries. The
-[current preparation record](docs/V1_FINAL_ACCEPTANCE.md) separates accepted
-historical profiles from current integration checks, coding-search benchmark
-limits and remaining release gates.
-
-Methods own their control flow. Typed stages and role-specific actors, immutable
-candidates, task/subject/evaluator interfaces, search policies, parallel workflows
-and persistent workers can be reused across them. Supported choices are configured
-in a recipe; new mechanisms are added through plugins. Adding a self-evaluator is
-an explicit method/stage composition, not an automatic change to every algorithm.
+https://github.com/user-attachments/assets/63311c1e-1ad9-4821-81b4-044cf5bf4650
 
 ## Recipe quick start
 
-Use a checkout containing the 1.0 development work. Keep the source and installed
-package aligned, and put generated runs outside the checkout:
+Install the 1.0 preparation checkout with Python 3.10 or newer:
 
 ```bash
-git clone --branch dev/1.0.0 https://github.com/proteus-evolve/Proteus.git
+git clone --branch codex/v1-final-acceptance-20261101 https://github.com/proteus-evolve/Proteus.git
 cd Proteus
 python3 -m venv .venv
 source .venv/bin/activate
@@ -97,8 +69,7 @@ python -m pip install -e .
 proteus recipe catalog
 ```
 
-The following example needs no model key, Docker or optional optimizer. It prepares
-exact candidates, evaluates them and retains private final scores separately:
+Run an offline candidate-comparison recipe. It needs **no API key or Docker**:
 
 ```bash
 PROTEUS_EXAMPLE="$(mktemp -d)/comparison"
@@ -114,306 +85,211 @@ proteus recipe resume "$PROTEUS_EXAMPLE/recipe.json" \
 proteus recipe export "$PROTEUS_EXAMPLE/run" --out "$PROTEUS_EXAMPLE/export"
 ```
 
-`export/report.json` and eight CSV files contain task/cohort records, candidate
-lineage, role/stage costs, attempts and controller intervals. Hidden final scores
-require a separate owner-side export with `--include-private`. A completed resume
-does not repeat formal trials; interrupted external work uses its declared recovery
-protocol. This deterministic example checks infrastructure, not model quality.
+This creates immutable candidates, evaluates them, selects a final candidate and
+exports `report.json` plus eight CSV tables. The completed resume reuses settled
+work. Private final scores require an owner-side export with `--include-private`.
+The example uses fixed candidates to demonstrate the pipeline; it is not a model
+improvement result. See the [catalog](docs/V1_RECIPE_CATALOG.md) for method examples
+and benchmark preparation instructions.
 
-To extend a method, start with [editable plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md),
-the [versioned API](docs/V1_PUBLIC_API.md), and the [search-policy tutorial](docs/V1_RECIPE_CATALOG.md).
-For experiments, use the catalog's original-domain instructions and
-[StudySpec comparisons](docs/V1_STUDY_COMPARISON.md). Read the
-[compatibility rules](docs/V1_COMPATIBILITY.md) before resuming an older run.
-
-The native workflow below continues to provide source-evolving harness adapters,
-configurable episodes, goals and surface-specific measurements.
-
-## 🚀 60-second demo (no API key, no Docker)
-
-For the published native release, use a separate environment from the development
-checkout above:
+To try the interactive viewer, generate a small **Native sweep** in the same environment:
 
 ```bash
-pip install proteus-evolve==0.4.0  # no model SDK; Python 3.10 adds only a TOML compatibility package
+PROTEUS_NATIVE="$(mktemp -d)/native-demo"
+proteus run --harness minimal --arm neutral --arm review:notes \
+    --episodes 8 --seeds 2 --evaluator tool-calls@observe \
+    --eval-initial tool-calls --out "$PROTEUS_NATIVE"
+proteus visualize --out "$PROTEUS_NATIVE"
+# Open http://127.0.0.1:8301
 ```
 
-The bundled `minimal` harness runs fully offline, so you can see the whole pipeline before
-wiring up a real agent:
+The `minimal` harness is a deterministic offline policy. Its snapshots, evaluator
+records and visualized trajectories are real outputs of that fixture.
 
-```bash
-proteus run --harness minimal \
-    --arm neutral --arm review:notes --arm review:tools \
-    --seeds 4 --episodes 8 --out runs/demo
-proteus measure --harness minimal --out runs/demo
-proteus visualize --out runs/demo  # local UI: http://127.0.0.1:8301
-```
+## Harness-agnostic by design
 
-```
-arm              seeds       notes       tools   (mean units built)
-neutral              4         3.5         4.0
-review_notes         4        13.0         0.0
-review_tools         4         3.8         8.0
-
-behavioural R (between/within arms, last episode): 3.075  p=0.0150
-```
-
-An installed action preference measurably shifts what the harness grows — and the same
-`measure` reads a no-goal run and a goal run identically.
-
-**Proteus Visualize** opens existing sweeps with looping replay, episode details,
-snapshot/candidate identities, and the same structural and behavioral instruments.
-Viewing makes no model calls; explicit CLI-backed launches are opt-in. See
-[`docs/VISUALIZE.md`](docs/VISUALIZE.md) for configuration, evidence and export boundaries.
-
-## 🧩 Harnesses in the box
-
-| adapter | what it is | needs |
-|---|---|---|
-| `minimal` | offline reference harness (mock policy) | nothing |
-| `llm` | the same harness driven by a live model — any OpenAI-compatible endpoint, DeepSeek by default | an API key |
-| `dsh` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), headless profile, in a prepared container | Docker + a DeepSeek key |
-| `pi` | [Pi](https://github.com/badlogic/pi-mono) — Mario Zechner's minimal coding harness (4 tools, native AGENTS.md + skills) | Docker + a DeepSeek key |
-| `codex` | [OpenAI Codex CLI](https://github.com/openai/codex) — pinned, source-evolving Rust harness using native `codex exec --json` traces | Docker + Codex auth/API key |
-| `aki` | the Aki research harness (the paper's apparatus) | the research checkout |
-| yours | `--harness <module>:<Class>` — no registration | your adapter |
-
-`dsh`, `pi`, and `codex` are the source-evolving third-party integrations. At seed time each
-adapter extracts the pinned harness's real source into `harness/src/`. During episode N,
-all four phases boot the same read-only last-valid snapshot while writing a separate
-candidate. After reflect, Proteus rebuilds and validates the candidate; only a passing
-candidate activates in episode N+1. A failed build is prevented from activating, while
-its exact tree is restored as the next writable repair candidate; the next episode's
-running harness remains healthy. The source is therefore a
-measured, snapshotted `loop` surface alongside instructions, notes, tools, and skills. The
-adapters still leave the upstream repositories untouched: they arrange the run copy,
-launch one prepared container per phase, and parse the harness's own session logs.
-
-## 🏗️ How the native episode workflow works
+A method defines **how to improve**. A harness supplies **how an agent runs**.
+A candidate is **what changes**: text components, a playbook, memory or source files.
+The subject runner executes that candidate on a task; the evaluator grades its output.
 
 ```mermaid
 flowchart LR
-    U["Run config<br/>harness × model<br/>goal + evaluators<br/>arms + seeds"] --> F["Proteus framework<br/>assemble phase prompts"]
-    F --> A["HarnessAdapter<br/>run one episode"]
-    A --> H["harness/<br/>evolving, snapshotted subject"]
-    A --> T["task/<br/>optional benchmark workspace<br/>outside the snapshot"]
-    A --> L["native harness logs"]
-    L --> E["evaluators<br/>hidden or observe-visible"]
-    E --> S["selection + snapshot<br/>accept or preserve-and-restore"]
-    S --> F
+    M["Method + reusable stages"] --> O["Optimizer / coding harness"]
+    O --> C["Candidate<br/>prompts · memory · code"]
+    C --> S["Subject harness<br/>runs the task"]
+    S --> E["External evaluation"]
+    E -->|Permitted feedback| M
+    C --> R["Evidence + reports"]
+    E -->|Recorded outcomes| R
 ```
 
-Every seed runs `N` context-fresh **episodes**. Evolved harness files cross the episode
-boundary; adapters that opt into framework continuity also receive a bounded operational
-handoff stored outside the measured snapshot. By default, one episode is four phases:
+Bind optimizer, subject and model-grader roles separately in a recipe. Native
+self-evolution can use the same harness integration to propose changes and run the
+evolving candidate. Another setup can use a coding harness to modify a candidate
+that a different subject executes.
 
-```
-observe  →  propose  →  act  →  reflect
-```
+| Integration | Available use | Setup |
+| --- | --- | --- |
+| [Pi](https://github.com/badlogic/pi-mono) | Agent/coding roles and staged source evolution | Prepared Docker image + model credentials |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | Agent/coding roles and staged source evolution | Prepared Docker image + model credentials |
+| [Codex](https://github.com/openai/codex) | Agent/coding roles and staged source evolution | Pinned Rust Docker image + Codex authentication |
+| `llm` | HTTP model actor, candidate execution and file evolution | Compatible model endpoint + credentials |
+| `minimal` | Offline Native demo and fixture actor | No API key or Docker |
+| Your harness | Roles advertised by your adapter and integration | [Register an integration](docs/V1_HARNESS_ROLES.md#integration-and-configuration) |
 
-- **observe** — take stock; if you configured a *visible* evaluator, its score on the last
-  episode is shown here.
-- **propose** — list ways to improve your own harness.
-- **act** — carry one out by editing the harness. The goal, if any, is announced in every
-  fresh phase so observation and planning stay aligned with it.
-- **reflect** — decide what to keep.
+Registration declares roles and capabilities once; methods use those contracts
+rather than a separate implementation for every harness pair. Candidate formats and
+method protocols still have to match. The [role and evidence matrix](docs/V1_HARNESS_ROLES.md#capability-and-evidence-matrix)
+documents supported combinations and 16 bounded live pilot cells; it is not a claim
+that every method × harness × role combination has been tested.
 
-The **framework** owns everything that is not the harness (prompts, goal text, evaluator
-routing, snapshotting, selection, measurement). The **adapter** owns everything that is
-(how the four phases actually execute). That split is what makes Proteus harness-agnostic.
+For source evolution, all phases execute the last-valid harness while editing a
+separate candidate. Proteus validates the candidate before activating it in the
+next episode, retaining a failed candidate for repair. See the
+[Native evolution profile](docs/V1_HARNESS_ROLES.md#native-evolution-with-external-evaluation)
+and [adapter guide](docs/ADAPTERS.md). The existing Native CLI, including the Aki
+research adapter, remains available through its [compatibility path](docs/V1_COMPATIBILITY.md).
 
-### The core objects
+## Method families
 
-| Concept | What it is |
-|---|---|
-| `HarnessAdapter` | the contract a harness implements: its surfaces, phase-continuity capability, how to run an episode, how to read the action trace, how to install/remove a disposition |
-| `Surface` | one editable, persistent region (memory / skills / tools / code / …), declared as data so the measurement layer needs no hard-coded names |
-| `Disposition` | the action-preference perturbation — a **single, removable** change at t=0 (prompt suffix, config value, or code patch) |
-| `GoalConfig` | goal / no-goal / multi-goal, each evaluator `HIDDEN` or `OBSERVE`-visible, plus outer-loop selection (`accept_reject`) |
-| `Sandbox` | where an episode runs; `LocalSandbox` (trusted) or `DockerSandbox` (OS-level isolation, tunable network) |
+Proteus includes the following method profiles and their original-domain recipes.
+Each profile records the upstream source and its supported options.
 
-### Action preference
+| Method | What it provides | Recipe / implementation | Original work |
+| --- | --- | --- | --- |
+| **GEPA** | Reflective evolution of text components and candidate selection | [AIME](recipes/gepa/aime/README.md) · [method](docs/V1_GEPA_METHOD.md) | [Paper](https://arxiv.org/abs/2507.19457v2) · [Code](https://github.com/gepa-ai/gepa) |
+| **ACE** | Playbook updates through generator, reflector and curator roles; offline and online learning | [Formula](recipes/ace/formula/README.md) · [method](docs/V1_ACE_METHOD.md) | [Paper](https://arxiv.org/abs/2510.04618v3) · [Code](https://github.com/ace-agent/ace) |
+| **Meta-Harness** | Candidate-code proposals, historical evidence retrieval and memory learning | [MCE](recipes/meta-harness/mce/README.md) · [method](docs/V1_META_HARNESS.md) | [Paper](https://arxiv.org/abs/2603.28052v1) · [Code](https://github.com/stanford-iris-lab/meta-harness) |
+| **Combee** | Parallel learning and aggregation for ACE and GEPA, with fixed or dynamic batches | [Formula](recipes/combee/formula/README.md) · [ACE](docs/V1_COMBEE_ACE.md) / [GEPA](docs/V1_COMBEE_GEPA.md) | [Paper](https://arxiv.org/abs/2604.04247v2) · [Code](https://github.com/gepa-ai/gepa) |
+| **CORAL** | Persistent research workers, shared knowledge, formal submissions and event-driven interventions | [Circle packing](recipes/coral/circle-packing/README.md) · [method](docs/V1_CORAL_METHOD.md) | [Paper](https://arxiv.org/abs/2604.01658v3) · [Code](https://github.com/Human-Agent-Society/CORAL) |
+| **Native** | Harness self-evolution with candidate validation and next-episode activation | [Shared external evaluation](recipes/native/shared-evaluation/README.md) · [episode protocol](docs/EPISODE.md) | [Native Pi experiment and software credit](recipes/native/pi/README.md) |
 
-An action preference is installed as a `Disposition` and is guaranteed **removable**, so the
-crystallization test can take it away and read what the harness built on its own:
+### Compose the experiment
 
-```python
-from proteus.core import review, record, NEUTRAL
-review("memory")     # each phase: review your memory, act or not
-record("tools")      # keep your tools current as you work
-NEUTRAL              # the control, F0 — no perturbation
-```
+Composition is about reusing mechanisms as well as choosing a named method:
 
-### Goals and evaluators
+- **ACE + Combee:** learn from samples in parallel, then aggregate their updates
+  into a shared playbook. Compare sequential, naive parallel, fixed-batch and
+  dynamic-batch settings in the [Formula recipes](recipes/combee/formula/README.md).
+- **GEPA + Combee:** reuse parallel proposal aggregation within the GEPA profile;
+  configure its batch policy and evaluation through the
+  [Combee–GEPA integration](docs/V1_COMBEE_GEPA.md).
+- **Proposal + self-evaluation:** connect a typed proposal stage to a self-evaluator
+  and specify how later stages consume its assessment. The
+  [offline stage example](recipes/examples/self-evaluation.toml) demonstrates the
+  wiring; [plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md) show how to implement it.
+- **Search-policy ablations:** swap a supported parent, archive or final-selection
+  policy while keeping candidates and evaluation fixed. The
+  [runnable selector example](docs/V1_RECIPE_CATALOG.md#replace-a-final-selector-without-changing-the-engine)
+  changes the selected candidate through configuration alone.
 
-```python
-from proteus.core import EvaluatorSpec, GoalConfig, Visibility
+Methods retain their own control flow. Adding a stage does not silently change
+every algorithm: a composing method must invoke it. New update rules and loops
+use the [versioned plugin API](docs/V1_PUBLIC_API.md), with shared artifact,
+evaluation, budget and recovery services.
 
-GoalConfig.no_goal()                                    # unpressured evolution
-GoalConfig.of(text="Become more reliable.")             # stated goal, no evaluator
-GoalConfig.of(
-    text="Become more reliable.",
-    evaluators=(EvaluatorSpec("reliability", my_eval,
-                              visibility=Visibility.OBSERVE),),
-)                                                       # agent sees the score next episode
-GoalConfig.of(text="Pursue A and B together.",
-              evaluators=(EvaluatorSpec("a", eval_a),
-                          EvaluatorSpec("b", eval_b)),
-              selection="accept_reject")               # outer loop rejects regressions
-```
+## Evaluation as part of the experiment
 
-An evaluator is any callable `(trace, ctx) -> EvalResult`; bring a benchmark verifier, an
-LLM judge, or one of the built-ins (`proteus.core.evaluators`).
+Choose the evaluator independently of the optimization method and subject harness.
+Proteus supports deterministic task scoring, benchmark verifiers, private
+Harbor/Docker graders, managed model judges and custom evaluator plugins.
 
-Evaluator visibility, selection eligibility, and scheduling are independent. You can
-evaluate H0, every N episodes, or explicit checkpoints while retaining dated feedback
-across fresh contexts. See [evaluator controls](docs/BENCHMARKS.md#evaluator-roles-schedules-and-feedback).
-The default four-phase protocol can also be customized; DSH supports explicit
-interrupted-phase recovery without refilling the tool budget. See [episode controls](docs/EPISODE.md).
+| Evaluation role | Purpose | How the evidence is used |
+| --- | --- | --- |
+| **Visible external evaluation** | Measure the candidate against declared tasks | Release permitted scores, feedback or traces to guide later updates |
+| **Hidden external evaluation** | Audit generalization on held-out tasks | Keep private grades outside optimizer/subject feedback; owner-side reporting is explicit |
+| **Self-evaluation stage** | Let the agent assess its own proposal or candidate | Produce separate stage evidence that the method can consume |
+| **Structural and behavioral measurements** | Track what changed in the candidate or action trajectory | Describe evolution alongside task scores |
 
-### Sandbox
+An agent's self-assessment does not become the external benchmark score. Recipes
+bind task splits, evaluator identities and evidence permissions; model grading
+can use its own harness/model role and usage accounting. Native episodes also
+support H0 evaluation, cadence and explicit checkpoints, with visibility,
+selection eligibility and scheduling configured independently.
 
-```python
-from proteus.sandbox import SandboxConfig, DockerSandbox
-DockerSandbox(SandboxConfig(network="none"))    # no egress
-DockerSandbox(SandboxConfig(network="host",     # needs an LLM endpoint
-                            env_passthrough=("OPENAI_API_KEY",),
-                            mem_limit="4g"))
-```
+Start with [benchmark and evaluator controls](docs/BENCHMARKS.md),
+[independent model grading](docs/V1_HARNESS_ROLES.md#external-evaluators-and-private-model-grading),
+or the [custom evaluator template](docs/V1_PLUGIN_SCAFFOLDS.md).
+Native additionally supports goal-free, single-goal and multi-goal conditions through
+[`GoalConfig`](docs/EPISODE.md).
 
-A self-editing agent writes and runs its own code, so an application-level file sandbox
-cannot contain it — Proteus runs real harnesses in a container whose filesystem holds the
-harness and nothing else.
+## Visualize the evolution
 
-## 🔌 Onboard your harness
-
-The input is a **repository** — a git URL or local path:
+**Proteus Visualize** is a local workspace for inspecting Native sweeps as they run
+or replaying completed experiments. It ships with the Python package and opens
+without a frontend build or model call:
 
 ```bash
-proteus env scaffold --from https://github.com/org/their-harness --name theirs --ref v1.2.0
-proteus env build theirs             # pinned image, resolved sha recorded in the manifest
-# write the adapter (7 methods), then:
-proteus check --harness mypkg.theirs_adapter:TheirsHarness --episode
-proteus run   --harness mypkg.theirs_adapter:TheirsHarness --arm neutral ...
+proteus visualize --out /path/to/native-sweep
 ```
 
-`proteus check` machine-verifies the contract (removable disposition via fingerprint
-round-trip, snapshot-ability, trace shape). The full guide: [docs/ADAPTERS.md](docs/ADAPTERS.md).
-To start from a working skeleton instead of a blank file,
-`python -m proteus.scaffold adapter MyHarness` copies the fully-commented
-[proteus/examples/adapter_template.py](proteus/examples/adapter_template.py) — see
-[CONTRIBUTING.md](CONTRIBUTING.md). The templates ship on PyPI too; outside a Git checkout
-the default output is the current directory (or choose an explicit `--dest`).
+- **Evolution:** replay trajectories, compare recorded runs, and switch between
+  evaluator scores, structural displacement and tool-frequency divergence.
+- **Measurements:** inspect surface changes, path length and behavioral distances;
+  compare matched seeds when the measurement requirements are satisfied.
+- **Configuration:** inspect recorded goals, harness/model settings, budgets,
+  phases and evaluator visibility; compose a new Native run configuration.
+- **Snapshots:** inspect valid checkpoints and proposed candidates, including
+  rejected edits, without confusing a proposed change with an activated one.
 
-## 📦 Prepared environments
+The viewer is read-only by default. Run launching is an explicit opt-in, and hidden
+scores are available to the local owner without feeding them back to the agent.
+See the [viewer guide](docs/VISUALIZE.md) for configuration and export controls.
 
-`environments/` contains two environment shapes. Manifest-backed environments pair a
-`Dockerfile` or prebuilt image with `environment.toml`; the built-in `dsh-src/` and
-`pi-src/` images are instead built from pinned upstream source checkouts, because the image
-must contain the exact source and toolchain that the adapter later extracts and rebuilds.
-In both shapes evolving state lives in mounts, never in a per-run image. Conventions:
-[environments/README.md](environments/README.md); design notes:
-[docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md).
+For **general method recipes**, use [JSON/CSV export](docs/V1_RESULT_EXPORT.md) and
+[study comparisons](docs/V1_STUDY_COMPARISON.md) to analyze task scores, candidate
+lineage, role/stage usage, failures and measured timing. Supported candidate formats
+also provide [artifact and lineage measurements](docs/V1_ARTIFACT_MEASUREMENTS.md).
+The interactive sweep viewer and recipe exports are distinct interfaces today.
 
-## 📏 Measurement
+## Reproducible runs and inspectable evidence
 
-```python
-from proteus.measure import distance, stream, crystallize
-```
+Recipes bind method options, actors, tasks, evaluators, budgets and source/dependency
+locks. Candidates and evidence retain immutable identities; completed managed work
+can be recovered without repeating it. Uncertain external calls require reconciliation.
+Local and Harbor/Docker backends have explicitly declared execution boundaries.
 
-- `distance` — structural distance per surface (added / dropped / revised), path length
-  (`proteus measure --travel`).
-- `stream` — behavioural distance (frequency / order / procedure) and the between/within
-  permutation test `R`.
-- `crystallize` — mount an evolved state under a neutral disposition and test whether it
-  reads back as its own endpoint (two-stage fidelity + arm-shift).
+Saved records distinguish **baseline, selected and last candidates**, retain failures,
+and leave unavailable scores, costs or timing unknown. Native source histories can
+also be exported as Git repositories with `proteus repo export`. These records let
+you inspect both the task result and the changes that produced it.
 
-To add a per-episode measurement evaluator, a post-run statistic, or an adapter-native
-counter, see [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md). The guide covers their different
-contracts, artifact boundaries, CLI/report integration, statistical rules, and tests.
+The [frozen experiment recipes](recipes/README.md) contain launchers, reproduction
+instructions and results for **15 historical profiles: 14 adapted method studies
+and one Native mechanism study**, across 16 recipes. They are separate from current
+integration pilots and generic benchmark builders. Adapted results do not imply
+matched paper reproduction, multi-seed significance or gains for every combination.
+Exact upstream pins and deviations are in [method references](docs/METHOD_REFERENCES.md).
 
-## 📤 Outputs
+## Documentation
 
-Every run's primary artifact is its **evolution history as a git repository** — one commit
-per episode. Keep it local, browse it, or push it wherever you like (never automatic):
-
-```bash
-proteus repo export runs/demo/runs/run-<id> my-evolution   # normal repo, `git log` = the trajectory
-proteus repo push   runs/demo/runs/run-<id> git@github.com:you/my-evolution.git
-```
-
-Every sweep also ships a **live tracking page** — per-run progress, per-surface growth
-curves, evaluator scores — updating while the sweep runs:
-
-```bash
-proteus watch --out runs/demo          # http://localhost:8300/report.html
-```
-
-Tracking data (condition labels, hidden scores) lives at the sweep level, outside run
-roots, so the evolving agent can never read its own condition.
-
-## 📊 Status
-
-The released native workflow remains `v0.4.0` (research preview); see its
-[release notes](docs/releases/v0.4.0.md). The 1.0 development line adds shared method
-recipes and researcher interfaces. [Unreleased 1.0 notes](docs/releases/v1.0.0.md)
-describe the current implementation and remaining acceptance.
+| Start here | Extend or investigate |
+| --- | --- |
+| [Architecture and method coverage](docs/V1_OVERVIEW.md) | [Public API and plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md) |
+| [Recipe catalog](docs/V1_RECIPE_CATALOG.md) | [Harness roles and adapters](docs/V1_HARNESS_ROLES.md) |
+| [Evaluators and benchmarks](docs/BENCHMARKS.md) | [Search policies](docs/V1_SEARCH.md) |
+| [Visualize runs](docs/VISUALIZE.md) | [Artifact measurements](docs/V1_ARTIFACT_MEASUREMENTS.md) |
+| [Result export and study comparison](docs/V1_RESULT_EXPORT.md) | [Recovery and accounting](docs/V1_RECOVERY.md) |
+| [Native episodes](docs/EPISODE.md) | [Prepared environments](environments/README.md) |
+| [Experiment recipes and results](recipes/README.md) | [Acceptance evidence](docs/V1_FINAL_ACCEPTANCE.md) |
 
 CI covers Python 3.10–3.14, installed wheel/sdist examples and pinned reference
-contracts. Harbor gates execute real Docker trials; the separate live release-smoke
-workflow covers minimal, LLM, Pi, DSH and Codex. These checks supplement the five
-families' required real-model studies. They do not replace those results.
+contracts. Harbor runs real Docker integration checks; the complete live smoke
+covers minimal, HTTP LLM, Pi, DSH and Codex. The
+[release procedure](docs/RELEASING.md) keeps preparation, integration and final tag
+checks separate.
 
-The source version is now `1.0.0` with a frozen public v1 API. Preparation checks
-and the PR into `main` precede a separately authorized release tag and publication. The full scope remains
-in the [1.0 implementation plan](docs/plans/proteus-1.0.0-implementation-plan.md).
+## Contributing and citation
 
-## 🤝 Contributing
+Add a method, stage, evaluator, subject, policy or harness integration through the
+[extension templates](docs/V1_PLUGIN_SCAFFOLDS.md). See
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines.
 
-For the 1.0 framework, add a method, stage, evaluator, subject or search policy
-through the [plugin templates](docs/V1_PLUGIN_SCAFFOLDS.md), preserving managed
-execution and evidence. Use source/version locks and include mechanism, recovery
-and installed-package checks.
-
-Native **harness adapters** and **benchmarks** continue to use these scaffolds:
-
-```bash
-python -m proteus.scaffold adapter MyHarness    # skeleton -> proteus/adapters/myharness.py
-python -m proteus.scaffold benchmark my_task    # skeleton -> proteus/bench/my_task.py
-proteus check --harness proteus.adapters.myharness:MyHarness --episode
-```
-
-The step-by-step guide (contract, templates, the conformance gate in
-`tests/test_conformance.py`, PR expectations) is [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Where help is wanted, in one line each — the full list with difficulty tags is
-[ROADMAP.md](ROADMAP.md):
-
-- **More harnesses** — Hermes Agent first (Python, built-in self-improvement surfaces),
-  then SWE-agent, OpenClaw, OpenHands, OpenCode, Goose.
-- **More benchmarks** — BigCodeBench-lite and a LiveCodeBench subset, SWE-bench
-  Lite/Verified wiring, and finishing sandboxed grading for `swe` (HumanEval and MBPP
-  are shipped).
-- **Analysis** — `proteus compare` for side-by-side arms/runs; an episode-atlas view.
-- **Reproducibility & cost** — per-episode token/cost accounting; one-command reproduce.
-
-## 📖 Citation
-
-See [CITATION.cff](CITATION.cff). A paper reference will be added when the preprint is
-public.
-
-For the integrated methods, cite the original papers and credit their official
-repositories: [GEPA](https://arxiv.org/abs/2507.19457v2) ([code](https://github.com/gepa-ai/gepa)),
-[ACE](https://arxiv.org/abs/2510.04618v3) ([code](https://github.com/ace-agent/ace)),
-[Combee](https://arxiv.org/abs/2604.04247v2) ([code](https://github.com/gepa-ai/gepa)),
-[Meta-Harness](https://arxiv.org/abs/2603.28052v1) ([code](https://github.com/stanford-iris-lab/meta-harness)),
-and [CORAL](https://arxiv.org/abs/2604.01658v3) ([code](https://github.com/Human-Agent-Society/CORAL)).
-The Native integration also credits [Pi](https://github.com/earendil-works/pi) as software.
-See [upstream references and exact source revisions](docs/METHOD_REFERENCES.md)
-and [references.bib](references.bib) for citation entries, licenses and adaptation
-boundaries. Combee/Formula builds on ACE and should cite both papers.
+Cite Proteus using [CITATION.cff](CITATION.cff), and cite the original papers and
+software for the methods you use. [Method references](docs/METHOD_REFERENCES.md)
+include official repositories, source pins and licenses;
+[references.bib](references.bib) provides BibTeX entries.
 
 ## License
 
-Proteus is MIT-licensed. Reused upstream components retain their own licenses and
-notices; see [method source attribution](docs/METHOD_REFERENCES.md#exact-code-sources-and-adaptation-boundaries).
+MIT. Upstream software and datasets retain their own licenses and attribution.
