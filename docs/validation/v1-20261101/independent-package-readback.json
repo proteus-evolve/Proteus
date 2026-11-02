@@ -1,0 +1,22 @@
+{
+  "build_source": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "artifacts": [
+    {
+      "file": "proteus_evolve-1.0.0-py3-none-any.whl",
+      "sha256": "a6f5956f4ff139bb02546ef26ffb200010359a773a8030059a4180ada7ff4f53",
+      "python_sources_byte_identical": 261
+    },
+    {
+      "file": "proteus_evolve-1.0.0.tar.gz",
+      "sha256": "90f78e4e442c0927837b031ff1a10b19b9a4bc400ae36576fd247d2663123871",
+      "python_sources_byte_identical": 261
+    }
+  ],
+  "recorded_installed_checks_passed": 22,
+  "independently_matched_log_files": 20,
+  "metadata_records_matched_to_original_proof": 2,
+  "all_installed_tests_rerun_by_reviewer": false,
+  "I09_doc_links_resolve": 11,
+  "note": "Read-only rehash, source byte comparison and original output/metadata readback; no rebuild or broad test rerun."
+}

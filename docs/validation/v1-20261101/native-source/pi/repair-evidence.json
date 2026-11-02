@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "backend": "pi",
+  "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+  "image_id": "sha256:d81b5fc87f0817fba17eaf5d4f096c0da1e873e8a3810fc5db985b5bbfb91d06",
+  "proteus_head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "initial_entry_sha256": "184e297bf71200d7947b0d28ba62f4c09b1f3071ea8c85c2255d1ab8617bca08",
+  "modified_entry_sha256": "ae9107d59f3bc8c59580ca10f1aab3dceaf6027c88629555e84839c7a2652990",
+  "requests": [
+    {
+      "ordinal": 0,
+      "body_hash": "sha256:cc563578d2773cc8f434984ec2e966c4a438fd5096509ce98d96d040378f02eb",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user"
+      ]
+    },
+    {
+      "ordinal": 1,
+      "body_hash": "sha256:57914a49cf8f12636c79e12d119aad281bbd31020f4caeeef0f84cf20c651e3b",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ],
+      "read_witness_sha256": "4949218de757741f2174599ad06408d4f369e2da90bbe7f4b32313bd792d7393"
+    },
+    {
+      "ordinal": 2,
+      "body_hash": "sha256:45ad8a07157586b598fd587ef8a8ac04d362acb4409606418f9ec17b3810606b",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ]
+    },
+    {
+      "ordinal": 3,
+      "body_hash": "sha256:f350db0de5aff354eb6fb51629edcbfbc2d2e7c4eb00e39e920ecc66d828b709",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user"
+      ]
+    },
+    {
+      "ordinal": 4,
+      "body_hash": "sha256:827fd2f7ef47f72167e47d49a76147b1fbd3394c4d59005a784dc2eaa989c6ab",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ],
+      "read_witness_sha256": "486587b7c5502080c249179ac65318cebaf3b2fbec03c6b2a310d611205f1998"
+    },
+    {
+      "ordinal": 5,
+      "body_hash": "sha256:b260ac0f40c410b3f7b7f304f5c29516d9ee89194f63f6f242b9b6a1e90f876f",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ]
+    },
+    {
+      "ordinal": 6,
+      "body_hash": "sha256:cc563578d2773cc8f434984ec2e966c4a438fd5096509ce98d96d040378f02eb",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user"
+      ]
+    }
+  ],
+  "activation": [
+    {
+      "backend": "pi",
+      "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+      "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+      "mode": "pristine",
+      "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+      "version": 1
+    },
+    {
+      "backend": "pi",
+      "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+      "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+      "mode": "pristine",
+      "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+      "version": 1
+    },
+    {
+      "backend": "pi",
+      "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+      "cli_sha256": "49bd8221f3126a1b20c47c8f64b646e77e3b5796f2db484590e570f370bb25a2",
+      "mode": "cache",
+      "source_sha256": "9e567838ae60aa893dcb835f09ca4e1908fb2abe5aaa92ff15233ac5c681c16a",
+      "version": 1
+    }
+  ],
+  "scope": "Actual failed source candidate, separate-process repair/resume and next-episode activation; deterministic provider, no model-quality claim",
+  "evidence_hash": "sha256:e54c8d757e3908f34ebdfe8b0dee7c874aabcdc847e98cc6c70594c5580eafc3"
+}

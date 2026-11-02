@@ -36,7 +36,7 @@ this record supplies their current per-requirement disposition.
 | I12 recipes | Immutable resolved manifests, exact source/dependency/plugin locks, profile and deviation metadata; changed conditions cannot masquerade as resume. | Frozen historical builders and current catalog builders have separate validation labels. |
 | I13 researcher entrypoints | Five external plugin templates, six dependency-free catalog examples, export and study comparison execute outside the checkout in both distributions. | Optional GEPA reference and real runtimes have their own CI/gates. |
 | I14 output | Historical 15 profiles, baseline/selected/last separation, task tables, cost bounds and missing values; online Combee elapsed table accepted. Common-trace comparison adds controlled mechanism evidence. | CORAL real sharing/intervention/recovery qualification is pending. Offline historical continuous timing stays unknown; no cross-method causal ranking. |
-| I15 release | API/schema/lock freeze, unreleased 1.0.0 metadata/notes, wheel+sdist build and twine; 22 installed checks, 261 Python files byte-matched. | Prepare Native/full smoke and main PR CI/Harbor; later exact-tag gates and publication require separate authorization. |
+| I15 release | API/schema/lock freeze, unreleased 1.0.0 metadata/notes, wheel+sdist build and twine; 22 installed checks, 261 Python files byte-matched. | Complete prepare full smoke and main PR CI/Harbor; later exact-tag gates and publication require separate authorization. |
 
 ### I09: disposition of the three earlier unchecked items
 
@@ -99,11 +99,18 @@ validate supported adapters; they do not claim access to hidden provider billing
   export/study/parallel/workflow checks outside the checkout (22 checks including
   metadata/extras/API). Initial missing local `build` dependency is retained as a
   setup failure, followed by a fresh build-tool environment and success.
-- Prepare Native source workflow: run `41390451600`, both pinned Pi and DSH,
-  `live_role_pilot=false`; no extra paid role matrix.
+- Prepare Native source workflow: [run 41390451600](https://github.com/proteus-evolve/Proteus/actions/runs/41390451600)
+  passed both required pinned Pi and DSH source jobs with `live_role_pilot=false`.
+  The [artifact readback](validation/v1-20261101/native-source/readback.json) verifies
+  source/image bindings, actual read/write witnesses, changed compiled activation,
+  broken-source rejection and three distinct controller processes for repair/resume.
+  Provider responses in this gate are deterministic fixtures. The optional Codex
+  role pilot was disabled by input; no required source job was skipped.
 - Prepare complete release-smoke: run `41390453875`, same `9807a41` source;
   required offline/minimal/LLM/Pi/DSH/Codex outcomes remain pending.
 
+The [independent review](validation/v1-20261101/independent-review.json) accepts
+R04 common-trace closure, the API/package evidence and the scoped I09 disposition.
 The reviewer found a real P2 in the first trace reader: source/config/task metadata
 could drift while `--verify` still passed. Original failing probes and the first
 9807a41 run are retained. Follow-up validation commits bind these identities and

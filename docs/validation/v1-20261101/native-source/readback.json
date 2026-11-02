@@ -1,0 +1,55 @@
+{
+  "workflow_run": 41390451600,
+  "workflow_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41390451600",
+  "head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "inputs": {
+    "live_role_pilot": false,
+    "pilot_backends": "both"
+  },
+  "conclusion": "success",
+  "required_source_jobs": [
+    "pi",
+    "dsh"
+  ],
+  "optional_codex_role_pilot": "skipped by design; not required for this workflow input",
+  "rows": [
+    {
+      "backend": "pi",
+      "artifact_id": 13117131211,
+      "artifact_sha256": "ef09ca741992bfca8f992cd643e23968467717a8bca4bdd61b6145f59d3b9a6c",
+      "image_id": "sha256:d81b5fc87f0817fba17eaf5d4f096c0da1e873e8a3810fc5db985b5bbfb91d06",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "original_file_hashes": {
+        "evidence.json": "c84c60ced50e775ff52aec8f306bc5ee5d9337a1cb48e232fc1f279ac651fd28",
+        "repair-evidence.json": "5b31cdebf68458dba19699474d6ff964b8055bff636a4af6e9b4b4813f992403",
+        "repair-controller-processes.json": "276f917d66133285dd6b83e3b6a7a00daaef9f7524ba444599278aeeec4e31d6"
+      },
+      "model_provider": "deterministic fixture, not paid model",
+      "source_activation_changed": true,
+      "broken_candidate_rejected": true,
+      "completed_resume_unchanged": true,
+      "separate_repair_controller_processes": 3,
+      "repair_activation_changed": true
+    },
+    {
+      "backend": "dsh",
+      "artifact_id": 13117073705,
+      "artifact_sha256": "2a1759ca2293f042dd75cffe27d90699afa8a90eef0b7de123260e3f3b61f292",
+      "image_id": "sha256:57b62772b47de95ecf3cbe430b1c29a89e149951dfa2d8c681a6ce470d2a3a83",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "original_file_hashes": {
+        "evidence.json": "37674e13c3536987990574261fe6b5ab94b34d449bb951c872ca3ada13aeaf22",
+        "repair-evidence.json": "94da7c18b9305315476063c910c91798fa30a82718a64cd24dbfc39205c37ee2",
+        "repair-controller-processes.json": "05fc6c8fe94c0eac2b662a58ba7e33526bd7ccb5729d5e97f8f1a2b264ad49af"
+      },
+      "model_provider": "deterministic fixture, not paid model",
+      "source_activation_changed": true,
+      "broken_candidate_rejected": true,
+      "completed_resume_unchanged": true,
+      "separate_repair_controller_processes": 3,
+      "repair_activation_changed": true
+    }
+  ],
+  "scope": "Prepare-branch actual pinned Docker source execution, repair and activation. Same production/build/workflow inputs remain at current documentation/validation head. Does not replace full paid release-smoke or exact-tag checks."
+}

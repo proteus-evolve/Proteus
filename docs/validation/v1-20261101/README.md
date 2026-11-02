@@ -47,3 +47,14 @@ comparison with the [recipe instructions](../../../recipes/validation/combee-sha
 The broader [preparation record](../../V1_FINAL_ACCEPTANCE.md) tracks unresolved
 CORAL qualification and required workflows separately. Prepared package version
 1.0.0 is not evidence of a published release.
+
+The final `independent-review.json`, `independent-trace-probes.json`,
+`independent-package-readback.json` and `independent-trace-tests.log` close R04
+and the trace-reader P2. They accept API/package evidence and the bounded I09
+contract while explicitly leaving CORAL and remaining release gates open.
+
+`native-source/readback.json` binds successful preparation run 41390451600 to both
+required source jobs and the original artifact ZIP hashes. Per-backend original
+activation/repair evidence and distinct controller process records are retained.
+These are real source-built Docker harnesses with a deterministic provider, not
+the separate paid full-smoke gate.

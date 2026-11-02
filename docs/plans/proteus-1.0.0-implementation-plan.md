@@ -371,7 +371,7 @@ The checked mechanism items above do not close this real-worker acceptance rule.
 
 **验收：** 研究者按教程添加插件与配置即可完成两种扩展，不修改核心代码；安装包中的模板在仓库外可用。
 
-P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。历史真实模型结果与成本上界已归档；Combee 四个 online 条件的 quality/API upper/study elapsed 报告子项已通过独立 review，offline 连续耗时仍未知。R04 剩余共同固定 trace 对照，I14 的复合项仍缺 CORAL 共享/干预/恢复证据，见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。
+P10j 工程实现：为通用运行器增加独立于重放日志的控制器计时、不可变开始/结束记录和执行快照绑定；统一输出与 StudySpec 汇总实测连续运行耗时、控制器累计耗时及缺失覆盖。已完成结果的 resume 不增加实验耗时，硬退出与旧运行缺失前缀不补算，持续后台 worker 活动不冒充控制器时间。详见 [V1_CONTROLLER_TIMING.md](../V1_CONTROLLER_TIMING.md)。历史真实模型结果与成本上界已归档；Combee 四个 online 条件的 quality/API upper/study elapsed 报告子项已通过独立 review，offline 连续耗时仍未知。R04 共同固定 trace 对照已于 November 1 独立通过；I14 的复合项仍缺 CORAL 共享/干预/恢复证据，见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。
 
 ### I14 统一实验输出
 
@@ -445,8 +445,8 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 - [x] 定义 reflection 到 update 的聚合接口，复用基础方法的产物与更新语义（P08b：ACE 返回 PlaybookDelta，GEPA 返回组件提案；方法仍负责正式评估与接纳）。
 - [x] 实现 augmented shuffle、parallel scan aggregation 和动态 batch controller（P08b/P08c/P08f/P08g 的已声明参考 profile 与适配范围）。
 - [x] 保存复制、分组、层次与提示顺序，统计所有聚合及 profiling 调用（P08b–P08g：来源、RNG、wave、计时与正式调用账本）。
-- [ ] 用固定 trace 集比较顺序基础方法、naive parallel 和 Combee；包含固定 batch 与动态 batch 条件（[具体缺口](../V1_RELEASE_EVIDENCE_MAP.md#fixed-trace-and-comparison-evidence-mapping)：现有四组 fixture 生成在线响应，仅 naive/fixed 直接对照相同 reflector prompts。仍需共同原始样本/reflection trace manifest、H0/seed、各组实际消费/更新/调用量及方法引入的次序/分组/复制/batch 差异，dynamic 另记受控计时和决策。可用本地离线 fixture，不要求单个测试或不同方法输出相等）。
-- [x] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开（独立 review 接受[四组 adapted online 报告](../V1_RELEASE_EVIDENCE_MAP.md#combee-online-observations-offline-gaps-and-acceptance-scope)：完整 200-task stream 的 quality/API upper/study elapsed，ACE 16636.682s、naive 10114.331s、fixed 10808.138s、dynamic 10409.919s；来源、H0/model/seed、预算和计时边界明确。offline continuous elapsed 与 canonical USD 仍未知；共享主机和 runtime I/O 差异限制因果归因，不使观察失效。不要求正加速、paper 数值或两个组合都做完整付费 benchmark；R04 整体仍因上一项未完成而保持 open）。
+- [x] 用固定 trace 集比较顺序基础方法、naive parallel 和 Combee；包含固定 batch 与动态 batch 条件（November 1 [source-bound recipe](../../recipes/validation/combee-shared-trace/README.md) 与[独立验收](../validation/v1-20261101/independent-review.json)：共同 11 条原始 task/prediction/feedback/reflection、H0/seed；实际 request、配置/lock/数据身份、分组/复制/更新/调用量均回读。dynamic 受控计时实际运行 1/2/4/4；零 provider calls，不构成模型质量或真实 speedup 结论）。
+- [x] 对应实验报告质量、成本和实际耗时；离线 trace 学习与在线 rollout 条件分开（独立 review 接受[四组 adapted online 报告](../V1_RELEASE_EVIDENCE_MAP.md#combee-online-observations-offline-gaps-and-acceptance-scope)：完整 200-task stream 的 quality/API upper/study elapsed，ACE 16636.682s、naive 10114.331s、fixed 10808.138s、dynamic 10409.919s；来源、H0/model/seed、预算和计时边界明确。offline continuous elapsed 与 canonical USD 仍未知；共享主机和 runtime I/O 差异限制因果归因，不使观察失效。不要求正加速、paper 数值或两个组合都做完整付费 benchmark；共同 trace 项也已独立通过，R04 在此明确 profile 范围内完成）。
 
 **依赖：** R01、R02、I10、I12、I14。**完成定义：** 两个组合都可运行；至少一个真实设置有完整权衡结果，动态控制器已实现并验证。
 
@@ -468,7 +468,7 @@ Combee 实现为可组合的并行学习层，交付 combee_ace 与 combee_gepa 
 P10v 工程验收：固定 Pi/DSH 上游提交的真实源码镜像构建与 Docker jobs 已通过，见 [PR #100](https://github.com/proteus-evolve/Proteus/pull/100) 及其绑定的 workflow/artifact 记录。验收使用本地确定性 provider 驱动真实 CLI 的读写工具，经原 native episode 事务验证编译、修改后的下一轮执行、完成后无重复调用的恢复和坏源码拒绝；逐次启动回执与前一 checkpoint、原始 Docker 输出已独立交叉核验。该 workflow 在 release tag 上也触发，发布脚本要求同 tag/SHA 的 Pi、DSH jobs 在同一次运行中全部成功。下面 R00 条目仍需按声明的 adapter 能力核对完整范围；本次通过的工程门禁不替代 live model、算法质量实验或最终发布提交的 release smoke。
 
 - [x] 将现有协议包装为兼容 recipe，保留配置、反馈、测量和事务语义（P02 复用原 RunConfig 引擎，旧入口继续可用；live release gates 仍待后续验收）。
-- [ ] 继续验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复（P10y 增加真实 Pi/DSH 源码容器的失败候选、独立控制进程恢复、修复及下一轮激活门禁；本条保持待验收，需两套当前提交的 Docker jobs 和原始证据核验，不能用本地 fixture 回归替代）。
+- [x] 验证固定 active 与 writable candidate、边界校验、失败候选修复和恢复（November 1 [preparation run 41390451600](https://github.com/proteus-evolve/Proteus/actions/runs/41390451600) 的 Pi/DSH 两套真实源码 Docker jobs 均成功；[原始产物回读](../validation/v1-20261101/native-source/readback.json)绑定 9807a41、源码和镜像、实际工具读写、失败候选、独立控制进程修复及下一轮编译产物激活。provider 为确定性 fixture；full paid smoke 与未来同 tag/SHA 门禁仍单列。后续若运行/build/workflow 输入变化需重新验收）。
 - [x] 明确每个 adapter 的能力；没有 staged activation 的 adapter 不获得该保证（见 [adapter 能力与证据边界](../V1_NATIVE_INPUTS.md#native-staged-activation-capability-boundaries)：Pi/DSH 使用启动回执，Codex 使用源码绑定的 binary publication 与逐 episode 记录，minimal/llm/Aki 不声明此协议。能力声明、工程验收与最终 live 检查分别记录；完整运行验收仍由上一项和发布清单约束）。
 
 Native 不计入五个外部方法家族的完成数量。

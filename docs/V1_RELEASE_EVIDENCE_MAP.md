@@ -27,7 +27,7 @@ engineering blocker on this merge; **1.0 publication remains unapproved**.
 | R01: GEPA | [AIME seed 0](../recipes/gepa/aime/README.md): 45 train / 45 validation / 30 private, budget 500 metric calls, minibatch 3; H0 **23/30**, selected **24/30**. Pinned upstream mechanism, recovery and reference checks are mapped separately. | Historical single-mutation/full-validation/no-merge/no-cache adapted profile accepted. No original-model performance-parity or single-seed significance claim. No full rerun is required merely because the release SHA changed. |
 | R02: ACE | [Formula](../recipes/ace/formula/README.md): 500/300/200, one epoch, three refinement rounds. Offline **141 → 173/200**, selected after 200 training examples; online **141 → 163/200** on predictions made before each learning window. | Accept these historical Formula profiles. Offline selected is not last; online stream is not final-playbook held-out accuracy. FiNER/AppWorld and unimplemented delta extensions are outside validated scope. |
 | R03: Meta-Harness | [Three MCE domains](../recipes/meta-harness/mce/README.md): 450 learning callbacks and 260 visible predictions per system over 130 distinct validation tasks (30 USPTO + 50 Symptom2Disease + 50 LawBench, each evaluated twice); 412 private tasks per selected system. Archived proposer makes one JSON call producing three programs. Current Pi/DSH/Codex coding proposers have minimal live-cycle evidence. | Accept the historical JSON-proposer result only for that adapted profile. Current coding-search benchmark acceptance is pending; claiming it requires a complete audited declared-domain run. There is no paper-length-search or improvement threshold requirement. |
-| R04: Combee | Both ACE/GEPA combinations have mechanism checks. The [eight Formula conditions](../recipes/combee/formula/README.md) supply historical quality and API cost upper bounds; the four online conditions also have study-level elapsed receipts, mapped below. | Independent review accepts the quality/cost/elapsed **reporting subitem** for this declared single-seed adapted online comparison. A [common frozen-trace comparison](../recipes/validation/combee-shared-trace/README.md) now executes sequential, naive, fixed and dynamic methods; its final independent acceptance is tracked in the November record. Offline gaps do not require new paid runs, positive speedup or paper-matched numbers. |
+| R04: Combee | Both ACE/GEPA combinations have mechanism checks. The [eight Formula conditions](../recipes/combee/formula/README.md) supply historical quality and API cost upper bounds; the four online conditions also have study-level elapsed receipts, mapped below. | Independent review accepts the quality/cost/elapsed **reporting subitem** for this declared single-seed adapted online comparison. A [common frozen-trace comparison](../recipes/validation/combee-shared-trace/README.md) now executes sequential, naive, fixed and dynamic methods; its remaining R04 mechanism requirement is now independently accepted in the November record. Offline gaps do not require new paid runs, positive speedup or paper-matched numbers. |
 | R05 / I11: CORAL | [26-circle public task](../recipes/coral/circle-packing/README.md): one worker × 20 proposals versus two × 10, one evaluation worker; actual model requests, submitted code, own-worker measured feedback, publications and fresh-fallback generations are recorded. | Accept the two historical optimization arms and their declared fresh-context/persistent-workspace boundary. Actual cross-worker prompt use, applied interventions and interrupted recovery still require the evidence closure below. One-worker harness pilots do not establish current native-session multiworker support. |
 | R00: Native | Historical Pi integration, current activation/repair/recovery mechanisms, pinned Pi/DSH source gates and bounded live role pilots are distinct evidence. | Final preparation and exact-tag gates must bind the declared adapter inputs, activation, invalid-candidate repair and interruption/resume to the release source. Historical exit-137 phases and completed resume do not replace them. |
 | I14: comparable output | Frozen task metrics, selection, costs and failures are available, including all four Combee online study elapsed observations; offline continuous timing remains unknown. Current export/study mechanisms preserve missing values. | The Combee reporting portion is accepted for the declared adapted online comparison. The combined I14 checkbox remains open because CORAL sharing/intervention/recovery evidence is incomplete. Existing observations do not establish isolated speedup or controlled cross-method ranking. |
@@ -116,22 +116,22 @@ differences limit attribution; they do not invalidate the recorded observations.
 Positive speedup, paper-matched numbers or full paid benchmarks for both Combee
 combinations are not additional requirements.
 
-R04's **common frozen-trace comparison** remains open. The four-arm Formula fixture
-shares tasks/roles/H0/budgets but generates responses from `response(role, prompt)`
-during execution. It does not bind the four arms to a common frozen learning or
-reflection trace. The naive/fixed test directly compares equal reflector prompts;
-separate sequential and dynamic reference checks do not establish the missing
-four-arm input-provenance relationship.
+The November 1 [common frozen-trace comparison](../recipes/validation/combee-shared-trace/README.md)
+now closes the remaining R04 mechanism item. Eleven frozen original task/prediction/
+feedback/reflection records, H0 and seed are consumed by actual sequential ACE,
+naive-parallel, fixed and dynamic Combee methods. Actual requests, source/config/
+lock/data identity, occurrence copies, updates and invocations are bound in the
+[readback bundle](validation/v1-20261101/README.md). Dynamic profiling uses declared
+synthetic one-second observations, selects size 4 and consumes another full batch
+of 4; the observed schedule is 1/2/4/4.
 
-The minimal remaining evidence is a shared trace fixture/manifest identifying
-original samples/reflections, H0 and seed, with per-arm consumption/update records.
-It must describe method-specific order, grouping, duplication and batch decisions,
-actual consumed evidence, outputs and calls; dynamic scheduling also needs its
-controlled timing and decision records. This can use small local offline fixtures,
-does not require a single test, and does not require equal prompts or final updates
-across methods. It is mechanism evidence, not new model-quality evidence. No paid
-rerun follows merely from missing offline continuous time, and the remaining
-fixed-trace requirement is not waived.
+[Independent acceptance](validation/v1-20261101/independent-review.json) verifies
+both original and relocated records, all 331 archived files, source/data/lock drift
+rejection and ten trace-specific tests. Four completed resumes add zero actor calls.
+The earlier reader's P2 identity defect and its failing probes remain archived.
+This is mechanism/provenance evidence, with zero provider calls; it adds no model
+quality, true inference-time or speedup claim. The accepted historical observations
+and missing offline continuous time above are unchanged.
 
 ## CORAL: completed arms and the exact evidence gap
 
