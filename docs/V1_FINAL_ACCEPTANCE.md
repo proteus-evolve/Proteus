@@ -44,17 +44,29 @@ this record supplies their current per-requirement disposition.
    declared observable boundary, with native receipts and independently validated
    known subtotals. An opaque call count or monetary cost remains `null`; this is
    an explicit coverage limit, not a successful complete-accounting claim.
+   [Protocol](V1_NATIVE_INPUTS.md#reported-native-usage),
+   [receipt regressions](../tests/test_native_usage.py), and
+   [installed readback evidence](validation/v1-20261101/installed-distributions.json).
 2. **Concurrent reservation and settlement:** supported run/role scopes share one
    ledger. Built-in minimal and single-request HTTP Native recipes additionally
    enforce finite call caps. Backends that cannot bound calls/cost/time reject those
-   finite caps before dispatch. Unknown usage keeps the reservation; it is never
-   silently refunded or converted to zero.
+   finite caps before dispatch. Unknown actual usage retains the corresponding
+   reserved amount in budget accounting (or remains unknown if unbounded); a
+   terminal operation may settle and release its concurrency slot. An uncertain
+   external outcome remains unsettled with its reservation/slot intact until
+   reconciliation. Unknown usage is never silently refunded or converted to zero.
+   [Finite Native budgets](V1_NATIVE_INPUTS.md#finite-native-recipe-model-call-budgets),
+   [ledger behavior](../tests/test_v1_ledger.py), [Native budget checks](../tests/test_native_budget.py),
+   and [installed package evidence](validation/v1-20261101/installed-distributions.json).
 3. **Recovery:** committed operations and original settled receipts are reused.
    Harbor can reconcile its independently completed worker; an active worker or
    lost/unconfirmed external result remains unresolved. Automatic resubmission of
    uncertain work is deliberately unsupported. Source/config/lock changes require
    a new run. Docker cleanup and SQLite hot-journal faults have dedicated retained
-   before/after evidence.
+   before/after evidence. [Recovery protocol](V1_RECOVERY.md),
+   [journal tests](../tests/test_v1_recovery.py),
+   [release-fault tests](../tests/test_v1_release_recovery.py), and
+   [retained hot-journal evidence](validation/v1-20261028/hot-journal-recheck.json).
 
 These are the documented capability boundaries in `V1_NATIVE_INPUTS.md`,
 `V1_RECOVERY.md` and the prior release acceptance record. The final live gates
