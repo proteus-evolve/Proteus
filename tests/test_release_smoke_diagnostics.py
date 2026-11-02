@@ -198,3 +198,106 @@ def test_multiple_dsh_frames_and_decompression_limit(tmp_path, monkeypatch):
     bounded.capture(path, source, 'frames', kind='dsh')
     assert bounded.records[0]['status'] == 'omitted_decompressed_byte_limit'
     assert list(bounded.output.iterdir()) == []
+
+
+def test_invalid_line_samples_are_bounded_even_when_data_output_is_omitted(tmp_path):
+    from scripts.release_smoke_diagnostics import MAX_INVALID_LINE_SAMPLES
+    source = tmp_path / 'source'
+    source.mkdir()
+    path = source / 'bad.jsonl'
+    raw = b'x\n' * 4096
+    path.write_bytes(raw)
+    collector = Collector(tmp_path / 'out', max_bytes=0)
+    collector.capture(path, source, 'bad', kind='jsonl')
+    record = collector.records[0]
+    assert record['status'] == 'omitted_output_byte_limit'
+    assert record['original_sha256'] == hashlib.sha256(raw).hexdigest()
+    assert record['jsonl_line_count'] == record['invalid_line_count'] == 4096
+    assert record['jsonl_valid_line_count'] == 0
+    assert len(record['invalid_lines']) == MAX_INVALID_LINE_SAMPLES
+    assert record['invalid_line_samples_omitted'] == 4096 - MAX_INVALID_LINE_SAMPLES
+    assert record['invalid_line_samples_truncated'] is True
+    assert record['invalid_lines'][0] == {'line': 1, 'sha256': hashlib.sha256(b'x').hexdigest()}
+
+
+def test_compressed_dsh_invalid_line_amplification_has_full_counts_and_bounded_index(tmp_path):
+    try:
+        from compression import zstd
+    except ImportError:
+        zstd = pytest.importorskip('zstandard')
+    from scripts.release_smoke_diagnostics import MAX_INDEX_BYTES, MAX_INVALID_LINE_SAMPLES
+    root, output = tmp_path / 'sweep', tmp_path / 'diagnostics'
+    path = root / 'runs/run-one/.dsh-state/sessions/session-one/session.jsonl.zstd'
+    path.parent.mkdir(parents=True)
+    count = 131072
+    compressed = zstd.compress(b'x\n' * count)
+    path.write_bytes(compressed)
+    index = collect([root], output, 'dsh', max_bytes=0)
+    record = next(r for r in index['records'] if r['kind'] == 'dsh')
+    assert record['original_sha256'] == hashlib.sha256(compressed).hexdigest()
+    assert record['jsonl_line_count'] == record['invalid_line_count'] == count
+    assert record['jsonl_valid_line_count'] == 0
+    assert len(record['invalid_lines']) == MAX_INVALID_LINE_SAMPLES
+    assert record['invalid_line_samples_omitted'] == count - MAX_INVALID_LINE_SAMPLES
+    assert record['invalid_line_samples_truncated'] is True
+    assert record['status'] == 'omitted_output_byte_limit'
+    assert index['invalid_line_summary']['count'] == count
+    assert index['output_data_bytes'] == 0
+    assert (output / 'diagnostics.json').stat().st_size <= MAX_INDEX_BYTES
+
+
+def test_global_index_cap_preserves_hashes_missing_outcomes_counts_and_redaction(tmp_path):
+    from scripts.release_smoke_diagnostics import MAX_INDEX_BYTES, MAX_OUTPUT_BYTES
+    root, output = tmp_path / 'sweep', tmp_path / 'diagnostics'
+    state = root / 'runs/run-one/.pi-state'
+    state.mkdir(parents=True)
+    raw = b'x\n' * 128 + b'{"apiKey":"unshaped-credential","cost_usd":null}\n'
+    for number in range(80):
+        (state / f'session-{number:03d}.jsonl').write_bytes(raw)
+    native = root / 'runs/.proteus-records/run-one/native-inputs'
+    native.mkdir(parents=True)
+    (native / 'attempt.input.json').write_text('{"payload":"opaque-provider-value"}')
+    opaque = native / 'attempt.usage-source'
+    opaque.write_bytes(b'RAW-OPAQUE-CAPTURE-UNIQUE-DO-NOT-EXPORT')
+    before = {p: p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    index = collect([root], output, 'pi', secrets=('opaque-provider-value',))
+    rows = [r for r in index['records'] if r.get('jsonl_line_count')]
+    assert len(rows) == 80
+    assert all(r['invalid_line_count'] == 128 and r['jsonl_valid_line_count'] == 1 for r in rows)
+    assert all(r['original_sha256'] == hashlib.sha256(raw).hexdigest() for r in rows)
+    assert all(r['invalid_lines'] == [] and r['invalid_line_samples_omitted'] == 128
+               and r['invalid_line_samples_truncated'] for r in rows)
+    assert index['index_degradation'] == 'invalid_line_samples_omitted_for_index_limit'
+    assert index['invalid_line_summary'] == {'count': 80 * 128, 'samples_retained': 0,
+                                             'samples_omitted': 80 * 128}
+    missing = next(r for r in index['records'] if r['source'].endswith('attempt.outcome.json'))
+    assert missing['status'] == 'missing' and missing['completion'] == 'unknown'
+    row = next(r for r in index['records'] if r['source'].endswith('attempt.usage-source'))
+    assert row['status'] == 'hash_only_opaque_usage_source_not_uploaded'
+    assert row['original_sha256'] == hashlib.sha256(opaque.read_bytes()).hexdigest()
+    assert index['cost_unknowns_are_not_zero'] is True
+    exported = _payloads(output)
+    assert b'opaque-provider-value' not in exported and b'unshaped-credential' not in exported
+    assert b'RAW-OPAQUE-CAPTURE-UNIQUE-DO-NOT-EXPORT' not in exported and b'"cost_usd": null' in exported
+    assert (output / 'diagnostics.json').stat().st_size <= MAX_INDEX_BYTES
+    assert sum(p.stat().st_size for p in output.rglob('*') if p.is_file()) <= MAX_OUTPUT_BYTES + MAX_INDEX_BYTES
+    assert before == {p: p.read_bytes() for p in root.rglob('*') if p.is_file()}
+
+
+def test_index_projects_oversized_context_without_losing_source_identity_or_missing_status(tmp_path):
+    from scripts.release_smoke_diagnostics import MAX_INDEX_BYTES
+    root, output = tmp_path / 'sweep', tmp_path / 'diagnostics'
+    root.mkdir()
+    data = b'{"cost_usd":null}\n'
+    (root / 'manifest.json').write_bytes(data)
+    index = collect([root], output, 'pi', context={'debug': 'x' * (MAX_INDEX_BYTES * 2),
+                                                'apiKey': 'synthetic-private-key'})
+    assert index['index_degradation'] == 'bounded_metadata_projection'
+    assert index['execution_context']['omitted_for_index_limit'] is True
+    manifest = next(r for r in index['records'] if r['source'].endswith('manifest.json'))
+    assert manifest['original_sha256'] == hashlib.sha256(data).hexdigest()
+    assert manifest['source_label_sha256']
+    assert next(r for r in index['records'] if r['source'].endswith('seeds.jsonl'))['status'] == 'missing'
+    assert index['cost_unknowns_are_not_zero'] is True
+    assert b'synthetic-private-key' not in _payloads(output)
+    assert (output / 'diagnostics.json').stat().st_size <= MAX_INDEX_BYTES

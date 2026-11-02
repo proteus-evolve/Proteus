@@ -21,6 +21,8 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_DECODED_BYTES = 4 * 1024 * 1024
 MAX_OUTPUT_BYTES = 8 * 1024 * 1024
 MAX_FILES = 256
+MAX_INVALID_LINE_SAMPLES = 64
+MAX_INDEX_BYTES = 512 * 1024
 
 
 def edit_goal(harness: str) -> str:
@@ -159,15 +161,24 @@ class Collector:
                     return
             if kind in ('jsonl', 'dsh'):
                 lines, invalid = [], []
-                for number, line in enumerate(raw.splitlines(), 1):
+                invalid_count = valid_count = line_count = 0
+                for number, line in enumerate(io.BytesIO(raw), 1):
+                    line_count = number
+                    line = line.rstrip(b'\r\n')
                     if not line.strip():
                         continue
                     try:
                         lines.append(json.dumps(sanitize(json.loads(line), self.secrets), ensure_ascii=False,
                                                 allow_nan=False))
+                        valid_count += 1
                     except (ValueError, TypeError):
-                        invalid.append({'line': number, 'sha256': hashlib.sha256(line).hexdigest()})
-                record['invalid_lines'] = invalid
+                        invalid_count += 1
+                        if len(invalid) < MAX_INVALID_LINE_SAMPLES:
+                            invalid.append({'line': number, 'sha256': hashlib.sha256(line).hexdigest()})
+                record.update(jsonl_line_count=line_count, jsonl_valid_line_count=valid_count,
+                    invalid_line_count=invalid_count, invalid_lines=invalid,
+                    invalid_line_samples_omitted=invalid_count - len(invalid),
+                    invalid_line_samples_truncated=invalid_count > len(invalid))
                 data = ('\n'.join(lines) + '\n').encode()
             elif kind == 'json':
                 data = encoded(sanitize(json.loads(raw), self.secrets))
@@ -266,6 +277,56 @@ class Collector:
                              kind='dsh' if harness == 'dsh' else 'jsonl')
 
 
+def bounded_index(index, secrets=()):
+    """Keep counts/hashes/statuses; samples and verbose metadata yield to a fixed cap."""
+    index = sanitize(index, secrets)
+    index.update(index_byte_limit=MAX_INDEX_BYTES,
+        invalid_line_sample_limit_per_source=MAX_INVALID_LINE_SAMPLES,
+        invalid_line_hash_scope='line bytes without CR/LF terminators',
+        invalid_line_count_scope='parsed source bytes only; missing or over-limit sources remain unknown',
+        index_degradation='none')
+
+    def render():
+        records = index['records']
+        count = sum(row.get('invalid_line_count', 0) for row in records)
+        retained = sum(len(row.get('invalid_lines', [])) for row in records)
+        index['invalid_line_summary'] = {'count': count, 'samples_retained': retained,
+                                        'samples_omitted': count - retained}
+        return encoded(index)
+
+    data = render()
+    if len(data) > MAX_INDEX_BYTES:
+        index['index_degradation'] = 'invalid_line_samples_omitted_for_index_limit'
+        for row in index['records']:
+            if 'invalid_line_count' in row:
+                row.update(invalid_lines=[], invalid_line_samples_omitted=row['invalid_line_count'],
+                           invalid_line_samples_truncated=row['invalid_line_count'] > 0)
+        data = render()
+    if len(data) > MAX_INDEX_BYTES:
+        index['index_degradation'] = 'bounded_metadata_projection'
+        index['unprojected_sanitized_metadata_sha256'] = hashlib.sha256(data).hexdigest()
+        context = encoded(index['execution_context'])
+        index['execution_context'] = {'omitted_for_index_limit': True,
+            'sanitized_sha256': hashlib.sha256(context).hexdigest(), 'sanitized_bytes': len(context)}
+        keys = ('kind', 'status', 'original_bytes', 'original_sha256', 'exported', 'exported_sha256',
+                'exported_bytes', 'completion', 'error_type', 'decoded_stream_completeness',
+                'jsonl_line_count', 'jsonl_valid_line_count', 'invalid_line_count', 'invalid_lines',
+                'invalid_line_samples_omitted', 'invalid_line_samples_truncated')
+        projected = []
+        for row in index['records']:
+            source = str(row['source'])
+            item = {key: row[key] for key in keys if key in row}
+            item.update(source=source if len(source) <= 80 else source[:40] + '…' + source[-39:],
+                        source_label_sha256=hashlib.sha256(source.encode()).hexdigest())
+            projected.append(item)
+        index['records'] = projected
+        data = render()
+    if len(data) > MAX_INDEX_BYTES:
+        # Do not silently discard per-source hashes or write an oversized index.
+        raise ValueError('critical diagnostic metadata exceeds the fixed index byte limit')
+    return index, data
+
+
 def collect(roots, output, harness, *, secrets=(), max_bytes=MAX_OUTPUT_BYTES, context=None):
     if any(Path(output).resolve().is_relative_to(Path(root).resolve()) for root in roots):
         raise ValueError('diagnostic output must be outside all sweeps')
@@ -274,8 +335,11 @@ def collect(roots, output, harness, *, secrets=(), max_bytes=MAX_OUTPUT_BYTES, c
         try:
             collector.sweep(root, harness, f'sweep-{index}')
         except (OSError, ValueError) as exc:
-            collector.records.append({'source': f'sweep-{index}', 'status': 'unavailable',
-                                      'error_type': type(exc).__name__})
+            if len(collector.records) < MAX_FILES:
+                collector.records.append({'source': f'sweep-{index}', 'status': 'unavailable',
+                                          'error_type': type(exc).__name__})
+            else:
+                collector.limit_reached = True
     index = {'schema': 'proteus.release-smoke.diagnostics.v1', 'harness': harness,
         'execution_context': context or {},
         'non_resumable_sanitized_diagnostics': True, 'provider_calls_by_collector': 0,
@@ -284,7 +348,8 @@ def collect(roots, output, harness, *, secrets=(), max_bytes=MAX_OUTPUT_BYTES, c
         'cost_unknowns_are_not_zero': True,
         'omissions': 'No auth/settings/environment files, gateway databases, builds, full source trees, '
                      'snapshot repositories, opaque usage-source bytes, or private reasoning are copied.'}
-    (collector.output / 'diagnostics.json').write_bytes(encoded(sanitize(index, secrets)))
+    index, data = bounded_index(index, secrets)
+    (collector.output / 'diagnostics.json').write_bytes(data)
     return index
 
 
