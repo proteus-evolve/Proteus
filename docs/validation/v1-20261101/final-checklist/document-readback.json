@@ -1,0 +1,110 @@
+{
+  "reviewed_commit": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+  "current_checkout_when_read": "1fe1b26ed4d446704ec3fec49f4c3cf98a798903",
+  "document_hashes": {
+    "README.md": "abae8e2b8428a96f1d33e79203734ef382de8c8add635f97f878100b1b02a448",
+    "docs/V1_FINAL_ACCEPTANCE.md": "f40110ff2369fae1eb51ab3450a0a590999c81b8e33a1d163192b9e459f6154e",
+    "docs/V1_RELEASE_EVIDENCE_MAP.md": "3d4746ae44456ad0babaa1dae853c1607db83365f06b8ae447f129ffee9bf484",
+    "docs/V1_OVERVIEW.md": "37f53276022117a7a7b7d4f48eabe9cc508bc9e84ec8f6e66840703796baf5ec",
+    "docs/V1_HARNESS_ROLES.md": "03e843a4384d68d28e1181f2576e0abc78a8caa1bcca3d29fc7cf078d56f8d27",
+    "docs/V1_NATIVE_INPUTS.md": "b6cd813a91ea96648891facdb5129b1de07b01aac24128fb855676f28927575c",
+    "docs/V1_COMPATIBILITY.md": "862b38f08ae683d31069257c6939ffd66b95dc11b94b6826b4830624cf929b47",
+    "docs/V1_EXPERIMENT_ACCEPTANCE.md": "2ad9dd9973e45ec160f17585ed46311b0860357427648329a11afb9953e0c3b6",
+    "docs/RELEASING.md": "22f99527fd2e51377283e6ecb50dfe30c73ac752cbaf52b33638067e95cd5e67",
+    "docs/releases/v1.0.0.md": "47523e5008f04eb85bb8978967cad2ca63178442a158d03445da08eb532c68ab",
+    "docs/plans/proteus-1.0.0-implementation-plan.md": "44a16f52492cfd4dfa5000b039358986ed241e1a5e13e2107db62b82d0e72e38"
+  },
+  "relative_paths_checked": 321,
+  "missing_relative_paths": [],
+  "base_preparation_inputs": {
+    "proteus": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    "pyproject.toml": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    ".github/workflows/native-source-integration.yml": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    "environments/pi-src": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    "environments/dsh-src": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    "environments/codex-src": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    "tests/check_native_source_docker.py": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    },
+    "tests/check_native_source_repair.py": {
+      "same_object": true,
+      "base_exists": true,
+      "head_exists": true
+    }
+  },
+  "open_checkboxes": [
+    {
+      "line": 241,
+      "text": "- [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本（P02/P10f 已隔离协议并记录 core prompts、minimal policy、LLM HTTP body 和 Pi/DSH/Codex 最终 CLI 输入；Aki supervisor 内部及 coding harness 后续 provider 消息仍不透明，见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md)）。"
+    },
+    {
+      "line": 397,
+      "text": "- [ ] 验证 wheel、sdist、可选依赖、离线模板与真实 backend 的安装路径。"
+    },
+    {
+      "line": 439,
+      "text": "- [ ] 当前 coding-proposer benchmark 的完整验收仍未完成：Pi/DSH/Codex 仅有最小 live-cycle 证据；若将该 protocol 列为 benchmark-validated，需完整声明领域的审计运行。历史 JSON profile 与当前 coding-search 的支持边界见 [验收映射](../V1_RELEASE_EVIDENCE_MAP.md)。"
+    },
+    {
+      "line": 622,
+      "text": "- [ ] I01–I15 的验收记录齐全，R00 与 R01–R05 均完成对应范围。"
+    },
+    {
+      "line": 623,
+      "text": "- [ ] 每个 recipe 有版本锁、运行说明、机制核对、支持矩阵、真实结果与偏差说明。"
+    },
+    {
+      "line": 625,
+      "text": "- [ ] 原有功能回归通过；不支持的 adapter 能力被明确拒绝或限制。"
+    },
+    {
+      "line": 626,
+      "text": "- [ ] 全局预算、检查点与恢复验证通过；持久 session 降级有记录。"
+    },
+    {
+      "line": 627,
+      "text": "- [ ] 已保存的逐任务记录可重新汇总为报告中的表与曲线。"
+    },
+    {
+      "line": 629,
+      "text": "- [ ] README、架构、recipe、迁移与 1.0.0 release notes 同步。"
+    },
+    {
+      "line": 630,
+      "text": "- [ ] 对实际发布提交运行既有和新增的 release gates；需要的 live 检查不以静默 skip 代替。"
+    },
+    {
+      "line": 631,
+      "text": "- [ ] 设置版本、打 tag 和发布按仓库发布流程执行；计划文档落地不代表已经发布 1.0.0。"
+    }
+  ],
+  "workflow_status": "41398194611 source1adaa8f was reported dispatched by coordinator; no passing conclusion assumed by this conditional review",
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

@@ -1,6 +1,7 @@
 # Historical experiments and current implementation acceptance
 
-The 15 frozen profiles establish historical adapted single-seed results. They used
+The 15 frozen profiles comprise fourteen adapted method profiles with historical
+single-seed results and one Native mechanism profile. They used
 five reconstructed core trees and the runtime inputs listed below. Current source
 checks establish implementation mechanisms and supported combinations; they do not
 relabel those results as fresh runs of the release code. No historical recipe,

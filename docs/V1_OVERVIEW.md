@@ -12,7 +12,8 @@ This describes the implementation in this source tree. **1.0 is not released.**
 The five original-domain catalog entries are generic preparation templates and
 retain `model_results_pending`; they do not identify a frozen model run. The
 [October experiment recipes](../recipes/README.md) separately record all 15
-accepted adapted single-seed profiles and the source/runtime differences.
+accepted historical profiles (fourteen adapted method profiles and one Native
+mechanism profile), with their source/runtime differences.
 Runnable fixtures and reference conformance checks establish mechanisms; they do
 not establish reproduced paper scores, collaboration gains or recursive returns.
 The [implementation plan](plans/proteus-1.0.0-implementation-plan.md) retains the
@@ -20,7 +21,9 @@ full experiment and release acceptance requirements.
 
 The [harness role bridge](V1_HARNESS_ROLES.md) documents source-bound integration,
 materialized evolving candidates, independent model graders and the additional
-journaled Native evolution profile, including its present container coverage gap.
+journaled Native evolution profile. Its [sixteen-cell integration matrix](V1_HARNESS_ROLES.md#capability-and-evidence-matrix)
+records the actual role/container coverage and remaining limits; it does not
+claim every method/role combination or native-session multiworker support.
 
 ## Architecture
 
@@ -63,9 +66,13 @@ which components it uses and which invariants its own state machine enforces.
 
 These are bounded integration profiles, not a claim to implement every option or
 published result of each upstream project. The individual documents pin source
-revisions, original semantics and declared adaptations.
+revisions, original semantics and declared adaptations. The final column lists
+what a **newly configured builder run** must establish before it is treated as a
+benchmark result. Generic builders retain `model_results_pending`; accepted
+historical results and current integration evidence are separately tracked in the
+[current disposition](V1_FINAL_ACCEPTANCE.md).
 
-| Family | Included mechanism | Original-domain entry | Remaining result acceptance |
+| Family | Included mechanism | Original-domain entry | Requirements for a new benchmark run |
 | --- | --- | --- | --- |
 | [GEPA](V1_GEPA_METHOD.md) | Pinned upstream single-mutation loop; round-robin text components, full validation, instance frontier, no merge/cache | `gepa-aime`: [45/45/30 AIME study](V1_GEPA_AIME.md) | Real solver/reflection models, baseline and complete final split |
 | [ACE](V1_ACE_METHOD.md) | Versioned playbook, generator/reflector/curator roles, counter/ADD updates, offline and online loops | `ace-formula`: [500/300/200 Formula study](V1_ACE_FORMULA.md) | Real models, baseline and complete offline/online protocol |

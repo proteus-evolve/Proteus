@@ -72,7 +72,10 @@ recipe commands below require this preparation checkout (`pip install -e .`).
 | Native | Existing harness evolution, goals/no-goal, feedback and surface measurements | Existing native CLI and compatibility recipe |
 
 See the [support matrix and architecture](docs/V1_OVERVIEW.md) for exact boundaries,
-reference links, shared modules and outstanding real-model acceptance.
+reference links, shared modules and declared validation boundaries. The
+[current preparation record](docs/V1_FINAL_ACCEPTANCE.md) separates accepted
+historical profiles from current integration checks, coding-search benchmark
+limits and remaining release gates.
 
 Methods own their control flow. Typed stages and role-specific actors, immutable
 candidates, task/subject/evaluator interfaces, search policies, parallel workflows

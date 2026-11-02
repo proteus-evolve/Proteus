@@ -1,0 +1,257 @@
+{
+  "review_date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "reviewed_commit": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+  "review_kind": "Conditional documentation/checklist reconciliation while full release-smoke runs; no experiment execution",
+  "overall": "No new research or engineering gate identified. Preparation remains contingent on complete exact-source smoke/readback and specific documentation reconciliation. Opening the authorized main PR does not require pre-existing outcomes from that PR; merge does require its CI/Harbor and review.",
+  "conditional_smoke": {
+    "run_id": 41398194611,
+    "source_commit": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+    "assumed_success": false,
+    "required_outcome": "One complete successful release-smoke workflow with all required offline/minimal/llm/pi/dsh/codex jobs and retained strict evidence, followed by source/run/job readback.",
+    "old_run": 41390453875,
+    "old_run_rule": "Retain failed DSH history and separately running Codex status; do not cancel or pool old passed jobs as part of this review."
+  },
+  "integration_bindings": {
+    "scripts/release_smoke_diagnostics.py": {
+      "git_blob": "275f1da28b136d14d2e19fbc1478f8bbff5ece3c",
+      "identical_to_accepted_bde937a": true
+    },
+    "tests/test_release_smoke_diagnostics.py": {
+      "git_blob": "f2d84238872e775a48c6c78f514559088e3ae656",
+      "identical_to_accepted_bde937a": true
+    },
+    ".github/workflows/release-smoke.yml": {
+      "git_blob": "3feafc6f2c00dd463b79d258a6227cbfc13aa83e",
+      "identical_to_accepted_bde937a": true
+    }
+  },
+  "document_readback": {
+    "relative_paths_checked": 321,
+    "missing_relative_paths": [],
+    "source_document_hashes": {
+      "README.md": "abae8e2b8428a96f1d33e79203734ef382de8c8add635f97f878100b1b02a448",
+      "docs/V1_FINAL_ACCEPTANCE.md": "f40110ff2369fae1eb51ab3450a0a590999c81b8e33a1d163192b9e459f6154e",
+      "docs/V1_RELEASE_EVIDENCE_MAP.md": "3d4746ae44456ad0babaa1dae853c1607db83365f06b8ae447f129ffee9bf484",
+      "docs/V1_OVERVIEW.md": "37f53276022117a7a7b7d4f48eabe9cc508bc9e84ec8f6e66840703796baf5ec",
+      "docs/V1_HARNESS_ROLES.md": "03e843a4384d68d28e1181f2576e0abc78a8caa1bcca3d29fc7cf078d56f8d27",
+      "docs/V1_NATIVE_INPUTS.md": "b6cd813a91ea96648891facdb5129b1de07b01aac24128fb855676f28927575c",
+      "docs/V1_COMPATIBILITY.md": "862b38f08ae683d31069257c6939ffd66b95dc11b94b6826b4830624cf929b47",
+      "docs/V1_EXPERIMENT_ACCEPTANCE.md": "2ad9dd9973e45ec160f17585ed46311b0860357427648329a11afb9953e0c3b6",
+      "docs/RELEASING.md": "22f99527fd2e51377283e6ecb50dfe30c73ac752cbaf52b33638067e95cd5e67",
+      "docs/releases/v1.0.0.md": "47523e5008f04eb85bb8978967cad2ca63178442a158d03445da08eb532c68ab",
+      "docs/plans/proteus-1.0.0-implementation-plan.md": "44a16f52492cfd4dfa5000b039358986ed241e1a5e13e2107db62b82d0e72e38"
+    },
+    "preparation_runtime_and_build_inputs": {
+      "proteus": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      "pyproject.toml": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      ".github/workflows/native-source-integration.yml": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      "environments/pi-src": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      "environments/dsh-src": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      "environments/codex-src": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      "tests/check_native_source_docker.py": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      },
+      "tests/check_native_source_repair.py": {
+        "same_object": true,
+        "base_exists": true,
+        "head_exists": true
+      }
+    }
+  },
+  "supported_requirement_boundaries": {
+    "I01": "Accepted versioned public records/API/schema freeze; explicit incompatible versions, no automatic migration.",
+    "I02": "Accepted method/stage/native compatibility and final owned input evidence; hidden harness/Aki internals remain opaque.",
+    "I03": "Accepted role/capability checks and 16 bounded real pilot cells; representation-compatible runners/projections required, no all-method/harness/role Cartesian claim.",
+    "I04": "Accepted immutable artifacts, checked deltas/lineage, preserved rejected candidates and source/image identity; declared build/validator establishes executability.",
+    "I05": "Accepted pinned task/split/state and private evaluator isolation/per-task records/online ordering; infrastructure or missing scores stay unavailable.",
+    "I06": "Accepted declared Harbor providers/lifecycles/resources and source/cleanup mechanisms; required current main-PR Harbor check remains outstanding.",
+    "I07": "Accepted eligible-evidence selection, seeded parent/archive/final policies and actual plugin extension lineage.",
+    "I08": "Accepted sourced versioned shared knowledge/CAS; actual CORAL delivery is proven by separately accepted directed qualification, not by mere availability.",
+    "I09": "Accepted supported budget/usage/recovery contracts; reported usage/known subtotal distinct from unknown; unsettled external outcomes require reconciliation rather than silent repeat/refund.",
+    "I10": "Accepted bounded parallelism, ordered joins, Combee copy/aggregation/dynamic schedule; synthetic timing proves mechanism only.",
+    "I11": "Accepted managed worker generations plus directed sharing/intervention/controller-crash recovery; not worker-crash or native model-session continuation.",
+    "I12": "Accepted immutable source/dependency/plugin/config identity, labels/deviations and separate historical versus current builder contracts.",
+    "I13": "Accepted installed external plugin templates and recipe entrypoints; optional optimizer/runtime checks remain within declared CI/gate coverage.",
+    "I14": "Accepted saved results, reports, costs/unknowns and comparison separation, including Combee/CORAL scoped reporting; no causal cross-family ranking.",
+    "I15": "API/docs/1.0.0 package preparation accepted. Complete current full smoke and main-PR CI/Harbor/review remain; tag gates and publishing are later stages."
+  },
+  "method_history_current_boundaries": {
+    "R00": "Historical real Pi source evolution, current Native compatibility/common evolution profiles and pinned Pi/DSH deterministic-source gate are separate. Common Native uses last-valid activation without outer-score selection. Current full live smoke is pending and exact-tag source/live gates remain future.",
+    "R01": "Accepted historical single-seed adapted AIME 45/45/30, baseline23/30 selected24/30, single mutation/no merge/no cache; current reference/recovery mechanisms separately checked. No paper-model parity or significance.",
+    "R02": "Accepted historical Formula offline500/300/200 and online full protocol; selected173/200 differs from last, online163/200 is pre-learning stream. FiNER/AppWorld and unimplemented delta extensions stay outside validation.",
+    "R03": "Accepted historical three-domain MCE JSON-proposer adapted protocol; 450 learn callbacks,130 distinct visible tasks/260 predictions and412 private tasks. Current coding proposer is pilot-only, not a completed coding-search benchmark.",
+    "R04": "Accepted ACE/GEPA runnable combinations, eight historical Formula conditions and four online quality/API-upper/study-elapsed observations, plus separately stored current four-arm common trace. Offline continuous elapsed/canonical USD may be unknown; no isolated speedup, paper parity or multi-seed claim.",
+    "R05": "Accepted historical 1x20 and2x10 circle-packing results plus separate current three-request directed delivery/intervention/controller recovery qualification. Original v5.1 request-content gap remains; no quality/cooperation benefit, worker-crash/native-session resume or simultaneous-provider-call claim."
+  },
+  "checklist_disposition": [
+    {
+      "line": 241,
+      "id": "I02 final owned input",
+      "disposition": "ready_to_close_with_scope_note",
+      "basis": "V1_NATIVE_INPUTS.md records core prompt/protocol version plus final minimal policy, LLM body and Pi/DSH/Codex argv before dispatch. Aki remains opaque legacy scope and coding-harness-internal provider messages are not owned by Proteus. Those declared boundaries do not leave this supported-contract requirement unimplemented.",
+      "action": "Change to [x] for supported observable boundaries; retain Aki/custom/internal-message limitations explicitly."
+    },
+    {
+      "line": 397,
+      "id": "I15 installed distributions and real backend path",
+      "disposition": "wait_for_complete_smoke_readback",
+      "basis": "wheel/sdist/extras/template evidence is already accepted; live runtime coverage remains incomplete until all required jobs in 41398194611 succeed. Existing source gate and installed evidence may be reused for preparation because runtime/packaging/native source inputs are unchanged.",
+      "action": "After complete current full smoke plus source/job evidence readback, close preparation installation coverage; do not claim wheel-by-every-harness Cartesian testing or final-tag artifact qualification."
+    },
+    {
+      "line": 439,
+      "id": "R03 current coding-proposer benchmark",
+      "disposition": "retain_unvalidated_boundary",
+      "basis": "Historical JSON proposer is an accepted complete adapted MCE profile; current Pi/DSH/Codex proposer pilots are integration evidence only. Smoke cannot promote those pilots to a full coding-search benchmark.",
+      "action": "Keep [ ] or move to a clearly labeled unvalidated extension boundary, without marking it complete. Do not add a new paid full coding-search run as a prerequisite for the already accepted historical R03 profile."
+    },
+    {
+      "line": 622,
+      "id": "I01-I15 and R00-R05 aggregate",
+      "disposition": "do_not_close_as_unqualified_final_acceptance_on_smoke_alone",
+      "basis": "V1_FINAL_ACCEPTANCE.md I06 and I15 still explicitly require main-PR Harbor/CI. Full smoke would complete the current preparation prerequisite but cannot supply those not-yet-created PR outcomes.",
+      "action": "After complete smoke/readback and documentation reconciliation, report preparation acceptance complete and open the authorized main PR. Keep the unqualified aggregate checkbox open until required main-PR CI/Harbor and review are accepted; alternatively split out an explicitly preparation-scoped checkbox rather than claiming all release acceptance. Future tag/publication remain separate rows in either formulation."
+    },
+    {
+      "line": 623,
+      "id": "recipe controls/results/deviations",
+      "disposition": "ready_for_declared_acceptance_profiles_after_wording_reconciliation",
+      "basis": "All 15 archived profiles /16 recipes with source/lock/run instructions and declared results/deviations were verified, and 14 adapted method profiles +1 Native mechanism profile remain correctly distinguished. Generic catalog builders intentionally retain model_results_pending.",
+      "action": "Scope the wording explicitly to R00-R05 declared acceptance profiles and separately label generic builders/offline examples. Then close; do not mark every possible recipe as model-validated or require models for deterministic examples."
+    },
+    {
+      "line": 625,
+      "id": "regression and unsupported-capability rejection",
+      "disposition": "wait_for_complete_smoke_readback",
+      "basis": "Offline/capability checks are accepted, but the current combined live runtime regression gate is not yet complete. Old failed workflow successes cannot supply missing current cells.",
+      "action": "Close preparation regression after one complete passing 41398194611 or explicitly corrected successor at its recorded source, with all required jobs and strict checks verified."
+    },
+    {
+      "line": 626,
+      "id": "global budgets/checkpoints/recovery/session fallback",
+      "disposition": "ready_to_close_with_supported_scope",
+      "basis": "I09 disposition, preserved native source repair/recovery, prior fault regressions and current CORAL controller recovery settle the declared requirements. Unknown external results retain reservations; native-session versus fresh fallback is explicit.",
+      "action": "Close with those evidence links and existing unknown-usage/reconciliation/fresh-context limits. This does not waive full-smoke/tag gates or assert automatic replay of unknown provider work."
+    },
+    {
+      "line": 627,
+      "id": "rebuild result tables and curves",
+      "disposition": "ready_to_close",
+      "basis": "Accepted I14 generic disposition and five-run readback: 92 task rows /30 candidates, no unreported rollout, known/missing values preserved; historical domain/report evidence stays separately mapped.",
+      "action": "Close with I14 independent export/result-separation evidence; no new experiment required."
+    },
+    {
+      "line": 629,
+      "id": "README architecture recipe migration release notes synchronization",
+      "disposition": "close_after_specific_documentation_edits_and_readback",
+      "basis": "Primary support contracts are coherent; a few remaining stale summaries listed below need correction.",
+      "action": "Update exact stale count/blanket-pending references, archive P2 closure/current run source and status, keep unreleased label and future gates explicit. Then close this documentation item without waiting for a new research run."
+    },
+    {
+      "line": 630,
+      "id": "actual release commit gates",
+      "disposition": "remain_open_through_preparation_and_main_PR",
+      "basis": "RELEASING.md requires exact annotated tag/SHA CI, Harbor, Native-source and full smoke, each with one complete successful required-job run.",
+      "action": "Only close after those exact tag-triggered gates pass. Manual branch, PR, unchanged runtime tree or pooled old cells do not qualify."
+    },
+    {
+      "line": 631,
+      "id": "version tag publish",
+      "disposition": "remain_open",
+      "basis": "Version 1.0.0 is prepared; main merge, annotated tag, GitHub Release/PyPI and public announcement have not been completed by this review.",
+      "action": "Keep actual action stages distinct and separately authorized; never convert version preparation or a passing smoke into publication."
+    }
+  ],
+  "specific_documentation_edits": [
+    {
+      "file": "docs/releases/v1.0.0.md",
+      "line": 71,
+      "issue": "Says 15 adapted single-seed profiles and real-model results, while accepted index contains14 adapted method profiles +1 Native mechanism profile.",
+      "action": "Use15 historical profiles/16 recipes and distinguish14 adapted method studies from Native integration mechanism."
+    },
+    {
+      "file": "docs/V1_OVERVIEW.md",
+      "line": 15,
+      "issue": "Same all15 adapted summary.",
+      "action": "Use accepted14+1 split and preserve current generic builder model_results_pending labels."
+    },
+    {
+      "file": "docs/V1_OVERVIEW.md",
+      "line": 23,
+      "issue": "Blanket present container coverage gap is less precise than the current16-cell matrix.",
+      "action": "Point to declared role/container coverage limits; retain actual gaps such as Codex Native/GEPA, Combee-GEPA live and native-session multiworker rather than implying no real container evidence."
+    },
+    {
+      "file": "docs/V1_OVERVIEW.md",
+      "line": 68,
+      "issue": "Remaining result acceptance header can be read as a new release-wide requirement despite the preceding distinction between generic builders and accepted historical studies.",
+      "action": "Clarify these are requirements for a newly configured benchmark builder run; link current accepted historical/current disposition without promoting the builders."
+    },
+    {
+      "file": "README.md",
+      "line": 75,
+      "issue": "Blanket outstanding real-model acceptance wording obscures that declared historical methods and current directed gaps are already accepted.",
+      "action": "Refer to declared support/validation boundaries and current preparation disposition; keep the coding-search and future release boundaries explicit."
+    },
+    {
+      "file": "docs/plans/proteus-1.0.0-implementation-plan.md",
+      "line": 618,
+      "issue": "Section9 introduction still identifies remaining Combee/CORAL gaps through the October mapping.",
+      "action": "Preserve dated history but add the November final preparation/closure disposition as the current checklist authority."
+    },
+    {
+      "file": "docs/V1_FINAL_ACCEPTANCE.md",
+      "line": 161,
+      "issue": "At1adaa8f the P2 independent recheck is still pending; coordinator already plans the new closure/run-link append.",
+      "action": "Archive independent-p2-closure.json and independent-python314-index-probe.json for bde; retain old12e review/addendum and old v2 decoder record as12e evidence only. Record new41398194611 source1adaa8f as running until completed; do not rewrite older failure or label docs-only laterHEAD as the run source."
+    }
+  ],
+  "no_new_research_thresholds": [
+    "No complete method-by-harness-by-role Cartesian matrix required.",
+    "No new full coding-search benchmark needed to substantiate accepted historical JSON-proposer R03; current coding profile must remain unvalidated at benchmark level.",
+    "No original-paper numerical parity, multi-seed significance, positive speedup/cooperation benefit or causal all-family ranking required.",
+    "No inference of hidden provider internals/costs or silent uncertainty refund/replay.",
+    "No new paid Combee/CORAL study; historical source identities and missingness remain unchanged."
+  ],
+  "remaining_formal_steps": [
+    "Complete and review current full preparation smoke; reconcile exact documentation items.",
+    "Open already authorized main PR, then obtain required exact-PR-head CI/Harbor and review before authorized merge.",
+    "After accepted main integration and separate authorization, create annotated release tag and pass each required exact-tag/SHA CI/Harbor/Native-source/full-smoke workflow as one complete run.",
+    "Perform separately authorized release/PyPI publication, fresh-install/provenance check and public announcement."
+  ],
+  "review_actions": {
+    "new_model_calls": 0,
+    "new_tests": 0,
+    "workers_or_evaluators_started": 0,
+    "workflow_dispatches": 0,
+    "workflow_cancellations": 0,
+    "historical_record_mutations": 0
+  }
+}

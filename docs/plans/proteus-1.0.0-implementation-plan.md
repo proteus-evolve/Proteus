@@ -238,7 +238,7 @@ I01 到 I15 均属于 1.0.0 发布范围。实现可以分批落地；已有部�
 - [x] Stage 声明输入、输出、角色、工具、读写范围、失败处理和预算（P02 校验数据端口、能力与调用预留；Python 插件的声明不等同于进程权限沙箱）。
 - [x] 支持顺序执行、条件决策、有限循环、多候选输出及方法主动提交评估（P02 控制流与多输出；P03b `evaluate`/`open_evaluation` 正式候选评估服务）。
 - [x] 把现有循环接成 native recipe，保留旧 CLI 的兼容入口（P02 覆盖 minimal/llm/dsh/pi/codex 绑定；旧 CLI 继续覆盖原有高级参数和 adapter）。
-- [ ] 将 native 提示和控制条件与公共基础设施分开，记录最终渲染的提示版本（P02/P10f 已隔离协议并记录 core prompts、minimal policy、LLM HTTP body 和 Pi/DSH/Codex 最终 CLI 输入；Aki supervisor 内部及 coding harness 后续 provider 消息仍不透明，见 [V1_NATIVE_INPUTS.md](../V1_NATIVE_INPUTS.md)）。
+- [x] 将 native 提示和控制条件与公共基础设施分开，记录可观测边界内最终渲染的提示版本（core protocol/prompt version、minimal policy、LLM HTTP body 和 Pi/DSH/Codex 最终 CLI 输入均有记录；Aki supervisor 内部及 coding harness 后续 provider 消息仍不透明，见 [输入合同](../V1_NATIVE_INPUTS.md) 和 [独立逐项核对](../validation/v1-20261101/final-checklist/conditional-release-disposition.json)）。
 
 **验收：** 新增一个 stage 插件和配置即可运行；方法能够改变阶段组织而不修改 engine；原有 native 事务与恢复检查继续通过。
 
@@ -617,14 +617,18 @@ results from current implementation evidence; it does not waive the checklist be
 The [October 30 requirement disposition](../V1_RELEASE_EVIDENCE_MAP.md) closes stale
 historical-result checkboxes and identifies remaining Combee/CORAL evidence and
 current coding-search limits. Mandatory scope remains unchanged; any deferral needs
-an explicit maintainer decision, not a new label.
+an explicit maintainer decision, not a new label. The November
+[final preparation disposition](../V1_FINAL_ACCEPTANCE.md) now records independently
+accepted Combee/CORAL closure and is the current checklist reference; the October
+statements above remain development history.
 
+- [ ] 准备阶段验收完成：在已接受的声明范围、安装包和 Native source 证据之上，完整 smoke 单次全部必需 jobs 通过并完成回读；之后按授权创建 main PR。main PR 的 CI/Harbor/review 和正式 tag/publication 另列。
 - [ ] I01–I15 的验收记录齐全，R00 与 R01–R05 均完成对应范围。
-- [ ] 每个 recipe 有版本锁、运行说明、机制核对、支持矩阵、真实结果与偏差说明。
+- [x] R00–R05 声明验收 profiles 有版本锁、运行说明、机制核对、支持矩阵、结果与偏差说明（14 个 adapted 方法 profile 加 1 个 Native 机制 profile，共 16 recipes；generic builders 保留 model_results_pending，离线 fixture 不冒充模型验证，见 [独立核对](../validation/v1-20261101/final-checklist/conditional-release-disposition.json)）。
 - [x] 公共 API 与配置 schema 定义稳定，插件扩展教程通过实际验证（November 1 冻结 100 exports/64 Contract schemas；wheel/sdist 仓库外模板执行与独立回验见 [preparation record](../V1_FINAL_ACCEPTANCE.md)）。
 - [ ] 原有功能回归通过；不支持的 adapter 能力被明确拒绝或限制。
-- [ ] 全局预算、检查点与恢复验证通过；持久 session 降级有记录。
-- [ ] 已保存的逐任务记录可重新汇总为报告中的表与曲线。
+- [x] 已声明支持范围内的全局预算、检查点与恢复验证通过；持久 session 与 fresh fallback 分开记录（I09、Native repair 和 CORAL 控制器恢复已验收；未知外部结果保留 reservation 并要求 reconciliation，见 [支持边界](../V1_FINAL_ACCEPTANCE.md)）。
+- [x] 已保存的逐任务记录可重新汇总为报告中的表与曲线（I14 独立回读 5 个 run、92 个任务/30 个候选，无漏报 rollout；历史领域报告单列，unknown 不补零，见 [输出验收](../validation/v1-20261101/i14-output/i14-generic-disposition.json)）。
 - [x] wheel、sdist 和可选依赖在新环境安装验证通过（clean 9807a41 的未发布 1.0.0 artifacts；261 Python sources 逐字节一致，22 项仓库外检查通过；后续 production/build 输入未变。正式 tag 产物仍需按发布流程重建并验证）。
 - [ ] README、架构、recipe、迁移与 1.0.0 release notes 同步。
 - [ ] 对实际发布提交运行既有和新增的 release gates；需要的 live 检查不以静默 skip 代替。
