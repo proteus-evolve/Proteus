@@ -1,0 +1,198 @@
+{
+  "review_date": "2026-11-01 America/Los_Angeles",
+  "reviewed_preparation_head": "55919a113fa454599bd29bc8684195d7a9cf42d9",
+  "reviewed_base": "dc6ea2f14f391989c3944df6fc873d3786be0a99",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "conclusion": "The remaining R04 common-frozen-trace acceptance item is satisfied. API freeze, 1.0.0 preparation metadata, installed-distribution evidence and scoped I09 disposition are accepted. No new runtime blocker found in this preparation delta. CORAL and remaining release qualification are separate and remain open.",
+  "finding_disposition": [
+    {
+      "id": "COMMON-TRACE-IDENTITY-BINDING",
+      "priority": "P2",
+      "status": "closed",
+      "original_head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+      "fixed_source": "57943787369aff43fb180818af9eba5b6a68b1c6",
+      "evidence": "/tmp/proteus-v1-review-9807a41/final-5794378/independent-probes.json",
+      "description": "Original reader accepted changed reported source, recipe budget and task content. Final reader binds committed fixture, production tree, typed manifest/config/dependency lock, external dataset and actual request/response records. All original probes and unavailable source/runtime/lock changes now raise ContractError."
+    }
+  ],
+  "common_trace": {
+    "status": "accepted_mechanism_only",
+    "source": {
+      "dirty_patch_hash": null,
+      "name": "proteus",
+      "repository": "https://github.com/proteus-evolve/Proteus",
+      "revision": "57943787369aff43fb180818af9eba5b6a68b1c6",
+      "schema_version": 1
+    },
+    "comparison_sha256": "2f0a4bbcf0417d702b600808f4964cf83bbab8ec84fa93be5fb65ba19bb554d0",
+    "archive_sha256": "9f1a4136df335e34e7faae8e532a4bec742052d787c380e84ce993fbe41b235b",
+    "archive_files_matched": 331,
+    "original_and_relocated_controls_passed": true,
+    "negative_cases": [
+      {
+        "case": "reported-source",
+        "rejected": true,
+        "exception": "ContractError",
+        "message": "source commit lacks frozen fixture"
+      },
+      {
+        "case": "unavailable-source",
+        "rejected": true,
+        "exception": "ContractError",
+        "message": "source commit is unavailable in this checkout"
+      },
+      {
+        "case": "runtime-tree",
+        "rejected": true,
+        "exception": "ContractError",
+        "message": "source commit/runtime tree mismatch"
+      },
+      {
+        "case": "recipe-budget",
+        "rejected": true,
+        "exception": "ContractError",
+        "message": "resume changes the resolved recipe"
+      },
+      {
+        "case": "task-payload",
+        "rejected": true,
+        "exception": "ContractError",
+        "message": "external task dataset differs from recipe"
+      },
+      {
+        "case": "dependency-lock",
+        "rejected": true,
+        "exception": "ContractError",
+        "message": "resume changes the dependency lock"
+      }
+    ],
+    "arms": [
+      {
+        "variant": "ace",
+        "batch_sizes": [],
+        "role_calls": {
+          "curator": 11,
+          "generator": 22,
+          "reflector": 11
+        },
+        "completed_resume_extra_actor_calls": 0
+      },
+      {
+        "variant": "naive_parallel",
+        "batch_sizes": [
+          3,
+          3,
+          3,
+          2
+        ],
+        "role_calls": {
+          "curator": 4,
+          "generator": 22,
+          "reflector": 11
+        },
+        "completed_resume_extra_actor_calls": 0
+      },
+      {
+        "variant": "combee_fixed",
+        "batch_sizes": [
+          3,
+          3,
+          3,
+          2
+        ],
+        "role_calls": {
+          "curator": 12,
+          "generator": 22,
+          "reflector": 11
+        },
+        "completed_resume_extra_actor_calls": 0
+      },
+      {
+        "variant": "combee_dynamic",
+        "batch_sizes": [
+          1,
+          2,
+          4,
+          4
+        ],
+        "role_calls": {
+          "curator": 12,
+          "generator": 22,
+          "reflector": 11
+        },
+        "completed_resume_extra_actor_calls": 0
+      }
+    ],
+    "provider_calls": 0,
+    "scope": "Four real production loops replay eleven common task/prediction/feedback/reflection records with common H0 and seed. Separate occurrence/copy lineage and actual requests are retained. Dynamic 1/2/4/4 observes the selected size 4. This does not establish model quality, real latency, isolated speedup or paper parity. Archive supports readback, not resume; original completed resumes added zero fixture calls."
+  },
+  "independent_validation": {
+    "initial_focused": {
+      "head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+      "passed": 10,
+      "scope": "Five initial trace cases plus five public API cases",
+      "log": "/tmp/proteus-v1-review-9807a41/focused.log"
+    },
+    "final_trace": {
+      "head": "57943787369aff43fb180818af9eba5b6a68b1c6",
+      "passed": 10,
+      "seconds": 50.6,
+      "log": "/tmp/proteus-v1-review-9807a41/final-focused.log"
+    },
+    "test_count_note": "Initial/final trace sets overlap; do not add 10+10 as distinct tests. API files unchanged since initial checks.",
+    "ruff": "passed on trace runner, trace tests and public API tests",
+    "diff_check": "No code whitespace errors; latest documentation archive contains original trailing whitespace in captured twine.log line 1. This is a retained tool log, not a runtime finding."
+  },
+  "api_and_packages": {
+    "api_exports": 100,
+    "contract_schema_identities": 64,
+    "frozen_api_accepted": true,
+    "version": "1.0.0",
+    "package_evidence": {
+      "build_source": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+      "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+      "artifacts": [
+        {
+          "file": "proteus_evolve-1.0.0-py3-none-any.whl",
+          "sha256": "a6f5956f4ff139bb02546ef26ffb200010359a773a8030059a4180ada7ff4f53",
+          "python_sources_byte_identical": 261
+        },
+        {
+          "file": "proteus_evolve-1.0.0.tar.gz",
+          "sha256": "90f78e4e442c0927837b031ff1a10b19b9a4bc400ae36576fd247d2663123871",
+          "python_sources_byte_identical": 261
+        }
+      ],
+      "recorded_installed_checks_passed": 22,
+      "independently_matched_log_files": 20,
+      "metadata_records_matched_to_original_proof": 2,
+      "all_installed_tests_rerun_by_reviewer": false,
+      "I09_doc_links_resolve": 11,
+      "note": "Read-only rehash, source byte comparison and original output/metadata readback; no rebuild or broad test rerun."
+    },
+    "boundary": "Preparation packages from clean 9807a41; subsequent fixes are validation/documentation only and preserve runtime/build inputs. Independent readback is not a repeat of all installed checks or exact-tag qualification."
+  },
+  "I09_disposition": {
+    "status": "accepted_with_documented_capability_boundaries",
+    "document_commit": "55919a113fa454599bd29bc8684195d7a9cf42d9",
+    "known_usage": "Reported independently validated values remain known; opaque fields stay null. Unsupported finite caps reject before dispatch.",
+    "unknown_usage": "Corresponding reserved amounts remain in accounting; unbounded amounts remain unknown. Terminal operations can settle and release concurrency slots.",
+    "uncertain_external_execution": "Started work remains unsettled with original reservation and slot until reconciliation; no automatic redispatch. Settled original receipts are reused.",
+    "new_runtime_finding": false
+  },
+  "harness_contract": "HarnessIntegration declares capabilities and role adapters; recipes independently bind role ActorSpecs; methods consume service/artifact/protocol capabilities rather than method-by-harness pairs. Candidate/subject/coding actor and independent external evaluator remain separate. Support for one role does not imply every role or every method combination is qualified.",
+  "remaining_release_work": [
+    "Current-source CORAL two-worker sharing, intervention and interrupted-recovery evidence; preserve historical results as historical.",
+    "Complete source-bound preparation Native/full release-smoke gates; CI/Harbor on the authorized PR into main before merge.",
+    "Exact-tag/SHA CI, Harbor, Native-source and complete release-smoke after separately authorized main/tag actions; publication remains separate."
+  ],
+  "actions_not_taken": [
+    "No product edits",
+    "No new model/provider calls",
+    "No AWS actions",
+    "No broad test rerun",
+    "No workflow dispatch",
+    "No merge, release tag or publication"
+  ],
+  "evidence_preservation": "Original run files and archives unchanged; mutations made only to reviewer-owned copies."
+}
