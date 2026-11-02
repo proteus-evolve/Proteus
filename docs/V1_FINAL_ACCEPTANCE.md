@@ -157,9 +157,17 @@ paper-matched scores or a causal ranking across methods.
   retains this real failure. Follow-up `bde937a` bounds invalid-line samples to 64
   per file and the index to 512 KiB, preserving full parsed counts, omissions and
   source hashes. The original compressed case now produces a 10,565-byte index
-  retaining all 131,072 invalid-line counts. Its 21 targeted tests and lint pass;
-  independent P2 recheck and a complete successful preparation workflow remain
-  required.
+  retaining all 131,072 invalid-line counts. Its 21 targeted tests and lint pass.
+  The [independent P2 closure](validation/v1-20261101/dsh-smoke-repair/bde937a-independent-p2-closure.json)
+  reproduced the same compressed input on the exact fixed source (10,783-byte
+  index with reviewer context), verified the limits and retained unknowns, and
+  passed 21 tests plus Python 3.14's decoder path. The older author decoder v2
+  record belongs to `12e02ff`; it is not evidence for this follow-up.
+- Corrected complete preparation smoke [41398194611](https://github.com/proteus-evolve/Proteus/actions/runs/41398194611)
+  was dispatched once at `1adaa8ffa729771b80ad0a29b407fb014e64a14c`, after code
+  review and P2 closure. It uses the unchanged episode/turn/timeout bounds and
+  production tree; all six required jobs must pass in this one run. It is
+  currently in progress and is not yet an accepted gate.
 
 The [independent review](validation/v1-20261101/independent-review.json) accepts
 R04 common-trace closure, the API/package evidence and the scoped I09 disposition.

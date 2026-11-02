@@ -1,0 +1,26 @@
+{
+  "source_commit": "bde937ad8f10555ada2202da6584e308fe3fca95",
+  "argv": [
+    "/tmp/proteus-v1-review-4f7209c/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_release_smoke_diagnostics.py",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 13.819520541466773,
+  "logs": {
+    "stdout": {
+      "path": "/private/tmp/proteus-dsh-smoke-review-bde937a/independent-regression.stdout",
+      "sha256": "f10b371e9d33bf2ce56f667685cb3c1dd2f6f063499d023101a184df2b0c9450"
+    },
+    "stderr": {
+      "path": "/private/tmp/proteus-dsh-smoke-review-bde937a/independent-regression.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

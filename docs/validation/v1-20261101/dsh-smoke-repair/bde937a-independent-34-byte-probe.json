@@ -1,0 +1,21 @@
+{
+  "source_commit": "bde937ad8f10555ada2202da6584e308fe3fca95",
+  "same_original_input_bytes": true,
+  "input_sha256": "e982c7f1d8fa3524ac8fbd78848e27d552dbf0c11447eb503e794130c9382f7a",
+  "compressed_input_bytes": 34,
+  "decoded_input_bytes": 262144,
+  "invalid_line_count": 131072,
+  "samples": 64,
+  "samples_omitted": 131008,
+  "original_index_bytes": 17454426,
+  "new_index_bytes": 10783,
+  "index_byte_limit": 524288,
+  "data_bytes": 1,
+  "artifact_total_bytes": 10784,
+  "source_unchanged": true,
+  "degradation": "none",
+  "elapsed_seconds": 3.782710624858737,
+  "index_sha256": "70ec8d1a7715612a8536a65ee499ae1bf23990d3cc1f8211f968d307dfbac28f",
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

@@ -104,3 +104,9 @@ first new test run is also retained: its opaque-byte sentinel accidentally match
 the index's explanatory prose; changing that synthetic sentinel to a unique value
 fixed the test without loosening the assertion or changing collector behavior.
 The independent metadata recheck and successful full workflow are still required.
+
+`bde937a-independent-p2-closure.json` closes the metadata P2 with the same original
+compressed probe, 21 independent tests and a new exact-source Python 3.14 probe.
+The earlier author `python314-decoder-check-v2.json` is explicitly old-source
+evidence, not this patch's validation. Corrected complete smoke `41398194611` was
+dispatched once at `1adaa8f`; its running status does not yet close the live gate.
