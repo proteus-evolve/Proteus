@@ -108,6 +108,30 @@
       "question": "TASK_ID=sample-08: emit the fixed answer.",
       "reference": "1",
       "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-08] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-09",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-09: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-09] frozen insight\"}"
+    },
+    {
+      "context": "Shared frozen trace fixture.",
+      "feedback": {
+        "correct": true,
+        "ground_truth": "1"
+      },
+      "id": "sample-10",
+      "prediction_response": "{\"bullet_ids\": [], \"final_answer\": \"1\", \"reasoning\": \"Frozen successful prediction.\"}",
+      "question": "TASK_ID=sample-10: emit the fixed answer.",
+      "reference": "1",
+      "reflection_response": "{\"bullet_tags\": [], \"reflection\": \"TRACE[sample-10] frozen insight\"}"
     }
   ],
   "schema_version": 1,

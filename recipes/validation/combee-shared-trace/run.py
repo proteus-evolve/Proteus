@@ -35,7 +35,7 @@ from proteus.operators.combee.batching import DynamicBatchOptions
 from proteus.operators.combee.grouping import Grouping, GroupPlan
 from proteus.recipes import load_recipe
 from proteus.recipes.builtins import builtin_registry
-from proteus.recipes.manifest import SourcePin
+from proteus.recipes.manifest import DependencyLock, RunManifest, SourcePin
 from proteus.recipes.runner import run_recipe
 
 HERE = Path(__file__).resolve().parent
@@ -263,6 +263,8 @@ def audit_arm(root, variant, trace, registry, recipe, readings, records_file=Non
 def execute(out, manifest=HERE / "trace.json"):
     require(not out.exists() or not any(out.iterdir()), "output must be new")
     out.mkdir(parents=True, exist_ok=True)
+    require(not subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO, text=True).strip(),
+            "commit the validation checkout before creating source-bound evidence")
     trace = load_trace(manifest, digest(manifest))
     source = SourcePin(name="proteus", repository="https://github.com/proteus-evolve/Proteus",
         revision=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
@@ -302,6 +304,13 @@ def verify(out, manifest=HERE / "trace.json"):
     trace = load_trace(manifest, report["trace_sha256"])
     require(report["runner_sha256"] == digest(__file__), "reader implementation changed")
     require([row["variant"] for row in report["arms"]] == list(VARIANTS), "comparison arm coverage changed")
+    source = SourcePin.from_dict(report["source"])
+    require(source.dirty_patch_hash is None, "unsupported dirty validation source")
+    tree = subprocess.check_output(["git", "rev-parse", f"{source.revision}:proteus"], cwd=REPO, text=True).strip()
+    require(tree == report["runtime_tree"], "source commit/runtime tree mismatch")
+    for filename, expected_hash in (("run.py", report["runner_sha256"]), ("trace.json", report["trace_sha256"])):
+        committed = subprocess.check_output(["git", "show", f"{source.revision}:recipes/validation/combee-shared-trace/{filename}"], cwd=REPO)
+        require(hashlib.sha256(committed).hexdigest() == expected_hash, "fixture bytes differ from source commit")
     registry = builtin_registry()
     register(registry)
     for arm in report["arms"]:
@@ -309,7 +318,14 @@ def verify(out, manifest=HERE / "trace.json"):
         require(json.loads((root / "audit.json").read_text()) == arm, "comparison/audit mismatch")
         require(arm["execution_sha256"] == digest(root / "run" / arm["execution_file"]), "execution bytes changed")
         require(arm["manifest_sha256"] == digest(root / "run/manifest.json"), "run manifest bytes changed")
-        actual = audit_arm(root, arm["variant"], trace, registry, load_recipe(root / "recipe.json"),
+        manifest_record = RunManifest.from_json((root / "run/manifest.json").read_text())
+        recipe = registry.resolve(load_recipe(root / "recipe.json"))
+        lock = DependencyLock.from_json((root / "lock.json").read_text())
+        manifest_record.assert_resume_compatible(recipe, lock)
+        require(manifest_record.lock.sources == (source,), "arm lock/report source mismatch")
+        execution = json.loads((root / "run" / arm["execution_file"]).read_text())
+        require(execution["manifest_hash"] == manifest_record.manifest_hash, "execution/manifest identity mismatch")
+        actual = audit_arm(root, arm["variant"], trace, registry, recipe,
                            arm["controlled_clock_readings"], arm["execution_file"])
         expected = {key: value for key, value in arm.items() if key != "completed_resume_extra_actor_calls"}
         require(json.loads(canonical_json(actual)) == expected, "saved audit differs from actual records")
