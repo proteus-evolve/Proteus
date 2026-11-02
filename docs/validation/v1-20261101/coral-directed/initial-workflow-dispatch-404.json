@@ -1,0 +1,31 @@
+{
+  "argv": [
+    "gh",
+    "workflow",
+    "run",
+    ".github/workflows/coral-directed-qualification.yml",
+    "--repo",
+    "proteus-evolve/Proteus",
+    "--ref",
+    "codex/coral-release-directed-qualification-20261101",
+    "-f",
+    "expected_sha=0c749a750d9090ce68f760d84fa9aba77523bbf6",
+    "-f",
+    "mode=fixture",
+    "-f",
+    "model=deepseek-flash"
+  ],
+  "exit_code": 1,
+  "seconds": 0.5364961624145508,
+  "attempts": 1,
+  "mode": "fixture",
+  "live_dispatch_authorized": false,
+  "stdout": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-fixture-dispatch-v1.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "stderr": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-fixture-dispatch-v1.stderr",
+    "sha256": "612c474c8341a6ec8b3267f0918c89659de275720452df878144b6e3be6e3e18"
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "schema": "proteus.coral.linux-fixture-final-technical-handoff.v1",
+  "status": "linux_fixture_success__live_not_dispatched__technical_review_pending",
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "source_branch": "codex/coral-release-directed-qualification-20261101",
+  "production_tree_unchanged": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "script_sha256": "1fe2eb30c7474de86d8d739a08522f29f7c3fdb26cacd68850df5f3711ae1d73",
+  "ci_run_id": 41394652342,
+  "ci_run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41394652342",
+  "ci_run_attempt": 1,
+  "ci_scope": "Only the bounded CORAL fixture job; this is NOT the full normal-CI or release-smoke gate.",
+  "unit_test_result": "22 passed in 11.25s on ubuntu-latest Python 3.12",
+  "normal_and_live_jobs": [
+    {
+      "name": "Visualize presentation helpers",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Pinned AIME data and DSPy contract",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Installed wheel and sdist",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "test",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "coral-directed-live",
+      "conclusion": "skipped"
+    }
+  ],
+  "raw_run_readback": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-ci-run-raw-v1.json",
+    "sha256": "a2aaa46cbc183151625da49c3654ba4636bbe035eac1250b493b1cc3230fdfe1",
+    "size": 12752
+  },
+  "raw_jobs_readback": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-ci-jobs-raw-v1.json",
+    "sha256": "13c02ddb056980a5d777ee357f617854315854cbce5e9c94c2ec6d461a7b6878",
+    "size": 8278
+  },
+  "raw_log": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-ci-log-raw-v1.txt",
+    "sha256": "014771deaa025d88fcfac8792c8e36de3a62f0d4017c7263b90b1fdfe4d0cd41",
+    "size": 91723
+  },
+  "raw_artifact_metadata": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-ci-artifact-metadata-raw-v1.json",
+    "sha256": "fc578f67022389447e06ebe9254535be75882ad0a4129a2d48d2e2794eb7ec2a",
+    "size": 826
+  },
+  "artifact_id": 13118379108,
+  "artifact_download_count": 1,
+  "original_zip": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/coral-directed-fixture-41394652342-original.zip",
+    "sha256": "5aeebbea5fcb5becd3f23355478bd2d64c339140713f87efe72e0c672fdf5a93",
+    "size": 510390
+  },
+  "matches_github_zip_digest": true,
+  "extracted_root": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-fixture-artifact-41394652342",
+  "artifact_local_audit_result": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-ci-artifact-readonly-audit-v1.stdout",
+    "sha256": "0010911354784595a8a43ad3aa9dde4511b916c073e21e14d8cc61b62cb6e959",
+    "size": 6284
+  },
+  "artifact_local_audit_execution": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-ci-artifact-readonly-audit-v1.json",
+    "sha256": "a120e95af4d4ce5cd89db262c51097055150bea8f9913bd42dab44f720cd22b0",
+    "size": 1103
+  },
+  "audit_side_effect_disclosure": {
+    "original_zip_unchanged": true,
+    "all_403_original_extracted_files_unchanged": true,
+    "database_bytes_unchanged": true,
+    "added_empty_local_advisory_lock": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-fixture-artifact-41394652342/fixture/.proteus-locks/710b34e1fcf3dc4a23de90c5b0b75841b57644a6b0b5b74eaacf835fcc97a5db.lock",
+    "added_empty_lock_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "pure_no_filesystem_write_claim": false,
+    "reason": "Native artifact-store reading creates a host-path-specific empty advisory lock. No scientific records were modified. Original ZIP is the canonical reusable evidence."
+  },
+  "fixture_acceptance_checks": {
+    "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+    "mode": "fixture",
+    "plan_sha256": "22486acaca46c34aed94720279d81bfb928888df431930a85556d74799ad7de1",
+    "model_transport_dispatches": 3,
+    "real_paid_provider_dispatches": 0,
+    "cross_worker_publication_in_actual_B_request": true,
+    "one_intervention_in_actual_A_next_generation_request": true,
+    "controller_actual_hard_exit_code": 86,
+    "same_workspace_resume_count": 1,
+    "sealed_responses_and_physical_dispatches_unchanged_after_resume": true,
+    "already_settled_evaluation_identities_and_settlements_preserved": true,
+    "no_duplicate_native_settlement": true,
+    "evaluation_workers": 1,
+    "cached_shared_files_match_native_knowledge_artifact_blobs": true
+  },
+  "native_cost_unknowns_preserved": {
+    "charged": {
+      "model_calls": 3.0,
+      "evaluations": 4.0,
+      "cost_usd": null,
+      "wall_seconds": 6.836747268999986
+    },
+    "unknown": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 3,
+      "wall_seconds": 0
+    },
+    "active_slots": 0,
+    "entries": 15
+  },
+  "exact_live_plan": {
+    "artifact_path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-fixture-artifact-41394652342/reviewed-live-plan.json",
+    "artifact_file_sha256": "b20186f23d2d9657cd8b8adf1af2c5892ce6ecdf16e0c67ff82ca74dc20e626d",
+    "local_plan_identical": true,
+    "plan_sha256": "bded2fa9e62422e5d224d610b6e252264d847a5585bb7922bfc42c744e611dca",
+    "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+    "dirty_patch_hash": null,
+    "model": "deepseek-flash",
+    "max_physical_dispatches": 3,
+    "max_output_tokens_each": 4096,
+    "output_root": "/tmp/proteus-coral-directed-live"
+  },
+  "next_action": "Coordinator/reviewer final technical acceptance; only coordinator may dispatch the one live attempt after explicit release. No live was dispatched by this chat.",
+  "live_dispatched": false,
+  "paid_provider_requests": 0,
+  "old_aws_resumed": false,
+  "first_direct_workflow_404_preserved": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-fixture-dispatch-v1.json",
+    "sha256": "374b6ed6dff24226ff68d23ef96edeaf5b1016c0168a7ba7c711774be8dcc009",
+    "size": 948
+  },
+  "wrapper_static_review": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/CORAL-ci-wrapper-review-v2.json",
+    "sha256": "c009366ca97fcad60de5b6bca3572e52db462f553d3658545daff0b0cd4eccf4",
+    "size": 891
+  },
+  "historical_missing_evidence_not_supplied_by_fixture": true
+}

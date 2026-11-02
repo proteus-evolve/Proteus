@@ -1,0 +1,22 @@
+{
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "base_commit": "0c749a750d9090ce68f760d84fa9aba77523bbf6",
+  "changed_files": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/coral-directed-qualification.yml"
+  ],
+  "normal_jobs_bytes_identical_after_removing_four_manual_event_guards": true,
+  "normal_push_pull_request_tag_trigger_bytes_unchanged": true,
+  "fixture_no_secret_mapping": true,
+  "live_only_explicit_DeepSeek_secret": true,
+  "fixture_live_jobs_mutually_exclusive": true,
+  "reusable_job_body_byte_identical": true,
+  "qualification_script_tests_and_plan_unchanged": true,
+  "technical_source_conclusion": "Wrapper source accepted; no new blocker. Same-head Linux fixture and exact live plan still require evidence readback before a single authorized live dispatch.",
+  "reviewer_workflow_dispatches": 0,
+  "reviewer_model_calls": 0,
+  "sha256": {
+    ".github/workflows/ci.yml": "58ac862e3e0e51dd1931bdebaf7162d90614f20fdf5ab4216d1725c835136ca6",
+    ".github/workflows/coral-directed-qualification.yml": "17c31ab7b271302e949e53f26601f08eabaf5203717529935d159b57877a4838"
+  }
+}
