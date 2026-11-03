@@ -1,0 +1,35 @@
+\section{Native Self-Evolution and Composable Recipes}
+\label{sec:recipes}
+
+\input{sections/04a_native}
+
+\subsection{Reference recipes and researcher workflow}
+
+% Role: overview. Message: recipe reuse preserves method semantics.
+The included recipes demonstrate several ways to reuse infrastructure without equating their algorithms. Table~\ref{tab:profiles} identifies the optimized artifact, controlling mechanism, and empirical boundary of each family. The method documentation and frozen profile configurations specify the actual options; family names alone are insufficient to reconstruct an experiment. In particular, an original-domain builder is an entry point for preparing a new study, not a certificate that the resulting configuration has model-quality evidence.
+
+\input{tables/profiles}
+
+% Role: example. Message: ACE and Combee compose at a real reusable boundary.
+\paragraph{ACE with Combee.}
+ACE's generator, reflector, and curator operate on a versioned playbook whose structured updates retain stable entries and counters. Combee-ACE reuses that representation and the surrounding evaluation services, while introducing grouped parallel proposal work and aggregation before publication. The implementation distinguishes original samples from copied aggregation occurrences and preserves their provenance. Sequential ACE, naive parallel, fixed Combee, and dynamic Combee therefore form explicit conditions rather than informal choices of thread count. The common frozen-trace check in Section~\ref{sec:mechanism} isolates these consumption and update mechanisms.
+
+% Role: example. Message: GEPA and Combee compose without replacing the search loop.
+\paragraph{GEPA with Combee.}
+Combee aggregation is also integrated into the pinned GEPA search loop. GEPA retains candidate evaluation, acceptance, component choice, and final testing, while the aggregation operator changes how reflective proposals are formed. This is a second implemented composition, with its own artifact and parser requirements. The existence of both integrations supports component reuse across base learners; it does not establish that a Combee operator can be attached to any method without adapting its input and update contracts. The historical Formula results in this report concern Combee-ACE, not a new Combee-GEPA benchmark.
+
+% Role: example. Message: a self-evaluator is an explicit experiment intervention.
+\paragraph{An explicit self-evaluation experiment.}
+A stage-composing method can insert a self-evaluator between a proposal and the next method decision. The researcher declares its inputs, the permitted evidence view, the output type, and whether that output affects revision, selection, or only logging. An ablation can then remove or replace the stage while keeping tasks, external grading, budgets, and other choices fixed. The tutorial demonstrates such configuration and plugin boundaries. It supplies a way to pose the research question; a useful or calibrated self-evaluator would still require independent empirical validation.
+
+% Role: example and boundary. Message: Native is one implementation, with two paths.
+\paragraph{Native evolution as a method.}
+The legacy Native compatibility recipe preserves the existing episode transaction engine and its evaluator schedules and measurements. The additional common Native evolution profile uses ordinary stages, immutable candidates, shared evaluation, and the recovery journal while retaining observe/propose/act/reflect inside its episode stage. It uses neutral disposition and last-valid activation, not outer-score selection. The same integration supplies its evolution and target roles. These paths are documented separately; neither is imposed on ACE, GEPA, Meta-Harness, Combee, or CORAL.
+
+% Role: workflow. Message: configure existing behavior, extend missing behavior.
+\paragraph{From an experiment idea to a run.}
+The normal workflow is to choose a profile, bind compatible actors and artifacts, declare tasks and evidence policy, then validate and lock sources before running. Replacing an implemented model, prompt, policy, budget, or exposed stage is a configuration change. Introducing a new update rule, actor protocol, or side effect requires the corresponding plugin and its checks. Resume uses the original locks; a changed method or runtime creates a new experiment. Thus, ``no model training'' is not sufficient for configuration-only reproduction of an arbitrary new method.
+
+% Role: ecosystem. Message: skills provide guidance rather than performance.
+\paragraph{Agent-facing use and contribution skills.}
+The accompanying documentation commit includes a \code{proteus-use} skill that guides an agent through profile choice, role binding, validation, execution or saved-run analysis, recovery, and reporting. An optional \code{proteus-contribute} skill guides extension work. These repository-distributed instructions reference the matching runtime and documentation, distinguish an analysis-only request from a new experiment, and keep evidence and resource limits explicit. They are a usability and contribution interface, not an additional optimizer or a demonstrated performance contribution. Their committed documentation provenance is recorded separately from the source revisions that produced the experimental evidence.

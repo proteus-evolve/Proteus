@@ -1,0 +1,28 @@
+{
+  "title": "Proteus: A Modular Framework for Agent Self-Improvement",
+  "authors": "The Proteus Authors",
+  "edition": "Repository integration of revision 4, November 3, 2026",
+  "documentation_snapshot": "b828a85a1fcfebedc738ba02bee19d0314b0ea04",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "pdf": {
+    "path": "proteus-tech-report.pdf",
+    "sha256": "3d62f15364734e9368ed81a8fbfe6e16184b949d360a9d5dbca4e59b93c40bf0",
+    "pages": 16
+  },
+  "source": {
+    "path": "proteus-tech-report-source.zip",
+    "sha256": "1c4ec4809d6d8a3049810c361eafbeed2c2033614ea6124e4048380907b2c7e6",
+    "files": 38
+  },
+  "validation": {
+    "numeric_values": 73,
+    "coverage_judgments": 26,
+    "cited_references": 16,
+    "rendered_pages_reviewed": 16,
+    "table_1_unchanged": true,
+    "runtime_changes": false,
+    "new_model_experiments": 0,
+    "paid_calls": 0
+  },
+  "scope": "Technical report and portable source bundle; not conference acceptance or release-tag qualification."
+}

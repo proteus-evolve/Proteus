@@ -1,0 +1,26 @@
+\section{Scope and Related Work}
+\label{sec:scope}
+
+% Role: definition. Message: fixed-weight improvement does not imply RSI gains.
+\paragraph{Experimental scope.}
+We study changes to prompts, playbooks, memory, skills, tools, and harness code at fixed model weights. A \emph{harness} is the execution system surrounding a model, including its tools, context handling, and process or session behavior. A \emph{candidate artifact} is the mutable object under study; it need not be the optimizer's harness. We use \emph{self-improvement} for methods that produce and evaluate such changes, without presuming that every trajectory improves. Recursive self-improvement is a research direction that the framework can help investigate. Sustained recursive returns, autonomous expansion of capability, and model training are not demonstrated in this report.
+
+% Role: positioning. Message: prior algorithms retain their separate semantics.
+\paragraph{Prompt, context, and program adaptation.}
+The five integrated families provide complementary mechanisms rather than interchangeable implementations of one algorithm. GEPA's reflective search and ACE's incremental playbook updates motivate separate search and structured-artifact interfaces. Combee adds an aggregation mechanism usable with more than one base learner. Meta-Harness motivates code artifacts and history-rich proposal workspaces, whereas CORAL motivates independent workers, shared knowledge, and event-triggered interventions. We reuse their published ideas and pinned official implementations where specified, cite their original papers at introduction, and record official software and source revisions in Appendix~\ref{app:pins}. A Proteus integration profile may cover only a subset of an upstream method's options.
+
+% Role: positioning. Message: common evolution infrastructure is established prior work.
+\paragraph{Evolution toolkits.}
+OpenEvolve provides program-evolution infrastructure~\citep{openevolve_software}, while Penguin Harness supplies multiple RSI toolkits over versioned agent state and shared evaluation records~\citep{penguin_software}. Candidate search, archives, and extensible improvement workflows are established building blocks. Table~\ref{tab:systems} records a bounded source audit of infrastructure and selected method coverage. Proteus's design is described directly in Section~\ref{sec:framework}; the table does not establish overall breadth or performance superiority.
+
+\input{tables/system-comparison}
+
+
+
+% Role: distinction. Message: Native contributes a method inside the shared toolkit.
+\paragraph{A Native method within an extensible framework.}
+Proteus pairs the research toolkit with a reference self-evolution method: the executing harness inspects and changes its own declared state, while the protocol keeps the goal, external measurements, and activation rule separate. Its common-contract profile uses viability-gated continuation rather than an outer best-score filter. Pi, DSH, and Codex supply execution integrations rather than competing optimization methods~\citep{zechner_pi_0851,dsh_software,codex_software}. Section~\ref{sec:native} specifies the update rule and the distinction between its legacy and common profiles.
+
+% Role: positioning. Message: reuse execution infrastructure instead of conflating it.
+\paragraph{Research toolkits and execution backends.}
+The organizational model resembles recipe-oriented research toolkits such as ESPnet~\citep{espnet_software}: expose established methods, common interfaces, and reproducible configurations, while allowing new components to enter at defined extension points. The analogy concerns organization, not comparable maturity or task coverage. Harbor supplies agent evaluation and container infrastructure~\citep{harbor_software}; Proteus uses pinned Harbor/Docker execution where declared, while retaining ownership of method state, candidate identity, feedback policy, and experiment aggregation. Container execution and optimization logic remain distinct responsibilities.

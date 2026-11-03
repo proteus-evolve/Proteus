@@ -24,6 +24,7 @@
   <a href="#evaluation-as-part-of-the-experiment">Evaluators</a> •
   <a href="#visualize-the-evolution">Visualization</a> •
   <a href="recipes/README.md">Experiments</a> •
+  <a href="docs/technical-report/proteus-tech-report.pdf">Technical Report</a> •
   <a href="#documentation">Docs</a>
 </p>
 
@@ -32,6 +33,10 @@
 **Proteus is a modular framework for building and studying self-improving agents.**
 Optimize prompts, memory, skills or harness source code while keeping the optimization
 method, agent runtime and evaluation protocol independently configurable.
+
+**Technical report:** [Proteus: A Modular Framework for Agent Self-Improvement](docs/technical-report/proteus-tech-report.pdf)
+· [LaTeX source and build instructions](docs/technical-report/source/README.md)
+· [Source ZIP](docs/technical-report/proteus-tech-report-source.zip).
 
 - **Harness-agnostic:** use Pi, DeepSeek Harness, Codex, an HTTP model adapter, or
   your own integration in supported roles. The agent proposing changes and the
