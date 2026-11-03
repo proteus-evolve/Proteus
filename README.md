@@ -13,7 +13,7 @@
   <a href="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml"><img src="https://github.com/proteus-evolve/Proteus/actions/workflows/release-smoke.yml/badge.svg" alt="release smoke"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/version-1.0.0--unreleased-informational.svg" alt="v1.0.0 unreleased">
+  <img src="https://img.shields.io/badge/version-1.0.0-informational.svg" alt="Source version 1.0.0">
 </p>
 
 <p align="center">
@@ -34,9 +34,7 @@
 Optimize prompts, memory, skills or harness source code while keeping the optimization
 method, agent runtime and evaluation protocol independently configurable.
 
-**Technical report:** [Proteus: A Modular Framework for Agent Self-Improvement](docs/technical-report/proteus-tech-report.pdf)
-· [LaTeX source and build instructions](docs/technical-report/source/README.md)
-· [Source ZIP](docs/technical-report/proteus-tech-report-source.zip).
+**Technical report (PDF):** [Proteus: A Modular Framework for Agent Self-Improvement](docs/technical-report/proteus-tech-report.pdf).
 
 - **Harness-agnostic:** use Pi, DeepSeek Harness, Codex, an HTTP model adapter, or
   your own integration in supported roles. The agent proposing changes and the
@@ -50,10 +48,9 @@ method, agent runtime and evaluation protocol independently configurable.
 - **Visual evolution:** replay Native sweeps, compare trajectories, inspect candidate
   changes and evaluator scores, and export recipe results for further analysis.
 
-> **1.0 is in release preparation, not published yet.** The quick start below uses
-> the preparation branch. Release status and the published Native workflow are
-> tracked in the [release notes](docs/releases/v1.0.0.md) and
-> [GitHub releases](https://github.com/proteus-evolve/Proteus/releases).
+> The quick start installs Proteus 1.0 from `main`. See the
+> [release notes](docs/releases/v1.0.0.md) for the version scope and
+> [GitHub releases](https://github.com/proteus-evolve/Proteus/releases) for published versions.
 
 <p align="center">
   <b>Watch a Native evolution replay.</b><br>
@@ -79,12 +76,11 @@ the workflows are not tied to Codex as the experiment's harness.
 
 ### Install and invoke a skill
 
-In Codex, ask the built-in skill installer to install the usage skill from this
-preparation branch:
+In Codex, ask the built-in skill installer to install the usage skill from `main`:
 
 ```text
 $skill-installer install the skill at skills/proteus-use from
-proteus-evolve/Proteus, ref codex/v1-final-acceptance-20261101.
+proteus-evolve/Proteus, ref main.
 ```
 
 For framework development, install `skills/proteus-contribute` the same way.
@@ -127,10 +123,10 @@ task score separate, and run the scaffold's offline checks.
 
 ## Recipe quick start
 
-Install the 1.0 preparation checkout with Python 3.10 or newer:
+Install Proteus 1.0 from `main` with Python 3.10 or newer:
 
 ```bash
-git clone --branch codex/v1-final-acceptance-20261101 https://github.com/proteus-evolve/Proteus.git
+git clone --branch main https://github.com/proteus-evolve/Proteus.git
 cd Proteus
 python3 -m venv .venv
 source .venv/bin/activate
