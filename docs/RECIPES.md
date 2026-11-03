@@ -1,7 +1,20 @@
 # Recipes
 
-Copy-paste paths from a checkout of Proteus to measured self-evolution. The pinned Pi and
-DeepSeek Harness paths below are the same paths exercised by `release-smoke.yml`.
+For the accepted October 2026 experiments, use the
+[frozen recipe index](../recipes/README.md): actual settings, recipe/lock files,
+historical launchers, source reconstruction and recorded results for all 15
+profiles. The builder catalog and native examples below are separate from those
+specific frozen runs.
+
+For the 1.0 method framework, start with the [recipe quick start](../README.md#recipe-quick-start),
+[method support matrix](V1_OVERVIEW.md#included-method-profiles), and
+[catalog](V1_RECIPE_CATALOG.md). Those commands require the development checkout;
+benchmark preparation also requires explicit data, actors and budgets.
+
+The native harness workflows below retain the existing CLI. Their pinned Pi and
+DeepSeek Harness paths are exercised by `release-smoke.yml`. Native sweeps and
+versioned recipe runs have different metadata/recovery entry points; use the
+[compatibility guide](V1_COMPATIBILITY.md) rather than converting old records in place.
 
 ## Install Proteus
 

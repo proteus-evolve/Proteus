@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use Proteus"
+  short_description: "Configure, run and inspect Proteus experiments"
+  default_prompt: "Use $proteus-use to set up a Proteus experiment, run a bounded pilot and explain its evidence."

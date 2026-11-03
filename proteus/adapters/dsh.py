@@ -33,9 +33,14 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Sequence
 
-from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.adapters.dsh_resume import DshPhaseResume
 from proteus.core.budget import budget_plan, phase_prompt
+from proteus.core.native_inputs import native_input
+from proteus.core.native_activation import capture_activation, source_command
+from proteus.core.native_usage import dsh_usage
+from proteus.core.native_dsh_usage import capture_dsh_sources
+from proteus.core.native_pi_usage import fingerprint
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore
 from proteus.core.disposition import Disposition
 
@@ -188,7 +193,8 @@ class DshHarness:
                  key: str | None = None, sandbox=None,
                  phase_timeout_s: int = PHASE_TIMEOUT_S,
                  permission_mode: str = "workspace-write",
-                 phase_resume: DshPhaseResume | None = None) -> None:
+                 phase_resume: DshPhaseResume | None = None,
+                 model: str | None = None) -> None:
         if permission_mode not in {"workspace-write", "danger-full-access"}:
             raise ValueError(
                 "DSH permission_mode must be 'workspace-write' or 'danger-full-access'"
@@ -198,6 +204,11 @@ class DshHarness:
         self.phase_timeout_s = phase_timeout_s
         self.phase_resume = phase_resume
         self.permission_mode = permission_mode
+        # Opt-in binding for fresh coding actors. Legacy native runs continue
+        # to own their DSH settings and use their profile's model selection.
+        if model is not None and (not isinstance(model, str) or not model.strip()):
+            raise ValueError("DSH model must be a non-empty model id")
+        self.model = model
         # per-instance key injection first (multi-tenant runs must not share env)
         self.key = key or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_KEY", "")
         from proteus.sandbox import DockerSandbox, SandboxConfig
@@ -227,6 +238,11 @@ class DshHarness:
             (harness_root / sub).mkdir(exist_ok=True)
         self._extract_self_code(harness_root / "src")
 
+    def prepare_candidate(self, harness_root: Path) -> None:
+        """Restore empty surface directories without reseeding candidate files."""
+        for sub in ('notes', 'tools'):
+            (harness_root / sub).mkdir(parents=True, exist_ok=True)
+
     def _extract_self_code(self, dest: Path) -> None:
         """Unpack the source the image was built from into `dest` (episode-0 state).
 
@@ -248,11 +264,10 @@ class DshHarness:
                 f"could not extract dsh source from {self.image}: {proc.stderr[-300:]}")
 
     @staticmethod
-    def _task_mount(run_root: Path) -> tuple:
+    def _task_mount(run_root: Path, readonly: tuple[str, ...] = ()) -> tuple:
         """Bind the run's task workspace (a snapshot-external sibling of the harness)
         into the agent's view, when the run is goal-conditioned."""
-        task = run_root / "task"
-        return ((str(task), "/workspace/task"),) if task.is_dir() else ()
+        return task_workspace_mounts(run_root, readonly)
 
     def check_boot(self, harness_root: Path) -> str:
         """Build once, then cold-start the exact headless runtime in a fresh container.
@@ -265,6 +280,8 @@ class DshHarness:
         be absent from the cached outputs or runtime links used by episode N+1.
         """
         harness = Path(harness_root)
+        if not (harness / "src").is_dir():
+            return "self-edited source does not boot: source surface is missing"
         state = harness.parent / ".dsh-state"
         state.mkdir(exist_ok=True)
         mounts = ((str(harness), "/workspace"), (str(state), "/state"))
@@ -308,7 +325,7 @@ class DshHarness:
         return {p.parent for p in root.rglob("session.jsonl.zstd")} if root.exists() else set()
 
     def _session_trace(self, session_dir: Path, phase: str,
-                       partial: bool = False) -> list[ActionEvent]:
+                       partial: bool = False, *, text_limit: int | None = 500) -> list[ActionEvent]:
         """Normalize one native session without exposing provider-specific reasoning."""
         log = session_dir / "session.jsonl.zstd"
         if not log.exists():
@@ -342,7 +359,7 @@ class DshHarness:
                 if text:
                     events.append(ActionEvent(
                         turn=int(data.get("turn", last_turn)), phase=phase,
-                        tool=None, surface=None, params={}, text=text[:500],
+                        tool=None, surface=None, params={}, text=text[:text_limit],
                     ))
         return events
 
@@ -354,6 +371,17 @@ class DshHarness:
         harness = run_root / "harness"
         state = run_root / ".dsh-state"
         state.mkdir(exist_ok=True)
+        model_mounts = ()
+        if self.model is not None:
+            # dsh-v0.1.0-rc.7 headless reads agentDefaultModel.currentSelection(),
+            # whose settings-file layer overrides the bundle's default model.
+            # JSON is valid YAML. A read-only nested mount keeps this requested
+            # selection fixed without adding an unsupported CLI --model flag.
+            settings = state / "settings.yaml"
+            HandoffStore._atomic_text(settings, json.dumps({"agent-default-model": {
+                "provider": "deepseek-official", "model": self.model,
+            }}, ensure_ascii=False))
+            model_mounts = ((str(settings), "/state/settings.yaml", "ro"),)
         handoffs = HandoffStore(run_root, phases=spec.phases)
         (run_root / "traces").mkdir(exist_ok=True)
         mapping: dict[str, list[str]] = {}
@@ -412,6 +440,8 @@ class DshHarness:
                 continue
             handoff_start = handoffs.begin(spec.episode, phase)
             before = self._session_dirs(state)
+            before_usage = {directory/'session.jsonl.zstd': fingerprint(directory/'session.jsonl.zstd')
+                            for directory in before}
             fired = [False]
 
             def stop_check(before=before, fired=fired, stop_at=stop_at):
@@ -425,18 +455,35 @@ class DshHarness:
             phase_timeout = min(self.phase_timeout_s, recovery.timeout_s) \
                 if recovery and phase == recovery.phase else self.phase_timeout_s
             try:
-                proc = self.sandbox.run(
-                    run_root,
-                    ["--profile", "headless", phase_prompt(
-                        spec, phase, used, phase_start_used=start_used)],
-                    env={"DEEPSEEK_API_KEY": self.key,
-                         "DSH_PERMISSION_MODE": self.permission_mode},
-                    timeout_s=phase_timeout,
-                    mounts=workspace_mounts + ((str(state), "/state"),
-                            (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root),
-                    stop_check=stop_check if plan.enabled else None,
-                )
+                # The launcher and headless app each parse options. Preserve a
+                # literal task beginning with '-' (e.g. YAML '---') through both.
+                command = ["--profile", "headless", "--", "--", phase_prompt(
+                    spec, phase, used, phase_start_used=start_used)]
+                command = source_command(spec, active, command)
+                with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
+                                  payload=command, model=self.model) as receipt:
+                    proc = None
+                    try:
+                        proc = self.sandbox.run(
+                            run_root,
+                            command,
+                            env={"DEEPSEEK_API_KEY": self.key,
+                                 "DSH_PERMISSION_MODE": self.permission_mode},
+                            timeout_s=phase_timeout,
+                            mounts=workspace_mounts + ((str(state), "/state"),
+                                    (str(handoffs.root), CONTAINER_ROOT))
+                                   + model_mounts + self._task_mount(run_root, spec.readonly_task_paths),
+                            stop_check=stop_check if plan.enabled else None,
+                        )
+                        receipt["returncode"] = proc.returncode
+                        receipt['activation'] = capture_activation(
+                            proc.stdout, command, self.name, required=proc.returncode == 0)
+                    finally:
+                        paths = [directory/'session.jsonl.zstd' for directory in self._session_dirs(state)-before]
+                        source = capture_dsh_sources(paths, before_usage, root=state)
+                        receipt['usage_source'] = source
+                        receipt['usage'] = dsh_usage(source, transport_complete=
+                            proc is not None and proc.returncode == 0 and not fired[0])
             except subprocess.TimeoutExpired:
                 timed_out = True
                 proc = None
@@ -522,7 +569,18 @@ class DshHarness:
             return "loop"
         return None
 
-    def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:
+    def read_response(self, root: Path, episode: int) -> str:
+        """Complete final visible assistant response, independent of trace previews."""
+        events = [e for e in self.read_trace(root, episode, text_limit=None)
+                  if e.tool is None and e.text and not e.params.get('kind')]
+        if not events:
+            return ''
+        # DSH's native turn spans multiple model steps. Progress and the final
+        # answer share that turn, so grouping by turn corrupts structured replies.
+        # _session_trace already combines the visible blocks of each message.
+        return events[-1].text
+
+    def read_trace(self, root: Path, episode: int, *, text_limit: int | None = 500) -> Sequence[ActionEvent]:
         root = Path(root)
         map_path = root / "traces" / f"ep{episode:03d}.json"
         if not map_path.exists():
@@ -543,7 +601,7 @@ class DshHarness:
                     continue
                 # A recovered attempt can end mid-frame. Keep its complete leading
                 # events instead of making every future combined trace unreadable.
-                phase_events = self._session_trace(log.parent, phase, partial=True)
+                phase_events = self._session_trace(log.parent, phase, partial=True, text_limit=text_limit)
                 for event in phase_events:
                     events.append(ActionEvent(
                         turn=turn_base + event.turn, phase=event.phase, tool=event.tool,

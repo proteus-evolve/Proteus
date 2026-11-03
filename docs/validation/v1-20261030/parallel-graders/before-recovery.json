@@ -1,0 +1,11 @@
+{
+  "first": {
+    "status": "failed",
+    "diagnostic": "RecoveryRequired: injected controller interruption after all branch results, before join"
+  },
+  "resumed_after_corrupt_private_grader_evidence": {
+    "status": "completed",
+    "diagnostic": ""
+  },
+  "report_rejection": "ContractError: private grading evidence identity differs"
+}

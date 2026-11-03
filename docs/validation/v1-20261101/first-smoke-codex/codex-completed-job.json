@@ -1,0 +1,124 @@
+{
+  "id": 125109408447,
+  "run_id": 41390453875,
+  "workflow_name": "release-smoke",
+  "head_branch": "codex/v1-final-acceptance-20261101",
+  "run_url": "https://api.github.com/repos/proteus-evolve/Proteus/actions/runs/41390453875",
+  "run_attempt": 1,
+  "node_id": "CR_kwDOT7DgH88AAAAdIRoSvw",
+  "head_sha": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "url": "https://api.github.com/repos/proteus-evolve/Proteus/actions/jobs/125109408447",
+  "html_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41390453875/job/125109408447",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-02T05:19:53Z",
+  "started_at": "2026-11-02T05:19:56Z",
+  "completed_at": "2026-11-02T08:57:53Z",
+  "name": "codex",
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1,
+      "started_at": "2026-11-02T05:19:57Z",
+      "completed_at": "2026-11-02T05:19:58Z"
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2,
+      "started_at": "2026-11-02T05:19:58Z",
+      "completed_at": "2026-11-02T05:19:59Z"
+    },
+    {
+      "name": "Run actions/setup-python@v5",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3,
+      "started_at": "2026-11-02T05:19:59Z",
+      "completed_at": "2026-11-02T05:19:59Z"
+    },
+    {
+      "name": "Run pip install -e .",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4,
+      "started_at": "2026-11-02T05:19:59Z",
+      "completed_at": "2026-11-02T05:20:02Z"
+    },
+    {
+      "name": "require Codex API authentication",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 5,
+      "started_at": "2026-11-02T05:20:02Z",
+      "completed_at": "2026-11-02T05:20:02Z"
+    },
+    {
+      "name": "make room for the Rust release and test caches",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 6,
+      "started_at": "2026-11-02T05:20:02Z",
+      "completed_at": "2026-11-02T05:20:49Z"
+    },
+    {
+      "name": "bake the pinned Codex source image",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 7,
+      "started_at": "2026-11-02T05:20:49Z",
+      "completed_at": "2026-11-02T07:49:49Z"
+    },
+    {
+      "name": "two episodes with a required source edit",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8,
+      "started_at": "2026-11-02T07:49:49Z",
+      "completed_at": "2026-11-02T08:49:57Z"
+    },
+    {
+      "name": "verify rebuild, next-episode activation, and broken-source rejection",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 9,
+      "started_at": "2026-11-02T08:49:57Z",
+      "completed_at": "2026-11-02T08:57:49Z"
+    },
+    {
+      "name": "Post Run actions/setup-python@v5",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 17,
+      "started_at": "2026-11-02T08:57:49Z",
+      "completed_at": "2026-11-02T08:57:50Z"
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 18,
+      "started_at": "2026-11-02T08:57:50Z",
+      "completed_at": "2026-11-02T08:57:50Z"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 19,
+      "started_at": "2026-11-02T08:57:50Z",
+      "completed_at": "2026-11-02T08:57:50Z"
+    }
+  ],
+  "check_run_url": "https://api.github.com/repos/proteus-evolve/Proteus/check-runs/125109408447",
+  "labels": [
+    "ubuntu-latest"
+  ],
+  "runner_id": 1000005070,
+  "runner_name": "GitHub Actions 1000005070",
+  "runner_group_id": 0,
+  "runner_group_name": "GitHub Actions"
+}

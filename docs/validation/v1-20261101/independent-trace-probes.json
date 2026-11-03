@@ -1,0 +1,115 @@
+{
+  "reviewer_head": "57943787369aff43fb180818af9eba5b6a68b1c6",
+  "archive_commit": "2f677ae872e26ab2985a900b20d485d84dd99d6f",
+  "source": {
+    "dirty_patch_hash": null,
+    "name": "proteus",
+    "repository": "https://github.com/proteus-evolve/Proteus",
+    "revision": "57943787369aff43fb180818af9eba5b6a68b1c6",
+    "schema_version": 1
+  },
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "comparison_sha256": "2f0a4bbcf0417d702b600808f4964cf83bbab8ec84fa93be5fb65ba19bb554d0",
+  "archive_sha256": "9f1a4136df335e34e7faae8e532a4bec742052d787c380e84ce993fbe41b235b",
+  "archive_files_byte_identical_to_original": 331,
+  "original_control_passed": true,
+  "relocated_archive_passed": true,
+  "original_evidence_unchanged": true,
+  "provider_calls": 0,
+  "cases": [
+    {
+      "case": "reported-source",
+      "rejected": true,
+      "exception": "ContractError",
+      "message": "source commit lacks frozen fixture"
+    },
+    {
+      "case": "unavailable-source",
+      "rejected": true,
+      "exception": "ContractError",
+      "message": "source commit is unavailable in this checkout"
+    },
+    {
+      "case": "runtime-tree",
+      "rejected": true,
+      "exception": "ContractError",
+      "message": "source commit/runtime tree mismatch"
+    },
+    {
+      "case": "recipe-budget",
+      "rejected": true,
+      "exception": "ContractError",
+      "message": "resume changes the resolved recipe"
+    },
+    {
+      "case": "task-payload",
+      "rejected": true,
+      "exception": "ContractError",
+      "message": "external task dataset differs from recipe"
+    },
+    {
+      "case": "dependency-lock",
+      "rejected": true,
+      "exception": "ContractError",
+      "message": "resume changes the dependency lock"
+    }
+  ],
+  "arms": [
+    {
+      "variant": "ace",
+      "batch_sizes": [],
+      "role_calls": {
+        "curator": 11,
+        "generator": 22,
+        "reflector": 11
+      },
+      "completed_resume_extra_actor_calls": 0
+    },
+    {
+      "variant": "naive_parallel",
+      "batch_sizes": [
+        3,
+        3,
+        3,
+        2
+      ],
+      "role_calls": {
+        "curator": 4,
+        "generator": 22,
+        "reflector": 11
+      },
+      "completed_resume_extra_actor_calls": 0
+    },
+    {
+      "variant": "combee_fixed",
+      "batch_sizes": [
+        3,
+        3,
+        3,
+        2
+      ],
+      "role_calls": {
+        "curator": 12,
+        "generator": 22,
+        "reflector": 11
+      },
+      "completed_resume_extra_actor_calls": 0
+    },
+    {
+      "variant": "combee_dynamic",
+      "batch_sizes": [
+        1,
+        2,
+        4,
+        4
+      ],
+      "role_calls": {
+        "curator": 12,
+        "generator": 22,
+        "reflector": 11
+      },
+      "completed_resume_extra_actor_calls": 0
+    }
+  ],
+  "reviewer_probe_note": "Initial probe caught ContractError via an unexported runner attribute, causing a reviewer AttributeError; corrected to direct ContractError import. No product or original-evidence mutation."
+}

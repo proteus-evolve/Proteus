@@ -1,0 +1,1 @@
+First archive export used the older system python; tarfile.extractall(filter=...) was unsupported (TypeError). Export failed before build. The dependent install attempt found no distribution and stopped at its assertion. Retried with the existing Python 3.12 build environment. No package runtime or source change.

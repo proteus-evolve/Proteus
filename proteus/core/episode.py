@@ -19,10 +19,11 @@ hidden or visible, and the measurement layer reads all of it with one ruler.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
 
 from proteus.core import snapshot
 from proteus.core.adapter import EpisodeSpec, HarnessAdapter
@@ -41,8 +42,42 @@ def _write_json_atomic(path: Path, value) -> None:
     """Replace one JSON record without exposing a truncated crash-time file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(value, indent=1), encoding="utf-8")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(value, stream, indent=1)
+        stream.flush()
+        os.fsync(stream.fileno())
     temporary.replace(path)
+    from proteus.artifacts.store import _sync_directory
+    _sync_directory(path.parent)
+
+
+def _recover_episode_checkpoint(root: Path) -> int | None:
+    """Roll forward a fully prepared episode receipt; never rerun its evaluator."""
+    from proteus.artifacts.store import _sync_directory
+    from proteus.core.recovery import _load
+    from proteus.core.contracts import require
+    path = private_record_dir(root) / "episode_checkpoint.json"
+    if not path.exists():
+        return None
+    receipt = _load(path)
+    require(receipt["version"] == 1, "unsupported native checkpoint receipt")
+    history = receipt["history"]
+    require([row["episode"] for row in history] == list(range(1, receipt["episode"] + 1)),
+            "native checkpoint receipt has noncontiguous history")
+    history_path = eval_history_path(root)
+    current = json.loads(history_path.read_text()) if history_path.exists() else []
+    require(current in (history[:-1], history), "native checkpoint history differs from prepared receipt")
+    harness = root / "harness"
+    require(snapshot.has_commit(harness, receipt["checkpoint"]), "prepared native checkpoint is missing")
+    snapshot.publish_checkpoint(harness, receipt["checkpoint"], receipt["parent"])
+    _write_json_atomic(history_path, history)
+    if receipt["pending_candidate"] is not None:
+        _write_json_atomic(pending_candidate_path(root), receipt["pending_candidate"])
+    else:
+        _clear_pending_candidate(root)
+    path.unlink()
+    _sync_directory(path.parent)
+    return receipt["episode"]
 
 
 def private_record_dir(root: Path) -> Path:
@@ -189,6 +224,12 @@ class RunConfig:
     """Overrides or explicit prompts for custom phases. Default phases remain unchanged."""
     resume_phase: str | None = None
     """DSH only: explicitly continue this interrupted phase on resume, under the same budget."""
+    on_episode_prompts: Callable[[int, Mapping[str, str]], None] | None = None
+    """Optional controller-side observer of the final core-rendered phase prompts.
+
+    Receives a read-only copy before execution; it cannot replace adapter prompts.
+    The observer is instrumentation, not an experimental input or actor tool.
+    """
 
 
 @dataclass
@@ -199,8 +240,20 @@ class RunResult:
     error: str = ""
     eval_history: list[dict] = field(default_factory=list)
     counters: dict = field(default_factory=dict)
-    """Numeric adapter counters summed across episodes (tokens_in/tokens_out where the
-    adapter reports them) — what a cost estimate is built from."""
+    """Numeric adapter counters summed across episodes; explicit unknowns stay None.
+
+    These episode counters can omit interrupted attempts. Durable native usage
+    receipts are the source for cumulative recorded-boundary accounting.
+    """
+
+
+def _sum_counters(totals, counters):
+    """Preserve explicitly unknown numeric counters across episodes and resume."""
+    for key, value in (counters or {}).items():
+        if value is None:
+            totals[key] = None
+        elif isinstance(value, (int, float)) and not isinstance(value, bool):
+            totals[key] = None if totals.get(key, 0) is None else totals.get(key, 0) + value
 
 
 def _phase_prompts(cfg: RunConfig, prior_feedback: str,
@@ -355,6 +408,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
     root would overwrite the evolved harness with fresh templates, so provisioning is
     skipped entirely.
     """
+    from proteus.core.recovery import RecoveryRequired
     harness = cfg.root / "harness"
     records = private_record_dir(cfg.root)
     staged_activation = bool(getattr(cfg.adapter, "staged_activation", False))
@@ -407,6 +461,14 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         "phase_turns": dict(cfg.phase_turns), "checkpoint_turns": cfg.checkpoint_turns,
         "min_turns_per_phase": cfg.min_turns_per_phase, "announce_budget": cfg.announce_budget,
     }
+    if is_resume:
+        if (records / "episode_checkpoint.json").exists():
+            if not runtime_path.exists() or json.loads(runtime_path.read_text()) != runtime_contract:
+                raise ValueError("checkpoint recovery requires the original runtime/goal/budget contract")
+            recovered = _recover_episode_checkpoint(cfg.root)
+            if start == recovered - 1:
+                start = recovered
+            completed = completed_episodes(cfg)
     recovery = None
     if cfg.resume_phase:
         from proteus.adapters.dsh import DshHarness
@@ -484,7 +546,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
     elif not start and any(s.due(0) for s in cfg.goal.evaluators):
         baseline_results = cfg.goal.evaluate(
-            [], GoalContext(str(harness), 0, grader_sandbox=cfg.grader_sandbox))
+            [], GoalContext(str(harness), 0, grader_sandbox=cfg.grader_sandbox, native_root=str(cfg.root)))
         baseline = {"episode": 0, "accepted": True,
                     "candidate_commit": snapshot.commit_for_episode(harness, 0),
                     "results": [r.__dict__ for r in baseline_results]}
@@ -548,9 +610,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             if score is not None:
                 if row.get("accepted") and (best_score is None or score >= best_score):
                     best_score = score
-            for key, value in (row.get("counters") or {}).items():
-                if isinstance(value, (int, float)) and not isinstance(value, bool):
-                    totals[key] = totals.get(key, 0) + value
+            _sum_counters(totals, row.get('counters'))
         if eval_history:
             last = eval_history[-1]
             if last.get("failure_kind") == "viability":
@@ -617,7 +677,12 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             phases=tuple(cfg.phases),
         )
         try:
+            if cfg.on_episode_prompts is not None:
+                from types import MappingProxyType
+                cfg.on_episode_prompts(ep, MappingProxyType(dict(spec.phase_prompts)))
             res = cfg.adapter.run_episode(spec)
+        except RecoveryRequired:
+            raise
         except Exception as exc:  # noqa: BLE001 - a failed episode is a record, not a crash
             error = f"{type(exc).__name__}: {exc}"
             try:
@@ -673,7 +738,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         if not viability_error:
             try:
                 results = cfg.goal.evaluate(
-                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox)
+                    trace, GoalContext(str(harness), ep, grader_sandbox=cfg.grader_sandbox, native_root=str(cfg.root))
                 )
             except Exception as exc:  # noqa: BLE001
                 results = [EvalResult(name=name, score=None, status="error",
@@ -698,8 +763,9 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
         candidate_commit = ""
         try:
             if accepted:
-                candidate_commit = snapshot.commit(harness, f"episode {ep}: {cfg.name}")
+                candidate_commit = snapshot.prepare_checkpoint(harness, f"episode {ep}: {cfg.name}")
                 last_accepted = candidate_commit
+                checkpoint = candidate_commit
             else:
                 # non-destructive rejection: the rejected candidate tree goes into history
                 # first (as "candidate N:", outside the episode->commit mapping), then the
@@ -709,7 +775,7 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                     harness, f"candidate {ep}: {cfg.name} [{reason}]"
                 )
                 snapshot.restore(harness, last_accepted)
-                snapshot.commit(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
+                checkpoint = snapshot.prepare_checkpoint(harness, f"episode {ep}: {cfg.name} [{reason}; rolled back]")
         except Exception as exc:  # noqa: BLE001 - one bad subject must not abort a sweep
             error = f"snapshot failed after episode {ep}: {type(exc).__name__}: {exc}"
             try:
@@ -717,12 +783,9 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             except Exception as restore_exc:  # noqa: BLE001
                 error += f"; automatic restore failed: {restore_exc}"
             break
-        last_checkpoint = snapshot.head(harness)
         if viability_error and staged_activation:
-            pending = _write_pending_candidate(
-                cfg.root, commit=candidate_commit, resume_episode=ep + 1,
-                reason="viability", error=viability_error,
-            )
+            pending = {"version": PENDING_CANDIDATE_VERSION, "commit": candidate_commit,
+                       "resume_episode": ep + 1, "reason": "viability", "error": viability_error}
             repair_notice = _repair_notice(pending)
             if handoffs is not None:
                 handoffs.set_controller_notice(repair_notice)
@@ -731,15 +794,12 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
             # selection rejection deliberately starts over from last-valid rather than
             # inheriting a candidate the configured outer loop rejected.
             pending = None
-            _clear_pending_candidate(cfg.root)
             repair_notice = ""
             if handoffs is not None:
                 handoffs.clear_controller_notice()
         checkpoint_fingerprint = cfg.adapter.disposition_fingerprint(harness)
         done = ep
-        for key, value in (res.counters or {}).items():
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                totals[key] = totals.get(key, 0) + value
+        _sum_counters(totals, res.counters)
 
         eval_history.append({"episode": ep, "accepted": accepted,
                              "results": [r.__dict__ for r in results],
@@ -751,11 +811,15 @@ def _run(cfg: RunConfig, start: int = 0, *, resume: bool = False) -> RunResult:
                              "failure_kind": "viability" if viability_error else "",
                              "selection_unavailable": selection_unavailable,
                              "error": viability_error})
-        # The snapshot and experiment state are two halves of one durable checkpoint.
-        # Persist after every episode, atomically. A crash in the tiny interval after the
-        # git commit but before this replace is detected by the strict resume guard above
-        # instead of silently resetting selection history.
-        _write_json_atomic(history_path, eval_history)
+        # Persist the full receipt before publishing the Git episode mapping. Both
+        # sides can then be rolled forward after any interrupted publication step.
+        from proteus.core.recovery import _write
+        _write(records / "episode_checkpoint.json", {
+            "version": 1, "episode": ep, "parent": snapshot.head(harness),
+            "checkpoint": checkpoint, "history": eval_history, "pending_candidate": pending,
+        })
+        _recover_episode_checkpoint(cfg.root)
+        last_checkpoint = checkpoint
         feedback.record(results, episode=ep, accepted=accepted,
                         candidate_commit=candidate_commit)
         if viability_error:

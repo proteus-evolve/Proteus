@@ -1,0 +1,109 @@
+{
+  "schema": "proteus.continuation.branch.v1",
+  "mode": "append-only lineage, NOT native same-runtime resume",
+  "parent_label": "linux-combee-formula-offline-combee_dynamic-v6-ledger-io",
+  "parent_run": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_dynamic-v6-ledger-io/runs/seed-0-offline-combee_dynamic",
+  "parent_manifest_sha256": "d91b78be6e5cd130a361627d9d7cc24480aa0756ff7ef09979a577bc8b96b188",
+  "parent_scientific_config_hash": "sha256:bc95dd79b85498419a6c6513e0b08a31748baf3205f91f1a4bfb56238b737e21",
+  "parent_scientific_lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+  "parent_scientific_source_bindings": [
+    {
+      "schema_version": 1,
+      "name": "proteus",
+      "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+      "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "dirty_patch_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "unpaid-lookup-failure-full212-preparation-v1",
+      "repository": "local-content-addressed:prepare_combee_lookup_failed_replacements_v1.py",
+      "revision": "7e28ab0bb141f7132742b1fc24b095f0ab13b6409959876aca56eac8c99757eb",
+      "dirty_patch_hash": null
+    }
+  ],
+  "executor_operator_source": {
+    "repository": "local-unpublished:/home/ubuntu/proteus-full-linux-20261020/continuation-operators/c67cdfbabbb946a2fd5d932cf56dcb4a14721abf",
+    "revision": "c67cdfbabbb946a2fd5d932cf56dcb4a14721abf"
+  },
+  "scientific_library": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-serialized-io-v1",
+    "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9"
+  },
+  "root_prefix_cut": 792,
+  "workflow_map_parent": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_dynamic-v6-ledger-io/runs/seed-0-offline-combee_dynamic/private/workflows/a0b15f61d3071a09aabda07b9ef1fe21be2b747c6c0345aecb1167ead33f050e",
+  "failed_actor_frontier": [
+    {
+      "actor_id": "actor-b2fcc12fe3224011b9f0216cad85f3fb6daeaf4ba37f3bd8a9f19dfb476a9e0e",
+      "stable_id": "56125210e76079ec0b6bcd1bbf25d32d96fa31fa81bb058c77e8421ad6fa5437",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "workflow-5a6ef7f7946d5e71b7b13420917f150bf5ca93bd8bb9bd06672c558eb4d9ca60:op-001079",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "workflow-5a6ef7f7946d5e71b7b13420917f150bf5ca93bd8bb9bd06672c558eb4d9ca60:op-001079:rollout-1",
+        "worker_id": "workflow-5a6ef7f7946d5e71b7b13420917f150bf5ca93bd8bb9bd06672c558eb4d9ca60"
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "d8bca5b2afcfffbe6eb7721b0ff27d55b72eb7079bc9d33a043c236858a00784",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "d8bca5b2afcfffbe6eb7721b0ff27d55b72eb7079bc9d33a043c236858a00784"
+    }
+  ],
+  "retired_failed_entry_ids": [
+    "subject-4d3d0084008617d65ef6fd5683fb9f89bf4a88d41e84839963199e97807f597a",
+    "actor-b2fcc12fe3224011b9f0216cad85f3fb6daeaf4ba37f3bd8a9f19dfb476a9e0e",
+    "grader-4d3d0084008617d65ef6fd5683fb9f89bf4a88d41e84839963199e97807f597a"
+  ],
+  "tainted_cohorts": [
+    {
+      "entry_id": "evaluation-dbf1c249f1eeefb28a12dbdab35de38e8b9be8b43232500c335f2dae5de88966",
+      "parent_settlement_hash": "sha256:0ab35d1a0ad2ff192a394619cf2f8ba94cce5c83e700b04391b739c5d2b626f4",
+      "parent_receipt_hash": "sha256:a0600bd76ec6b66c2f501344d96877eaedd7bc9e417f03026b4ef0432d72af50",
+      "causal_failed_actor_ids": [
+        "actor-b2fcc12fe3224011b9f0216cad85f3fb6daeaf4ba37f3bd8a9f19dfb476a9e0e"
+      ],
+      "original_invalid_rollout_ids": [
+        "workflow-5a6ef7f7946d5e71b7b13420917f150bf5ca93bd8bb9bd06672c558eb4d9ca60:op-001079:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    }
+  ],
+  "independent_expected_closed_actor_count": 1247,
+  "independent_expectations": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/continuation-root-acceptance-expectations-20261021.json",
+    "sha256": "3a360cf247975f631906665fb3f4f6bbf6a8d97a7c9690ca57c5c6cede231ee9"
+  },
+  "physical_branch_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/combee-dynamic-continuation-c67cdfb-v1",
+  "provider_calls_during_prepare": 0,
+  "no_parent_financial_or_scientific_ledger_copy": true,
+  "independently_released_for_science": false,
+  "parent_unique_claim_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/parent-claims",
+  "operational_overrides": [
+    "RunServices constructor/configuration",
+    "actor pre-dispatch disposition gate",
+    "PrefixJournal read-through/cut and appended records",
+    "read-only parent plus combined-budget delta ledger",
+    "exact tainted framework cohort successors with retained original charge",
+    "owned started managed-subject shell reentry without clearing its reservation",
+    "uncertain actor/subject settlements deferred pending original receipt reconciliation",
+    "exact sealed generic-chat response adoption into an owned started actor",
+    "append authenticated no-dispatch reentry proof; same started actor row/reservation/slot/stable ID retained",
+    "reconcile owned pending actors before workflow preflight; admitted unknowns remain held"
+  ],
+  "preview_only_overrides": [
+    "collect every exact sealed snapshot/cache actor record",
+    "stop before joining a partial workflow map once preview frontiers reached"
+  ],
+  "workflow_prefix_materialization": "closed valid child sessions plus exact open-snapshot protocol/dataset-ref and proven valid prediction/grade/update prefix ONLY; exclude later failed outputs",
+  "dynamic_interrupted_attempt": "preserve original timing-start reference and all completed measurements; only interrupted in-flight duration remains UNKNOWN per original TimingService",
+  "readonly_prefix_refs_sha256": "12699a2bd01faed0eeaa449a8417b39b53e5d05afc9907c672a4da25d6bb908c",
+  "protected_parent_files": {
+    "manifest.json": "d91b78be6e5cd130a361627d9d7cc24480aa0756ff7ef09979a577bc8b96b188",
+    "private/ledger.sqlite3": "028a4931c7b0e36b15137ae68059b19370baa8ce49ba7c78d9e653354210fae1",
+    "result.json": "0d68a3a545f126e66d87d265d05f158ee91f8c78a17f3530b1e0f6255b3698fa"
+  },
+  "scientific_manifest_is_inherited_not_current_executor_identity": true
+}

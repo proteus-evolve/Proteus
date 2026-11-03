@@ -1,11 +1,21 @@
 # Contributing to Proteus
 
-Proteus is a harness-agnostic driver for measuring agent self-evolution. It knows nothing
-about any specific agent framework — it talks only to a `HarnessAdapter`, and it scores
-tasks through a `BenchTask`. The two highest-value contributions are therefore **new
-harness adapters** (evolve another agent framework) and **new benchmarks** (measure under
-more goals). Both are single-file, contract-checked, CI-gated additions. This guide shows
-the path; see [`ROADMAP.md`](ROADMAP.md) for what's wanted.
+Proteus separates optimization methods, agent harnesses and evaluation. In 1.0 you
+can contribute a **method, stage, evaluator, subject runner, search policy or harness
+integration**. Start with the [public API](docs/V1_PUBLIC_API.md),
+[external plugin scaffolds](docs/V1_PLUGIN_SCAFFOLDS.md) and
+[harness role contracts](docs/V1_HARNESS_ROLES.md). Prefer an independent plugin when
+the existing API can express your extension.
+
+If you work with a coding agent, the optional
+[`proteus-contribute` skill](skills/proteus-contribute/SKILL.md) guides extension
+design, implementation and validation. Installing or using the skill is **not a
+contribution requirement**. See the [README](README.md#use-proteus-with-your-agent)
+for installation and example prompts.
+
+The adapter and benchmark walkthroughs below describe the existing **Native**
+`HarnessAdapter` / `BenchTask` extension path. For common 1.0 method and actor roles,
+use the contracts linked above; those roles do not all share Native's episode loop.
 
 ## Dev setup
 
@@ -15,7 +25,8 @@ git config --global user.email you@example.com   # snapshot tests need a git ide
 git config --global user.name  "Your Name"
 ```
 
-The gate every change must pass (this is exactly what CI runs):
+Core development checks (see [CI workflows](.github/workflows/) for the full matrix,
+optional dependencies and integration gates):
 
 ```bash
 ruff check .
@@ -103,8 +114,9 @@ a `grade(ws)` that returns an `EvalResult`. See
 
 2. **Implement `setup` and `grade`.** The task workspace (`<run>/task/`) lives **outside**
    the harness snapshot — it is the exercise, not the subject, and only moves forward.
-   Always degrade a broken/absent solution to a legible `0.0`, never raise: one bad
-   episode is a recorded zero, not a crashed sweep.
+   Grade a broken or absent solution according to the task's scoring contract
+   (usually `0.0`). Keep infrastructure failures and unavailable evidence distinct
+   from task failure; do not invent a score when grading did not complete.
 
    > **Security:** graders execute agent-authored code. Declare a `sandbox` parameter on
    > `grade` and Proteus injects the episode's grader sandbox (`ctx.grader_sandbox`); run
@@ -120,7 +132,7 @@ a `grade(ws)` that returns an `EvalResult`. See
 
 ## Pull requests
 
-- One adapter or one benchmark per PR keeps review tractable.
+- Keep each PR focused on a coherent extension or behavior change.
 - The three gate commands above must pass; say in the PR which heavy/opt-in checks you ran
   locally (Docker adapters, SWE-bench) since CI can't.
 - New public behavior needs a test. New contract surface needs a line in the relevant doc

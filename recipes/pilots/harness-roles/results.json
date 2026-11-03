@@ -1,0 +1,1135 @@
+{
+  "schema_version": 1,
+  "collected_utc": "2026-10-29T23:41:16.097070+00:00",
+  "scope": "Live synthetic mechanism acceptance, not benchmark quality or matched paper reproduction",
+  "runtime_tree": "02d11ce08a5ec00e95c96216d14b6870cd5e6f70",
+  "merged_dev_head": "ae18ffa97f7b8a7a7eb20a0c5162a2dcdf2e1af8",
+  "cells": [
+    {
+      "started_utc": "2026-10-29T22:51:55.299556+00:00",
+      "proteus_head": "4cca31567f5dc01be589dbf90ac3e3fe7de7a877",
+      "backend": "pi",
+      "method": "native",
+      "requested_model": "deepseek-v4-flash",
+      "image_id": "sha256:3bc80c75d5d775b1c419ffd4d94776971372ec3a39006b6d8240d218c11fe57e",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "status": "passed",
+      "candidate_count": 2,
+      "rollout_count": 3,
+      "scope": "Live-model mechanism acceptance on synthetic tasks, not benchmark improvement.",
+      "completed_resume_new_dispatches": 0,
+      "finished_utc": "2026-10-29T22:54:22.146982+00:00",
+      "run_id": 40968776199,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40968776199",
+      "artifact_id": 12938204636,
+      "changed_candidate_paths": [
+        "notes/policy.md",
+        "src/packages/coding-agent/src/cli.ts"
+      ],
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact_hash": "sha256:78fecd2c082fa1478e3715217a127d3a456762640fe79c96ed32c0bb951109c6"
+        },
+        {
+          "id": "episode-1",
+          "artifact_hash": "sha256:348bfccba6c0f9c49d399814c7f8fd4934bd4d482a3128a8dd7c753e564beef9"
+        }
+      ],
+      "graded_predictions": [
+        {
+          "candidate": "episode-1",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "ALPHA",
+          "score": 1.0
+        },
+        {
+          "candidate": "episode-1",
+          "task": "test",
+          "visibility": "hidden",
+          "prediction": "OMEGA",
+          "score": 1.0
+        },
+        {
+          "candidate": "initial",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "alpha",
+          "score": 0.0
+        }
+      ],
+      "compiled_cli_hashes": [
+        "1855fa3c676e596d5b47e1bce956a542e78d3160831b3a6053657b8edb6dc462",
+        "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521"
+      ],
+      "accounting_actual": {
+        "model_calls": null,
+        "evaluations": 3.0,
+        "cost_usd": null,
+        "wall_seconds": 107.68842611299993
+      },
+      "unknown_actual_entries": {
+        "model_calls": 4,
+        "evaluations": 0,
+        "cost_usd": 4,
+        "wall_seconds": 0
+      },
+      "managed_reflection_usage": [],
+      "gepa_summary": null,
+      "independent_audit": {
+        "external_grades_match_recorded_predictions": true,
+        "private_final_present": true,
+        "candidate_paths_inspected": true,
+        "execution_json_sha256": "7978b02e8e31ab19cf88d917115e6e022f084191dea30c4603813e47930d876c",
+        "evidence_json_sha256": "834c8ef16d42b61ff5189ee10ba93c57e21b9f42a1c13bf3ddf343b186957140"
+      },
+      "target_model_selection": [
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        }
+      ],
+      "target_reported_usage": [
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 8489,
+            "model_calls": null,
+            "output_tokens": 220
+          },
+          "records_hash": "sha256:434c92444748feb1516cc6d8fa5451c645183187bcb6465e3ddb8bd182af2034",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 6380,
+            "model_calls": null,
+            "output_tokens": 194
+          },
+          "records_hash": "sha256:cf926335b73b5b3bc0b1334cdd90df730858f1105424bb8114a2c36eedeb0ba9",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 6339,
+            "model_calls": null,
+            "output_tokens": 156
+          },
+          "records_hash": "sha256:01b60878e124a04b861f1c34b2636dfc315edf25ed930b4d155c874a76587658",
+          "version": 1
+        }
+      ],
+      "evolution_reported_usage": [
+        {
+          "backend": "pi",
+          "boundary_count": 4,
+          "episode": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "phases": [
+            "observe",
+            "propose",
+            "act",
+            "reflect"
+          ],
+          "records_hash": "sha256:8d8caa10a1249aeae406f9876e030d89694f2c6832b2ed32fd30dcdd72aabd31",
+          "version": 2
+        }
+      ]
+    },
+    {
+      "started_utc": "2026-10-29T23:06:07.404209+00:00",
+      "proteus_head": "83b0ee80a82ac45455a84f2dbb8d9c91e03963af",
+      "backend": "pi",
+      "method": "gepa",
+      "requested_model": "deepseek-v4-flash",
+      "image_id": "sha256:f01cad1e9736cb608e5f25f704a6617cb823fdb05acef740dbd282d6a66098e4",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "status": "passed",
+      "candidate_count": 2,
+      "rollout_count": 5,
+      "scope": "Live-model mechanism acceptance on synthetic tasks, not benchmark improvement.",
+      "completed_resume_new_dispatches": 0,
+      "finished_utc": "2026-10-29T23:06:50.521384+00:00",
+      "run_id": 40970464201,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40970464201",
+      "artifact_id": 12939168823,
+      "changed_candidate_paths": [
+        "notes/policy.md"
+      ],
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact_hash": "sha256:1a1215d10bbd9f99ba4d5f22338f77a90fa290bfd57a8fbc2ee683706c4071e0"
+        },
+        {
+          "id": "candidate-000002",
+          "artifact_hash": "sha256:ca4b482a4689ed5a4613e0231b59707865c347b07b23b389b803e2d2d7c220a4"
+        }
+      ],
+      "graded_predictions": [
+        {
+          "candidate": "initial",
+          "task": "validation",
+          "visibility": "observed",
+          "prediction": "beta",
+          "score": 0.0
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "ALPHA",
+          "score": 1.0
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "validation",
+          "visibility": "observed",
+          "prediction": "BETA",
+          "score": 1.0
+        },
+        {
+          "candidate": "initial",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "alpha",
+          "score": 0.0
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "test",
+          "visibility": "hidden",
+          "prediction": "OMEGA",
+          "score": 1.0
+        }
+      ],
+      "compiled_cli_hashes": [
+        "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521"
+      ],
+      "accounting_actual": {
+        "model_calls": null,
+        "evaluations": 5.0,
+        "cost_usd": null,
+        "wall_seconds": 36.01789918299998
+      },
+      "unknown_actual_entries": {
+        "model_calls": 5,
+        "evaluations": 0,
+        "cost_usd": 6,
+        "wall_seconds": 0
+      },
+      "managed_reflection_usage": [
+        {
+          "cost_usd": null,
+          "input_tokens": 486,
+          "model_calls": 1,
+          "output_tokens": 18,
+          "schema_version": 1,
+          "wall_seconds": 0.7040406269999835
+        }
+      ],
+      "gepa_summary": {
+        "schema_version": 1,
+        "revision": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975",
+        "accepted_ids": [
+          "initial",
+          "candidate-000002"
+        ],
+        "upstream_best_id": "candidate-000002",
+        "selected_ids": [
+          "candidate-000002"
+        ],
+        "decisions": [
+          {
+            "schema_version": 1,
+            "candidate_id": "candidate-000002",
+            "parent_id": "initial",
+            "iteration": 0,
+            "disposition": "accepted",
+            "reason": "strict_improvement"
+          }
+        ],
+        "metric_calls": 4,
+        "reflection_calls": 1,
+        "iterations": 1,
+        "stop_threshold": 3,
+        "evaluation_upper_bound": 5,
+        "batch_controller": null
+      },
+      "independent_audit": {
+        "external_grades_match_recorded_predictions": true,
+        "private_final_present": true,
+        "candidate_paths_inspected": true,
+        "execution_json_sha256": "e185ebf8de805fc4ee845c1ddd39bb5db3deca48a95b5365457db919275f9159",
+        "evidence_json_sha256": "c85a1695a584d8833000f8e228fcf1a6b061d7678e8d6636c63a1c2e6c7c8cbb"
+      },
+      "target_model_selection": [
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        }
+      ],
+      "target_reported_usage": [
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 6365,
+            "model_calls": null,
+            "output_tokens": 182
+          },
+          "records_hash": "sha256:4eb18c2e13041925011ea63d422dbcde80d79d43038e404d261b27e1b0c69794",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 9436,
+            "model_calls": null,
+            "output_tokens": 529
+          },
+          "records_hash": "sha256:9dbfdc00e560729ef318d612d7d3f7f4c1c907f1c592f3f2e411aa87cea756ca",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 6207,
+            "model_calls": null,
+            "output_tokens": 113
+          },
+          "records_hash": "sha256:265e4c44fc0f47f23499fb47ef9220afda8efe126f0b54fbffd58d0eb83e9cfe",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 6334,
+            "model_calls": null,
+            "output_tokens": 166
+          },
+          "records_hash": "sha256:36bb1243ed3fd5608193939ec02f347052dac6e2091f8f6276de2104ee7f6a1e",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": 6227,
+            "model_calls": null,
+            "output_tokens": 132
+          },
+          "records_hash": "sha256:5a45cf488b3e23ed63f9f1ce4d15a323564d29e788885a3bcc639d004ccf5f31",
+          "version": 1
+        }
+      ],
+      "evolution_reported_usage": [],
+      "seed_projection": []
+    },
+    {
+      "started_utc": "2026-10-29T23:12:03.682957+00:00",
+      "proteus_head": "83b0ee80a82ac45455a84f2dbb8d9c91e03963af",
+      "backend": "dsh",
+      "method": "native",
+      "requested_model": "deepseek-v4-flash",
+      "image_id": "sha256:e761099fb720bfc17a6d4428b90c64d8bd84a0972705fe74e6d1d8d4ba5102f8",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "status": "passed",
+      "candidate_count": 2,
+      "rollout_count": 3,
+      "scope": "Live-model mechanism acceptance on synthetic tasks, not benchmark improvement.",
+      "completed_resume_new_dispatches": 0,
+      "finished_utc": "2026-10-29T23:26:56.415753+00:00",
+      "run_id": 40970464201,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40970464201",
+      "artifact_id": 12942191361,
+      "changed_candidate_paths": [
+        "notes/policy.md",
+        "src/apps/cli/src/bin.ts"
+      ],
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact_hash": "sha256:7d54aa653b7293978710ef9a244ab8d3363bc9418e447751a664b7c4d7f42ccd"
+        },
+        {
+          "id": "episode-1",
+          "artifact_hash": "sha256:087d493b46a2155fd2b47f716fd1a479521ca148ae0206d475d1f3bdf2003d8f"
+        }
+      ],
+      "graded_predictions": [
+        {
+          "candidate": "episode-1",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "ALPHA",
+          "score": 1.0
+        },
+        {
+          "candidate": "episode-1",
+          "task": "test",
+          "visibility": "hidden",
+          "prediction": "OMEGA",
+          "score": 1.0
+        },
+        {
+          "candidate": "initial",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "alpha",
+          "score": 0.0
+        }
+      ],
+      "compiled_cli_hashes": [
+        "b181874dc436f9a95b0c9fe0419df72bd54ddac94919899835969183f5cb0204",
+        "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62"
+      ],
+      "accounting_actual": {
+        "model_calls": null,
+        "evaluations": 3.0,
+        "cost_usd": null,
+        "wall_seconds": 505.13305854899977
+      },
+      "unknown_actual_entries": {
+        "model_calls": 4,
+        "evaluations": 0,
+        "cost_usd": 4,
+        "wall_seconds": 0
+      },
+      "managed_reflection_usage": [],
+      "gepa_summary": null,
+      "independent_audit": {
+        "external_grades_match_recorded_predictions": true,
+        "private_final_present": true,
+        "candidate_paths_inspected": true,
+        "execution_json_sha256": "5738a4f78c38507795c621dec5176e5e4bea865c969a1862d9a983ba9fef6236",
+        "evidence_json_sha256": "bdd612c26eaa30d50fa0f5025c413164133cc0b31ac7c5f6c8c0d4c09c24241b"
+      },
+      "target_model_selection": [
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        }
+      ],
+      "target_reported_usage": [
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:96936e1b56f7ce5906e36f108878a17766cd400f5b94e0cc40e91522e4790972",
+          "version": 1
+        },
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:1ed3cd634620d4195dacfecd193879d938f2de4cb52b9a804af194629914bd99",
+          "version": 1
+        },
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:b987f2037acccdbea313d215170de397bce03cdbd4e95e7dbc773a696314d87d",
+          "version": 1
+        }
+      ],
+      "evolution_reported_usage": [
+        {
+          "backend": "dsh",
+          "boundary_count": 4,
+          "episode": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "phases": [
+            "observe",
+            "propose",
+            "act",
+            "reflect"
+          ],
+          "records_hash": "sha256:3873d048367da7f68cf68c54857f335e048849fdf6293b75624b3fc43d3ad33a",
+          "version": 2
+        }
+      ],
+      "seed_projection": [
+        {
+          "path": "src/.agents/notes/implemented/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/.claude/skills",
+          "target": "../.agents/skills",
+          "projection": "directory_copy"
+        },
+        {
+          "path": "src/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/examples/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/examples/acp-agent/tests/snapshots/agent-instructions/workspace/AGENTS.md",
+          "target": "AGENTS.canonical.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/examples/acp-agent/tests/snapshots/agent-instructions/workspace/nested/AGENTS.md",
+          "target": "AGENTS.canonical.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/packages/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/vendor/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        }
+      ]
+    },
+    {
+      "started_utc": "2026-10-29T23:26:56.664433+00:00",
+      "proteus_head": "83b0ee80a82ac45455a84f2dbb8d9c91e03963af",
+      "backend": "dsh",
+      "method": "gepa",
+      "requested_model": "deepseek-v4-flash",
+      "image_id": "sha256:e761099fb720bfc17a6d4428b90c64d8bd84a0972705fe74e6d1d8d4ba5102f8",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "status": "passed",
+      "candidate_count": 2,
+      "rollout_count": 5,
+      "scope": "Live-model mechanism acceptance on synthetic tasks, not benchmark improvement.",
+      "completed_resume_new_dispatches": 0,
+      "finished_utc": "2026-10-29T23:35:02.811001+00:00",
+      "run_id": 40970464201,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40970464201",
+      "artifact_id": 12942191361,
+      "changed_candidate_paths": [
+        "notes/policy.md"
+      ],
+      "candidates": [
+        {
+          "id": "initial",
+          "artifact_hash": "sha256:1a1215d10bbd9f99ba4d5f22338f77a90fa290bfd57a8fbc2ee683706c4071e0"
+        },
+        {
+          "id": "candidate-000002",
+          "artifact_hash": "sha256:ca4b482a4689ed5a4613e0231b59707865c347b07b23b389b803e2d2d7c220a4"
+        }
+      ],
+      "graded_predictions": [
+        {
+          "candidate": "initial",
+          "task": "validation",
+          "visibility": "observed",
+          "prediction": "beta",
+          "score": 0.0
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "ALPHA",
+          "score": 1.0
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "validation",
+          "visibility": "observed",
+          "prediction": "BETA",
+          "score": 1.0
+        },
+        {
+          "candidate": "initial",
+          "task": "train",
+          "visibility": "observed",
+          "prediction": "alpha",
+          "score": 0.0
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "test",
+          "visibility": "hidden",
+          "prediction": "OMEGA",
+          "score": 1.0
+        }
+      ],
+      "compiled_cli_hashes": [
+        "c0226687bb20f45c603ec6fe50f3de16d1c3510c3a803304ec575ef9bc366c62"
+      ],
+      "accounting_actual": {
+        "model_calls": null,
+        "evaluations": 5.0,
+        "cost_usd": null,
+        "wall_seconds": 451.6853713479991
+      },
+      "unknown_actual_entries": {
+        "model_calls": 5,
+        "evaluations": 0,
+        "cost_usd": 6,
+        "wall_seconds": 0
+      },
+      "managed_reflection_usage": [
+        {
+          "cost_usd": null,
+          "input_tokens": 568,
+          "model_calls": 1,
+          "output_tokens": 18,
+          "schema_version": 1,
+          "wall_seconds": 0.7095146020001266
+        }
+      ],
+      "gepa_summary": {
+        "schema_version": 1,
+        "revision": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975",
+        "accepted_ids": [
+          "initial",
+          "candidate-000002"
+        ],
+        "upstream_best_id": "candidate-000002",
+        "selected_ids": [
+          "candidate-000002"
+        ],
+        "decisions": [
+          {
+            "schema_version": 1,
+            "candidate_id": "candidate-000002",
+            "parent_id": "initial",
+            "iteration": 0,
+            "disposition": "accepted",
+            "reason": "strict_improvement"
+          }
+        ],
+        "metric_calls": 4,
+        "reflection_calls": 1,
+        "iterations": 1,
+        "stop_threshold": 3,
+        "evaluation_upper_bound": 5,
+        "batch_controller": null
+      },
+      "independent_audit": {
+        "external_grades_match_recorded_predictions": true,
+        "private_final_present": true,
+        "candidate_paths_inspected": true,
+        "execution_json_sha256": "f48d13416b85936d498e4d6449b7b1bd9a657f838d5a8cb2d8a0de1ad92e2697",
+        "evidence_json_sha256": "5791fd6e72721f6b69085296806655e61832a192df4b593a828cd89801e1e1cd"
+      },
+      "target_model_selection": [
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        },
+        {
+          "applied_model": "deepseek-v4-flash",
+          "owner": "framework",
+          "policy": "framework",
+          "requested_model": "deepseek-v4-flash",
+          "resolved_model": null
+        }
+      ],
+      "target_reported_usage": [
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:676e98242e5f2c85685234bb5384f8e611443419557664d186f52508e249fdd9",
+          "version": 1
+        },
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:9270379b4fa9af4a6bf51a81c7a34ed8ef625a097a6eb7a7c451d3841f0ba8a8",
+          "version": 1
+        },
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:cd5985e6461b018f10d06f0d1ce1f43ddebf0b7eaad9f94fe263e1a52c4daa41",
+          "version": 1
+        },
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:979471e54caac1950b497f8ceb9d982de107e4ab8e796be7ce9fe1ac32865afa",
+          "version": 1
+        },
+        {
+          "backend": "dsh",
+          "boundary_count": 1,
+          "inference": {
+            "cost_usd": null,
+            "input_tokens": null,
+            "model_calls": null,
+            "output_tokens": null
+          },
+          "records_hash": "sha256:fb0efa329c3699d11b7285feb46c291b495b0719d267400f7293425c986702a8",
+          "version": 1
+        }
+      ],
+      "evolution_reported_usage": [],
+      "seed_projection": [
+        {
+          "path": "src/.agents/notes/implemented/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/.claude/skills",
+          "target": "../.agents/skills",
+          "projection": "directory_copy"
+        },
+        {
+          "path": "src/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/examples/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/examples/acp-agent/tests/snapshots/agent-instructions/workspace/AGENTS.md",
+          "target": "AGENTS.canonical.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/examples/acp-agent/tests/snapshots/agent-instructions/workspace/nested/AGENTS.md",
+          "target": "AGENTS.canonical.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/packages/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        },
+        {
+          "path": "src/vendor/CLAUDE.md",
+          "target": "AGENTS.md",
+          "projection": "file_copy"
+        }
+      ]
+    }
+  ],
+  "first_attempt": {
+    "run_id": 40968776199,
+    "url": "https://github.com/proteus-evolve/Proteus/actions/runs/40968776199",
+    "head": "4cca31567f5dc01be589dbf90ac3e3fe7de7a877",
+    "workflow_conclusion": "failure",
+    "pi_native": {
+      "started_utc": "2026-10-29T22:51:55.299556+00:00",
+      "proteus_head": "4cca31567f5dc01be589dbf90ac3e3fe7de7a877",
+      "backend": "pi",
+      "method": "native",
+      "requested_model": "deepseek-v4-flash",
+      "image_id": "sha256:3bc80c75d5d775b1c419ffd4d94776971372ec3a39006b6d8240d218c11fe57e",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "status": "passed",
+      "candidate_count": 2,
+      "rollout_count": 3,
+      "predictions": [
+        {
+          "candidate": "initial",
+          "task": "train",
+          "output": "alpha"
+        },
+        {
+          "candidate": "episode-1",
+          "task": "train",
+          "output": "ALPHA"
+        },
+        {
+          "candidate": "episode-1",
+          "task": "test",
+          "output": "OMEGA"
+        }
+      ],
+      "activations": [
+        {
+          "backend": "pi",
+          "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+          "cli_sha256": "1855fa3c676e596d5b47e1bce956a542e78d3160831b3a6053657b8edb6dc462",
+          "mode": "cache",
+          "source_sha256": "17158f016d4c99eb1bf14891e76a08ab3e7342749bd0a6004b5e16e82cfad1d5",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+          "cli_sha256": "1855fa3c676e596d5b47e1bce956a542e78d3160831b3a6053657b8edb6dc462",
+          "mode": "cache",
+          "source_sha256": "17158f016d4c99eb1bf14891e76a08ab3e7342749bd0a6004b5e16e82cfad1d5",
+          "version": 1
+        },
+        {
+          "backend": "pi",
+          "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+          "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+          "mode": "pristine",
+          "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+          "version": 1
+        }
+      ],
+      "scope": "Live-model mechanism acceptance on synthetic tasks, not benchmark improvement.",
+      "completed_resume_new_dispatches": 0,
+      "finished_utc": "2026-10-29T22:54:22.146982+00:00"
+    },
+    "pi_native_accounting": {
+      "coverage": "managed ledger operations; opaque native calls may be outside this ledger",
+      "actual": {
+        "model_calls": null,
+        "evaluations": 3.0,
+        "cost_usd": null,
+        "wall_seconds": 107.68842611299993
+      },
+      "budget_charged": {
+        "model_calls": null,
+        "evaluations": 3.0,
+        "cost_usd": null,
+        "wall_seconds": 107.68842611299993
+      },
+      "unknown_actual_entries": {
+        "model_calls": 4,
+        "evaluations": 0,
+        "cost_usd": 4,
+        "wall_seconds": 0
+      },
+      "by_role_stage": [
+        {
+          "role": "evolver",
+          "stage": "evolve",
+          "kind": "actor",
+          "entries": 1,
+          "model_calls": null,
+          "evaluations": 0.0,
+          "cost_usd": null,
+          "wall_seconds": 54.90693634599998,
+          "input_tokens": null,
+          "output_tokens": null
+        },
+        {
+          "role": "framework",
+          "stage": "evaluation",
+          "kind": "evaluation_cohort",
+          "entries": 3,
+          "model_calls": 0.0,
+          "evaluations": 3.0,
+          "cost_usd": 0.0,
+          "wall_seconds": 0.0,
+          "input_tokens": null,
+          "output_tokens": null
+        },
+        {
+          "role": "grader",
+          "stage": null,
+          "kind": "grader",
+          "entries": 3,
+          "model_calls": 0.0,
+          "evaluations": 0.0,
+          "cost_usd": 0.0,
+          "wall_seconds": 0.014595321999991029,
+          "input_tokens": null,
+          "output_tokens": null
+        },
+        {
+          "role": "target",
+          "stage": null,
+          "kind": "subject",
+          "entries": 3,
+          "model_calls": null,
+          "evaluations": 0.0,
+          "cost_usd": null,
+          "wall_seconds": 52.76689444499996,
+          "input_tokens": null,
+          "output_tokens": null
+        }
+      ],
+      "actor_tokens": {
+        "coverage": "managed_actor_entries_only",
+        "entries": 1,
+        "reported": {
+          "input_tokens": null,
+          "output_tokens": null
+        }
+      },
+      "ledger_span_seconds": 133.571193282,
+      "time_semantics": "wall_seconds is summed operation time; ledger_span_seconds includes gaps/recovery downtime and is not an active-runtime measurement",
+      "native_receipts": [
+        {
+          "entry_id": "actor-73c4ddcb56985c5d1be183899cb8c745483635d90be629101ce301514bb8c7c6",
+          "version": 2,
+          "backend": "pi",
+          "records_hash": "sha256:8d8caa10a1249aeae406f9876e030d89694f2c6832b2ed32fd30dcdd72aabd31",
+          "boundary_count": 4,
+          "inference": {
+            "model_calls": null,
+            "input_tokens": null,
+            "output_tokens": null,
+            "cost_usd": null
+          },
+          "episode": 1,
+          "phases": [
+            "observe",
+            "propose",
+            "act",
+            "reflect"
+          ]
+        }
+      ]
+    },
+    "pi_gepa": {
+      "pilot_status": "failed",
+      "cause": "Checker incorrectly required improvement from every candidate; metric threshold 4 allowed two mutations after a rejection",
+      "algorithm_summary": {
+        "schema_version": 1,
+        "revision": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975",
+        "accepted_ids": [
+          "initial",
+          "candidate-000003"
+        ],
+        "upstream_best_id": "candidate-000003",
+        "selected_ids": [
+          "candidate-000003"
+        ],
+        "decisions": [
+          {
+            "schema_version": 1,
+            "candidate_id": "candidate-000002",
+            "parent_id": "initial",
+            "iteration": 0,
+            "disposition": "rejected",
+            "reason": "New subsample score 0.0 not better than old score 0.0"
+          },
+          {
+            "schema_version": 1,
+            "candidate_id": "candidate-000003",
+            "parent_id": "initial",
+            "iteration": 1,
+            "disposition": "accepted",
+            "reason": "strict_improvement"
+          }
+        ],
+        "metric_calls": 6,
+        "reflection_calls": 2,
+        "iterations": 2,
+        "stop_threshold": 4,
+        "evaluation_upper_bound": 6,
+        "batch_controller": null
+      },
+      "predictions": [
+        {
+          "candidate": "initial",
+          "task": "validation",
+          "output": "beta",
+          "status": "succeeded"
+        },
+        {
+          "candidate": "initial",
+          "task": "train",
+          "output": "alpha",
+          "status": "succeeded"
+        },
+        {
+          "candidate": "candidate-000002",
+          "task": "train",
+          "output": "alpha",
+          "status": "succeeded"
+        },
+        {
+          "candidate": "initial",
+          "task": "train",
+          "output": "alpha",
+          "status": "succeeded"
+        },
+        {
+          "candidate": "candidate-000003",
+          "task": "train",
+          "output": "ALPHA",
+          "status": "succeeded"
+        },
+        {
+          "candidate": "candidate-000003",
+          "task": "validation",
+          "output": "BETA",
+          "status": "succeeded"
+        },
+        {
+          "candidate": "candidate-000003",
+          "task": "test",
+          "output": "OMEGA",
+          "status": "succeeded"
+        }
+      ],
+      "resume_check": "not reached"
+    },
+    "dsh": {
+      "native": "failed before inference: source seed contains symlinks",
+      "gepa": "failed before inference: source seed contains symlinks"
+    },
+    "artifact_ids": {
+      "pi": 12938204636,
+      "dsh": 12939179168
+    },
+    "inference_cost_usd": null
+  }
+}

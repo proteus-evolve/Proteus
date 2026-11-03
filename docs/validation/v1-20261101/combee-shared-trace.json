@@ -1,0 +1,95 @@
+{
+  "archive": {
+    "bytes": 630394,
+    "file": "combee-shared-trace-5794378.tar.gz",
+    "files": 331,
+    "sha256": "9f1a4136df335e34e7faae8e532a4bec742052d787c380e84ce993fbe41b235b"
+  },
+  "arms": [
+    {
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "batch_sizes": [],
+      "completed_resume_extra_actor_calls": 0,
+      "execution_sha256": "2c103b3864538586a0ed20d4d8f39d8111fcd286529121541734c5aa1b265ac7",
+      "manifest_sha256": "4c21878514943b5b217ca58bddf1802160792988bdc26c390d2e7b53e99aaf14",
+      "role_calls": {
+        "curator": 11,
+        "generator": 22,
+        "reflector": 11
+      },
+      "seed": 0,
+      "variant": "ace"
+    },
+    {
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "batch_sizes": [
+        3,
+        3,
+        3,
+        2
+      ],
+      "completed_resume_extra_actor_calls": 0,
+      "execution_sha256": "a462ffb8ce335b43ff86bd22f95e8cbb19f57021edeb34f7c96e2ae1062134a8",
+      "manifest_sha256": "86abebdd72083e006dc8db7678acce70a46938dd36284fe090cb3950d6a9d17e",
+      "role_calls": {
+        "curator": 4,
+        "generator": 22,
+        "reflector": 11
+      },
+      "seed": 0,
+      "variant": "naive_parallel"
+    },
+    {
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "batch_sizes": [
+        3,
+        3,
+        3,
+        2
+      ],
+      "completed_resume_extra_actor_calls": 0,
+      "execution_sha256": "2657c6a594f4a79c350ba3c3c8fb10c04da604f7b1737a95dce05afd6dd8e382",
+      "manifest_sha256": "d3d2d3bcb0280d3daabdb07c458768e1ddd691bb5f29ffa8d955a8d0e546a656",
+      "role_calls": {
+        "curator": 12,
+        "generator": 22,
+        "reflector": 11
+      },
+      "seed": 0,
+      "variant": "combee_fixed"
+    },
+    {
+      "H0": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+      "batch_sizes": [
+        1,
+        2,
+        4,
+        4
+      ],
+      "completed_resume_extra_actor_calls": 0,
+      "execution_sha256": "69e44e505b5f0e52e899f97de45f9ec5072d75e54e18a756306d8213ca1aafff",
+      "manifest_sha256": "71fad9134a14d790887229068bc6564145173412a3d7256ab678adc391cdf869",
+      "role_calls": {
+        "curator": 12,
+        "generator": 22,
+        "reflector": 11
+      },
+      "seed": 0,
+      "variant": "combee_dynamic"
+    }
+  ],
+  "provider_calls": 0,
+  "raw_record_scope": "Hash-preserved model-free fixture requests/receipts, manifests, datasets, candidate artifacts and audit projections; excludes recovery journal because this bundle supports readback, not run resume.",
+  "runner_sha256": "ed8c8c28c8a0fa89c0b5e4eb0e6edbe7a41ca3693420b96a537848d3f33ece4c",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "scope": "Synthetic shared learning trace: method wiring, provenance and scheduling only; no provider calls, model quality, real latency or speedup claim.",
+  "shared_trace_verified": true,
+  "source": {
+    "dirty_patch_hash": null,
+    "name": "proteus",
+    "repository": "https://github.com/proteus-evolve/Proteus",
+    "revision": "57943787369aff43fb180818af9eba5b6a68b1c6",
+    "schema_version": 1
+  },
+  "trace_sha256": "2d548e103921fc9cd2edaece68bad90db3ed6f8d8f1ec025b6cfc02b5bb1ad49"
+}

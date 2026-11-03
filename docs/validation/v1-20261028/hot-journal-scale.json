@@ -1,0 +1,65 @@
+{
+  "python": "3.12.13",
+  "platform": "macOS-15.0-arm64-arm-64bit",
+  "source_revision": "6273a8208a65f0e191c1b204e20eacbb7a7e22d8",
+  "working_tree_diff_hash": "sha256:73ebb9c247d170e0ef8ea06a39f4cdd9c63657a449da32f7bb75f4cbd409b4c8",
+  "scope": "offline managed stages and accounting; no model latency or Docker performance claim",
+  "stages": [
+    {
+      "examples": 80,
+      "managed_stages": 240,
+      "prompt_bytes_per_stage": 8192,
+      "run_seconds": 13.74448729120195,
+      "completed_resume_seconds": 0.8832852086052299,
+      "journal": {
+        "files": 644,
+        "bytes": 9190144
+      },
+      "run": {
+        "files": 653,
+        "bytes": 40951343
+      },
+      "same_completed_result": true,
+      "resume_added_dispatches": 0,
+      "provider_calls": 0
+    }
+  ],
+  "ledger": {
+    "synthetic_entries": 5000,
+    "request_bytes": 8192,
+    "reserve_start_settle_and_check_seconds": 13.71515916660428,
+    "independent_scan_seconds": 0.8358883745968342,
+    "balance_matches_independent_scan": true,
+    "database": {
+      "files": 1,
+      "bytes": 89202688
+    },
+    "provider_calls": 0,
+    "usage_values_are_synthetic": true
+  },
+  "cohort": {
+    "split_sizes": {
+      "train": 20,
+      "validation": 10,
+      "test": 10
+    },
+    "max_workers": 8,
+    "task_payload_bytes": 8192,
+    "run_seconds": 1.3494029575958848,
+    "completed_resume_seconds": 0.15916441567242146,
+    "journal": {
+      "files": 32,
+      "bytes": 547302
+    },
+    "run": {
+      "files": 355,
+      "bytes": 5179346
+    },
+    "ledger_entries": 83,
+    "resume_added_dispatches": 0,
+    "provider_calls": 0,
+    "same_completed_result": true,
+    "balance_matches_independent_scan": true
+  },
+  "peak_rss_bytes": 128237568
+}

@@ -7,3 +7,4 @@ year: 2026
 url: "https://github.com/proteus-evolve/Proteus"
 license: MIT
 # A paper reference will be added when the preprint is public.
+# Cite upstream methods separately; see docs/METHOD_REFERENCES.md and references.bib.

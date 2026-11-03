@@ -1,0 +1,17 @@
+{
+  "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "branch": "codex/dsh-smoke-candidate-diagnostics-20261101",
+  "source_clean": true,
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "files_match_final_regression_hashes": true,
+  "original_failed_job_log": "/tmp/proteus-v1-final-20261101/smoke-logs/dsh-failed.log",
+  "preserved_log": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/original-dsh-failed.log",
+  "preserved_log_sha256": "1960902a2cbef600226f3a9029ba45df4d828d91a0368771ea63993ad4b1b2bd",
+  "original_failed_run": 41390453875,
+  "original_failed_job": 125109408368,
+  "original_root_cause": "unproven; relative-path ambiguity is an inference pending real trace evidence",
+  "original_cost_USD": null,
+  "original_cost_status": "unknown, not zero",
+  "new_provider_calls": 0,
+  "workflow_dispatches_or_cancellations": 0
+}

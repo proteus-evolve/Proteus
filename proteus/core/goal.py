@@ -21,11 +21,12 @@ run and a goal run are read with the same ruler.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Callable, Mapping, Sequence
 
 from proteus.core.adapter import ActionEvent
+from proteus.core.contracts import Usage
 
 
 class Visibility(str, Enum):
@@ -137,6 +138,19 @@ class GoalContext:
     harness_root: str
     episode: int
     grader_sandbox: Any = None
+    native_root: str | None = None
+    _usage_recorder: Callable[[Usage], None] | None = field(default=None, repr=False, compare=False)
+
+    def report_usage(self, usage: Usage) -> None:
+        """Report usage exclusive of existing adapter receipts, inside this evaluation.
+
+        Report every attempted call, using None for unavailable dimensions. This
+        is evaluator-supplied evidence, not a budget reservation or billing audit.
+        Boundary wall time is measured by Proteus; supplied wall_seconds is unused.
+        """
+        if self._usage_recorder is None:
+            raise RuntimeError('usage reporting requires an active native evaluator boundary')
+        self._usage_recorder(usage)
 
 
 @dataclass(frozen=True)
@@ -239,21 +253,24 @@ class GoalConfig:
         """Run due evaluators independently; one broken signal never erases the others."""
         out: list[EvalResult] = []
 
-        def isolated(name: str, evaluator: Evaluator, error_policy: str = "zero") -> EvalResult:
+        def isolated(name: str, evaluator: Evaluator, error_policy: str = "zero", *,
+                     kind: str = 'goal', visibility: Visibility = Visibility.HIDDEN) -> EvalResult:
             try:
-                result = evaluator(trace, ctx)
-                if result.status not in ("ok", "error", "missing"):
-                    raise ValueError(f"unknown result status {result.status!r}")
-                if result.score is None and (result.status == "ok" or result.passed):
-                    raise ValueError("a missing score cannot be successful")
-                if result.score is not None and not math.isfinite(float(result.score)):
-                    raise ValueError(f"non-finite score {result.score!r}")
-                if result.status != "ok" and result.passed:
-                    raise ValueError("an unavailable evaluation cannot pass")
-                from proteus.core.continuity import _redact
-                return replace(result, name=name,
-                               score=float(result.score) if result.score is not None else None,
-                               detail=_redact(str(result.detail))[:8000])
+                from proteus.core.native_evaluators import native_evaluator
+                with native_evaluator(evaluator, trace, ctx, name=name, kind=kind, visibility=visibility) as measured:
+                    result = evaluator(trace, measured)
+                    if result.status not in ("ok", "error", "missing"):
+                        raise ValueError(f"unknown result status {result.status!r}")
+                    if result.score is None and (result.status == "ok" or result.passed):
+                        raise ValueError("a missing score cannot be successful")
+                    if result.score is not None and not math.isfinite(float(result.score)):
+                        raise ValueError(f"non-finite score {result.score!r}")
+                    if result.status != "ok" and result.passed:
+                        raise ValueError("an unavailable evaluation cannot pass")
+                    from proteus.core.continuity import _redact
+                    return replace(result, name=name,
+                                   score=float(result.score) if result.score is not None else None,
+                                   detail=_redact(str(result.detail))[:8000])
             except Exception as exc:  # noqa: BLE001 - a broken evaluator is one result
                 from proteus.core.continuity import _redact
                 return EvalResult(
@@ -264,10 +281,10 @@ class GoalConfig:
 
         for g in self.goals:
             if g.evaluator is not None and ctx.episode > 0:
-                out.append(isolated(g.name, g.evaluator))
+                out.append(isolated(g.name, g.evaluator, visibility=g.visibility))
         for spec in self.evaluators:
             if spec.due(ctx.episode):
-                out.append(isolated(spec.name, spec.run, spec.error_policy))
+                out.append(isolated(spec.name, spec.run, spec.error_policy, kind=spec.kind, visibility=spec.visibility))
         return out
 
     def _visible(self) -> list[tuple[str, str]]:

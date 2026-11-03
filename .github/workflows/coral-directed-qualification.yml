@@ -1,0 +1,154 @@
+name: CORAL directed qualification
+
+on:
+  workflow_call:
+    inputs:
+      expected_sha:
+        required: true
+        type: string
+      mode:
+        required: false
+        default: fixture
+        type: string
+      model:
+        required: false
+        default: deepseek-flash
+        type: string
+      expected_live_plan_sha256:
+        required: false
+        default: ''
+        type: string
+    secrets:
+      DEEPSEEK_API_KEY:
+        required: false
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed 40-character source commit
+        required: true
+        type: string
+      mode:
+        description: Fixture is free; live requires the separately reviewed plan hash
+        required: true
+        default: fixture
+        type: choice
+        options: [fixture, live]
+      model:
+        description: Reviewed DeepSeek model identifier
+        required: true
+        default: deepseek-flash
+        type: string
+      expected_live_plan_sha256:
+        description: Required in live mode; obtain from the same-commit fixture preparation
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coral-directed-qualification
+  cancel-in-progress: false
+
+jobs:
+  qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      QUAL_MODE: ${{ inputs.mode }}
+      QUAL_MODEL: ${{ inputs.model }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      EXPECTED_LIVE_PLAN: ${{ inputs.expected_live_plan_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Exact source and single-attempt gate, no credentials
+        run: |
+          python - <<'PY'
+          import os, re, subprocess
+          assert os.environ['GITHUB_RUN_ATTEMPT'] == '1', 'No rerun/repair attempts permitted'
+          expected = os.environ['EXPECTED_SHA']
+          assert re.fullmatch(r'[0-9a-f]{40}', expected)
+          assert subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip() == expected
+          assert os.environ['GITHUB_SHA'] == expected, 'Workflow definition must also be the reviewed commit'
+          subprocess.run(['git','remote','set-url','origin','https://github.com/proteus-evolve/Proteus.git'],check=True)
+          assert os.environ['QUAL_MODE'] in ('fixture','live')
+          if os.environ['QUAL_MODE'] == 'live':
+              assert re.fullmatch(r'[0-9a-f]{64}', os.environ['EXPECTED_LIVE_PLAN'])
+          PY
+      - run: python -m pip install -e '.[dev]'
+      - name: Unpaid qualification and negative tests only, no release-smoke matrix
+        run: python -m pytest -q tests/test_v1_coral_directed_qualification.py
+      - name: Freeze exact live plan without loading a provider credential
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess, sys
+          value = json.loads(subprocess.check_output([sys.executable,
+              'tools/validation/coral_directed.py','plan','--mode','live',
+              '--model',os.environ['QUAL_MODEL']]))
+          assert value['plan']['source_pin']['dirty_patch_hash'] is None
+          if os.environ['QUAL_MODE'] == 'live':
+              assert value['plan_sha256'] == os.environ['EXPECTED_LIVE_PLAN']
+          pathlib.Path('/tmp/coral-directed-reviewed-plan.json').write_text(json.dumps(value,indent=2))
+          print('Reviewed live plan SHA256:', value['plan_sha256'])
+          PY
+      - name: Clean fixture and separate read-only audit
+        run: |
+          python tools/validation/coral_directed.py run --mode fixture --out /tmp/proteus-coral-directed-fixture
+          python tools/validation/coral_directed.py audit --out /tmp/proteus-coral-directed-fixture
+      - name: Exactly one approved live execution, three physical slots at most
+        if: ${{ success() && inputs.mode == 'live' }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess, sys
+          assert os.environ.get('DEEPSEEK_API_KEY'), 'Missing Actions DeepSeek credential'
+          plan = json.loads(pathlib.Path('/tmp/coral-directed-reviewed-plan.json').read_text())
+          assert plan['plan_sha256'] == os.environ['EXPECTED_LIVE_PLAN']
+          approval = {'approved': True, 'plan_sha256': plan['plan_sha256'],
+              'max_physical_dispatches': 3, 'output_root': '/tmp/proteus-coral-directed-live'}
+          path = pathlib.Path('/tmp/coral-directed-once-approval.json')
+          with path.open('x') as stream: json.dump(approval,stream)
+          subprocess.run([sys.executable,'tools/validation/coral_directed.py','run',
+              '--mode','live','--model',os.environ['QUAL_MODEL'],
+              '--out','/tmp/proteus-coral-directed-live','--approval',str(path),
+              '--execute-approved-live'],check=True)
+          PY
+      - name: Separate saved-record read-only audit, no provider key
+        if: ${{ success() && inputs.mode == 'live' }}
+        run: python tools/validation/coral_directed.py audit --out /tmp/proteus-coral-directed-live
+      - name: Always retain original failure/unknown records in credential-free audit copies
+        if: ${{ always() }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, shutil, subprocess, sys
+          dest = pathlib.Path('/tmp/coral-directed-artifacts'); dest.mkdir()
+          context = {name:os.environ.get(name) for name in
+              ('GITHUB_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','QUAL_MODE','QUAL_MODEL','EXPECTED_LIVE_PLAN')}
+          (dest/'workflow-context.json').write_text(json.dumps(context,indent=2))
+          source = pathlib.Path('/tmp/coral-directed-reviewed-plan.json')
+          if source.exists(): shutil.copyfile(source,dest/'reviewed-live-plan.json')
+          failed_export = False
+          for mode in ('fixture','live'):
+              root = pathlib.Path('/tmp/proteus-coral-directed-'+mode)
+              present = root.exists()
+              result = subprocess.run([sys.executable,'tools/validation/coral_directed.py','export',
+                  '--out',str(root),'--destination',str(dest/mode)])
+              if present and result.returncode: failed_export = True
+          if failed_export: raise SystemExit('Incomplete audit export; original unknowns are not accepted as zero')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: coral-directed-${{ github.sha }}-${{ github.run_id }}-${{ inputs.mode }}
+          path: /tmp/coral-directed-artifacts
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 90

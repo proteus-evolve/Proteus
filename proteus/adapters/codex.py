@@ -22,8 +22,10 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from proteus.adapters import instructions
-from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
+from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface, task_workspace_mounts
 from proteus.core.budget import budget_plan, phase_prompt
+from proteus.core.native_inputs import native_input
+from proteus.core.native_usage import codex_usage
 from proteus.core.continuity import CONTAINER_ROOT, HandoffStore, _redact
 from proteus.core.disposition import Disposition
 
@@ -119,6 +121,11 @@ class CodexHarness:
             (harness_root / sub).mkdir(parents=True, exist_ok=True)
         self._extract_self_code(harness_root / "src")
 
+    def prepare_candidate(self, harness_root: Path) -> None:
+        """Restore empty surface directories without reseeding candidate files."""
+        for sub in ('notes', 'tools', '.agents/skills'):
+            (harness_root / sub).mkdir(parents=True, exist_ok=True)
+
     def _extract_self_code(self, dest: Path) -> None:
         if dest.exists() and any(dest.iterdir()):
             return
@@ -136,9 +143,8 @@ class CodexHarness:
             )
 
     @staticmethod
-    def _task_mount(run_root: Path) -> tuple:
-        task = run_root / "task"
-        return ((str(task), "/workspace/task"),) if task.is_dir() else ()
+    def _task_mount(run_root: Path, readonly: tuple[str, ...] = ()) -> tuple:
+        return task_workspace_mounts(run_root, readonly)
 
     def _prepare_auth(self, state: Path) -> bool:
         home = state / "codex-home"
@@ -334,7 +340,7 @@ class CodexHarness:
             out[str(key)] = str(val)[:300]
         return out
 
-    def _jsonl_trace(self, text: str, phase: str) -> list[ActionEvent]:
+    def _jsonl_trace(self, text: str, phase: str, *, text_limit: int | None = 1000) -> list[ActionEvent]:
         """Normalize `codex exec --json` JSONL.
 
         One completed native tool item becomes one tool event, including multi-file
@@ -376,7 +382,7 @@ class CodexHarness:
                 if item.get("text"):
                     events.append(ActionEvent(turn=turn, phase=phase, tool=None,
                                               surface=None, params={},
-                                              text=str(item["text"])[:1000]))
+                                              text=str(item["text"])[:text_limit]))
             elif kind == "reasoning":
                 if item.get("text"):
                     events.append(ActionEvent(turn=turn, phase=phase, tool=None,
@@ -531,7 +537,9 @@ class CodexHarness:
             model = spec.model or self.model
             if model:
                 command += ["--model", model]
-            command += [prompt]
+            # A task can start with YAML '---' or another option-like string.
+            # Keep it literal for the native CLI's positional prompt parser.
+            command += ['--', prompt]
 
             fired = [False]
             def stop_check():
@@ -544,25 +552,44 @@ class CodexHarness:
 
             timed_out = False
             try:
-                proc = self.sandbox.run(
-                    run_root, command,
-                    env={k: v for k, v in {
-                        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
-                        "CODEX_API_KEY": os.environ.get("CODEX_API_KEY", ""),
-                        "OPENAI_BASE_URL": os.environ.get("OPENAI_BASE_URL", ""),
-                        # Some hosts have no direct route to the Codex/OpenAI API and
-                        # need an outbound proxy; forward it if the host has one set.
-                        "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
-                        "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
-                        "NO_PROXY": os.environ.get("NO_PROXY", ""),
-                    }.items() if v},
-                    timeout_s=self.phase_timeout_s,
-                    mounts=workspace_mounts + ((str(state), "/state"),
-                            (str(publication), "/opt/proteus-bin", "ro"),
-                            (str(handoffs.root), CONTAINER_ROOT))
-                           + self._task_mount(run_root),
-                    stop_check=stop_check if plan.enabled else None,
-                )
+                with native_input(spec, backend=self.name, phase=phase, scope='harness_cli',
+                                  payload=command, model=spec.model or self.model) as receipt:
+                    proc = None
+                    try:
+                        proc = self.sandbox.run(
+                            run_root, command,
+                            env={k: v for k, v in {
+                                "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
+                                "CODEX_API_KEY": os.environ.get("CODEX_API_KEY", ""),
+                                "OPENAI_BASE_URL": os.environ.get("OPENAI_BASE_URL", ""),
+                                # Some hosts have no direct route to the Codex/OpenAI API and
+                                # need an outbound proxy; forward it if the host has one set.
+                                "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
+                                "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
+                                "NO_PROXY": os.environ.get("NO_PROXY", ""),
+                            }.items() if v},
+                            timeout_s=self.phase_timeout_s,
+                            mounts=workspace_mounts + ((str(state), "/state"),
+                                    (str(publication), "/opt/proteus-bin", "ro"),
+                                    (str(handoffs.root), CONTAINER_ROOT))
+                                   + self._task_mount(run_root, spec.readonly_task_paths),
+                            stop_check=stop_check if plan.enabled else None,
+                        )
+                        receipt["returncode"] = proc.returncode
+                    finally:
+                        # Freeze the exact observed stream before publishing the
+                        # outcome: a later native retry can overwrite the phase log.
+                        source = None
+                        try:
+                            if not log.is_symlink():
+                                source = log.read_bytes()
+                                if not source and proc is not None and proc.stdout:
+                                    source = proc.stdout.encode('utf-8') if isinstance(proc.stdout, str) else proc.stdout
+                        except OSError:
+                            pass
+                        receipt['usage_source'] = source
+                        receipt['usage'] = codex_usage(source, transport_complete=
+                            proc is not None and proc.returncode == 0 and not fired[0])
             except subprocess.TimeoutExpired:
                 timed_out = True
                 proc = None
@@ -616,7 +643,16 @@ class CodexHarness:
             turns=sum(1 for e in trace if e.tool), error=error, counters=counters,
         )
 
-    def read_trace(self, root: Path, episode: int) -> Sequence[ActionEvent]:
+    def read_response(self, root: Path, episode: int) -> str:
+        """Complete final visible assistant response, independent of trace previews."""
+        events = [e for e in self.read_trace(root, episode, text_limit=None)
+                  if e.tool is None and e.text and not e.params.get('kind')]
+        if not events:
+            return ''
+        last = events[-1]
+        return '\n'.join(e.text for e in events if (e.phase, e.turn) == (last.phase, last.turn))
+
+    def read_trace(self, root: Path, episode: int, *, text_limit: int | None = 1000) -> Sequence[ActionEvent]:
         root = Path(root)
         map_path = root / "traces" / f"ep{episode:03d}.json"
         if not map_path.exists():
@@ -632,7 +668,7 @@ class CodexHarness:
             path = state / name
             if not path.exists():
                 continue
-            phase_events = self._jsonl_trace(path.read_text(encoding="utf-8", errors="replace"), phase)
+            phase_events = self._jsonl_trace(path.read_text(encoding="utf-8", errors="replace"), phase, text_limit=text_limit)
             for event in phase_events:
                 events.append(ActionEvent(
                     turn=offset + event.turn, phase=event.phase, tool=event.tool,

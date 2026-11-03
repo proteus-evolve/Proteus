@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "original_bug_head": "4e8e33c1cbffedf64bd55e30dd86759dd39d5f40",
+  "script_sha256": "9e8c022fc8ea6750a4e762e5da60cae88fb7e0a3125264e18e25f5063f63ace6",
+  "original_combined_drift_recheck": {
+    "exit_code": 1,
+    "error": "ValueError: Catalog metric disagrees with pinned receipt: Combee-online-ACE-final-independent-acceptance.json: baseline_correct",
+    "output_created": false
+  },
+  "control_and_16_mutations": "catalog-drift-checks.json",
+  "new_provider_calls": 0,
+  "frozen_records_modified": false
+}

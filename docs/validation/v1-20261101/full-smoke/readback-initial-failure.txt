@@ -1,0 +1,1 @@
+Local readback helper failed at manifest arms assertion: it expected CLI disposition spec review:notes as persisted arm label. Both original manifests record neutral, review_notes. No live gate or archive data changed.

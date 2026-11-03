@@ -2,11 +2,57 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev/1.0.0]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      coral_expected_sha:
+        description: Exact reviewed source commit for bounded CORAL qualification
+        required: true
+        type: string
+      coral_model:
+        description: Reviewed model identifier; fixture records it without calling a provider
+        required: false
+        default: deepseek-flash
+        type: string
+      coral_mode:
+        description: Fixture is free; live requires separate technical approval and the exact plan hash
+        required: false
+        default: fixture
+        type: choice
+        options: [fixture, live]
+      expected_live_plan_sha256:
+        description: Required only for a separately approved live execution
+        required: false
+        type: string
 
 jobs:
+  coral-directed-fixture:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.coral_mode == 'fixture' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/coral-directed-qualification.yml
+    with:
+      expected_sha: ${{ inputs.coral_expected_sha }}
+      mode: fixture
+      model: ${{ inputs.coral_model }}
+
+  coral-directed-live:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.coral_mode == 'live' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/coral-directed-qualification.yml
+    with:
+      expected_sha: ${{ inputs.coral_expected_sha }}
+      mode: live
+      model: ${{ inputs.coral_model }}
+      expected_live_plan_sha256: ${{ inputs.expected_live_plan_sha256 }}
+    secrets:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
   frontend:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Visualize presentation helpers
     runs-on: ubuntu-latest
     steps:
@@ -17,6 +63,7 @@ jobs:
       - run: node --test tests/visualize/model.test.mjs
 
   test:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -27,20 +74,91 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - name: install
         run: pip install -e '.[dev,dsh,pi]'
+      - name: Install exact optional GEPA reference for conformance tests
+        run: pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+      - name: Install pinned numeric reference on the domain Python version
+        if: matrix.python-version == '3.12'
+        run: pip install --no-deps 'https://files.pythonhosted.org/packages/8c/3d/1e1db36cfd41f895d266b103df00ca5b3cbe965184df824dec5c08c6b803/numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249'
+      - name: Fetch pinned ACE source for playbook, full-method and Formula conformance (no SDK imports)
+        run: |
+          git init /tmp/proteus-ace-reference
+          git -C /tmp/proteus-ace-reference remote add origin https://github.com/ace-agent/ace.git
+          git -C /tmp/proteus-ace-reference fetch --depth=1 origin 82709de050e1db6e6ef2f07bcb0393560b94992a
+          git -C /tmp/proteus-ace-reference checkout --detach FETCH_HEAD
+      - name: Fetch pinned ComBEE operator for independent upstream conformance
+        run: |
+          git init /tmp/proteus-combee-gepa-reference
+          git -C /tmp/proteus-combee-gepa-reference remote add origin https://github.com/gepa-ai/gepa.git
+          git -C /tmp/proteus-combee-gepa-reference fetch --depth=1 origin f1cfdee2856e9dc4b5b4dc5cc2e391d0aa20d819
+          git -C /tmp/proteus-combee-gepa-reference checkout --detach FETCH_HEAD
+      - name: Fetch pinned dynamic-sampler proposal source for conformance (not a released dependency)
+        run: |
+          git -C /tmp/proteus-combee-gepa-reference fetch --depth=1 origin f9e2d430815e5a0b36d58d1dab2f36f8082759e4
+          git -C /tmp/proteus-combee-gepa-reference show f9e2d430815e5a0b36d58d1dab2f36f8082759e4:src/gepa/strategies/batch_sampler.py > /tmp/proteus-combee-dynamic-source.py
       - name: configure git identity (snapshot tests)
         run: |
           git config --global user.email ci@proteus
           git config --global user.name proteus-ci
+      - name: Fetch pinned Meta-Harness method, classes and data for conformance
+        run: |
+          git init /tmp/proteus-meta-harness-reference
+          git -C /tmp/proteus-meta-harness-reference remote add origin https://github.com/stanford-iris-lab/meta-harness.git
+          git -C /tmp/proteus-meta-harness-reference fetch --depth=1 origin 8123ccabe2b19fa1123090b2e5f1bacc20963ce8
+          git -C /tmp/proteus-meta-harness-reference checkout --detach FETCH_HEAD
+      - name: Fetch pinned CORAL heartbeat and manager source for policy conformance
+        run: |
+          git init /tmp/proteus-coral-reference
+          git -C /tmp/proteus-coral-reference remote add origin https://github.com/Human-Agent-Society/CORAL.git
+          git -C /tmp/proteus-coral-reference fetch --depth=1 origin 0123dfb939b35228cf2c1fde224cd0561e727408
+          git -C /tmp/proteus-coral-reference checkout --detach FETCH_HEAD
       - name: lint
         run: ruff check .
       - name: tests
+        env:
+          PROTEUS_REQUIRE_GEPA: "1"
+          PROTEUS_ACE_SOURCE: /tmp/proteus-ace-reference
+          PROTEUS_META_HARNESS_SOURCE: /tmp/proteus-meta-harness-reference
+          PROTEUS_COMBEE_GEPA_SOURCE: /tmp/proteus-combee-gepa-reference
+          PROTEUS_COMBEE_DYNAMIC_SOURCE: /tmp/proteus-combee-dynamic-source.py
+          PROTEUS_CORAL_SOURCE: /tmp/proteus-coral-reference
         run: pytest tests/ -q
       - name: offline runner (the no-pytest path must stay alive)
         run: python tests/run_offline.py
 
+  aime-reference:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    name: Pinned AIME data and DSPy contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install isolated domain reference (DSPy owns a different GEPA dependency)
+        run: |
+          pip install -e . 'pyarrow==21.0.0'
+          pip install 'https://files.pythonhosted.org/packages/ad/2f/656f16206c9ba4e359b639e2605cf196a4e5c678c6d9aed0fae537701ec2/dspy-3.4.1-py3-none-any.whl#sha256=afda9e7f8b3d46be0829af19ac1153a6feaa6db5923f2b1011eef547fb15ce2d'
+      - name: Check actual reference formatting and metric without inference
+        run: |
+          git init /tmp/aime-gepa-reference
+          git -C /tmp/aime-gepa-reference remote add origin https://github.com/gepa-ai/gepa.git
+          git -C /tmp/aime-gepa-reference fetch --depth=1 origin 8b0ce6cd99a234f6b74daf37558a2ac0ce18f975
+          git -C /tmp/aime-gepa-reference checkout --detach FETCH_HEAD
+          python tests/check_aime_reference.py --gepa-source /tmp/aime-gepa-reference
+      - name: Verify all pinned public dataset bytes and the full 45/45/30 split
+        run: python -m proteus.benchmarks.aime_data --cache /tmp/aime-source-cache --out /tmp/aime-pinned-data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aime-data-provenance
+          path: /tmp/aime-pinned-data/provenance.json
+
   distribution:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     name: Installed wheel and sdist
     runs-on: ubuntu-latest
     steps:
@@ -55,19 +173,215 @@ jobs:
           python -m venv /tmp/proteus-wheel
           /tmp/proteus-wheel/bin/pip install --disable-pip-version-check --no-deps dist/*.whl
           mkdir /tmp/proteus-wheel-out
+          cp recipes/examples/p01-contract.toml /tmp/proteus-wheel-out/recipe.toml
+          cp recipes/native/minimal.toml /tmp/proteus-wheel-out/native.toml
+          cp recipes/examples/self-evaluation.toml /tmp/proteus-wheel-out/self-evaluation.toml
+          cp tests/check_ace_package.py /tmp/proteus-wheel-out/check_ace_package.py
+          cp tests/check_ace_formula_package.py /tmp/proteus-wheel-out/check_ace_formula_package.py
+          cp tests/check_evidence_package.py /tmp/proteus-wheel-out/check_evidence_package.py
+          cp tests/check_knowledge_package.py /tmp/proteus-wheel-out/check_knowledge_package.py
+          cp tests/check_worker_package.py /tmp/proteus-wheel-out/check_worker_package.py
+          cp tests/check_codex_worker_package.py /tmp/proteus-wheel-out/check_codex_worker_package.py
+          cp tests/check_harbor_worker_package.py /tmp/proteus-wheel-out/check_harbor_worker_package.py
+          cp tests/check_gateway_package.py /tmp/proteus-wheel-out/check_gateway_package.py
+          cp tests/check_worker_knowledge_package.py /tmp/proteus-wheel-out/check_worker_knowledge_package.py
+          cp tests/check_event_package.py /tmp/proteus-wheel-out/check_event_package.py
+          cp tests/check_coral_method_package.py /tmp/proteus-wheel-out/check_coral_method_package.py
+          cp tests/check_coral_report_package.py /tmp/proteus-wheel-out/check_coral_report_package.py
+          cp tests/check_coral_circle_package.py /tmp/proteus-wheel-out/check_coral_circle_package.py
+          cp tests/check_plugin_templates.py /tmp/proteus-wheel-out/check_plugin_templates.py
+          cp tests/check_native_inputs_package.py /tmp/proteus-wheel-out/check_native_inputs_package.py
+          cp tests/check_native_budget_package.py /tmp/proteus-wheel-out/check_native_budget_package.py
+          cp tests/check_native_pi_package.py /tmp/proteus-wheel-out/check_native_pi_package.py
+          cp tests/check_native_evaluator_package.py /tmp/proteus-wheel-out/check_native_evaluator_package.py
+          cp tests/check_harness_accounting_package.py /tmp/proteus-wheel-out/check_harness_accounting_package.py
+          cp tests/check_harness_roles_package.py /tmp/proteus-wheel-out/check_harness_roles_package.py
+          cp recipes/native/shared-evaluation/prepare.py /tmp/proteus-wheel-out/prepare_harness_roles.py
+          cp tests/check_filesystem_policy_package.py /tmp/proteus-wheel-out/check_filesystem_policy_package.py
+          cp recipes/examples/stages.toml /tmp/proteus-wheel-out/stages.toml
+          cp tests/check_recipe_catalog.py /tmp/proteus-wheel-out/check_recipe_catalog.py
+          cp tests/check_result_export.py /tmp/proteus-wheel-out/check_result_export.py
+          cp tests/check_study_comparison.py /tmp/proteus-wheel-out/check_study_comparison.py
+          cp tests/check_code_memory_package.py /tmp/proteus-wheel-out/check_code_memory_package.py
+          cp tests/check_workspace_package.py /tmp/proteus-wheel-out/check_workspace_package.py
+          cp tests/check_meta_harness_package.py /tmp/proteus-wheel-out/check_meta_harness_package.py
+          cp tests/check_parallel_package.py /tmp/proteus-wheel-out/check_parallel_package.py
+          cp tests/check_workflow_package.py /tmp/proteus-wheel-out/check_workflow_package.py
+          cp tests/check_combee_package.py /tmp/proteus-wheel-out/check_combee_package.py
+          cp tests/check_combee_gepa_package.py /tmp/proteus-wheel-out/check_combee_gepa_package.py
+          cp tests/check_combee_ace_package.py /tmp/proteus-wheel-out/check_combee_ace_package.py
+          cp tests/check_dynamic_batch_package.py /tmp/proteus-wheel-out/check_dynamic_batch_package.py
+          cp tests/check_combee_formula_package.py /tmp/proteus-wheel-out/check_combee_formula_package.py
           cd /tmp/proteus-wheel-out
+          /tmp/proteus-wheel/bin/python check_ace_package.py
+          /tmp/proteus-wheel/bin/python check_ace_formula_package.py
+          /tmp/proteus-wheel/bin/python check_evidence_package.py
+          /tmp/proteus-wheel/bin/python check_knowledge_package.py
+          /tmp/proteus-wheel/bin/python check_worker_package.py
+          /tmp/proteus-wheel/bin/python check_codex_worker_package.py
+          /tmp/proteus-wheel/bin/python check_harbor_worker_package.py
+          /tmp/proteus-wheel/bin/python check_gateway_package.py
+          /tmp/proteus-wheel/bin/python check_worker_knowledge_package.py
+          /tmp/proteus-wheel/bin/python check_event_package.py
+          /tmp/proteus-wheel/bin/python check_coral_method_package.py
+          /tmp/proteus-wheel/bin/python check_coral_report_package.py
+          /tmp/proteus-wheel/bin/python check_coral_circle_package.py
+          /tmp/proteus-wheel/bin/python check_plugin_templates.py
+          /tmp/proteus-wheel/bin/python check_native_inputs_package.py
+          /tmp/proteus-wheel/bin/python check_native_budget_package.py
+          /tmp/proteus-wheel/bin/python check_native_pi_package.py
+          /tmp/proteus-wheel/bin/python check_native_evaluator_package.py
+          /tmp/proteus-wheel/bin/python check_harness_accounting_package.py
+          /tmp/proteus-wheel/bin/python check_harness_roles_package.py
+          /tmp/proteus-wheel/bin/python check_filesystem_policy_package.py --require-kernel
+          /tmp/proteus-wheel/bin/python check_recipe_catalog.py
+          /tmp/proteus-wheel/bin/python check_result_export.py
+          /tmp/proteus-wheel/bin/python check_study_comparison.py
+          /tmp/proteus-wheel/bin/python check_code_memory_package.py
+          /tmp/proteus-wheel/bin/python check_workspace_package.py
+          /tmp/proteus-wheel/bin/python check_meta_harness_package.py
+          /tmp/proteus-wheel/bin/python check_parallel_package.py
+          /tmp/proteus-wheel/bin/python check_workflow_package.py
+          /tmp/proteus-wheel/bin/python check_combee_ace_package.py
+          /tmp/proteus-wheel/bin/python check_dynamic_batch_package.py ace
+          /tmp/proteus-wheel/bin/python check_combee_formula_package.py
+          /tmp/proteus-wheel/bin/python check_combee_package.py ace
           /tmp/proteus-wheel/bin/python -c 'import importlib.metadata, proteus; assert importlib.metadata.version("proteus-evolve") == proteus.__version__'
           /tmp/proteus-wheel/bin/python -m proteus.scaffold adapter WheelHarness
           /tmp/proteus-wheel/bin/proteus check --harness wheel:WheelHarness --episode
           /tmp/proteus-wheel/bin/proteus visualize --help
+          /tmp/proteus-wheel/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
+          /tmp/proteus-wheel/bin/proteus recipe lock self-evaluation.toml --plugin proteus.examples.self_evaluator_plugin:register --source "proteus=$GITHUB_WORKSPACE" --out self-evaluation.lock.json
+          /tmp/proteus-wheel/bin/proteus recipe run self-evaluation.toml --plugin proteus.examples.self_evaluator_plugin:register --lock self-evaluation.lock.json --out self-evaluation-run
+          /tmp/proteus-wheel/bin/python -m proteus.examples.candidate_evaluation --out candidate-study
+          /tmp/proteus-wheel/bin/proteus recipe lock candidate-study/recipe.json --source "proteus=$GITHUB_WORKSPACE" --out candidate-study/lock.json
+          /tmp/proteus-wheel/bin/proteus recipe run candidate-study/recipe.json --lock candidate-study/lock.json --artifact-store candidate-study/artifact-store --out candidate-study/run
+          /tmp/proteus-wheel/bin/python -c 'import json; from pathlib import Path; from proteus.core.contracts import EvaluationBatch; r=json.loads(Path("candidate-study/run/execution-0001.json").read_text()); assert [EvaluationBatch.from_dict(b).mean_score() for b in r["evaluations"]] == [0, 1]; assert len(r["rollouts"]) == 6'
+          /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.core.ledger import Ledger; from proteus.recipes.manifest import RunManifest; root=Path("candidate-study/run"); m=RunManifest.from_json((root/"manifest.json").read_text()); book=Ledger(root/"private/ledger.sqlite3", run_id=m.run_id, config_hash=m.config_hash, lock_hash=m.lock_hash); assert book.balance()["charged"]["evaluations"] == 6; assert all(e["state"] == "completed" for e in book.entries())'
           /tmp/proteus-wheel/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
+      - name: Installed wheel runs the pinned GEPA method outside the checkout
+        run: |
+          /tmp/proteus-wheel/bin/pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+          cd /tmp/proteus-wheel-out
+          /tmp/proteus-wheel/bin/python check_combee_package.py gepa
+          /tmp/proteus-wheel/bin/python check_combee_gepa_package.py
+          /tmp/proteus-wheel/bin/python check_combee_gepa_package.py --workers 3
+          /tmp/proteus-wheel/bin/python check_dynamic_batch_package.py gepa
+          /tmp/proteus-wheel/bin/python check_recipe_catalog.py --gepa
+          /tmp/proteus-wheel/bin/python -m proteus.examples.gepa_prompt --out gepa-study
+          /tmp/proteus-wheel/bin/proteus recipe lock gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --source "proteus=$GITHUB_WORKSPACE" --out gepa-study/lock.json
+          /tmp/proteus-wheel/bin/proteus recipe run gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --artifact-store gepa-study/artifact-store --out gepa-study/run
+          /tmp/proteus-wheel/bin/proteus recipe resume gepa-study/recipe.json --plugin proteus.methods.gepa.method:register --plugin proteus.examples.gepa_prompt:register --lock gepa-study/lock.json --out gepa-study/run
+          /tmp/proteus-wheel/bin/python -c 'import json; from pathlib import Path; p=Path("gepa-study/run"); assert json.loads((p/"result.json").read_text())["status"]=="completed"; r=json.loads((p/"execution-0002.json").read_text()); s=next(x["value"] for x in r["values"] if x["ref"]["kind"]=="proteus.gepa.summary@1"); assert s["metric_calls"]==10 and s["reflection_calls"]==1; assert len(r["rollouts"])==12 and len(r["actor_calls"])==13; assert sum(len(x.read_text().splitlines()) for x in p.rglob("fixture-invocations.txt"))==13'
       - name: Sdist scaffolder works outside the checkout
         run: |
           python -m venv /tmp/proteus-sdist
           /tmp/proteus-sdist/bin/pip install --disable-pip-version-check --no-deps dist/*.tar.gz
           mkdir /tmp/proteus-sdist-out
+          cp recipes/examples/p01-contract.toml /tmp/proteus-sdist-out/recipe.toml
+          cp recipes/native/minimal.toml /tmp/proteus-sdist-out/native.toml
+          cp tests/check_ace_package.py /tmp/proteus-sdist-out/check_ace_package.py
+          cp tests/check_ace_formula_package.py /tmp/proteus-sdist-out/check_ace_formula_package.py
+          cp tests/check_evidence_package.py /tmp/proteus-sdist-out/check_evidence_package.py
+          cp tests/check_knowledge_package.py /tmp/proteus-sdist-out/check_knowledge_package.py
+          cp tests/check_worker_package.py /tmp/proteus-sdist-out/check_worker_package.py
+          cp tests/check_codex_worker_package.py /tmp/proteus-sdist-out/check_codex_worker_package.py
+          cp tests/check_harbor_worker_package.py /tmp/proteus-sdist-out/check_harbor_worker_package.py
+          cp tests/check_gateway_package.py /tmp/proteus-sdist-out/check_gateway_package.py
+          cp tests/check_worker_knowledge_package.py /tmp/proteus-sdist-out/check_worker_knowledge_package.py
+          cp tests/check_event_package.py /tmp/proteus-sdist-out/check_event_package.py
+          cp tests/check_coral_method_package.py /tmp/proteus-sdist-out/check_coral_method_package.py
+          cp tests/check_coral_report_package.py /tmp/proteus-sdist-out/check_coral_report_package.py
+          cp tests/check_coral_circle_package.py /tmp/proteus-sdist-out/check_coral_circle_package.py
+          cp tests/check_plugin_templates.py /tmp/proteus-sdist-out/check_plugin_templates.py
+          cp tests/check_native_inputs_package.py /tmp/proteus-sdist-out/check_native_inputs_package.py
+          cp tests/check_native_budget_package.py /tmp/proteus-sdist-out/check_native_budget_package.py
+          cp tests/check_native_pi_package.py /tmp/proteus-sdist-out/check_native_pi_package.py
+          cp tests/check_native_evaluator_package.py /tmp/proteus-sdist-out/check_native_evaluator_package.py
+          cp tests/check_harness_accounting_package.py /tmp/proteus-sdist-out/check_harness_accounting_package.py
+          cp tests/check_harness_roles_package.py /tmp/proteus-sdist-out/check_harness_roles_package.py
+          cp recipes/native/shared-evaluation/prepare.py /tmp/proteus-sdist-out/prepare_harness_roles.py
+          cp tests/check_filesystem_policy_package.py /tmp/proteus-sdist-out/check_filesystem_policy_package.py
+          cp recipes/examples/stages.toml /tmp/proteus-sdist-out/stages.toml
+          cp tests/check_recipe_catalog.py /tmp/proteus-sdist-out/check_recipe_catalog.py
+          cp tests/check_result_export.py /tmp/proteus-sdist-out/check_result_export.py
+          cp tests/check_study_comparison.py /tmp/proteus-sdist-out/check_study_comparison.py
+          cp tests/check_code_memory_package.py /tmp/proteus-sdist-out/check_code_memory_package.py
+          cp tests/check_workspace_package.py /tmp/proteus-sdist-out/check_workspace_package.py
+          cp tests/check_meta_harness_package.py /tmp/proteus-sdist-out/check_meta_harness_package.py
+          cp tests/check_parallel_package.py /tmp/proteus-sdist-out/check_parallel_package.py
+          cp tests/check_workflow_package.py /tmp/proteus-sdist-out/check_workflow_package.py
+          cp tests/check_combee_package.py /tmp/proteus-sdist-out/check_combee_package.py
+          cp tests/check_combee_gepa_package.py /tmp/proteus-sdist-out/check_combee_gepa_package.py
+          cp tests/check_combee_ace_package.py /tmp/proteus-sdist-out/check_combee_ace_package.py
+          cp tests/check_dynamic_batch_package.py /tmp/proteus-sdist-out/check_dynamic_batch_package.py
+          cp tests/check_combee_formula_package.py /tmp/proteus-sdist-out/check_combee_formula_package.py
           cd /tmp/proteus-sdist-out
+          /tmp/proteus-sdist/bin/python check_ace_package.py
+          /tmp/proteus-sdist/bin/python check_ace_formula_package.py
+          /tmp/proteus-sdist/bin/python check_evidence_package.py
+          /tmp/proteus-sdist/bin/python check_knowledge_package.py
+          /tmp/proteus-sdist/bin/python check_worker_package.py
+          /tmp/proteus-sdist/bin/python check_codex_worker_package.py
+          /tmp/proteus-sdist/bin/python check_harbor_worker_package.py
+          /tmp/proteus-sdist/bin/python check_gateway_package.py
+          /tmp/proteus-sdist/bin/python check_worker_knowledge_package.py
+          /tmp/proteus-sdist/bin/python check_event_package.py
+          /tmp/proteus-sdist/bin/python check_coral_method_package.py
+          /tmp/proteus-sdist/bin/python check_coral_report_package.py
+          /tmp/proteus-sdist/bin/python check_coral_circle_package.py
+          /tmp/proteus-sdist/bin/python check_plugin_templates.py
+          /tmp/proteus-sdist/bin/python check_native_inputs_package.py
+          /tmp/proteus-sdist/bin/python check_native_budget_package.py
+          /tmp/proteus-sdist/bin/python check_native_pi_package.py
+          /tmp/proteus-sdist/bin/python check_native_evaluator_package.py
+          /tmp/proteus-sdist/bin/python check_harness_accounting_package.py
+          /tmp/proteus-sdist/bin/python check_harness_roles_package.py
+          /tmp/proteus-sdist/bin/python check_filesystem_policy_package.py --require-kernel
+          /tmp/proteus-sdist/bin/python check_recipe_catalog.py
+          /tmp/proteus-sdist/bin/python check_result_export.py
+          /tmp/proteus-sdist/bin/python check_study_comparison.py
+          /tmp/proteus-sdist/bin/python check_code_memory_package.py
+          /tmp/proteus-sdist/bin/python check_workspace_package.py
+          /tmp/proteus-sdist/bin/python check_meta_harness_package.py
+          /tmp/proteus-sdist/bin/python check_parallel_package.py
+          /tmp/proteus-sdist/bin/python check_workflow_package.py
+          /tmp/proteus-sdist/bin/python check_combee_ace_package.py
+          /tmp/proteus-sdist/bin/python check_dynamic_batch_package.py ace
+          /tmp/proteus-sdist/bin/python check_combee_formula_package.py
+          /tmp/proteus-sdist/bin/python check_combee_package.py ace
           /tmp/proteus-sdist/bin/python -m proteus.scaffold benchmark package_task
           /tmp/proteus-sdist/bin/python -c 'import package_task; assert package_task.TASK.id == "package_task"'
           /tmp/proteus-sdist/bin/proteus visualize --help
+          /tmp/proteus-sdist/bin/python -c 'from proteus.recipes import RecipeConfig, load_recipe; recipe = load_recipe("recipe.toml"); assert RecipeConfig.from_json(recipe.to_json()) == recipe'
+          /tmp/proteus-sdist/bin/proteus recipe lock native.toml --source "proteus=$GITHUB_WORKSPACE" --out native.lock.json
+          /tmp/proteus-sdist/bin/proteus recipe run native.toml --lock native.lock.json --out native-run
+          /tmp/proteus-sdist/bin/proteus recipe resume native.toml --lock native.lock.json --out native-run
+          /tmp/proteus-sdist/bin/python -m proteus.examples.candidate_evaluation --out candidate-study
+          /tmp/proteus-sdist/bin/proteus recipe lock candidate-study/recipe.json --source "proteus=$GITHUB_WORKSPACE" --out candidate-study/lock.json
+          /tmp/proteus-sdist/bin/proteus recipe run candidate-study/recipe.json --lock candidate-study/lock.json --artifact-store candidate-study/artifact-store --out candidate-study/run
+          /tmp/proteus-sdist/bin/python -c 'import json; from pathlib import Path; from proteus.core.contracts import EvaluationBatch; r=json.loads(Path("candidate-study/run/execution-0001.json").read_text()); assert [EvaluationBatch.from_dict(b).mean_score() for b in r["evaluations"]] == [0, 1]; assert len(r["rollouts"]) == 6'
+          /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.core.ledger import Ledger; from proteus.recipes.manifest import RunManifest; root=Path("candidate-study/run"); m=RunManifest.from_json((root/"manifest.json").read_text()); book=Ledger(root/"private/ledger.sqlite3", run_id=m.run_id, config_hash=m.config_hash, lock_hash=m.lock_hash); assert book.balance()["charged"]["evaluations"] == 6; assert all(e["state"] == "completed" for e in book.entries())'
           /tmp/proteus-sdist/bin/python -c 'from pathlib import Path; from proteus.visualize import server; assert all((Path(server.__file__).parent / "static" / name).is_file() for name, kind in server.ASSETS.values())'
+      - name: Installed sdist runs the pinned ComBEE operator outside the checkout
+        run: |
+          /tmp/proteus-sdist/bin/pip install --no-deps 'gepa @ git+https://github.com/gepa-ai/gepa.git@8b0ce6cd99a234f6b74daf37558a2ac0ce18f975'
+          cd /tmp/proteus-sdist-out
+          /tmp/proteus-sdist/bin/python check_combee_package.py gepa
+          /tmp/proteus-sdist/bin/python check_combee_gepa_package.py
+          /tmp/proteus-sdist/bin/python check_combee_gepa_package.py --workers 3
+          /tmp/proteus-sdist/bin/python check_dynamic_batch_package.py gepa
+          /tmp/proteus-sdist/bin/python check_recipe_catalog.py --gepa
+      - name: Installed DSH usage works with the optional decoder outside the checkout
+        run: |
+          for distribution in wheel sdist; do
+            /tmp/proteus-$distribution/bin/pip install --disable-pip-version-check 'zstandard==0.25.0'
+            cp tests/check_native_dsh_package.py /tmp/proteus-$distribution-out/check_native_dsh_package.py
+            (cd /tmp/proteus-$distribution-out && /tmp/proteus-$distribution/bin/python check_native_dsh_package.py)
+          done
+      - name: Installed native source activation receipts outside the checkout
+        run: |
+          for distribution in wheel sdist; do
+            cp tests/check_native_activation_package.py /tmp/proteus-$distribution-out/check_native_activation_package.py
+            (cd /tmp/proteus-$distribution-out && /tmp/proteus-$distribution/bin/python check_native_activation_package.py)
+          done

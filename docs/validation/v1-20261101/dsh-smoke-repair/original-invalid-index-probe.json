@@ -1,0 +1,19 @@
+{
+  "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "compressed_input_bytes": 34,
+  "decoded_input_bytes": 262144,
+  "input_limit_bytes": 2097152,
+  "decoded_limit_bytes": 4194304,
+  "invalid_lines": 131072,
+  "capture_statuses": [
+    "retained_sanitized_derivative"
+  ],
+  "declared_data_limit_bytes": 8388608,
+  "recorded_data_bytes": 1,
+  "index_bytes": 17454426,
+  "total_artifact_bytes": 17454427,
+  "elapsed_seconds": 3.6811373326927423,
+  "index_sha256": "ef13a357f4f23c4aacc70eb350d1c6dc0635a2c8c398e5532316a38bda7eb061",
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

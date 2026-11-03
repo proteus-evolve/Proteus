@@ -1,0 +1,22 @@
+[
+  {
+    "role_cap": 1,
+    "declares_parallel": true,
+    "preflight_accepted": true,
+    "status": "failed",
+    "diagnostic": "RecoveryRequired: parallel trial did not commit: ContractError: concurrency budget exhausted: role:judge",
+    "active": 0,
+    "peak": 1,
+    "calls": 1
+  },
+  {
+    "role_cap": 2,
+    "declares_parallel": false,
+    "preflight_accepted": true,
+    "status": "completed",
+    "diagnostic": "",
+    "active": 0,
+    "peak": 2,
+    "calls": 3
+  }
+]

@@ -36,7 +36,7 @@ llm = []  # the llm harness uses stdlib urllib; no SDK needed
 sandbox = []          # Docker is invoked via the CLI, no Python SDK required
 dsh = ["zstandard>=0.21; python_version < '3.14'"]  # dsh session logs are zstd
 pi = []  # named extra kept as an install-contract check for the built-in Pi adapter
-dev = ["pytest>=7.0", "ruff==0.14.14"]
+dev = ["pytest>=7.0", "ruff==0.14.14", "jsonschema>=4.18"]
 
 [project.scripts]
 proteus = "proteus.cli:main"
@@ -49,10 +49,19 @@ namespaces = false  # do not crawl large run artefacts as implicit namespace pac
 version = {attr = "proteus.__version__"}
 
 [tool.setuptools.package-data]
+"proteus.recipes" = ["templates/*.tmpl"]
 "proteus.visualize.static" = ["*.html", "*.css", "*.js", "package.json"]
+"proteus.methods.ace" = ["LICENSE-ACE.txt", "NOTICE.md"]
+"proteus.operators.combee" = ["LICENSE-GEPA.txt", "NOTICE.md", "reference.json"]
+"proteus.methods.meta_harness" = ["LICENSE-META-HARNESS.txt", "NOTICE.md", "PROPOSER.md"]
+"proteus.methods.coral" = ["LICENSE-CORAL.txt", "NOTICE.md", "*.reference.md"]
+"proteus.benchmarks.coral_circle_packing" = ["LICENSE-CORAL.txt", "NOTICE.md", "reference.json", "*.reference.yaml"]
 
 [tool.ruff]
 line-length = 100
+# Historical experiment launchers are byte-preserved evidence, bound by SHA256SUMS.
+# Keep the new inspection/reconstruction/preparation tools under normal lint.
+extend-exclude = ["recipes/experiments/single-seed-20261020/historical-builders"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

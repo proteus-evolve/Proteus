@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "solver": {
+    "schema_version": 1,
+    "runtime": {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.aime_solver",
+        "version": "1"
+      },
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-aime-full-seed-0-v2/v1",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "timeout_seconds": 600,
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-aime-full-seed-0-v2.json"
+      },
+      "requires": []
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "temperature": 0,
+      "max_tokens": 8192,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "tools": [],
+    "session": "fresh",
+    "budget": {
+      "schema_version": 1,
+      "max_model_calls": null,
+      "max_evaluations": null,
+      "max_cost_usd": null,
+      "max_wall_seconds": null,
+      "max_concurrency": 1
+    }
+  },
+  "reflection": {
+    "schema_version": 1,
+    "runtime": {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.chat",
+        "version": "1"
+      },
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-aime-full-seed-0-v2/v1",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "timeout_seconds": 600,
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-aime-full-seed-0-v2.json"
+      },
+      "requires": []
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "temperature": 0,
+      "max_tokens": 8192,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "tools": [],
+    "session": "fresh",
+    "budget": {
+      "schema_version": 1,
+      "max_model_calls": null,
+      "max_evaluations": null,
+      "max_cost_usd": null,
+      "max_wall_seconds": null,
+      "max_concurrency": 1
+    }
+  },
+  "seeds": [
+    0
+  ],
+  "max_metric_calls": 500,
+  "minibatch_size": 3
+}

@@ -1,0 +1,81 @@
+{
+  "profile": "linux-combee-formula-offline-ace-v2",
+  "bindings": [
+    {
+      "recipe": "recipes/seed-0-offline-ace.json",
+      "lock": "locks/seed-0-offline-ace.json",
+      "config_hash": "sha256:361ebd11c44826cce01d384e25fef7eee7c9c46ebae9d15d3b3d757feaec2602",
+      "lock_hash": "sha256:61421766ec341e558b4ba6c25782eec15c4951bebf87b6d6d060f6b80ac96a57",
+      "sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "proteus",
+          "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+          "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "linux-launcher",
+          "repository": "local-content-addressed:run_api_formal_v2.py",
+          "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+          "schema_version": 1
+        }
+      ]
+    }
+  ],
+  "original_H0": [
+    {
+      "ref": {
+        "codec": {
+          "name": "proteus.ace_playbook",
+          "schema_version": 1,
+          "version": "1"
+        },
+        "components": [
+          {
+            "content_hash": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+            "executable": false,
+            "path": "index.json",
+            "schema_version": 1,
+            "size_bytes": 106
+          },
+          {
+            "content_hash": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+            "executable": false,
+            "path": "playbook.txt",
+            "schema_version": 1,
+            "size_bytes": 184
+          }
+        ],
+        "content_hash": "sha256:31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27",
+        "environment_hash": null,
+        "runtime": null,
+        "schema_version": 1
+      },
+      "manifest": "initial-artifacts/manifests/31b9fe5c8d690797aee55588119ac476773ac7e8535fbc1ee4520918cc1bae27.json",
+      "components": [
+        {
+          "content_hash": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+          "executable": false,
+          "path": "index.json",
+          "schema_version": 1,
+          "size_bytes": 106,
+          "bundle_blob": "initial-artifacts/blobs/4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212"
+        },
+        {
+          "content_hash": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+          "executable": false,
+          "path": "playbook.txt",
+          "schema_version": 1,
+          "size_bytes": 184,
+          "bundle_blob": "initial-artifacts/blobs/d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249"
+        }
+      ],
+      "is_original_pre_run_H0_not_generated_search_result": true
+    }
+  ],
+  "historical_builder": "proteus/examples/combee_formula.py",
+  "accepted_evidence_cut_UTC": "2026-10-23T13:57:55.553727+00:00",
+  "portability": "Frozen historical controls; absolute paths and host-bound runtime configuration are intentional. Use README for new-run preparation; do not reuse original locks after relocation."
+}

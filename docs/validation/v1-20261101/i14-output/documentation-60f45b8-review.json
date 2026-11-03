@@ -1,0 +1,40 @@
+{
+  "reviewed_commit": "60f45b8783ebbc9fc9b6667aaa0c35a80ec4699e",
+  "scope": "docs-only reconciliation of accepted I14 disposition",
+  "decision": "accepted; no new blocker or scope expansion",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "source_reports_byte_identical": [
+    {
+      "path": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/i14-output/i14-generic-disposition.json",
+      "sha256": "e1d383f813fb7f1a4007ff8b4c167935225dd400ae9d8f263367a7dc3d399895",
+      "byte_identical": true
+    },
+    {
+      "path": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/i14-output/generic-export-readback.json",
+      "sha256": "4c1f9f3ce9dfee0c11f9bfa44de79fe0008a36ff54390803c4dd0689b9aa5482",
+      "byte_identical": true
+    },
+    {
+      "path": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/i14-output/historical-profile-verification.stdout",
+      "sha256": "d84b7eac48183aac1c0459a595ba7e6e9155e30835e8389cced9fa595be50093",
+      "byte_identical": true
+    },
+    {
+      "path": "/Users/myyyth/.codex/worktrees/harness-role-contracts/Proteus/docs/validation/v1-20261101/i14-output/historical-profile-verification.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_identical": true
+    }
+  ],
+  "previous_CORAL_doc_review_byte_identical": true,
+  "relative_links_checked": 142,
+  "missing_relative_links": [],
+  "scope_checks": [
+    "Both generic I14 rows accurately closed with supported coverage and unknowns preserved",
+    "Historical source/profile labels preserved: fourteen adapted method profiles plus Native mechanism profile",
+    "CORAL current directed acceptance is distinct from historical optimization and quality claims",
+    "Historical progress notes cross-reference current disposition",
+    "Preparation full-smoke/main/exact-tag and publication remain separate requirements"
+  ],
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Contribute to Proteus"
+  short_description: "Extend Proteus using its public contracts"
+  default_prompt: "Use $proteus-contribute to implement a focused Proteus extension with contract checks and a reviewable diff."

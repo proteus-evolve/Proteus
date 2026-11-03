@@ -1,0 +1,74 @@
+{
+  "schema": "proteus.coral.directed.review-guide.v1",
+  "scope": "New current-source local protocol qualification, not a replacement for historical v5.1 or a circle26 quality benchmark.",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "default_mode": "fixture",
+  "approval_for_live_required": true,
+  "normal_and_hard_physical_attempt_limit": 3,
+  "includes_failed_and_unknown_attempts": true,
+  "output_token_limit_per_request": 4096,
+  "physical_model_call_slots": [
+    {"slot": "a:0", "purpose": "A's initial structured proposal and note publication"},
+    {"slot": "a:1", "purpose": "A's actual next-generation model request includes the production intervention and released formal feedback; publish ready"},
+    {"slot": "b:0", "purpose": "B's model request includes A's published revision and its verified content; submit the final structured proposal"}
+  ],
+  "minimum_reason": "Current production CORAL heartbeat triggers after an evaluation. With both workers making a live model call and an additional post-intervention live request, three is the minimum for this unmodified control flow. No artificial two-call pre-evaluation intervention is claimed.",
+  "execution": {
+    "workers": 2,
+    "runtime": "production proteus.worker.command, scrubbed environment, no provider key passed to workers",
+    "asynchrony": "B registers as actually alive and waiting before A's first call is released; host ps witnesses both PIDs at A publication. Native hashed stdout and supervisor input bind process observations to generations. Model API calls need not overlap.",
+    "evaluator_workers": 1,
+    "subject": "Trusted model-free plugin reads only factor.json with a validated integer 1 or 2; evaluates a tiny doubling task. No model-generated code is executed and no Docker is needed.",
+    "production_paths": ["coral.single_island", "WorkerService", "KnowledgeService", "GatewayService", "EventService", "Ledger", "run_recipe resume"],
+    "interventions": 1,
+    "native_session_claim": false,
+    "native_command_worker_model_budget": null,
+    "actual_physical_cap": "Durable broker reserves one of three exact worker/index slots before any provider forwarding, forbids redirects, never automatically retries, and refuses uncertain or altered slots. Native unknown budgets remain unknown.",
+    "controller_fault": "Actual os._exit(86), after B's gateway evaluation and all three model responses are durable, before controller result publication.",
+    "recovery": "Exactly one new controller process calls run_recipe(resume=True) on the same run/workspace. Original supervisors may stay alive. This is controller-crash recovery, not a claim of worker crash or native model-session resume."
+  },
+  "request_level_audit": [
+    "Frozen plan, static script snapshot, clean commit or explicit dirty fixture witness, manifest and dependency-lock SourcePin agree. A later current HEAD cannot relabel an old run.",
+    "B actual request content -> cached revision bytes and component hashes -> native knowledge artifact blobs and original writer -> durable broker request body hash -> original provider receipt and usage.",
+    "Native decision -> plan -> WorkerLaunch -> supervisor input -> A next-generation actual request content -> durable broker request body hash.",
+    "Actual controller exit code and boundary -> unchanged physical dispatch/response rows across resume -> preserved settled subject identities -> globally unique ledger settlement events and zero remaining reservations."
+  ],
+  "commands": {
+    "freeze_plan": "python tools/validation/coral_directed.py plan --mode live --model deepseek-flash",
+    "no_model_dryrun": "python tools/validation/coral_directed.py run --mode fixture --out ABSOLUTE_NEW_OUTPUT_DIRECTORY",
+    "independent_read_only_audit": "python tools/validation/coral_directed.py audit --out ABSOLUTE_EXISTING_OUTPUT_DIRECTORY",
+    "live_after_specific_technical_acceptance_only": "python tools/validation/coral_directed.py run --mode live --model REVIEWED_MODEL --out APPROVED_ABSOLUTE_OUTPUT_DIRECTORY --approval APPROVAL_JSON --execute-approved-live"
+  },
+  "mode_and_model_provenance": "fixture/live and full plan hash are bound in the frozen plan, one-shot claim, native worker command/manifest/lock, actual request context and broker transport identity/receipts. A fixture cannot be reclassified as live by editing the start claim. Raw HTTP reply JSON/model/usage match the normalized answer and per-slot rows; negative usage is rejected.",
+  "Actions": {
+    "workflow": ".github/workflows/coral-directed-qualification.yml",
+    "trigger": "Explicit workflow_dispatch only; no PR, push, schedule or other release-smoke matrix",
+    "default": "fixture, no provider credential attached",
+    "live": "After review only: exact source SHA and exact live-plan SHA, run_attempt=1, one three-slot execution",
+    "origin": "Explicit credential-free https://github.com/proteus-evolve/Proteus.git before freezing any SourcePin, matching local origin",
+    "artifacts": "Always retain failure/unknown/transport/native records as an audit-only copy. No API key, broker permit or gateway credential values. Gateway queue copy has identical noncredential tables and an explicitly empty credentials table; never resume that copy.",
+    "private_payload_refusal": "Credential-shaped or unexpected private reasoning bytes are omitted with original hashes and an incomplete-export failure, never silently accepted.",
+    "new_workflow_registration": "Non-default-branch dispatch has not been attempted or assumed to work. If GitHub rejects it, preserve the actual API error and report to coordinator; do not automatically merge, register a default-branch workflow, dispatch release-smoke, or run another paid job."
+  },
+  "live_approval_document": {
+    "approved": false,
+    "plan_sha256": "Fill from exact clean-commit plan output after review",
+    "max_physical_dispatches": 3,
+    "output_root": "Bind one exact new output directory"
+  },
+  "live_preconditions": [
+    "Coordinator and independent reviewer accept the actual configuration and final clean-source dryrun.",
+    "One explicitly approved live execution; exclusive used-approval sidecar prevents consuming the same approval again, including from a different directory.",
+    "Existing DEEPSEEK_API_KEY may be read only in the parent broker after approved live preflight; never print it, copy it to artifacts, or pass it in worker argv/environment.",
+    "If no local environment credential is available, stop and hand a capped workflow to the coordinator; do not search old keys or automatically run GitHub jobs.",
+    "Malformed model output, HTTP failure, uncertain response or failure to recover stops this attempt. Retain every failed reservation and unknown; no paid repair/retry run."
+  ],
+  "old_evidence_reuse_at_zero_new_model_cost": [
+    "Keep the already accepted historical 40 paid dispatch/source/own-feedback bindings and both optimization results.",
+    "If original root-disk bodies/rendering/native records are later recovered, hash and match them to the existing paid receipts without new model calls.",
+    "Old request hashes cannot reconstruct missing request contents. Old pauses and restarts=0 cannot be relabeled as a real crash.",
+    "Cached responses may serve as explicitly offline transport fixtures; they cannot be relabeled as new paid requests. In this new qualification the controller resume itself reuses sealed responses with zero additional model calls."
+  ],
+  "AWS": "All historical AWS experiments stay stopped; no EC2 or Docker required for this local qualification. Existing login session is expired, so current old instance/volume state remains unknown.",
+  "no_live_calls_performed_by_this_configuration_file": true
+}

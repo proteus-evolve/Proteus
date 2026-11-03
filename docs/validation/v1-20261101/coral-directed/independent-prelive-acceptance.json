@@ -1,0 +1,130 @@
+{
+  "review_date": "2026-11-01 America/Los_Angeles",
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "technical_decision": "Ready for exactly one bounded live qualification under the existing human-authorized preparation task, using the exact source/plan/model/output below. This does not assert that the live qualification has run or passed.",
+  "approved_execution_scope": {
+    "workflow": ".github/workflows/ci.yml -> coral-directed-live -> coral-directed-qualification.yml",
+    "expected_sha": "cebc1a9e808a25e8c7ee0144f525138325008253",
+    "coral_mode": "live",
+    "coral_model": "deepseek-flash",
+    "expected_live_plan_sha256": "bded2fa9e62422e5d224d610b6e252264d847a5585bb7922bfc42c744e611dca",
+    "output_root": "/tmp/proteus-coral-directed-live",
+    "model_slots": [
+      "a:0",
+      "a:1",
+      "b:0"
+    ],
+    "maximum_physical_requests_including_failed_or_unknown": 3,
+    "maximum_output_tokens_per_request": 4096,
+    "workflow_run_attempt": 1,
+    "automatic_provider_retry": false,
+    "unknown_slot_resend": false,
+    "new_paid_retry_run": false
+  },
+  "linux_fixture": {
+    "workflow_run": 41394652342,
+    "workflow_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41394652342",
+    "workflow_conclusion": "success",
+    "qualified_job": "coral-directed-fixture / qualification",
+    "live_step": "skipped",
+    "normal_CI_jobs": "skipped as explicitly selected manual mode; not complete release CI",
+    "artifact_id": 13118379108,
+    "artifact_zip_sha256": "5aeebbea5fcb5becd3f23355478bd2d64c339140713f87efe72e0c672fdf5a93",
+    "artifact_files": 403,
+    "fixture_export_files_hash_verified": 397,
+    "independent_saved_record_audit": "passed",
+    "clean_SourcePin": true,
+    "paid_provider_calls": 0,
+    "permit_absent_and_gateway_credentials_empty": true,
+    "live_plan_equals_fixture_plan_except_transport_mode": true,
+    "request_bindings": [
+      {
+        "slot": "a:0",
+        "worker": "a",
+        "phase": "a_initial",
+        "body_sha256": "9e97336ce31bda777ffad726780711355e9dd6cc958f000a1cd87d8e4a058fc3",
+        "requested_model": "deepseek-flash",
+        "actual_provider_model": "deepseek-flash",
+        "provider_id": "fixture-a:0",
+        "response_sha256": "9f135c03c15597438c5a711cd0f1a4e03068b13d0cedc6b4fb559758d70554de",
+        "launch_hash": "sha256:b27f4f481d4e92ad822bb4f595c372f3da7917d81d0c3bac16ecd259b9933162",
+        "supervisor_input_sha256": "457316b34eb731267b85d62459163dc15dafcb9befc9cc570ddedde9e6beaa09",
+        "sources": [],
+        "input_tokens": 20,
+        "output_tokens": 12
+      },
+      {
+        "slot": "a:1",
+        "worker": "a",
+        "phase": "a_intervention",
+        "body_sha256": "0993a6c6d47ac9ecfe7987a27f2610c09d212df3bbc7cdfdd02aee41f3ff1a98",
+        "requested_model": "deepseek-flash",
+        "actual_provider_model": "deepseek-flash",
+        "provider_id": "fixture-a:1",
+        "response_sha256": "22736ac0de39981a0c54475f03e0fb173f2b5a10f2648efe8e299bc7d5f9a1e1",
+        "launch_hash": "sha256:b57230957554f60c625824138f8c9855e4be02a267775f4352b5480f791fdf20",
+        "supervisor_input_sha256": "3048710fce00492c698f438edb348d4018c313cd1ff4c2ba52176a09b16f05d7",
+        "sources": [
+          {
+            "source_hash": "sha256:76f1a32f82301b6b4c160d4d6516ada90c9d9f387f934497cc86f5c4781fd722",
+            "writer_id": "a",
+            "content_sha256": "b27c64a680a153535fe4570491f077347172d66e2feb8e06d424401b87c5ff9b"
+          }
+        ],
+        "input_tokens": 20,
+        "output_tokens": 12
+      },
+      {
+        "slot": "b:0",
+        "worker": "b",
+        "phase": "b_shared",
+        "body_sha256": "416a7924810e111591707516ed5870e25d75f04137b6daabfcdd2005a8447a41",
+        "requested_model": "deepseek-flash",
+        "actual_provider_model": "deepseek-flash",
+        "provider_id": "fixture-b:0",
+        "response_sha256": "5da8750a733fe64290c58d69a44aad41ed06269e716c188a052b131698a8fe47",
+        "launch_hash": "sha256:bbfa68f4133de9e6e7d67f5fd5af1a484bc102bc8bc511501679573492ab2915",
+        "supervisor_input_sha256": "61551fa8476c2f8e87353b5e634966860885239e448a9124324fb29df27c48f7",
+        "sources": [
+          {
+            "source_hash": "sha256:94b3dc8f3d5280e261153cc0eae9af16580aa986fcd66b37ec5f53376f8e0be9",
+            "writer_id": "a",
+            "content_sha256": "d69e4c3d3d3f306167f304e806e205616a1f6dc7df4a3e9a92042f5f25c42f03"
+          },
+          {
+            "source_hash": "sha256:76f1a32f82301b6b4c160d4d6516ada90c9d9f387f934497cc86f5c4781fd722",
+            "writer_id": "a",
+            "content_sha256": "b27c64a680a153535fe4570491f077347172d66e2feb8e06d424401b87c5ff9b"
+          }
+        ],
+        "input_tokens": 20,
+        "output_tokens": 12
+      }
+    ],
+    "controller_process_observations": {
+      "first": {
+        "pid": 2621,
+        "return_code": 86
+      },
+      "resumed": {
+        "pid": 2702,
+        "return_code": 0
+      }
+    }
+  },
+  "P2": {
+    "id": "CORAL-QUALIFICATION-MODE-PLAN-BINDING",
+    "status": "closed",
+    "local_original_and_export_audit": "both passed",
+    "negative_probes_rejected": 6,
+    "evidence": "/tmp/proteus-coral-prelive-review-20261101/p2-readback-0c749a7.json"
+  },
+  "wrapper_review": "/tmp/proteus-coral-prelive-review-20261101/wrapper-cebc1a9-review.json",
+  "original_local_test_proof": "22 passed in 14.20s; 16 stdout/stderr hashes independently verified. No reviewer rerun.",
+  "reviewer_actions": "Read-only audits of existing evidence, negative probes on reviewer-owned copies, public GitHub workflow/artifact metadata checks. No run/controller/worker/provider/workflow dispatch.",
+  "remaining_after_start": [
+    "Retain the one live attempt whether successful, failed or unknown.",
+    "Independently audit actual live HTTP/request/knowledge/intervention/crash-resume/settlement records before closing CORAL evidence gaps.",
+    "Keep historical studies, model quality, native-session capability, complete release-smoke, main PR CI/Harbor and exact-tag release qualification separate."
+  ]
+}

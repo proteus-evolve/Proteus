@@ -1,0 +1,845 @@
+{
+  "runtime_cut": "2026-10-23T13:57:55.553727+00:00",
+  "AIME_private": {
+    "H0": 23,
+    "selected": 24,
+    "tasks": 30,
+    "selected_candidate": "candidate-000016"
+  },
+  "Formula_online": [
+    {
+      "profile": "Standalone ACE online",
+      "baseline_correct": 141,
+      "optimized_correct": 163,
+      "tasks": 200,
+      "metric": "pre-learning online stream predictions",
+      "source_revision": {
+        "dirty_patch_hash": null,
+        "name": "proteus",
+        "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+        "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+        "schema_version": 1
+      },
+      "config_hash": "sha256:a788bae5d02b7d3d2852ea07cd75c62441c88e1d8c69c46fa6d3c82e510a10a9",
+      "lock_hash": "sha256:1e43c6304dd2688f28565c64eb4bc429e27109fbf70621051d4535a50952bc5e",
+      "known_API_upper_USD_not_invoice": 1.386781818,
+      "not_an_untouched_final_playbook_test": true
+    },
+    {
+      "profile": "Combee ACE online",
+      "baseline_correct": 139,
+      "optimized_correct": 160,
+      "tasks": 200,
+      "metric": "pre-learning online stream predictions",
+      "source_revision": {
+        "dirty_patch_hash": null,
+        "name": "proteus",
+        "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+        "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+        "schema_version": 1
+      },
+      "config_hash": "sha256:da1f8828f6a3ab85fdae831f098ad76bd949b596634e3892c83bae5ccbdbbe51",
+      "lock_hash": "sha256:61421766ec341e558b4ba6c25782eec15c4951bebf87b6d6d060f6b80ac96a57",
+      "known_API_upper_USD_not_invoice": 1.7377083119999999,
+      "not_an_untouched_final_playbook_test": true
+    },
+    {
+      "profile": "Combee Naive online",
+      "baseline_correct": 137,
+      "optimized_correct": 157,
+      "tasks": 200,
+      "metric": "pre-learning online stream predictions",
+      "source_revision": {
+        "dirty_patch_hash": null,
+        "name": "proteus",
+        "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/api-ledger-lookup-v1",
+        "revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+        "schema_version": 1
+      },
+      "config_hash": "sha256:a288826eba67c43f1024f0cf333cd1f6068b2cef6c4697faca76c5f1c7b138a7",
+      "lock_hash": "sha256:83acd53b9d9fc69c3a9ae0b086963ea2d7698f3b0b7e4ad9c7e64b27f3381c6a",
+      "known_API_upper_USD_not_invoice": 0.705109362,
+      "not_an_untouched_final_playbook_test": true
+    },
+    {
+      "profile": "Combee Fixed online",
+      "baseline_correct": 140,
+      "optimized_correct": 159,
+      "tasks": 200,
+      "metric": "pre-learning online stream predictions",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "config_hash": "sha256:06605409215806baa0ddf177d2c134ad6b7ff451fa39adb8a3fb625429d18662",
+      "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+      "known_API_upper_USD_not_invoice": 0.7716085140000003,
+      "not_an_untouched_final_playbook_test": true
+    },
+    {
+      "profile": "Combee Dynamic online",
+      "baseline_correct": 137,
+      "optimized_correct": 162,
+      "tasks": 200,
+      "metric": "pre-learning online stream predictions",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "config_hash": "sha256:87d253c95e357008c7d22417d1c62f42e09b9379e1a0a9f4d98bc12769c23512",
+      "lock_hash": "sha256:cbbd86877873308a01454e61d324ed2c1af0a2e38e032a35965ac12025151af8",
+      "known_API_upper_USD_not_invoice": 0.7421233079999985,
+      "not_an_untouched_final_playbook_test": true
+    }
+  ],
+  "CORAL": [
+    {
+      "profile": "CORAL one proposer",
+      "proposer_workers": 1,
+      "evaluation_workers": 1,
+      "submissions": 20,
+      "proposal_status_counts": {
+        "succeeded": 12,
+        "timed_out": 8
+      },
+      "baseline_normalized_score": 0.36410189352798084,
+      "selected_confirmation_normalized_score": 0.9287224514857996,
+      "selected_candidate": [
+        "gateway-1e456732fd41e3df55dc5ec2c43169bcf4fece4215b1fd3aa9442ce5fec21565"
+      ],
+      "source_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "known_API_upper_USD_not_invoice": 0.09554347199999999,
+      "scope": "Same public task, selected program confirmation, shared host; no isolated speedup or held-out generalization claim."
+    },
+    {
+      "profile": "CORAL two proposers",
+      "proposer_workers": 2,
+      "evaluation_workers": 1,
+      "submissions": 20,
+      "proposal_status_counts": {
+        "succeeded": 11,
+        "timed_out": 9
+      },
+      "baseline_normalized_score": 0.36410189352798084,
+      "selected_confirmation_normalized_score": 0.900208147525272,
+      "selected_candidate": [
+        "gateway-a3c98920bb438591b4873386619abdc95341621dfdb90fb833f2447f6eaa1c93"
+      ],
+      "source_revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "known_API_upper_USD_not_invoice": 0.08557506,
+      "scope": "Same public task, selected program confirmation, shared host; no isolated speedup or held-out generalization claim."
+    }
+  ],
+  "additional_accepted_report_metrics": {
+    "linux-combee-formula-offline-naive_parallel-v7-fresh-H0": {
+      "protocol": "offline_formula",
+      "display_name": "Combee Naive offline",
+      "seed": 0,
+      "train_samples": 500,
+      "visible_tasks": 300,
+      "test_tasks": 200,
+      "baseline_correct": 139,
+      "selected_correct": 168,
+      "visible_correct": 267,
+      "selected_candidate": "candidate-000068",
+      "last_candidate": "candidate-000068",
+      "selected_artifact": "sha256:029e06a627f7b7f2d6dcc317ac7bfdfb5b3f2b5320de3ce1a237bb0270df5b47",
+      "last_artifact": "sha256:029e06a627f7b7f2d6dcc317ac7bfdfb5b3f2b5320de3ce1a237bb0270df5b47",
+      "selected_equals_last": true,
+      "private_accuracy_delta_percentage_points": 14.5,
+      "H0_visible_measured": false,
+      "physical_API_calls": 2344,
+      "known_API_upper_USD_not_invoice": 1.49794242,
+      "known_API_upper_decimal_USD_not_invoice": "1.49794241999999995687",
+      "unknown_API_reserve_USD": 0.0,
+      "cost_by_purpose": {
+        "optimization": {
+          "physical_calls": 1644,
+          "cost_upper_USD_NOT_invoice": "1.16147981999999996828"
+        },
+        "test": {
+          "physical_calls": 400,
+          "cost_upper_USD_NOT_invoice": "0.19010099999999999355"
+        },
+        "validation": {
+          "physical_calls": 300,
+          "cost_upper_USD_NOT_invoice": "0.14636159999999999504"
+        }
+      },
+      "native_conservative_charged_model_calls": 2379,
+      "native_retained_unknown_actual_model_call_rows": 35,
+      "native_failed_or_cancelled_ledger_rows": 93,
+      "native_canonical_cost_USD": null,
+      "canonical_USD_missing_is_not_zero": true,
+      "known_controller_seconds_across_attempts": 37958.898560751,
+      "continuous_run_seconds": null,
+      "process_downtime_seconds": null,
+      "timing_scope": "Native-validated original/continuation controller intervals including recovery CPU; not uninterrupted runtime or summed worker latency.",
+      "selection_policy": "Original strict visible-only selection; ties retain earlier best; H0 visible not measured. Selected equals last by exact ID/artifact, so no separate last private run.",
+      "visible_mean_arithmetic_note": "Complete binary visible scalar follows the exact original native sum(scores)/N after original grade/cohort checks. Private generic fsum scalars retained; charts use exact count fractions.",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "single_seed_not_significance": true,
+      "not_a_published_benchmark_result": true
+    },
+    "linux-ace-formula-offline-v2": {
+      "protocol": "offline_formula",
+      "display_name": "Standalone ACE offline",
+      "seed": 0,
+      "train_samples": 500,
+      "visible_tasks": 300,
+      "visible_cohorts": 5,
+      "test_tasks": 200,
+      "baseline_correct": 141,
+      "selected_correct": 173,
+      "visible_correct": 272,
+      "selected_candidate": "candidate-000343",
+      "last_candidate": "candidate-000888",
+      "selected_artifact": "sha256:7db35bcac4543a02cee2882216f5a8d907447bb270fbc98ca0bc4e139c76c9ac",
+      "last_artifact": "sha256:7916438394cb3e5c96c946a9422e29475e00ce5e45b4efc862e4b4c041d0df83",
+      "selected_equals_last": false,
+      "selected_checkpoint_train_samples": 200,
+      "last_private_measured": false,
+      "last_private_correct": null,
+      "visible_history": [
+        {
+          "train_samples": 100,
+          "correct": 269,
+          "tasks": 300,
+          "candidate_id": "candidate-000153",
+          "artifact_hash": "sha256:5ac9c7605eab23eb4cf188c8909f7356d10d58e3f6cffe4e88f63568a8e568cb",
+          "controller_accuracy": 0.8966666666666666
+        },
+        {
+          "train_samples": 200,
+          "correct": 272,
+          "tasks": 300,
+          "candidate_id": "candidate-000343",
+          "artifact_hash": "sha256:7db35bcac4543a02cee2882216f5a8d907447bb270fbc98ca0bc4e139c76c9ac",
+          "controller_accuracy": 0.9066666666666666
+        },
+        {
+          "train_samples": 300,
+          "correct": 272,
+          "tasks": 300,
+          "candidate_id": "candidate-000532",
+          "artifact_hash": "sha256:314d94294aba2aa1e52726ffc6c29aedcd56e537669a68122b2f073ea3a60d13",
+          "controller_accuracy": 0.9066666666666666
+        },
+        {
+          "train_samples": 400,
+          "correct": 271,
+          "tasks": 300,
+          "candidate_id": "candidate-000709",
+          "artifact_hash": "sha256:e5eff4a70cdd931b7d685574bf28e4c93b3df7b6d551b42b0c63e9b00d4b21a4",
+          "controller_accuracy": 0.9033333333333333
+        },
+        {
+          "train_samples": 500,
+          "correct": 267,
+          "tasks": 300,
+          "candidate_id": "candidate-000888",
+          "artifact_hash": "sha256:7916438394cb3e5c96c946a9422e29475e00ce5e45b4efc862e4b4c041d0df83",
+          "controller_accuracy": 0.89
+        }
+      ],
+      "private_accuracy_delta_percentage_points": 16,
+      "H0_visible_measured": false,
+      "physical_API_calls": 3991,
+      "known_API_upper_USD_not_invoice": 5.3462815919999995,
+      "known_API_upper_decimal_USD_not_invoice": "5.34628159199999985151",
+      "unknown_API_reserve_USD": 0.0,
+      "cost_by_purpose": {
+        "test": {
+          "physical_calls": 400,
+          "cost_upper_USD_NOT_invoice": "0.17150219999999999338"
+        },
+        "optimization": {
+          "physical_calls": 2091,
+          "cost_upper_USD_NOT_invoice": "4.45898179199999987573"
+        },
+        "validation": {
+          "physical_calls": 1500,
+          "cost_upper_USD_NOT_invoice": "0.71579759999999998240"
+        }
+      },
+      "native_conservative_charged_model_calls": 3992,
+      "native_retained_unknown_actual_model_call_rows": 1,
+      "native_failed_or_cancelled_ledger_rows": 3,
+      "native_canonical_cost_USD": null,
+      "canonical_USD_missing_is_not_zero": true,
+      "known_controller_seconds_across_attempts": 105192.89033052401,
+      "continuous_run_seconds": null,
+      "process_downtime_seconds": null,
+      "timing_scope": "Native-validated original/continuation controller intervals including recovery CPU; unmeasured prefix and downtime remain unknown.",
+      "selection_policy": "Original strict visible-only improvement, first equal-score maximum retained. Selected follows200training examples; last follows500. Private evaluation covers H0 and selected only.",
+      "visible_mean_arithmetic_note": "Visible validation uses exact original controller sum(binary scores)/N after unchanged native checks; private/H0/training generic fsum unchanged. Exact best scalar and first-tie predicate preserved; no tolerance or summary rewriting.",
+      "source_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "single_seed_not_significance": true,
+      "not_a_published_benchmark_result": true
+    },
+    "linux-combee-formula-offline-ace-v2": {
+      "protocol": "offline_formula",
+      "display_name": "Combee ACE offline",
+      "seed": 0,
+      "train_samples": 500,
+      "visible_tasks": 300,
+      "test_tasks": 200,
+      "baseline_correct": 136,
+      "selected_correct": 174,
+      "visible_correct": 273,
+      "selected_candidate": "candidate-000872",
+      "last_candidate": "candidate-000872",
+      "selected_equals_last": true,
+      "selected_artifact": "sha256:f983a1c07b9aea7b448587d1b924a6aba6cf457db9185d81fb59efeb209020fe",
+      "last_artifact": "sha256:f983a1c07b9aea7b448587d1b924a6aba6cf457db9185d81fb59efeb209020fe",
+      "private_accuracy_delta_percentage_points": 19.0,
+      "physical_API_calls": 2784,
+      "known_API_upper_USD_not_invoice": 5.503515372,
+      "unknown_API_reserve_USD": 0.0,
+      "known_API_upper_decimal_USD_not_invoice": "5.50351537199999985324",
+      "cost_by_purpose": {
+        "optimization": {
+          "physical_calls": 2084,
+          "cost_upper_USD_NOT_invoice": "5.09763785999999986759"
+        },
+        "validation": {
+          "physical_calls": 300,
+          "cost_upper_USD_NOT_invoice": "0.19653230399999999446"
+        },
+        "test": {
+          "physical_calls": 400,
+          "cost_upper_USD_NOT_invoice": "0.20934520799999999119"
+        }
+      },
+      "native_conservative_charged_model_calls": 2785,
+      "native_retained_unknown_actual_model_call_rows": 1,
+      "native_canonical_cost_USD": null,
+      "canonical_USD_missing_is_not_zero": true,
+      "known_controller_seconds_across_attempts": 74777.108154836,
+      "continuous_run_seconds": null,
+      "process_downtime_seconds": null,
+      "timing_scope": "Native-validated controller intervals across original/continuation attempts, including recovery CPU; not uninterrupted run or worker-latency sum.",
+      "selection_policy": "Original strict visible-only selection; private never used to select; selected equals last in this run.",
+      "source_revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "single_seed_not_significance": true,
+      "not_a_published_benchmark_result": true
+    },
+    "linux-combee-formula-offline-combee_dynamic-v6-ledger-io": {
+      "protocol": "offline_formula",
+      "display_name": "Combee Dynamic offline",
+      "seed": 0,
+      "train_samples": 500,
+      "visible_tasks": 300,
+      "visible_cohorts": 1,
+      "test_tasks": 200,
+      "baseline_correct": 138,
+      "selected_correct": 174,
+      "visible_correct": 275,
+      "selected_candidate": "candidate-000344",
+      "last_candidate": "candidate-000344",
+      "selected_artifact": "sha256:c735f3e2786a1b604b1ed75f3b951a56aa16a56fab5677b520bdbd7ab37b3a63",
+      "last_artifact": "sha256:c735f3e2786a1b604b1ed75f3b951a56aa16a56fab5677b520bdbd7ab37b3a63",
+      "selected_equals_last": true,
+      "private_accuracy_delta_percentage_points": 18,
+      "H0_visible_measured": false,
+      "physical_API_calls": 2695,
+      "known_API_upper_USD_not_invoice": 2.975843886,
+      "known_API_upper_decimal_USD_not_invoice": "2.97584388599999992684",
+      "unknown_API_reserve_USD": 0.0,
+      "cost_by_purpose": {
+        "optimization": {
+          "physical_calls": 1995,
+          "cost_upper_USD_NOT_invoice": "2.64985848599999993952"
+        },
+        "validation": {
+          "physical_calls": 300,
+          "cost_upper_USD_NOT_invoice": "0.14398919999999999579"
+        },
+        "test": {
+          "physical_calls": 400,
+          "cost_upper_USD_NOT_invoice": "0.18199619999999999153"
+        }
+      },
+      "original_variable_batches": 281,
+      "batch_size_histogram": {
+        "1": 274,
+        "2": 1,
+        "4": 1,
+        "8": 1,
+        "16": 1,
+        "32": 1,
+        "64": 1,
+        "100": 1
+      },
+      "original_B1_and_dynamic_policy_preserved": true,
+      "native_conservative_charged_model_calls": 2696,
+      "native_retained_unknown_actual_model_call_rows": 1,
+      "native_failed_or_cancelled_ledger_rows": 3,
+      "native_canonical_cost_USD": null,
+      "canonical_USD_missing_is_not_zero": true,
+      "known_controller_seconds_across_attempts": 76016.383775985,
+      "continuous_run_seconds": null,
+      "process_downtime_seconds": null,
+      "timing_scope": "Native-validated original/continuation controller intervals including recovery CPU; original unmeasured prefix retained, not uninterrupted runtime or summed worker latency.",
+      "selection_policy": "Original strict visible-only improvement and first-tie choice; selected equals last by exact ID and artifact; H0 visible unmeasured.",
+      "visible_mean_arithmetic_note": "Complete binary visible scalar follows exact original controller sum(scores)/N after unchanged native checks. Private/H0 generic fsum scalars remain unchanged; displayed percentages use exact integer counts.",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "single_seed_not_significance": true,
+      "not_a_published_benchmark_result": true
+    },
+    "linux-combee-formula-offline-combee_fixed-v5-ledger-io": {
+      "protocol": "offline_formula",
+      "display_name": "Combee Fixed offline",
+      "seed": 0,
+      "train_samples": 500,
+      "visible_tasks": 300,
+      "test_tasks": 200,
+      "baseline_correct": 139,
+      "selected_correct": 170,
+      "visible_correct": 268,
+      "selected_candidate": "candidate-000063",
+      "last_candidate": "candidate-000063",
+      "selected_artifact": "sha256:e262d7b3d47c02c3ba2fdffc00552c244c8664dc688f2c3327f5241ee11031b6",
+      "last_artifact": "sha256:e262d7b3d47c02c3ba2fdffc00552c244c8664dc688f2c3327f5241ee11031b6",
+      "selected_equals_last": true,
+      "private_accuracy_delta_percentage_points": 15.5,
+      "H0_visible_measured": false,
+      "physical_API_calls": 2404,
+      "known_API_upper_USD_not_invoice": 1.632558642,
+      "known_API_upper_decimal_USD_not_invoice": "1.63255864199999995320",
+      "unknown_API_reserve_USD": 0.0,
+      "cost_by_purpose": {
+        "optimization": {
+          "physical_calls": 1704,
+          "cost_upper_USD_NOT_invoice": "1.32217204199999996551"
+        },
+        "validation": {
+          "physical_calls": 300,
+          "cost_upper_USD_NOT_invoice": "0.13184279999999999401"
+        },
+        "test": {
+          "physical_calls": 400,
+          "cost_upper_USD_NOT_invoice": "0.17854379999999999368"
+        }
+      },
+      "native_conservative_charged_model_calls": 2439,
+      "native_retained_unknown_actual_model_call_rows": 35,
+      "native_failed_or_cancelled_ledger_rows": 107,
+      "native_canonical_cost_USD": null,
+      "canonical_USD_missing_is_not_zero": true,
+      "known_controller_seconds_across_attempts": 44556.233157559,
+      "continuous_run_seconds": null,
+      "process_downtime_seconds": null,
+      "timing_scope": "Native-validated controller intervals across original/continuation attempts including recovery CPU; not uninterrupted runtime or worker latency sum.",
+      "selection_policy": "Original strict visible-only selection; ties retain earlier best; no measured H0 visible score. Selected equals last by exact ID and artifact, so no separate last private run.",
+      "visible_mean_arithmetic_note": "Read-only Fixed visible scalar follows exact original native controller sum(scores)/N after all original cohort/grade checks; original strict predicates unchanged. Private generic fsum scalars retained; charts use exact count fractions.",
+      "source_revision": "21205d1dcdcff2a39dba31998629d22fd1ae94f9",
+      "single_seed_not_significance": true,
+      "not_a_published_benchmark_result": true
+    },
+    "Meta-Harness three-domain full study": {
+      "schema": "proteus.MCE.exact-final-aggregate.v1",
+      "protocol": "MCE_three_domains",
+      "visible_result_policy": "chronological_final_prescribed_pass",
+      "context_unit": "added_characters",
+      "learning_feedback_policy": "gold_labels_with_was_correct_true",
+      "all_systems": [
+        {
+          "system": "no_memory",
+          "candidate_id": "initial",
+          "artifact_hash": "sha256:92faab50f4bd2dac75eaad77dcdbce256c99c28e220911341c540454f3cc7664",
+          "generated": false,
+          "selected_for_private": true,
+          "learning_interface_examples": 450,
+          "visible_predictions": 260,
+          "visible_cohorts": 6,
+          "complete_domain_callbacks": 3,
+          "visible_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 30,
+              "correct": 8,
+              "context_chars": 191
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 50,
+              "correct": 38,
+              "context_chars": 191
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 50,
+              "correct": 16,
+              "context_chars": 191
+            }
+          ]
+        },
+        {
+          "system": "fewshot_all",
+          "candidate_id": "fewshot_all",
+          "artifact_hash": "sha256:d988c0ccf84c6c18cc6bcd4acfe2aa58c28625d81c56c0a3c93267731fa5f349",
+          "generated": false,
+          "selected_for_private": true,
+          "learning_interface_examples": 450,
+          "visible_predictions": 260,
+          "visible_cohorts": 6,
+          "complete_domain_callbacks": 3,
+          "visible_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 30,
+              "correct": 16,
+              "context_chars": 8897
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 50,
+              "correct": 41,
+              "context_chars": 30145
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 50,
+              "correct": 25,
+              "context_chars": 29106
+            }
+          ]
+        },
+        {
+          "system": "contrastive_boundary_memory",
+          "candidate_id": "contrastive_boundary_memory",
+          "artifact_hash": "sha256:28c23116446e02ef61ef2d6369c6d602418d0039af34820f6b788a74bbf7e711",
+          "generated": true,
+          "selected_for_private": true,
+          "learning_interface_examples": 450,
+          "visible_predictions": 260,
+          "visible_cohorts": 6,
+          "complete_domain_callbacks": 3,
+          "visible_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 30,
+              "correct": 9,
+              "context_chars": 1491
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 50,
+              "correct": 38,
+              "context_chars": 1412
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 50,
+              "correct": 22,
+              "context_chars": 2946
+            }
+          ]
+        },
+        {
+          "system": "lesson_distilled_memory",
+          "candidate_id": "lesson_distilled_memory",
+          "artifact_hash": "sha256:59cdfd9d8db1385e35a4623cce8ed6018c463c2476d50463f2355d8baf531558",
+          "generated": true,
+          "selected_for_private": false,
+          "learning_interface_examples": 450,
+          "visible_predictions": 260,
+          "visible_cohorts": 6,
+          "complete_domain_callbacks": 3,
+          "visible_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 30,
+              "correct": 5,
+              "context_chars": 267
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 50,
+              "correct": 38,
+              "context_chars": 267
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 50,
+              "correct": 21,
+              "context_chars": 783
+            }
+          ]
+        },
+        {
+          "system": "dual_pool_retrieval_memory",
+          "candidate_id": "dual_pool_retrieval_memory",
+          "artifact_hash": "sha256:bf315993f251bc8f0bbb524f543b5a3651be53d7e8b1cfc8ed471d0495c1b610",
+          "generated": true,
+          "selected_for_private": true,
+          "learning_interface_examples": 450,
+          "visible_predictions": 260,
+          "visible_cohorts": 6,
+          "complete_domain_callbacks": 3,
+          "visible_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 30,
+              "correct": 12,
+              "context_chars": 6430
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 50,
+              "correct": 34,
+              "context_chars": 6166
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 50,
+              "correct": 25,
+              "context_chars": 14192
+            }
+          ]
+        }
+      ],
+      "systems": [
+        {
+          "candidate": "contrastive_boundary_memory",
+          "candidate_id": "contrastive_boundary_memory",
+          "artifact_hash": "sha256:28c23116446e02ef61ef2d6369c6d602418d0039af34820f6b788a74bbf7e711",
+          "private_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 100,
+              "correct": 29
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 212,
+              "correct": 162
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 100,
+              "correct": 45
+            }
+          ]
+        },
+        {
+          "candidate": "dual_pool_retrieval_memory",
+          "candidate_id": "dual_pool_retrieval_memory",
+          "artifact_hash": "sha256:bf315993f251bc8f0bbb524f543b5a3651be53d7e8b1cfc8ed471d0495c1b610",
+          "private_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 100,
+              "correct": 30
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 212,
+              "correct": 152
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 100,
+              "correct": 52
+            }
+          ]
+        },
+        {
+          "candidate": "fewshot_all",
+          "candidate_id": "fewshot_all",
+          "artifact_hash": "sha256:d988c0ccf84c6c18cc6bcd4acfe2aa58c28625d81c56c0a3c93267731fa5f349",
+          "private_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 100,
+              "correct": 29
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 212,
+              "correct": 183
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 100,
+              "correct": 55
+            }
+          ]
+        },
+        {
+          "candidate": "no_memory",
+          "candidate_id": "initial",
+          "artifact_hash": "sha256:92faab50f4bd2dac75eaad77dcdbce256c99c28e220911341c540454f3cc7664",
+          "private_domains": [
+            {
+              "domain": "USPTO",
+              "tasks": 100,
+              "correct": 16
+            },
+            {
+              "domain": "Symptom2Disease",
+              "tasks": 212,
+              "correct": 151
+            },
+            {
+              "domain": "LawBench",
+              "tasks": 100,
+              "correct": 28
+            }
+          ]
+        }
+      ],
+      "seed": 42,
+      "framework_seed": 0,
+      "outer_rounds": 1,
+      "proposer_calls": 1,
+      "generated_programs": 3,
+      "total_private_predictions": 1648,
+      "source_evidence": {
+        "scientific_report": {
+          "path": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/mce-final-18df6d6-20261023-v1/mce-scientific.json",
+          "sha256": "5b464247b67b4105043067e19b7a554f653d0476de36f8aea2ff9bb2410c4e40"
+        },
+        "scalar_projection": {
+          "path": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/mce-final-18df6d6-20261023-v1/mce-final-scalar-evidence.json",
+          "sha256": "3157821bab0668a8d8ad747fcae9dbcc2d43e067045b500331bff6663135479a"
+        },
+        "original_authority_reconciliation": {
+          "path": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/mce-final-18df6d6-20261023-v1/mce-original-authority-reconciliation.json",
+          "sha256": "f72a8c071b8257da4d8a6e7606d3cc7ba2ce1898c12fd84bc1e6871bbe4a4496"
+        },
+        "Root_science_readback": {
+          "path": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/MCE-complete-scientific-18df6d6-Root-readback-20261023.json",
+          "sha256": "5556479caae6ebdf29d298fd2448fb95cf452df9f3de6ea424139c2dab677a2e"
+        },
+        "Root_finance_readback": {
+          "path": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/MCE-final-physical-finance-Root-independent-readback-20261023.json",
+          "sha256": "07acdebe75181400f02c2d456ee67b857f849bbb178d91eacbc415c84a61e17e"
+        },
+        "unchanged_Root_contract": {
+          "path": "/Users/myyyth/Documents/Proteus-v1-experiments/final-report-work/mce_report_contract.py",
+          "sha256": "ec965cd28207ee58b52432ecf8740f02c3709e38b1b635b633a246f8a16483c0"
+        }
+      },
+      "source_pins": {
+        "scientific": "c4664e486c13d35fb2a86438040bf132ed9df428",
+        "actual_executor": "095bc0ae16fe97a470997997a8135c7ba8ad3be3",
+        "actor_inventory_reader": "8421276440254394208d11aaa2531d21ef0d0407",
+        "strict_final_reporter": "18df6d6e8fe9aeefa9d83b33f4666807f17b2f20"
+      },
+      "accounting": {
+        "physical_model_calls": 3399,
+        "physical_cost_upper_USD_NOT_invoice": "3.38301363599999989032",
+        "physical_by_purpose": {
+          "optimization": {
+            "physical_calls": 451,
+            "cost_upper_USD_NOT_invoice": "0.11082471600000000010"
+          },
+          "test": {
+            "physical_calls": 1648,
+            "cost_upper_USD_NOT_invoice": "2.15174517599999992381"
+          },
+          "validation": {
+            "physical_calls": 1300,
+            "cost_upper_USD_NOT_invoice": "1.12044374399999996641"
+          }
+        },
+        "canonical_all_historical_charges_UNALTERED": {
+          "active_slots": 0,
+          "charged": {
+            "cost_usd": null,
+            "evaluations": "2978",
+            "model_calls": "3400",
+            "wall_seconds": "34136.157084005344093626"
+          },
+          "retained_failures": 29,
+          "rows": 11622,
+          "unknown_actual_rows": {
+            "cost_usd": 3400,
+            "evaluations": 0,
+            "model_calls": 1,
+            "wall_seconds": 0
+          }
+        },
+        "native_unknown_cost_is_NOT_imputed_from_physical_receipts": true
+      },
+      "limitations": [
+        "Adapted Meta-Harness classification pilot, NOT faithful original-paper agentic reproduction.",
+        "Single-call JSON proposer with preassembled history capped near 120000 characters; no outer tool-using coding harness.",
+        "Single seed; no statistical significance, SOTA, or cross-task ranking claim.",
+        "Append-only source-adapted continuation, not an uninterrupted native run.",
+        "Missing invocation 2 native receipt and all prior failed audit attempts remain unchanged.",
+        "Private aggregates are descriptive only; no private per-task answers, programs or learned memory exported."
+      ],
+      "acceptance": {
+        "Root_science_component_checked": true,
+        "Root_finance_component_accepted": true,
+        "aggregate_and_final_static_archive_independent_acceptance_pending": true,
+        "full_study_acceptance_granted_by_this_script": false
+      },
+      "provider_calls_by_normalizer": 0,
+      "scientific_and_financial_mutations": 0,
+      "physical_API_calls": 3399,
+      "known_API_upper_USD_not_invoice": 3.383013636,
+      "unknown_API_reserve_USD": 0.0
+    }
+  },
+  "Native_Pi": {
+    "accepted": true,
+    "scope": "Single-seed real controlling TypeScript self-edit, exact EP1 accepted snapshot activated in EP2, model-free marker and directly bracketed zero-work completed resume. Not a quality or speed benchmark result.",
+    "at_utc": "2026-10-20T18:11:45.073987+00:00",
+    "source_EP1": "fb2001de84779e0e3dbb069068ec11d3b0e4457162a0f3ba40f73355b094ef94",
+    "source_EP2": "5afad3c0b14c3e996a1767820a0d791e20908fab606230852eecb9b9e8903b35",
+    "CLI_EP1": "8189b66abc4f9f431dbb70941dcba690d76d040de1fbfff212886be35a53639d",
+    "CLI_EP2": "559c2a381a04712dd0b99cb5cc6784deb44ced12359bd057e7bae8988c7bcc65",
+    "raw_phase_returncodes": [
+      137,
+      137,
+      137,
+      137,
+      137,
+      137,
+      137,
+      137
+    ],
+    "classification": "Intentional budget-stop inference: exact frozen PiHarness fired path, interrupted handoffs, accepted/error-free episode records, all four phases, wall far below900s. No explicit raw stop-reason bit was recorded; usage remains unknown.",
+    "original_launcher_failure_retained": true,
+    "provider_calls": 37,
+    "provider_peak_price_cost_bound_usd": 0.020047092,
+    "unknown_reserve_usd": 0,
+    "completed_resume_new_original_gateway_calls": 0,
+    "completed_resume_new_relay_dispatches": 0,
+    "completed_resume_new_Docker_events": 0,
+    "completed_resume_local": {
+      "status": "passed_local_conservation",
+      "admission_log_sha256_before_after": "4dae0922f3207e4789022b36cb39f1579c6bf562efa8374e3939a6efb782aa72",
+      "admission_count_before_after": 11,
+      "native_inputs_hash_before_after": "sha256:31d30208f84f147e7469e8e569337d9b183f4f7104152e39311b1ae61b2b2eba",
+      "all_proxy_receipts_sha256_before_after": "e68afdc9d6b34f2ab8ac0bf631205a2a7ad21d47e4249ad323147382ab96f0eb",
+      "extra_local_container_admissions": 0,
+      "extra_native_inputs": 0,
+      "extra_proxy_intents_or_response_changes": 0,
+      "original_Mac_ledger_and_relay_native_arm_counts": "coordinator must directly bracket this invocation; global totals can change from other families"
+    },
+    "feature_witness": {
+      "commit": "68a275851c20025c978341fe7539bc384e8b9128",
+      "marker": "PROTEUS_NATIVE_EVOLVED_V1",
+      "activation": {
+        "version": 1,
+        "backend": "pi",
+        "source_sha256": "5afad3c0b14c3e996a1767820a0d791e20908fab606230852eecb9b9e8903b35",
+        "cli_sha256": "559c2a381a04712dd0b99cb5cc6784deb44ced12359bd057e7bae8988c7bcc65",
+        "boot_sha256": "2ae112e78e06b26cb415dbe33ef17a967aaab95e43c39176b8f71d403688a616",
+        "mode": "build"
+      },
+      "matches_EP2_active_source_and_CLI": true,
+      "extra_proxy_intents_or_response_changes": 0,
+      "fresh_model_free_check_only": true
+    },
+    "canonical_native_session_calls_and_cost": "unknown; provider totals are external ledger evidence",
+    "raw": "/Users/myyyth/Documents/Proteus-v1-experiments/aws-access-20261020/native-completed-resume-independent-raw.json"
+  },
+  "limits": [
+    "Adapted recipes, not matched published-paper reproductions.",
+    "Single seed; no significance or cross-task ranking.",
+    "Online scores are pre-learning stream accuracy, not an untouched final-memory test.",
+    "CORAL confirmation repeats the same problem, not held-out generalization.",
+    "Native Pi is source-activation evidence, not quality or speed improvement.",
+    "Historical failures and continuation intervals are retained; no uninterrupted-run or matched speedup claim."
+  ]
+}

@@ -1,0 +1,133 @@
+# November 1 preparation evidence
+
+This directory contains new preparation evidence. It does not rewrite the frozen
+October model results or qualify an unpublished release tag.
+
+- `api-freeze.json`: 100 resolving v1 names and 64 public Contract schema hashes.
+- `installed-distributions.json`: 1.0.0 wheel/sdist artifact hashes and source
+  verification, plus 22 installed checks outside the checkout. The artifacts were
+  built from clean `9807a41`; the byte check occurred at `81ede83` after only
+  acceptance-runner/test changes. All 261 Python package files match. Four named
+  extras (`llm`, `sandbox`, `pi`, `dsh`) installed; optional fixed GEPA is separately
+  required in CI, and real runtimes have their dedicated gates.
+- `combee-shared-trace.json`: compact comparison and archive identity for the
+  source-bound `5794378` eleven-sample four-arm run, followed by read-only verification.
+- `combee-shared-trace-5794378.tar.gz`: 331 original fixture files sufficient for
+  independent readback, including actual request/response records, manifest/lock,
+  datasets, artifact bytes and invocation receipts. No provider was called. It is
+  a verification bundle, not a resumable run: private recovery journals are omitted.
+- `earlier-*.json`: original independent review and source/config/task drift probes
+  against `9807a41`. The probes really passed the old reader incorrectly. Later
+  identity checks reject those changes; these failures are not deleted.
+- `initial-focused.log`, `trace-final-tests.log`: initial 10 focused cases and the
+  final 10 trace-specific cases respectively. The sets overlap; do not sum them.
+- `archive-verify.json`: unchanged 15 profiles, 16 recipes and 182 frozen files.
+- `initial-build-missing-dependency.log`, `twine.log`: the initial local setup lacked
+  the `build` package; a fresh build-tool environment produced both successful
+  distributions. This was not a runtime failure.
+
+To verify the original common-trace records without executing methods or models:
+
+```sh
+# Use the repository with commit 5794378 available and the unchanged reader.
+# A shallow clone may need: git fetch origin 57943787369aff43fb180818af9eba5b6a68b1c6
+mkdir -p /tmp/proteus-trace-readback
+tar -xzf docs/validation/v1-20261101/combee-shared-trace-5794378.tar.gz \
+  -C /tmp/proteus-trace-readback
+python recipes/validation/combee-shared-trace/run.py \
+  --out /tmp/proteus-trace-readback/combee-shared-trace --verify
+```
+
+The archive preserves original absolute path strings inside locked records to
+retain their hashes. The reader reads the supplied extraction directory; those
+strings are provenance, not commands to execute. The archive was extracted into a
+different local directory and successfully verified before commit. Run a fresh
+comparison with the [recipe instructions](../../../recipes/validation/combee-shared-trace/README.md).
+
+The broader [preparation record](../../V1_FINAL_ACCEPTANCE.md) tracks accepted
+CORAL qualification and outstanding required workflows separately. Prepared package version
+1.0.0 is not evidence of a published release.
+
+The final `independent-review.json`, `independent-trace-probes.json`,
+`independent-package-readback.json` and `independent-trace-tests.log` close R04
+and the trace-reader P2. They accept API/package evidence and the bounded I09
+contract while explicitly leaving CORAL and remaining release gates open.
+
+`native-source/readback.json` binds successful preparation run 41390451600 to both
+required source jobs and the original artifact ZIP hashes. Per-backend original
+activation/repair evidence and distinct controller process records are retained.
+These are real source-built Docker harnesses with a deterministic provider, not
+the separate paid full-smoke gate.
+
+`native-source/independent-readback.json` records the separate reviewer's rehash
+of both original ZIPs and four successful source/repair verifier invocations.
+The review reconstructed archived Git checkpoints without Docker dispatch or
+provider calls; it accepts this preparation source gate only.
+
+The [CORAL evidence index](coral-directed/README.md) contains the original fixture
+and single paid-workflow ZIPs, the frozen recipe, three actual request receipts,
+usage, retained initial audit/dispatch failures, and independent acceptance.
+Its current-source directed protocol closes I11/R05 and the corresponding I14
+reporting requirement; it is separate from the original circle-packing quality runs.
+
+`release-smoke-41390453875-dsh-failed.log` preserves the first preparation DSH
+self-edit failure. The normal sweep and two self-edit episodes completed, but
+no source change existed before episode two. The workflow did not archive the
+raw DSH trace, so the cause is unproven. That complete run remains failed; the
+separate corrected run and its readback are recorded below.
+
+`i14-output/i14-generic-disposition.json` and its saved-record readback close the
+two generic output requirements: five runs, 92 task rows and 30 candidates, with
+no omitted rollout. All nine report files per run were reconstructed without
+models, evaluators or mutations to the source copies. Unknown costs/timing remain
+unknown; historical reference/adapted results and common-condition records stay
+separate. Fourteen historical method profiles are adapted; the fifteenth is the
+Native mechanism profile. This review does not close the full-smoke gate.
+
+`dsh-smoke-repair/` freezes the candidate-path and diagnostic-export change at
+`12e02ff`, its 51 offline regressions and unchanged workflow-bound checks. The
+original DSH failure and unknown cost are preserved. These checks do not establish
+a successful live self-edit: independent review and the complete workflow are
+separate. The exported diagnostics are bounded, sanitized, non-resumable copies.
+
+The DSH repair's original code review is retained together with its later
+`independent-code-review-addendum-invalid-index.json`. The addendum supersedes
+the initial readiness decision: a 34-byte compressed malformed input produced
+a 17,454,426-byte index outside the data-byte budget. At that point, this P2 required a bounded
+metadata correction and independent recheck before another paid workflow; the
+subsequent closure is recorded below.
+
+The `bde937a` follow-up retains at most 64 invalid-line samples per source and
+bounds the complete index to 512 KiB. Parsed invalid counts, omitted sample counts
+and original source hashes remain. `metadata-amplification-after-v1.json` records
+the same compressed case reduced to 10,565 bytes; 21 targeted tests pass. The
+first new test run is also retained: its opaque-byte sentinel accidentally matched
+the index's explanatory prose; changing that synthetic sentinel to a unique value
+fixed the test without loosening the assertion or changing collector behavior.
+At that stage the independent metadata recheck and full workflow were still
+required; both now have their own subsequent evidence, recorded below.
+
+`bde937a-independent-p2-closure.json` closes the metadata P2 with the same original
+compressed probe, 21 independent tests and a new exact-source Python 3.14 probe.
+The earlier author `python314-decoder-check-v2.json` is explicitly old-source
+evidence, not this patch's validation. Corrected complete smoke `41398194611` was
+dispatched once at `1adaa8f`; its initial running status was not counted as acceptance.
+It subsequently completed with all six required jobs successful, as recorded below.
+
+[Final distributions](final-distributions/README.md) records the clean bad3c55
+rebuild after README metadata changed, with fresh artifact identities, twine, 22
+installed checks, all original logs and local helper failures. Earlier package
+identities remain historical evidence and are not relabeled as this rebuild.
+
+[Completed full preparation smoke](full-smoke/README.md) preserves run 41398194611
+at source `1adaa8f`: all six required jobs passed in one run, with 1,842 offline
+tests passing and 91 skips. The six original job logs, two original Pi/DSH ZIPs,
+strict live source-edit/activation/rejection checks and bounded artifact readback
+are retained. Codex's raw episode/binary archive was not exported; its evidence is
+the original fixed-source strict-checker log. Unknown usage/cost remains unknown.
+
+`first-smoke-codex/` preserves the first failed workflow's later successful Codex
+job as diagnostic history only. It does not contribute a cell to the accepted
+corrected workflow. The read-only Codex timing analysis in `full-smoke/` reports
+observable build/episode/check durations and the missing granular timing, without
+new model calls or a runtime change.

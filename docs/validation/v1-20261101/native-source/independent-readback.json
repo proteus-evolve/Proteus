@@ -1,0 +1,138 @@
+{
+  "review_date": "2026-11-01 America/Los_Angeles",
+  "documentation_head": "5e607b2b1000e120961d095cfd796c9da7c2ab14",
+  "workflow_run": 41390451600,
+  "workflow_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41390451600",
+  "verified_workflow_head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "workflow_event": "workflow_dispatch",
+  "workflow_attempt": 1,
+  "workflow_conclusion": "success",
+  "required_jobs": [
+    "Pinned native source (pi)",
+    "Pinned native source (dsh)"
+  ],
+  "optional_codex_pilot": "skipped by configuration; not a required source job",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "rows": [
+    {
+      "backend": "pi",
+      "artifact_sha256": "ef09ca741992bfca8f992cd643e23968467717a8bca4bdd61b6145f59d3b9a6c",
+      "source_evidence_hash": "sha256:13b45680fac9a40bf9f0fd77707c6cc5510d70ecad22d941a7d6cb2e27cde215",
+      "repair_evidence_hash": "sha256:e54c8d757e3908f34ebdfe8b0dee7c874aabcdc847e98cc6c70594c5580eafc3",
+      "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+      "image_id": "sha256:d81b5fc87f0817fba17eaf5d4f096c0da1e873e8a3810fc5db985b5bbfb91d06",
+      "activation_modes": [
+        "pristine",
+        "cache"
+      ],
+      "repair_activation_modes": [
+        "pristine",
+        "pristine",
+        "cache"
+      ],
+      "controller_processes": [
+        {
+          "mode": "first",
+          "pid": 4395,
+          "returncode": 0
+        },
+        {
+          "mode": "repair",
+          "pid": 4976,
+          "returncode": 0
+        },
+        {
+          "mode": "complete",
+          "pid": 5775,
+          "returncode": 0
+        }
+      ],
+      "source_readback_passed": true,
+      "repair_readback_passed": true,
+      "original_evidence_bytes_matched": 3
+    },
+    {
+      "backend": "dsh",
+      "artifact_sha256": "2a1759ca2293f042dd75cffe27d90699afa8a90eef0b7de123260e3f3b61f292",
+      "source_evidence_hash": "sha256:ecfa3943f951b019035674e62ab6a3700edef7012b5098c5216128a731477e32",
+      "repair_evidence_hash": "sha256:644db8b9d392195090b9abe3086886423ed22a37e1da2cf39a9d597478db4569",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "image_id": "sha256:57b62772b47de95ecf3cbe430b1c29a89e149951dfa2d8c681a6ce470d2a3a83",
+      "activation_modes": [
+        "pristine",
+        "cache"
+      ],
+      "repair_activation_modes": [
+        "pristine",
+        "pristine",
+        "cache"
+      ],
+      "controller_processes": [
+        {
+          "mode": "first",
+          "pid": 4960,
+          "returncode": 0
+        },
+        {
+          "mode": "repair",
+          "pid": 5410,
+          "returncode": 0
+        },
+        {
+          "mode": "complete",
+          "pid": 6351,
+          "returncode": 0
+        }
+      ],
+      "source_readback_passed": true,
+      "repair_readback_passed": true,
+      "original_evidence_bytes_matched": 3
+    }
+  ],
+  "provider_calls_during_review": 0,
+  "docker_dispatches_during_review": 0,
+  "scope": "Read-only original GitHub artifact rehash plus source and repair verify functions using preserved snapshots, native inputs, Docker startup receipts, provider witnesses and controller process records. No new execution, paid provider, algorithm-quality, full-smoke or exact-tag claim.",
+  "retained_original_file_sha256": {
+    "pi/evidence.json": "c84c60ced50e775ff52aec8f306bc5ee5d9337a1cb48e232fc1f279ac651fd28",
+    "pi/image.json": "4f2847366f3955f4a43dfd5e908a7baa65e560d693905bb1cf8624ae9f6ff72d",
+    "pi/provider.json": "ff42e8d939ae16398db3d27ef08f5bb4dffdcd582eb124afb1b1254d9635226a",
+    "pi/docker-calls.json": "2fbe6aafd6ce33b90596a57da41ba79fb0f99993546ec6d6a64159dbf354976c",
+    "pi/initial-entry.ts": "184e297bf71200d7947b0d28ba62f4c09b1f3071ea8c85c2255d1ab8617bca08",
+    "pi/repair/evidence.json": "5b31cdebf68458dba19699474d6ff964b8055bff636a4af6e9b4b4813f992403",
+    "pi/repair/image.json": "4f2847366f3955f4a43dfd5e908a7baa65e560d693905bb1cf8624ae9f6ff72d",
+    "pi/repair/provider.json": "a0135b92d4fe8bb576d4b4311f91d34f3c245c94454f190fd765e2e58aa89205",
+    "pi/repair/docker-calls.json": "52a602aa94bf0ba80278f4621de04aa0ce05c690cc3c305bd2077d3b9e9bd43d",
+    "pi/repair/controller-processes.json": "276f917d66133285dd6b83e3b6a7a00daaef9f7524ba444599278aeeec4e31d6",
+    "pi/repair/controller-first.json": "fb71ad8e108d6b7ae92ac50203a4ab52e1ab475a4252436a0cbf517d460221da",
+    "pi/repair/controller-repair.json": "93e04ee6a3573cb370afe742d558500fbe5c895f7f6625937652aa42664b7093",
+    "pi/repair/controller-complete.json": "7c4cb8ab54c17e98b7bb0fa7ebfc489d658f4ebd14730790736e7a99bb0b48e9",
+    "pi/repair/initial-entry.ts": "184e297bf71200d7947b0d28ba62f4c09b1f3071ea8c85c2255d1ab8617bca08",
+    "dsh/evidence.json": "37674e13c3536987990574261fe6b5ab94b34d449bb951c872ca3ada13aeaf22",
+    "dsh/image.json": "cffdafa9db6d180b73edad17a03bb00fa192e3db67b213bfd0aa63144192c468",
+    "dsh/provider.json": "7b977e5d30bdcdf1402a527a152237659124a45e31fd8663f4295cab8ced2559",
+    "dsh/docker-calls.json": "f41804564e85ab3e116b2107c8b820a912e26dc857f8056cebb58699a9720822",
+    "dsh/initial-entry.ts": "92583393a3975a1a7bd7fe0d0312e1a2733658197dcf7e5da4398127e358e297",
+    "dsh/repair/evidence.json": "94da7c18b9305315476063c910c91798fa30a82718a64cd24dbfc39205c37ee2",
+    "dsh/repair/image.json": "cffdafa9db6d180b73edad17a03bb00fa192e3db67b213bfd0aa63144192c468",
+    "dsh/repair/provider.json": "1ef5504194afe9fcef6c423bdaafb1805a9dcecf6499a445153246a357a8d9a4",
+    "dsh/repair/docker-calls.json": "c4fb07941e96690fa4bfb4c304b7df6f12dc5e593cd25b054568ee6cf766ab1f",
+    "dsh/repair/controller-processes.json": "05fc6c8fe94c0eac2b662a58ba7e33526bd7ccb5729d5e97f8f1a2b264ad49af",
+    "dsh/repair/controller-first.json": "c79785243ee351fa7f578f45a475f88b82279df3518b2d9c0b49d14b8e45f261",
+    "dsh/repair/controller-repair.json": "c2d071539a4b2d7ff4d579b14d5ae8b2cb0817933e5f46e34c817a2f4f22d3a0",
+    "dsh/repair/controller-complete.json": "6e57ecfbb9d459f2e9bc84e1a74a099416e64b40ef80f74017d626db98610b4c",
+    "dsh/repair/initial-entry.ts": "92583393a3975a1a7bd7fe0d0312e1a2733658197dcf7e5da4398127e358e297"
+  },
+  "temporary_expansion_cleanup": {
+    "only_removed": [
+      "/tmp/proteus-v1-native-review-41390451600/pi",
+      "/tmp/proteus-v1-native-review-41390451600/dsh"
+    ],
+    "preserved": [
+      "original ZIPs in /tmp/proteus-v1-final-20261101",
+      "all author/source/historical evidence",
+      "independent-native-readback.json",
+      "retained-evidence/ selected original receipts"
+    ]
+  },
+  "disposition": "Accept R00 preparation-source gate for unchanged production/build/workflow inputs; complete full release-smoke and future exact-tag gates remain separate."
+}

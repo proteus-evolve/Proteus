@@ -1,0 +1,22 @@
+# Fixed-runtime recovery only. Binaries are verified by reuse_codex.py first.
+FROM --platform=linux/amd64 rust:1.95-bookworm
+ARG CODEX_REF=a7b86b6201d35200280e3d24ca5ebccd8122d6ca
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates pkg-config libssl-dev libcap-dev clang cmake python3 jq rsync zstd curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN git init /opt/src && git -C /opt/src remote add origin https://github.com/openai/codex.git \
+    && git -C /opt/src fetch --depth 1 origin "$CODEX_REF" \
+    && git -C /opt/src checkout --detach FETCH_HEAD \
+    && test "$(git -C /opt/src rev-parse HEAD)" = "$CODEX_REF" \
+    && git -C /opt/src submodule update --init --recursive
+COPY codex codex-code-mode-host /opt/codex-target/release/
+COPY boot.sh /usr/local/bin/proteus-codex
+COPY fixed-boot.sh /usr/local/bin/proteus-codex-fixed
+COPY source.expected /opt/codex-source.sha256
+RUN chmod +x /usr/local/bin/proteus-codex* /opt/codex-target/release/* \
+    && test "$(proteus-codex --proteus-source-hash /opt/src)" = "$(cat /opt/codex-source.sha256)" \
+    && tar --exclude=.git --exclude=target -cf /opt/codex-source.tar -C /opt/src . \
+    && printf '1\n' > /opt/proteus-cargo-build-jobs \
+    && /opt/codex-target/release/codex --version
+ENTRYPOINT ["/usr/local/bin/proteus-codex-fixed"]

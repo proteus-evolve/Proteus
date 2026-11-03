@@ -1,0 +1,21 @@
+{
+  "observed_at": "2026-11-02T09:47:12.445582+00:00",
+  "prior_disposition": "conditional-release-disposition.json",
+  "independent_acceptance": "../full-smoke/independent-final-smoke-acceptance.json",
+  "source": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+  "run_id": 41398194611,
+  "closed": [
+    "preparation-scoped I15 installation/runtime coverage",
+    "preparation-scoped existing-functionality and capability regression",
+    "preparation complete; authorized main PR can be created"
+  ],
+  "remaining": [
+    "main PR CI/Harbor/review before aggregate I01-I15 closure",
+    "current coding-proposer full benchmark remains unvalidated extension",
+    "future annotated same-tag/SHA four gates",
+    "separately authorized merge/tag/publication"
+  ],
+  "old_failed_smoke_retained": 41390453875,
+  "no_new_research_threshold": true,
+  "new_provider_calls": 0
+}

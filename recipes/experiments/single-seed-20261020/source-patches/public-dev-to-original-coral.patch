@@ -1,0 +1,1529 @@
+diff --git a/proteus/benchmarks/coral_circle_packing/NOTICE.md b/proteus/benchmarks/coral_circle_packing/NOTICE.md
+index 7aa2260..8f877f2 100644
+--- a/proteus/benchmarks/coral_circle_packing/NOTICE.md
++++ b/proteus/benchmarks/coral_circle_packing/NOTICE.md
+@@ -20,4 +20,8 @@ execution seeds Python and NumPy explicitly; the original grader does not.
+ NumPy 2.2.6 and SciPy 1.15.3 Linux amd64 CPython 3.12 wheels are pinned by
+ published PyPI hashes in `reference.json`. These are declared environment
+ choices; the reference task merely requests NumPy and SciPy without versions.
++The source-build setup deadline is900 seconds to cover cold architecture pulls
++and wheel installation on older Docker Desktop. This is an infrastructure-only
++amendment from the earlier300-second setup limit; candidate execution remains
++600 seconds, with the same pinned platform, wheel hashes and geometry verifier.
+ No real-model reproduction result is implied by preparing or testing this task.
+diff --git a/proteus/benchmarks/coral_circle_packing/recipe.py b/proteus/benchmarks/coral_circle_packing/recipe.py
+index 96b8db9..ab27e4a 100644
+--- a/proteus/benchmarks/coral_circle_packing/recipe.py
++++ b/proteus/benchmarks/coral_circle_packing/recipe.py
+@@ -16,7 +16,7 @@ from proteus.evaluation.tasks import Task, TaskDataset, TaskRecord
+ from proteus.evidence.records import EvidenceAccess
+ from proteus.examples.candidate_evaluation import plugin
+ from proteus.examples.harbor_evaluation import IMAGE
+-from proteus.execution.builds import SourceBuildSpec
++from proteus.execution.builds import SharedBuildLayer, SourceBuildSpec
+ from proteus.execution.harbor import identify_runtime
+ from proteus.methods.coral.method import register as register_method
+ from proteus.methods.coral.policy import register as register_policy
+@@ -83,11 +83,14 @@ def build_spec():
+     encoded = base64.b64encode(requirements.encode()).decode()
+     script = ('import base64; from pathlib import Path; '
+               f'Path("/tmp/proteus-packing.lock").write_bytes(base64.b64decode({encoded!r}))')
+-    return SourceBuildSpec(commands=(
++    return SourceBuildSpec(commands=('true',), shared_layer=SharedBuildLayer(commands=(
+         'python3 -I -c '+shlex.quote(script),
+         'python3 -I -m pip install --no-deps --no-compile --require-hashes --only-binary=:all: '
+-        '--target /opt/proteus/build/.proteus-deps -r /tmp/proteus-packing.lock',),
+-        network='default', platform='linux/amd64', timeout_seconds=300)
++        '--target /opt/proteus/shared/.proteus-deps -r /tmp/proteus-packing.lock',),
++        outputs=('.proteus-deps',)),
++        # Cold multi-architecture pulls and pinned-wheel installation are setup,
++        # not candidate search time. Keep the original600s execution deadline.
++        network='default', platform='linux/amd64', timeout_seconds=900)
+ 
+ 
+ def prepare(root, python, *, worker_runtime=None, workers=1, submissions=20, seed=0, runtime=None):
+@@ -111,7 +114,7 @@ docker_image = "{IMAGE}"
+ network_mode = "public"
+ cpus = 1
+ memory_mb = 2048
+-build_timeout_sec = 300
++build_timeout_sec = 900
+ [agent]
+ timeout_sec = 600
+ [verifier]
+@@ -148,6 +151,8 @@ timeout_sec = 30
+             'Single shared space; serialized formal results and bounded submissions/polls/restarts.',
+             'Explicit experimental 5/10/5 heartbeat cadence and prompts adapted to the mediated gateway.',
+             'Final confirmation repeats the optimization problem with a fresh trial seed; it is not a held-out task.',
++            'Infrastructure amendment: source-build setup deadline900s (formerly300s); original candidate execution deadline600s, task geometry, platform and dependency wheel hashes are unchanged.',
++            'Infrastructure amendment: identical hash-pinned NumPy/SciPy dependencies are built in a candidate-independent shared layer and exported to the same runtime .proteus-deps path; candidate source cannot shadow this fixed dependency output.',
+             'No real model result is implied by preparing this recipe.')),
+         subject=SubjectSpec(runner=plugin('proteus.harbor_subject'), initial_artifact=initial),
+         execution=ExecutionSpec(seed=seed, timeout_seconds=600, environment=EnvironmentSpec(
+diff --git a/proteus/core/recovery.py b/proteus/core/recovery.py
+index 7837752..a3c5bba 100644
+--- a/proteus/core/recovery.py
++++ b/proteus/core/recovery.py
+@@ -12,7 +12,7 @@ import threading
+ 
+ from proteus.artifacts.store import _read, publish_bytes
+ from proteus.core.contracts import MethodState, PluginState, require
+-from proteus.core.serialization import ContractError, canonical_json, content_hash, read_json
++from proteus.core.serialization import ContractError, canonical_json, content_hash, read_json, json_value
+ 
+ 
+ class RecoveryRequired(RuntimeError):
+@@ -20,11 +20,24 @@ class RecoveryRequired(RuntimeError):
+ 
+ 
+ def _write(path, value):
+-    publish_bytes(path, canonical_json({"hash": content_hash(value), "value": value}).encode())
++    if isinstance(value, dict) and isinstance(value.get("snapshot"), dict):
++        from proteus.core import snapshot_store
++        original_hash = content_hash(value)
++        stored = {**json_value(value), "snapshot": snapshot_store.encode(snapshot_store.directory(path),value["snapshot"])}
++        envelope = {"hash": original_hash,"value":stored,"storage":snapshot_store.FORMAT}
++    else:
++        envelope = {"hash":content_hash(value),"value":value}
++    publish_bytes(path, canonical_json(envelope).encode())
+ 
+ 
+ def _load(path):
+     envelope = read_json(_read(path).decode())
++    if set(envelope) == {"hash","value","storage"}:
++        from proteus.core import snapshot_store
++        require(envelope["storage"] == snapshot_store.FORMAT,"unknown recovery snapshot storage format")
++        require(isinstance(envelope["value"],dict) and "snapshot" in envelope["value"],"missing stored snapshot")
++        envelope["value"]["snapshot"] = snapshot_store.decode(snapshot_store.directory(path),envelope["value"]["snapshot"])
++        del envelope["storage"]
+     require(set(envelope) == {"hash", "value"} and content_hash(envelope["value"]) == envelope["hash"],
+             "recovery record integrity mismatch")
+     return envelope["value"]
+diff --git a/proteus/core/snapshot_store.py b/proteus/core/snapshot_store.py
+new file mode 100644
+index 0000000..4a87362
+--- /dev/null
++++ b/proteus/core/snapshot_store.py
+@@ -0,0 +1,153 @@
++"""Lossless, hash-checked snapshot DAG for experimental large recovery journals.
++
++Only storage changes: snapshots decode to detached ordinary JSON, and the journal
++still verifies the original full-value digest. SQLite commits all referenced
++nodes before a journal envelope is published. Unreferenced crash-time nodes are
++harmless; no garbage collection or historical-run conversion occurs here.
++"""
++from __future__ import annotations
++
++import hashlib
++from contextlib import contextmanager
++import json
++from pathlib import Path
++import re
++import sqlite3
++import zlib
++
++from proteus.core.serialization import ContractError, json_value
++
++FORMAT = "proteus.snapshot_dag.v1"
++PAGE = 64
++INLINE = 768
++_KNOWN = {}
++
++
++def directory(path: Path) -> Path:
++    return path.parent.parent if path.parent.name == "operations" else path.parent
++
++
++def _bytes(value):
++    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
++
++
++@contextmanager
++def _connect(root, *, readonly):
++    root = Path(root).absolute()
++    path = root / "snapshot-nodes.sqlite3"
++    if path.is_symlink() or (root.exists() and root.is_symlink()):
++        raise ContractError("snapshot store must not be a symlink")
++    if readonly:
++        if not path.is_file():
++            raise ContractError("snapshot node store is missing")
++        db = sqlite3.connect(path.as_uri()+"?mode=ro", uri=True, timeout=30)
++    else:
++        root.mkdir(parents=True, exist_ok=True)
++        db = sqlite3.connect(path, timeout=30)
++    try:
++        if not readonly:
++            db.execute("PRAGMA synchronous=FULL")
++            db.execute("CREATE TABLE IF NOT EXISTS nodes (hash TEXT PRIMARY KEY, data BLOB NOT NULL)")
++        with db:
++            yield db
++    finally:
++        # sqlite's own context manager commits/rolls back but never closes.
++        db.close()
++
++
++def encode(root: Path, snapshot):
++    snapshot = json_value(snapshot)
++    path=Path(root).absolute()/"snapshot-nodes.sqlite3"
++    created=set()
++    with _connect(root, readonly=False) as db:
++        info=path.stat()
++        cache_key=(str(path),info.st_dev,info.st_ino)
++        if len(_KNOWN)>16:
++            _KNOWN.clear()
++        known=_KNOWN.setdefault(cache_key,set())
++        db.execute("BEGIN IMMEDIATE")
++        def node(encoded):
++            raw = _bytes(encoded)
++            if len(raw) < INLINE:
++                return encoded
++            digest = hashlib.sha256(raw).hexdigest()
++            if digest not in known and digest not in created:
++                db.execute("INSERT OR IGNORE INTO nodes(hash,data) VALUES(?,?)", (digest, zlib.compress(raw, 3)))
++                created.add(digest)
++            return ["@", digest]
++
++        def pack(value):
++            if isinstance(value, dict):
++                return node(["d", [[key, pack(value[key])] for key in sorted(value)]])
++            if isinstance(value, list):
++                if len(value) > PAGE:
++                    return node(["a", [pack(value[start:start+PAGE]) for start in range(0,len(value),PAGE)]])
++                return node(["l", [pack(item) for item in value]])
++            if isinstance(value, str) and len(value) >= INLINE:
++                return node(["s", value])
++            return value
++        encoded = pack(snapshot)
++    # Never cache nodes from a rolled-back transaction.
++    known.update(created)
++    if len(known)>300000:
++        known.clear()
++    return encoded
++
++
++def decode(root: Path, encoded):
++    active = set()
++    cache = {}
++    with _connect(root, readonly=True) as db:
++        def unpack(value, depth=0):
++            if depth > 256:
++                raise ContractError("snapshot node nesting limit exceeded")
++            if not isinstance(value, list):
++                if type(value) not in (str,int,float,bool,type(None)):
++                    raise ContractError("invalid inline snapshot node")
++                return value
++            if len(value) != 2 or value[0] not in ("@","d","l","a","s"):
++                raise ContractError("invalid snapshot node encoding")
++            kind, payload = value
++            if kind == "@":
++                if type(payload) is not str or not re.fullmatch(r"[0-9a-f]{64}",payload) or payload in active:
++                    raise ContractError("invalid or cyclic snapshot reference")
++                if payload not in cache:
++                    row = db.execute("SELECT data FROM nodes WHERE hash=?",(payload,)).fetchone()
++                    if row is None:
++                        raise ContractError("snapshot node is missing")
++                    try:
++                        raw = zlib.decompress(row[0])
++                        if hashlib.sha256(raw).hexdigest() != payload:
++                            raise ContractError("snapshot node integrity mismatch")
++                        cache[payload] = json.loads(raw)
++                    except (zlib.error,ValueError) as exc:
++                        raise ContractError("invalid compressed snapshot node") from exc
++                active.add(payload)
++                try:
++                    # Cache encoded nodes only: repeated references must decode
++                    # to fresh mutable containers, never alias restored state.
++                    return unpack(cache[payload],depth+1)
++                finally:
++                    active.remove(payload)
++            if kind == "s":
++                if type(payload) is not str:
++                    raise ContractError("invalid snapshot string")
++                return payload
++            if kind == "d":
++                if not isinstance(payload,list):
++                    raise ContractError("invalid snapshot dictionary")
++                result = {}
++                for pair in payload:
++                    if not isinstance(pair,list) or len(pair)!=2 or type(pair[0]) is not str or pair[0] in result:
++                        raise ContractError("invalid snapshot dictionary entry")
++                    result[pair[0]] = unpack(pair[1],depth+1)
++                return result
++            if not isinstance(payload,list):
++                raise ContractError("invalid snapshot sequence")
++            items = [unpack(item,depth+1) for item in payload]
++            if kind == "l":
++                return items
++            if not all(isinstance(item,list) for item in items):
++                raise ContractError("invalid snapshot page")
++            return [item for page in items for item in page]
++        return unpack(encoded)
+diff --git a/proteus/execution/actors.py b/proteus/execution/actors.py
+index 49481b4..9b8563e 100644
+--- a/proteus/execution/actors.py
++++ b/proteus/execution/actors.py
+@@ -23,6 +23,7 @@ class ChatOptions(Contract):
+     base_url: str = field(metadata=TEXT)
+     key_env: str = field(default="PROTEUS_LLM_KEY", metadata={"pattern": r"^[A-Za-z_][A-Za-z0-9_]*$"})
+     timeout_seconds: float = field(default=180, metadata={"exclusiveMinimum": 0})
++    dispatch_guard_path: str | None = field(default=None, metadata=TEXT)
+ 
+     def _validate(self):
+         url = urlsplit(self.base_url)
+@@ -48,6 +49,25 @@ class ChatActor:
+ 
+     def execute(self, spec, request, workspace: Path) -> ActorResult:
+         validate_chat(spec, self.options)
++        waited = 0.0
++        if self.options.dispatch_guard_path is not None:
++            # Experimental scheduling guard: wait before opening any provider
++            # connection, never turn a paused budget into a failed HTTP call.
++            import sqlite3
++            guard_started = time.monotonic()
++            while True:
++                guard = read_json(Path(self.options.dispatch_guard_path).read_text())
++                require(guard.get("version") == 1, "unknown dispatch guard version")
++                legacy = read_json(Path(guard["legacy_handle"]).read_text())
++                if legacy["status"] not in ("running", "preparing"):
++                    break
++                with sqlite3.connect(Path(guard["api_ledger"]).as_uri()+"?mode=ro",uri=True) as db:
++                    consumed = db.execute("SELECT coalesce(sum(coalesce(cost_upper,reserved)),0) FROM calls").fetchone()[0]
++                db.close()
++                if consumed < guard["pause_after_global_peak_usd"]:
++                    break
++                time.sleep(1)
++            waited = time.monotonic() - guard_started
+         require(request.session_id is None and request.handoff is None, "chat actor needs fresh context")
+         key = os.environ.get(self.options.key_env, "")
+         require(bool(key), f"missing chat credential environment variable: {self.options.key_env}")
+@@ -87,7 +107,7 @@ class ChatActor:
+             require(finish_reason is None or (isinstance(finish_reason, str) and bool(finish_reason)),
+                     "chat finish_reason must be a nonempty string")
+             return ActorResult(text=text, runtime=runtime,
+-                usage=replace(usage, wall_seconds=time.monotonic() - started), finish_reason=finish_reason)
++                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason)
+         except Exception as exc:
+             raise ActorFailed(ActorResult(text='', runtime=runtime, status=OperationStatus.FAILED,
+                 usage=replace(usage, wall_seconds=time.monotonic() - started),
+diff --git a/proteus/execution/builds.py b/proteus/execution/builds.py
+index 5424da6..054653d 100644
+--- a/proteus/execution/builds.py
++++ b/proteus/execution/builds.py
+@@ -27,6 +27,29 @@ def image_pin(value):
+             "source builds require repository@sha256 image pins")
+ 
+ 
++@dataclass(frozen=True, kw_only=True)
++class SharedBuildLayer(Contract):
++    """Recipe-owned dependencies built without access to candidate source.
++
++    Commands run in /opt/proteus/shared. Only the declared relative output
++    paths enter /opt/proteus/build in the final runtime, before candidate code.
++    Neither build scripts nor this layer can replace the runtime verifier.
++    """
++    commands: tuple[str, ...] = field(metadata={"minItems": 1})
++    outputs: tuple[str, ...] = field(metadata={"minItems": 1})
++
++    def _validate(self):
++        require(all(command.strip() and "\0" not in command for command in self.commands),
++                "empty/invalid shared build command")
++        require(all(re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*", path)
++                    and not any(part in {".", ".."} for part in path.split("/"))
++                    for path in self.outputs), "shared build outputs must be safe relative paths")
++        require(len(set(self.outputs)) == len(self.outputs), "duplicate shared build output")
++        require(not any(left != right and right.startswith(left + "/")
++                        for left in self.outputs for right in self.outputs),
++                "overlapping shared build outputs")
++
++
+ @dataclass(frozen=True, kw_only=True)
+ class SourceBuildSpec(Contract):
+     commands: tuple[str, ...] = field(metadata={"minItems": 1})
+@@ -35,6 +58,7 @@ class SourceBuildSpec(Contract):
+     network: Literal["none", "default"] = "none"
+     timeout_seconds: float = field(default=600, metadata={"exclusiveMinimum": 0})
+     reuse: bool = True
++    shared_layer: SharedBuildLayer | None = None
+ 
+     def _validate(self):
+         require(all(command.strip() and "\0" not in command for command in self.commands), "empty/invalid build command")
+@@ -67,10 +91,21 @@ def dockerfile(spec: SourceBuildSpec, base_image: str) -> str:
+     image_pin(base_image)
+     # Only /opt/proteus/build crosses from the build stage into a fresh runtime.
+     # Build scripts cannot replace the runtime's verifier/tools or source witness.
+-    lines = [f"FROM {spec.builder_image or base_image} AS candidate_build", "WORKDIR /opt/proteus/build",
+-             "COPY source/ /opt/proteus/build/"]
++    lines = []
++    if spec.shared_layer is not None:
++        lines.extend([f"FROM {spec.builder_image or base_image} AS shared_dependencies",
++                      "WORKDIR /opt/proteus/shared"])
++        lines.extend("RUN " + json.dumps(["/bin/sh", "-eu", "-c", command])
++                     for command in spec.shared_layer.commands)
++    lines.extend([f"FROM {spec.builder_image or base_image} AS candidate_build", "WORKDIR /opt/proteus/build",
++                  "COPY source/ /opt/proteus/build/"])
+     lines.extend("RUN " + json.dumps(["/bin/sh", "-eu", "-c", command]) for command in spec.commands)
+-    lines.extend([f"FROM {base_image}", "COPY --from=candidate_build /opt/proteus/build/ /opt/proteus/build/",
++    lines.append(f"FROM {base_image}")
++    if spec.shared_layer is not None:
++        for path in spec.shared_layer.outputs:
++            lines.append("COPY --from=shared_dependencies " + json.dumps(
++                [f"/opt/proteus/shared/{path}", f"/opt/proteus/build/{path}"]))
++    lines.extend(["COPY --from=candidate_build /opt/proteus/build/ /opt/proteus/build/",
+                   "COPY source/ /opt/proteus/source/", "WORKDIR /opt/proteus/build"])
+     return "\n".join(lines) + "\n"
+ 
+@@ -83,7 +118,9 @@ def builder_identity():
+     fields = {}
+     for line in report.splitlines():
+         key, separator, value = line.strip().partition(":")
+-        if key == "BuildKit version":
++        # Buildx versions use both `BuildKit version:` and `Buildkit:`.
++        # Normalize the spelling, not the value or number of builder nodes.
++        if key.casefold() in {"buildkit", "buildkit version"}:
+             key = "BuildKit"
+         if separator and key in {"Driver", "BuildKit", "Platforms"}:
+             require(key not in fields, "expected a single-node local Docker builder")
+@@ -202,6 +239,17 @@ class BuildService:
+                 if image_id is None:
+                     context = attempt / "context"
+                     services.artifacts.materialize(artifact, context / "source")
++                    if spec.shared_layer is not None:
++                        # A submitted file/tree must not shadow the recipe's
++                        # fixed dependency layer, including via a parent file.
++                        for source_path in (context / "source").rglob("*"):
++                            relative = source_path.relative_to(context / "source").as_posix()
++                            if source_path.is_dir():
++                                continue
++                            if any(relative == output or relative.startswith(output + "/")
++                                   or output.startswith(relative + "/")
++                                   for output in spec.shared_layer.outputs):
++                                raise InvalidCandidate("candidate source overlaps a fixed shared dependency output")
+                     publish_bytes(context / "Dockerfile", definition.encode())
+                     args = ["docker", "buildx", "build", "--builder", "default", "--load", "--progress", "plain",
+                             "--network", spec.network, "--platform", spec.platform,
+diff --git a/proteus/execution/docker_local_api.py b/proteus/execution/docker_local_api.py
+new file mode 100644
+index 0000000..0848851
+--- /dev/null
++++ b/proteus/execution/docker_local_api.py
+@@ -0,0 +1,157 @@
++"""Optional pinned local-Unix Docker metadata/owned-cleanup transport.
++
++Candidate execution still uses Harbor. This module never forwards environment,
++Docker auth, remote TCP endpoints, or arbitrary delete requests.
++"""
++from __future__ import annotations
++
++import http.client
++import json
++import os
++from pathlib import Path
++import re
++import socket
++import stat
++import subprocess
++import time
++from urllib.parse import quote, urlencode
++
++
++class UnixConnection(http.client.HTTPConnection):
++    def __init__(self, path, timeout):
++        super().__init__('localhost', timeout=timeout)
++        self.path = path
++
++    def connect(self):
++        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++        self.sock.settimeout(self.timeout)
++        self.sock.connect(self.path)
++
++
++def validate_options(options):
++    """Validate the opt-in pin without connecting or changing Docker context."""
++    if not options:
++        return
++    if set(options) != {'socket', 'daemon_id', 'version'} or options['version'] != '1.41':
++        raise ValueError('local Docker API needs explicit socket, daemon_id and version1.41 pins')
++    if not all(isinstance(v, str) and v for v in options.values()) or not Path(options['socket']).is_absolute():
++        raise ValueError('invalid local Docker API pin')
++
++
++def compatible_context(options):
++    """Other/remote contexts retain the original CLI path, never guessed sockets."""
++    validate_options(options)
++    if not options:
++        return False
++    if os.environ.get('DOCKER_CONTEXT', 'default') not in ('', 'default'):
++        return False
++    host = os.environ.get('DOCKER_HOST')
++    if host and host != 'unix://' + options['socket']:
++        return False
++    config = Path(os.environ.get('DOCKER_CONFIG', str(Path.home()/'.docker'))) / 'config.json'
++    if config.exists() and json.loads(config.read_text()).get('currentContext', 'default') not in ('', 'default'):
++        return False
++    if not stat.S_ISSOCK(Path(options['socket']).stat().st_mode):
++        raise ValueError('local Docker API pin does not identify a Unix socket')
++    return True
++
++
++class LocalDockerAPI:
++    def __init__(self, options, *, timeout=30):
++        self.options = dict(options)
++        info = self.request('GET', '/info', timeout=timeout)
++        if info.get('ID') != options['daemon_id']:
++            raise ValueError('local Docker daemon differs from its explicit identity pin')
++
++    def request(self, method, path, *, timeout, missing=False):
++        if timeout <= 0:
++            raise TimeoutError('local Docker API deadline exceeded')
++        connection = UnixConnection(self.options['socket'], timeout)
++        try:
++            connection.request(method, '/v'+self.options['version']+path)
++            response = connection.getresponse()
++            data = response.read(8*1024*1024+1)
++            if len(data) > 8*1024*1024:
++                raise ValueError('Docker metadata exceeds transport bound')
++            if response.status == 404 and missing:
++                return None
++            if response.status not in (200, 201, 204):
++                # Arbitrary daemon messages can include command/environment data.
++                raise RuntimeError(f'Docker API {method} failed with status{response.status}')
++            return json.loads(data) if data else None
++        finally:
++            connection.close()
++
++    def listing(self, kind, project, timeout):
++        filters = json.dumps({'label': ['com.docker.compose.project='+project]}, separators=(',', ':'))
++        query = urlencode({'filters': filters, **({'all': '1'} if kind == 'container' else {})})
++        result = self.request('GET', '/'+{'container':'containers/json','network':'networks','volume':'volumes'}[kind]
++                              +'?'+query, timeout=timeout)
++        return (result.get('Volumes') or []) if kind == 'volume' else result
++
++    def cleanup(self, trial_name, timeout):
++        if re.fullmatch(r'proteus-[0-9a-f]{32}', trial_name) is None:
++            raise ValueError('invalid owned trial name')
++        deadline = time.monotonic()+timeout
++        records, errors = [], []
++        def remaining():
++            return min(30, max(0, deadline-time.monotonic()))
++        for project in (trial_name+'__env', trial_name+'__verifier__trial'):
++            for kind in ('container', 'network', 'volume'):
++                removed, already_absent = [], []
++                try:
++                    rows = self.listing(kind, project, remaining())
++                    for row in rows:
++                        identity = row['Name'] if kind == 'volume' else row['Id']
++                        path = '/'+{'container':'containers','network':'networks','volume':'volumes'}[kind]+'/'+quote(identity, safe='')
++                        fresh = self.request('GET', path+('/json' if kind == 'container' else ''), timeout=remaining(), missing=True)
++                        if fresh is None:
++                            already_absent.append(identity)
++                            continue
++                        labels = (fresh.get('Config') or {}).get('Labels') if kind == 'container' else fresh.get('Labels')
++                        if not labels or labels.get('com.docker.compose.project') != project:
++                            raise ValueError('owned resource label changed before deletion')
++                        self.request('DELETE', path+('?force=1&v=1' if kind == 'container' else ''),
++                                     timeout=remaining(), missing=True)
++                        removed.append(identity)
++                    after = self.listing(kind, project, remaining())
++                    records.append({'project':project,'kind':kind,'removed':removed,'already_absent':already_absent,
++                        'remaining':[r['Name'] if kind == 'volume' else r['Id'] for r in after]})
++                except Exception as exc:
++                    errors.append({'project':project,'kind':kind,'error':type(exc).__name__})
++        return {'verified':not errors and all(not r['remaining'] for r in records),
++                'resources':records,'errors':errors,'transport':'pinned_local_unix_docker_api'}
++
++    def command(self, args, timeout):
++        """Only recognized read-only CLI spellings use this fast path."""
++        if args and args[0] == 'inspect' and len(args) == 2:
++            row = self.request('GET', '/containers/'+quote(args[1], safe='')+'/json', timeout=timeout)
++            return json.dumps([row])
++        if args[:2] == ('image', 'inspect') and len(args) == 3:
++            row = self.request('GET', '/images/'+quote(args[2], safe='')+'/json', timeout=timeout, missing=True)
++            if row is None:
++                raise subprocess.CalledProcessError(1, ['docker', *args], stderr='No such image: '+args[2])
++            return json.dumps([row])
++        if args and args[0] == 'ps' and args[-2:] == ('--format', '{{.ID}}'):
++            # Only the exact project/service metadata spelling used by the
++            # bridge is supported; no broad arbitrary Docker command forwarding.
++            filters = []
++            index = 1
++            while index < len(args)-2:
++                arg = args[index]
++                if arg == '--filter' and index+1 < len(args)-2:
++                    value = args[index+1]
++                    if not value.startswith('label='):
++                        return NotImplemented
++                    filters.append(value.removeprefix('label='))
++                    index += 2
++                elif arg == '--all':
++                    index += 1
++                else:
++                    return NotImplemented
++            if not filters:
++                return NotImplemented
++            query = urlencode({'all':'1','filters':json.dumps({'label':filters}, separators=(',', ':'))})
++            rows = self.request('GET', '/containers/json?'+query, timeout=timeout)
++            return '\n'.join(row['Id'][:12] for row in rows)
++        return NotImplemented
+diff --git a/proteus/execution/harbor.py b/proteus/execution/harbor.py
+index 5005f34..3b1fb7e 100644
+--- a/proteus/execution/harbor.py
++++ b/proteus/execution/harbor.py
+@@ -21,7 +21,7 @@ from proteus.core.recovery import RecoveryRequired
+ from proteus.evaluation.records import BackendEvaluation, Feedback, Grade, SubjectResult, Trace, zero_usage
+ from proteus.evaluation.runners import EnvironmentLease, PythonReply
+ from proteus.execution.builds import BuildReceipt, SourceBuildSpec, image_pin
+-from proteus.execution.harbor_worker import cleanup_owned_resources
++from proteus.execution.harbor_worker import cleanup_owned_resources, cpu_limit_matches
+ 
+ 
+ WORKER = Path(__file__).with_name("harbor_worker.py")
+@@ -35,6 +35,8 @@ class HarborEnvironmentOptions(Contract):
+     setup_timeout_seconds: float = field(default=120, metadata={"exclusiveMinimum": 0})
+     bridge_timeout_seconds: float = field(default=600, metadata={"exclusiveMinimum": 0})
+     source_build: SourceBuildSpec | None = None
++    admission_lock_path: str | None = field(default=None, metadata=TEXT)
++    local_docker_api: Mapping[str, str] = field(default_factory=dict)
+ 
+ 
+ @dataclass(frozen=True, kw_only=True)
+@@ -63,9 +65,13 @@ def identify_runtime(python: str):
+ 
+ 
+ def validate_environment(execution, options):
++    from proteus.execution.docker_local_api import validate_options
++    validate_options(options.local_docker_api)
+     env = execution.environment
+     require(os.name != "nt", "Harbor bridge currently requires POSIX worker process-group cleanup")
+     require(Path(options.python).is_absolute(), "Harbor Python must be an explicit absolute path")
++    require(options.admission_lock_path is None or Path(options.admission_lock_path).is_absolute(),
++            "Harbor admission lock must be an explicit absolute path")
+     require(env.provider == "docker" and env.image_digest is not None,
+             "Harbor bridge requires Docker and an immutable image_digest")
+     require(env.build_hash == (content_hash(options.source_build) if options.source_build else None),
+@@ -105,12 +111,43 @@ class HarborLease:
+     build: BuildReceipt | None = None
+ 
+ 
++@contextmanager
++def admission_lease(path):
++    """Optional host scheduling lease, acquired before build/execution deadlines.
++
++    It changes only cross-run admission, never internal batching or method order.
++    Kernel flock releases on process exit; the lock file must not be unlinked.
++    """
++    if path is None:
++        yield None
++        return
++    import fcntl
++    started = time.monotonic()
++    descriptor = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
++    with os.fdopen(descriptor, "a+") as stream:
++        fcntl.flock(stream, fcntl.LOCK_EX)
++        try:
++            yield {"path": path, "wait_seconds": time.monotonic()-started,
++                   "acquired_epoch": time.time(), "controller_pid": os.getpid()}
++        finally:
++            fcntl.flock(stream, fcntl.LOCK_UN)
++
++
+ class HarborEnvironment:
+     def __init__(self, options):
+         self.options = options
+ 
+     @contextmanager
+     def open(self, artifact, store, root, execution, *, build=None):
++        with admission_lease(self.options.admission_lock_path) as receipt:
++            if receipt is not None:
++                root.mkdir(parents=True, exist_ok=True)
++                publish_bytes(root / ("admission-"+uuid.uuid4().hex+".json"), canonical_json(receipt).encode())
++            with self._open(artifact, store, root, execution, build=build) as lease:
++                yield lease
++
++    @contextmanager
++    def _open(self, artifact, store, root, execution, *, build=None):
+         identity = identify_runtime(self.options.python)
+         require(identity["runtime_hash"] == self.options.runtime_hash, "Harbor runtime fingerprint changed")
+         candidate = store.materialize(artifact, root / "candidate")
+@@ -265,6 +302,7 @@ class HarborSubject:
+             "model": self.options.model, "credential_env": self.options.credential_env,
+             "timeout_seconds": context.execution.timeout_seconds,
+             "setup_timeout_seconds": lease.options.setup_timeout_seconds,
++            "local_docker_api": dict(lease.options.local_docker_api),
+             "image_digest": context.execution.environment.image_digest,
+             "agent_image": lease.build.image_id if lease.build else context.execution.environment.image_digest,
+             "build_receipt": lease.build,
+@@ -289,7 +327,7 @@ class HarborSubject:
+                 try:
+                     _, cleanup, bridge_usage = completed_worker(private, request)
+                 except FileNotFoundError:
+-                    cleanup = cleanup_owned_resources(trial_name)
++                    cleanup = cleanup_owned_resources(trial_name, local_docker_api=lease.options.local_docker_api)
+                     bridge_usage = {"elapsed_seconds": time.monotonic() - started,
+                                     "return_code": process.returncode, "deadline_exceeded": bridge_failure}
+                 if bridge_failure:
+@@ -310,6 +348,7 @@ class HarborSubject:
+             "seed": context.seed, "entrypoint": self.options.entrypoint, "arguments": self.options.arguments,
+             "model": self.options.model, "credential_env": self.options.credential_env,
+             "timeout_seconds": context.execution.timeout_seconds, "setup_timeout_seconds": options.setup_timeout_seconds,
++            "local_docker_api": dict(options.local_docker_api),
+             "image_digest": context.execution.environment.image_digest, "resources": context.execution.environment.resources}
+         require(all(canonical_json(request[key]) == canonical_json(value) for key, value in expected.items()),
+                 "Harbor dispatch identity differs from the recovery context")
+@@ -376,7 +415,7 @@ class HarborSubject:
+             if build:
+                 require(proof["image_id"] == build.image_id, "Harbor did not execute the built image")
+             resources = context.execution.environment.resources
+-            require(("cpus" not in resources or proof["nano_cpus"] == resources["cpus"] * 10**9)
++            require(("cpus" not in resources or cpu_limit_matches(proof, resources["cpus"]))
+                     and ("memory_mb" not in resources or proof["memory_bytes"] == resources["memory_mb"] * 1024**2),
+                     "Docker did not apply the requested resource limits")
+         execution = response["execution"] or {}
+diff --git a/proteus/execution/harbor_code.py b/proteus/execution/harbor_code.py
+index 5b8d0e0..629dc68 100644
+--- a/proteus/execution/harbor_code.py
++++ b/proteus/execution/harbor_code.py
+@@ -77,6 +77,7 @@ def invoke_harbor_code(lease, artifact, execution, options, call, actor):
+         'trial_name': 'proteus-' + uuid.uuid4().hex,
+         'max_frame_bytes': options.max_frame_bytes,
+         'setup_timeout_seconds': handle.options.setup_timeout_seconds,
++        'local_docker_api': dict(handle.options.local_docker_api),
+         'code_worker': str(Path(__file__).with_name('code_worker.py')),
+     }
+ 
+diff --git a/proteus/execution/harbor_code_worker.py b/proteus/execution/harbor_code_worker.py
+index c7aa9ec..88cdb58 100644
+--- a/proteus/execution/harbor_code_worker.py
++++ b/proteus/execution/harbor_code_worker.py
+@@ -24,7 +24,8 @@ import time
+ if __package__:
+     from proteus.execution.filesystem_policy import MAX_RECEIPT, validate_receipt
+     from proteus.execution.harbor_worker import (
+-        VERIFY_TREE, canonical, checked_environment, cleanup_owned_resources, digest, docker, runtime_identity, write_json,
++        VERIFY_TREE, canonical, checked_environment, cleanup_owned_resources, digest, docker,
++        configure_local_api, resource_environment_class, runtime_identity, write_json,
+     )
+ else:
+     # Adding this directory to sys.path would shadow the real Harbor package
+@@ -41,6 +42,8 @@ else:
+     canonical, checked_environment = _helper.canonical, _helper.checked_environment
+     cleanup_owned_resources, digest = _helper.cleanup_owned_resources, _helper.digest
+     docker, runtime_identity, write_json = _helper.docker, _helper.runtime_identity, _helper.write_json
++    resource_environment_class = _helper.resource_environment_class
++    configure_local_api = _helper.configure_local_api
+ 
+ 
+ def cleanup_record(path, request):
+@@ -56,7 +59,8 @@ def cleanup_record(path, request):
+                 raise ValueError('cleanup request identity changed')
+             if prior['cleanup']['verified']:
+                 return prior
+-        result = {'request_hash': digest(request), 'cleanup': cleanup_owned_resources(request['trial_name'])}
++        result = {'request_hash': digest(request), 'cleanup': cleanup_owned_resources(request['trial_name'],
++                    local_docker_api=request.get('local_docker_api'))}
+         write_json(target, result)
+         return result
+ 
+@@ -106,10 +110,9 @@ def guard(path, fd, worker_pid):
+ 
+ def offline_environment_class():
+     from harbor.environments.capabilities import EnvironmentCapabilities
+-    from harbor.environments.docker.docker import DockerEnvironment
+     from harbor.models.task.config import NetworkMode
+ 
+-    class OfflineDockerEnvironment(DockerEnvironment):
++    class OfflineDockerEnvironment(resource_environment_class()):
+         # A fixed Docker `none` namespace needs no proxy or egress sidecar. The
+         # sealed Compose definition and inspected HostConfig enforce this policy.
+         @staticmethod
+@@ -280,7 +283,7 @@ async def run(path, channel, request):
+                 await asyncio.to_thread(thread.join, 2)
+             for stream in (process.stdin, process.stdout, process.stderr):
+                 stream.close()
+-        await asyncio.wait_for(environment.stop(delete=True), 30)
++        await asyncio.wait_for(environment.stop(delete=True), 90)
+ 
+ 
+ def main():
+@@ -297,6 +300,7 @@ def main():
+     write_json(path.parent / 'watchdog.json', {'pid': watcher.pid, 'worker_pid': os.getpid(), 'request_hash': digest(request)})
+     channel = socket.socket(fileno=int(sys.argv[3]))
+     try:
++        configure_local_api(request.get('local_docker_api'))
+         return asyncio.run(run(path, channel, request))
+     except BaseException as exc:
+         write_json(path.parent / 'worker-error.json', {'request_hash': digest(request),
+diff --git a/proteus/execution/harbor_worker.py b/proteus/execution/harbor_worker.py
+index ac9e463..1dbe117 100644
+--- a/proteus/execution/harbor_worker.py
++++ b/proteus/execution/harbor_worker.py
+@@ -23,6 +23,25 @@ import time
+ from contextlib import asynccontextmanager
+ from pathlib import Path
+ 
++if __package__:
++    from proteus.execution.docker_local_api import LocalDockerAPI, compatible_context
++else:
++    # Standalone -I worker must not prepend the sibling directory to sys.path:
++    # its harbor.py would shadow the independently pinned Harbor package.
++    import importlib.util
++    _api_spec = importlib.util.spec_from_file_location('proteus_local_docker_api', Path(__file__).with_name('docker_local_api.py'))
++    _api_module = importlib.util.module_from_spec(_api_spec)
++    _api_spec.loader.exec_module(_api_module)
++    LocalDockerAPI, compatible_context = _api_module.LocalDockerAPI, _api_module.compatible_context
++
++_LOCAL_API = None
++
++
++def configure_local_api(options):
++    """Worker-only optional metadata transport; no controller-global switch."""
++    global _LOCAL_API
++    _LOCAL_API = LocalDockerAPI(options) if compatible_context(options) else None
++
+ 
+ HARBOR_VERSION = "0.24.0"
+ HARBOR_REVISION = "b53b8134e1241686dca7759af188f987ecc48e8b"
+@@ -69,6 +88,10 @@ def write_json(path, value):
+ 
+ 
+ def docker(*args, timeout=30):
++    if _LOCAL_API is not None:
++        result = _LOCAL_API.command(args, timeout)
++        if result is not NotImplemented:
++            return result.strip()
+     process = subprocess.Popen(["docker", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, start_new_session=True)
+     try:
+@@ -87,7 +110,7 @@ def docker(*args, timeout=30):
+     return stdout.strip()
+ 
+ 
+-def cleanup_owned_resources(trial_name, *, timeout=45):
++def cleanup_owned_resources(trial_name, *, timeout=180, local_docker_api=None):
+     """Reconcile only this generated trial's exact Compose labels; never prune.
+ 
+     Called after the worker process group has stopped, also when Harbor's own
+@@ -95,13 +118,28 @@ def cleanup_owned_resources(trial_name, *, timeout=45):
+     """
+     if re.fullmatch(r"proteus-[0-9a-f]{32}", trial_name) is None:
+         raise ValueError("invalid owned trial name")
++    if local_docker_api:
++        try:
++            if compatible_context(local_docker_api):
++                started = time.monotonic()
++                api = LocalDockerAPI(local_docker_api, timeout=min(30, timeout))
++                return api.cleanup(trial_name, max(0, timeout-(time.monotonic()-started)))
++        except Exception as exc:
++            # A mismatched daemon, timeout or malformed response is NEVER
++            # permission to fall back or to mark cleanup verified.
++            return {"verified": False, "resources": [],
++                    "errors": [{"kind": "local_api", "error": type(exc).__name__}],
++                    "transport": "pinned_local_unix_docker_api"}
+     deadline = time.monotonic() + timeout
+     records, errors = [], []
+     def command(*args):
+         remaining = deadline - time.monotonic()
+         if remaining <= 0:
+             raise TimeoutError("cleanup deadline exceeded")
+-        return docker(*args, timeout=min(10, remaining))
++        # A paged-out Desktop CLI can take more than10s even for an empty
++        # exact-label query. Keep each command and the entire audit bounded;
++        # a timeout still means unverified cleanup, never implicit success.
++        return docker(*args, timeout=min(30, remaining))
+     for project in (trial_name + "__env", trial_name + "__verifier__trial"):
+         for kind, listing, removing in (
+             ("container", ("ps", "--all", "--quiet"), ("rm", "--force", "--volumes")),
+@@ -131,18 +169,61 @@ def inspect_environment(environment):
+     row = json.loads(docker("inspect", ids[0]))[0]
+     # Never serialize Env, Docker auth data or other containers' configuration.
+     return {"container_id": row["Id"], "image_id": row["Image"], "project": project,
++            "metadata_transport": "pinned_local_unix_docker_api" if _LOCAL_API is not None else "docker_cli",
++            "daemon_id": _LOCAL_API.options['daemon_id'] if _LOCAL_API is not None else None,
+             "network_mode": row["HostConfig"]["NetworkMode"],
+-            "nano_cpus": row["HostConfig"]["NanoCpus"], "memory_bytes": row["HostConfig"]["Memory"],
++            "nano_cpus": row["HostConfig"]["NanoCpus"],
++            "cpu_period": row["HostConfig"]["CpuPeriod"], "cpu_quota": row["HostConfig"]["CpuQuota"],
++            "memory_bytes": row["HostConfig"]["Memory"],
+             "mount_destinations": sorted(m["Destination"] for m in row["Mounts"])}
+ 
+ 
++def compose_cpu_limit(path):
++    """Express the identical declared CPU cap as an explicit CFS ratio.
++
++    Compose 2.6 can omit service-level `cpus` from HostConfig even though its
++    merged config contains the value (including deploy limits). Explicit CFS
++    period/quota works on that frontend too. This is not a weaker fallback; the
++    independently inspected container must still satisfy checked_environment.
++    """
++    document = json.loads(path.read_text())
++    main = document["services"]["main"]
++    if "cpus" in main:
++        cpus = main.pop("cpus")
++        if type(cpus) not in (int, float) or cpus <= 0 or int(cpus) != cpus:
++            raise ValueError("expected a positive integral CPU limit")
++        main["cpu_period"], main["cpu_quota"] = 100000, int(cpus) * 100000
++        write_json(path, document)
++    return path
++
++
++def cpu_limit_matches(actual, cpus):
++    nano, quota, period = (actual.get(name, 0) for name in ("nano_cpus", "cpu_quota", "cpu_period"))
++    nano_matches = type(nano) is int and nano == cpus * 10**9
++    cfs_matches = (type(quota) is int and type(period) is int and quota > 0 and period > 0
++                   and quota == cpus * period)
++    # Reject contradictory declarations; never accept zero/unlimited as a cap.
++    return ((nano_matches and (quota == 0 or cfs_matches))
++            or (nano == 0 and cfs_matches))
++
++
++def resource_environment_class():
++    from harbor.environments.docker.docker import DockerEnvironment
++
++    class ResourceDockerEnvironment(DockerEnvironment):
++        async def _write_resources_compose_file(self):
++            return compose_cpu_limit(await super()._write_resources_compose_file())
++
++    return ResourceDockerEnvironment
++
++
+ async def checked_environment(request, environment, mounts, *, image=None):
+     actual = await asyncio.to_thread(inspect_environment, environment)
+     expected_image = json.loads(await asyncio.to_thread(docker, "image", "inspect", image or request["image_digest"]))[0]["Id"]
+     if actual["image_id"] != expected_image:
+         raise ValueError("container image differs from the pinned image")
+     resources = request["resources"]
+-    if (("cpus" in resources and actual["nano_cpus"] != resources["cpus"] * 10**9)
++    if (("cpus" in resources and not cpu_limit_matches(actual, resources["cpus"]))
+             or ("memory_mb" in resources and actual["memory_bytes"] != resources["memory_mb"] * 1024**2)):
+         raise ValueError("Docker did not apply the requested resource limits")
+     if set(actual["mount_destinations"]) != mounts:
+@@ -239,6 +320,7 @@ async def run(request, output):
+     from harbor.trial.trial import Trial
+ 
+     globals()["CandidateAgent"] = candidate_agent_class()
++    globals()["ResourceDockerEnvironment"] = resource_environment_class()
+     identity = runtime_identity()
+     if identity["runtime_hash"] != request["runtime_hash"]:
+         raise ValueError("Harbor runtime fingerprint changed")
+@@ -274,7 +356,7 @@ async def run(request, output):
+         agent=AgentConfig(import_path="__main__:CandidateAgent", model_name=request["model"],
+             override_timeout_sec=request["timeout_seconds"],
+             override_setup_timeout_sec=request["setup_timeout_seconds"], kwargs={"proteus_request": request}),
+-        environment=EnvironmentConfig(type="docker", delete=True))
++        environment=EnvironmentConfig(type="docker", import_path="__main__:ResourceDockerEnvironment", delete=True))
+     # Trial.create selects a concrete class itself; instantiate the pinned
+     # single-step implementation explicitly so the private mount policy applies.
+     task, download = await Trial._load_task(config)
+@@ -312,6 +394,7 @@ def main():
+         write_json(output.parent / "worker-dispatch.json", {"request_hash": digest(request)})
+         started, return_code = time.monotonic(), 0
+         try:
++            configure_local_api(request.get('local_docker_api'))
+             asyncio.run(run(request, output))
+         except BaseException as exc:
+             return_code = 1
+@@ -320,7 +403,7 @@ def main():
+         finally:
+             # Cleanup and completion survive a hard exit of the controller.
+             # SIGKILL/power loss may prevent a receipt; that remains uncertain.
+-            cleanup = cleanup_owned_resources(request["trial_name"])
++            cleanup = cleanup_owned_resources(request["trial_name"], local_docker_api=request.get('local_docker_api'))
+             write_json(output.parent / "worker-cleanup.json", cleanup)
+             response = json.loads(output.read_text()) if output.exists() else None
+             write_json(output.parent / "worker-completed.json", {
+diff --git a/tests/test_snapshot_store.py b/tests/test_snapshot_store.py
+new file mode 100644
+index 0000000..c8bab1e
+--- /dev/null
++++ b/tests/test_snapshot_store.py
+@@ -0,0 +1,71 @@
++import json
++import random
++import sqlite3
++import string
++
++import pytest
++
++from proteus.core.recovery import _write,_load
++from proteus.core.serialization import ContractError,content_hash
++from proteus.core.snapshot_store import encode,decode
++
++
++def test_roundtrip_detached_and_legacy(tmp_path):
++    original={'rows':[{'text':'["@","literal"]'+'中文'*1000}]*90,'flags':[True,None,3,1.25],
++              'reserved':['@','d','l','a','s']}
++    encoded=encode(tmp_path,original)
++    actual=decode(tmp_path,encoded)
++    assert actual==original and content_hash(actual)==content_hash(original)
++    actual['rows'][0]['text']='changed'
++    assert actual['rows'][1]['text']==original['rows'][1]['text']
++    old=tmp_path/'legacy.json'
++    _write(old,{'old':'no snapshot'})
++    assert _load(old)=={'old':'no snapshot'}
++    path=tmp_path/'operations/00000001.result.json'
++    value={'snapshot':original,'output':{'ok':True}}
++    _write(path,value)
++    assert _load(path)==value
++    assert json.loads(path.read_text())['storage']=='proteus.snapshot_dag.v1'
++
++
++def test_repeated_snapshots_share_nodes_and_keep_all_versions(tmp_path):
++    rng=random.Random(4)
++    rows=[]; naive=0
++    for n in range(90):
++        rows.append({'n':n,'text':''.join(rng.choices(string.ascii_letters,k=2000))})
++        value={'snapshot':{'rows':rows.copy(),'cursor':n}}
++        naive+=len(json.dumps(value))
++        path=tmp_path/'operations'/f'{n:08d}.result.json'
++        _write(path,value)
++        assert _load(path)==value
++    size=sum(p.stat().st_size for p in tmp_path.rglob('*') if p.is_file())
++    assert size < naive/5
++    assert len(_load(tmp_path/'operations/00000000.result.json')['snapshot']['rows'])==1
++    assert len(_load(tmp_path/'operations/00000089.result.json')['snapshot']['rows'])==90
++
++
++def test_missing_and_corrupt_nodes_fail_closed(tmp_path):
++    path=tmp_path/'operations/00000001.result.json'
++    value={'snapshot':{'large':'DATA'*2000}}
++    _write(path,value)
++    dbpath=tmp_path/'snapshot-nodes.sqlite3'
++    with sqlite3.connect(dbpath) as db:
++        db.execute('UPDATE nodes SET data=?',(b'invalid',))
++    with pytest.raises(ContractError): _load(path)
++    dbpath.rename(tmp_path/'retained-corrupt-store')
++    with pytest.raises(ContractError,match='missing'): _load(path)
++
++
++def test_orphan_nodes_do_not_publish_a_committed_operation(tmp_path):
++    encode(tmp_path,{'blob':'large'*2000})
++    assert not list(tmp_path.glob('operations/*.result.json'))
++    path=tmp_path/'operations/00000001.result.json'
++    _write(path,{'snapshot':{'blob':'different'*2000}})
++    assert _load(path)['snapshot']['blob']=='different'*2000
++
++
++def test_node_digest_verified(tmp_path):
++    encoded=encode(tmp_path,{'payload':'x'*5000})
++    with sqlite3.connect(tmp_path/'snapshot-nodes.sqlite3') as db:
++        assert all(len(row[0])==64 for row in db.execute('SELECT hash FROM nodes'))
++    assert decode(tmp_path,encoded)=={'payload':'x'*5000}
+diff --git a/tests/test_v1_coral_circle_packing.py b/tests/test_v1_coral_circle_packing.py
+index 2e7cbf7..4c428c3 100644
+--- a/tests/test_v1_coral_circle_packing.py
++++ b/tests/test_v1_coral_circle_packing.py
+@@ -114,6 +114,8 @@ def test_prepared_studies_share_original_task_and_equal_formal_budget(tmp_path,
+     source = ArtifactStore(path.parent/'artifact-store', registry).files(recipe.subject.initial_artifact)
+     assert source['initial_program.py'].data == (ROOT/'seed.reference.py').read_bytes()
+     assert recipe.execution.environment.build_hash == content_hash(build_spec())
++    assert build_spec().timeout_seconds == 900 and build_spec().platform == 'linux/amd64'
++    assert recipe.execution.timeout_seconds == 600
+     assert recipe.evaluations[-1].purpose == 'test' and not recipe.evaluations[-1].selection_eligible
+     assert recipe.budget.max_evaluations == (9 if workers else 2)
+     assert len(recipe.workers) == workers
+diff --git a/tests/test_v1_docker_local_api.py b/tests/test_v1_docker_local_api.py
+new file mode 100644
+index 0000000..b563870
+--- /dev/null
++++ b/tests/test_v1_docker_local_api.py
+@@ -0,0 +1,179 @@
++import json
++import subprocess
++from urllib.parse import parse_qs, urlsplit
++
++import pytest
++
++from proteus.execution import docker_local_api as api
++from proteus.execution import harbor_worker
++
++TRIAL = 'proteus-' + 'a' * 32
++PIN = {'socket': '/var/run/docker.sock', 'daemon_id': 'pinned-id', 'version': '1.41'}
++
++
++class CleanupAPI(api.LocalDockerAPI):
++    def __init__(self, *, changed=False, fail=False, leftover=False):
++        self.options = PIN
++        self.calls = []
++        self.deleted = False
++        self.changed, self.fail, self.leftover = changed, fail, leftover
++
++    def request(self, method, path, *, timeout, missing=False):
++        assert 0 < timeout <= 30
++        self.calls.append((method, path))
++        if self.fail:
++            raise TimeoutError('daemon unavailable')
++        if path.startswith('/containers/json?'):
++            filters = json.loads(parse_qs(urlsplit(path).query)['filters'][0])
++            project = filters['label'][0].split('=', 1)[1]
++            if project == TRIAL + '__env' and (not self.deleted or self.leftover):
++                return [{'Id': 'owned-id'}]
++            return []
++        if path.startswith('/networks?'):
++            return []
++        if path.startswith('/volumes?'):
++            return {'Volumes': None}
++        if method == 'GET' and path == '/containers/owned-id/json':
++            return {'Config': {'Labels': {'com.docker.compose.project':
++                    'unrelated' if self.changed else TRIAL+'__env'}}}
++        if method == 'DELETE' and path == '/containers/owned-id?force=1&v=1':
++            self.deleted = True
++            return None
++        raise AssertionError((method, path))
++
++
++def test_cleanup_rechecks_label_and_after_empty():
++    client = CleanupAPI()
++    result = client.cleanup(TRIAL, 180)
++    assert result['verified'] and len(result['resources']) == 6
++    assert client.calls.index(('GET', '/containers/owned-id/json')) < client.calls.index(
++        ('DELETE', '/containers/owned-id?force=1&v=1'))
++    assert sum(method == 'DELETE' for method, _ in client.calls) == 1
++
++
++def test_changed_label_never_deleted():
++    client = CleanupAPI(changed=True)
++    result = client.cleanup(TRIAL, 180)
++    assert not result['verified']
++    assert not any(method == 'DELETE' for method, _ in client.calls)
++
++
++@pytest.mark.parametrize('kwargs', [{'fail': True}, {'leftover': True}])
++def test_error_or_nonempty_after_is_not_verified(kwargs):
++    assert not CleanupAPI(**kwargs).cleanup(TRIAL, 180)['verified']
++
++
++def test_zero_cleanup_deadline_and_invalid_names_are_not_deleted():
++    client = CleanupAPI()
++    assert not client.cleanup(TRIAL, 0)['verified']
++    with pytest.raises(ValueError):
++        client.cleanup('other-project', 180)
++    assert not any(method == 'DELETE' for method, _ in client.calls)
++
++
++def test_daemon_identity_is_not_fabricated(monkeypatch):
++    monkeypatch.setattr(api.LocalDockerAPI, 'request', lambda *a, **kw: {'ID': 'wrong-id'})
++    with pytest.raises(ValueError, match='identity pin'):
++        api.LocalDockerAPI(PIN)
++
++
++@pytest.mark.parametrize('env,value', [('DOCKER_CONTEXT', 'remote'), ('DOCKER_HOST', 'tcp://example.invalid:2375')])
++def test_nondefault_context_never_uses_local_socket(monkeypatch, tmp_path, env, value):
++    monkeypatch.setenv('DOCKER_CONFIG', str(tmp_path))
++    monkeypatch.delenv('DOCKER_HOST', raising=False)
++    monkeypatch.delenv('DOCKER_CONTEXT', raising=False)
++    monkeypatch.setenv(env, value)
++    assert api.compatible_context(PIN) is False
++
++
++def test_stored_nondefault_context_retains_cli(monkeypatch, tmp_path):
++    monkeypatch.setenv('DOCKER_CONFIG', str(tmp_path))
++    monkeypatch.delenv('DOCKER_HOST', raising=False)
++    monkeypatch.delenv('DOCKER_CONTEXT', raising=False)
++    (tmp_path / 'config.json').write_text(json.dumps({'currentContext': 'remote'}))
++    assert api.compatible_context(PIN) is False
++
++
++def test_pin_validation_is_strict():
++    api.validate_options({})
++    for invalid in ({'socket': '/tmp/x'}, {**PIN, 'version': '1.99'}, {**PIN, 'socket': 'relative'}, {**PIN, 'extra': 'x'}):
++        with pytest.raises(ValueError):
++            api.validate_options(invalid)
++
++
++def test_command_metadata_equivalence_and_no_arbitrary_commands():
++    client = object.__new__(api.LocalDockerAPI)
++    client.options = PIN
++    calls = []
++    def request(method, path, **kw):
++        calls.append((method, path))
++        if path.startswith('/containers/json?'):
++            return [{'Id': '123456789012abcdef'}]
++        return {'Id': 'real-id', 'HostConfig': {'Memory': 536870912}}
++    client.request = request
++    assert json.loads(client.command(('inspect', 'real-id'), 10))[0]['Id'] == 'real-id'
++    assert json.loads(client.command(('image', 'inspect', 'python@sha256:abcd'), 10))[0]['Id'] == 'real-id'
++    assert '%2F' not in calls[1][1]  # digest has no slash; other separators remain encoded.
++    assert client.command(('ps', '--all', '--filter', 'label=com.docker.compose.project=own', '--format', '{{.ID}}'), 10) == '123456789012'
++    for command in (('rm', '--force', 'arbitrary'), ('ps', '--format', '{{.ID}}'), ('ps', '--all', '--filter', '--format', '{{.ID}}')):
++        assert client.command(command, 10) is NotImplemented
++    assert all(method == 'GET' for method, _ in calls)
++
++
++def test_missing_image_has_same_failure_semantics():
++    client = object.__new__(api.LocalDockerAPI)
++    client.request = lambda *a, **kw: None
++    with pytest.raises(subprocess.CalledProcessError, match='exit status 1') as error:
++        client.command(('image', 'inspect', 'absent'), 10)
++    assert error.value.stderr == 'No such image: absent'
++
++
++def test_failed_cleanup_identity_never_falls_back_to_cli(monkeypatch):
++    monkeypatch.setattr(harbor_worker, 'compatible_context', lambda pin: True)
++    def mismatch(*args, **kwargs):
++        raise ValueError('wrong daemon')
++    monkeypatch.setattr(harbor_worker, 'LocalDockerAPI', mismatch)
++    monkeypatch.setattr(harbor_worker, 'docker', lambda *a, **kw: pytest.fail('must not fall back'))
++    assert not harbor_worker.cleanup_owned_resources(TRIAL, local_docker_api=PIN)['verified']
++
++
++def test_worker_metadata_dispatches_only_recognized_calls(monkeypatch):
++    class Transport:
++        def command(self, args, timeout):
++            assert args == ('inspect', 'owned-id') and timeout == 17
++            return '  [{"Id":"owned-id"}]  '
++    monkeypatch.setattr(harbor_worker, '_LOCAL_API', Transport())
++    assert harbor_worker.docker('inspect', 'owned-id', timeout=17) == '[{"Id":"owned-id"}]'
++
++
++@pytest.mark.parametrize('status,data,error', [(500, b'secret daemon body', RuntimeError),
++                                             (200, b'x'*(8*1024*1024+1), ValueError)])
++def test_http_errors_and_oversize_are_bounded_and_closed(monkeypatch, status, data, error):
++    closed = []
++    class Response:
++        def read(self, maximum):
++            assert maximum == 8*1024*1024+1
++            return data
++    Response.status = status
++    class Connection:
++        def __init__(self, socket, timeout):
++            assert socket == PIN['socket'] and timeout == 3
++        def request(self, method, path):
++            assert method == 'GET' and path == '/v1.41/info'
++        def getresponse(self):
++            return Response()
++        def close(self):
++            closed.append(True)
++    monkeypatch.setattr(api, 'UnixConnection', Connection)
++    client = object.__new__(api.LocalDockerAPI)
++    client.options = PIN
++    with pytest.raises(error) as failure:
++        client.request('GET', '/info', timeout=3)
++    assert 'secret daemon body' not in str(failure.value) and closed == [True]
++
++
++def test_cleanup_configuration_is_bound_to_typed_backend_options():
++    from proteus.execution.harbor_code import HarborCodeOptions
++    options = HarborCodeOptions(python='/absolute/python', runtime_hash='sha256:'+'0'*64,
++                                local_docker_api=PIN)
++    assert HarborCodeOptions.from_json(options.to_json()).local_docker_api == PIN
+diff --git a/tests/test_v1_harbor.py b/tests/test_v1_harbor.py
+index d554a03..e189de4 100644
+--- a/tests/test_v1_harbor.py
++++ b/tests/test_v1_harbor.py
+@@ -1,6 +1,7 @@
+ """Harbor boundary checks, plus an opt-in real Docker release gate."""
+ 
+ import base64
++import asyncio
+ import json
+ import os
+ import subprocess
+@@ -29,6 +30,44 @@ def fixture_recipe(tmp_path):
+     return load_recipe(path), path.parent / "task"
+ 
+ 
++def test_compose_cpu_compatibility_preserves_the_exact_limit_and_other_resources(tmp_path):
++    path = tmp_path / "resources.json"
++    original = {"services": {"main": {"cpus": 1.0, "mem_limit": "512m",
++        "deploy": {"resources": {"reservations": {"memory": "128M"}}}}}}
++    path.write_text(json.dumps(original))
++    assert harbor_worker.compose_cpu_limit(path) == path
++    actual = json.loads(path.read_text())["services"]["main"]
++    assert "cpus" not in actual and actual["mem_limit"] == "512m"
++    assert actual["cpu_period"] == actual["cpu_quota"] == 100000
++    assert actual["deploy"]["resources"] == {"reservations": {"memory": "128M"}}
++    harbor_worker.compose_cpu_limit(path)
++    assert json.loads(path.read_text())["services"]["main"] == actual
++
++
++@pytest.mark.parametrize("actual,expected", [
++    ({"nano_cpus": 10**9}, True),
++    ({"nano_cpus": 0, "cpu_period": 100000, "cpu_quota": 100000}, True),
++    ({"nano_cpus": 0, "cpu_period": 100000, "cpu_quota": 0}, False),
++    ({"nano_cpus": 0, "cpu_period": 100000, "cpu_quota": -1}, False),
++    ({"nano_cpus": 0, "cpu_period": 0, "cpu_quota": 100000}, False),
++    ({"nano_cpus": 0, "cpu_period": 100000, "cpu_quota": 200000}, False),
++    ({"nano_cpus": 2*10**9, "cpu_period": 100000, "cpu_quota": 100000}, False),
++])
++def test_cpu_guard_accepts_only_an_exact_finite_cap(actual, expected):
++    assert harbor_worker.cpu_limit_matches(actual, 1) is expected
++
++
++@pytest.mark.parametrize("cpus,memory", [(0, 512 * 1024**2), (2 * 10**9, 512 * 1024**2), (10**9, 0)])
++def test_compose_compatibility_does_not_relax_actual_container_resource_guard(monkeypatch, cpus, memory):
++    actual = {"image_id": "pinned", "nano_cpus": cpus, "memory_bytes": memory,
++        "mount_destinations": []}
++    monkeypatch.setattr(harbor_worker, "inspect_environment", lambda env: actual)
++    monkeypatch.setattr(harbor_worker, "docker", lambda *args: json.dumps([{"Id": "pinned"}]))
++    request = {"image_digest": "pinned", "resources": {"cpus": 1, "memory_mb": 512}}
++    with pytest.raises(ValueError, match="resource limits"):
++        asyncio.run(harbor_worker.checked_environment(request, object(), set()))
++
++
+ def test_harbor_recipe_resolves_without_importing_optional_runtime(tmp_path):
+     recipe, task = fixture_recipe(tmp_path)
+     resolved = builtin_registry().resolve(recipe)
+@@ -123,6 +162,21 @@ def test_cleanup_daemon_failure_is_never_reported_as_success(monkeypatch):
+     assert not result["verified"] and len(result["errors"]) == 6
+ 
+ 
++def test_extended_cleanup_retains_exact_owned_filters_and_bounded_commands(monkeypatch):
++    queries=[]
++    def docker(*args, **kwargs):
++        queries.append((args,kwargs['timeout']))
++        return ''
++    monkeypatch.setattr(harbor_worker, 'docker', docker)
++    trial='proteus-'+'c'*32
++    receipt=harbor_worker.cleanup_owned_resources(trial)
++    assert receipt['verified'] and len(queries)==12
++    assert all(0 < timeout <= 30 for args,timeout in queries)
++    assert all('label=com.docker.compose.project='+trial+'__env' in args
++        or 'label=com.docker.compose.project='+trial+'__verifier__trial' in args for args,timeout in queries)
++    assert not any('prune' in args for args,timeout in queries)
++
++
+ def test_docker_timeout_terminates_wrapper_children_holding_pipes(tmp_path, monkeypatch):
+     wrapper = tmp_path / "docker"
+     wrapper.write_text(f"#!{sys.executable}\nimport subprocess, sys, time\n"
+@@ -172,7 +226,7 @@ def test_live_harbor_candidates_private_verifier_timeout_and_cleanup(tmp_path):
+         proof = response["loaded_proof"]
+         assert proof["image_id"].startswith("sha256:")
+         assert proof["mount_destinations"] == ["/logs/agent", "/logs/artifacts"]
+-        assert proof["nano_cpus"] == 10**9 and proof["memory_bytes"] == 512 * 1024**2
++        assert harbor_worker.cpu_limit_matches(proof, 1) and proof["memory_bytes"] == 512 * 1024**2
+         if response["execution"] is not None:
+             verifier = response["verifier_proof"]
+             assert verifier["container_id"] != proof["container_id"]
+diff --git a/tests/test_v1_harbor_admission.py b/tests/test_v1_harbor_admission.py
+new file mode 100644
+index 0000000..d345392
+--- /dev/null
++++ b/tests/test_v1_harbor_admission.py
+@@ -0,0 +1,34 @@
++import threading
++import time
++
++import pytest
++
++from proteus.execution.harbor import admission_lease
++
++
++def test_optional_admission_does_not_serialize_by_default():
++    with admission_lease(None) as receipt:
++        assert receipt is None
++
++
++def test_admission_serializes_distinct_runs_and_releases_after_exception(tmp_path):
++    path = str(tmp_path/'container.lock')
++    acquired, finished = threading.Event(), threading.Event()
++    receipts = []
++    def second():
++        with admission_lease(path) as receipt:
++            receipts.append(receipt)
++            acquired.set()
++        finished.set()
++    with pytest.raises(RuntimeError, match='owned operation'):
++        with admission_lease(path):
++            thread = threading.Thread(target=second)
++            thread.start()
++            time.sleep(.05)
++            assert not acquired.is_set()
++            raise RuntimeError('owned operation failed')
++    assert acquired.wait(3) and finished.wait(3)
++    thread.join()
++    assert receipts[0]['wait_seconds'] >= .04
++    with admission_lease(path):
++        assert (tmp_path/'container.lock').exists()
+diff --git a/tests/test_v1_harbor_code.py b/tests/test_v1_harbor_code.py
+index 66cc1d0..d5839c9 100644
+--- a/tests/test_v1_harbor_code.py
++++ b/tests/test_v1_harbor_code.py
+@@ -101,7 +101,8 @@ def test_stdio_protocol_keeps_candidate_output_out_of_model_frames(tmp_path):
+ def test_cleanup_receipt_is_bound_to_dispatch_and_shared_by_all_cleanup_paths(tmp_path, monkeypatch):
+     from proteus.execution import harbor_code_worker as worker
+     calls = []
+-    def cleanup(name):
++    def cleanup(name, *, local_docker_api=None):
++        assert local_docker_api is None
+         calls.append(name)
+         return {'verified': True, 'resources': [], 'errors': []}
+     monkeypatch.setattr(worker, 'cleanup_owned_resources', cleanup)
+diff --git a/tests/test_v1_recovery.py b/tests/test_v1_recovery.py
+index 95cabf1..0aa8e58 100644
+--- a/tests/test_v1_recovery.py
++++ b/tests/test_v1_recovery.py
+@@ -13,7 +13,7 @@ import pytest
+ from proteus.core.contracts import OperationStatus
+ from proteus.core.methods import MethodResult
+ from proteus.core.plugins import EmptyOptions, Plugin
+-from proteus.core.recovery import Journal, recovery_status
++from proteus.core.recovery import Journal, recovery_status, _load
+ from proteus.core.serialization import Contract, ContractError, canonical_json, content_hash
+ from proteus.core.contracts import PluginRef
+ from proteus.evaluation.runners import PythonSubject
+@@ -237,7 +237,8 @@ def test_online_checkpoint_restores_state_rng_archive_and_feedback_privacy(tmp_p
+ def test_corrupt_journal_and_changed_configuration_fail_before_replay(tmp_path):
+     assert invoke(tmp_path, "evaluation.step").returncode == 86
+     path = sorted((tmp_path / "run/private/recovery/operations").glob("*.result.json"))[-1]
+-    data = json.loads(path.read_text())
++    # Tamper the logical record, independent of inline versus DAG storage.
++    data = {"hash": json.loads(path.read_text())["hash"], "value": _load(path)}
+     data["value"]["snapshot"]["run_id"] = "another run"
+     path.chmod(0o644)
+     path.write_text(json.dumps(data))
+@@ -252,7 +253,7 @@ def test_checkpoint_state_version_is_validated_before_restoring(tmp_path):
+     for request in sorted(directory.glob("*.request.json")):
+         if json.loads(request.read_text())["value"]["kind"] == "checkpoint":
+             path = request.with_name(request.name.replace(".request.", ".result."))
+-            envelope = json.loads(path.read_text())
++            envelope = {"value": _load(path)}
+             envelope["value"]["output"]["state"]["payload_version"] = 9
+             envelope["hash"] = content_hash(envelope["value"])
+             path.chmod(0o644)
+diff --git a/tests/test_v1_shared_build_layer.py b/tests/test_v1_shared_build_layer.py
+new file mode 100644
+index 0000000..821434e
+--- /dev/null
++++ b/tests/test_v1_shared_build_layer.py
+@@ -0,0 +1,98 @@
++"""Fixed dependency layers do not contain or shadow mutable candidate code."""
++
++from dataclasses import replace
++import json
++
++import pytest
++
++from proteus.artifacts.codecs import FileDelta, FileWrite
++from proteus.benchmarks.coral_circle_packing.recipe import build_spec
++from proteus.core.serialization import ContractError, content_hash
++from proteus.evaluation.runners import InvalidCandidate
++from proteus.examples.harbor_evaluation import IMAGE
++from proteus.execution.builds import SharedBuildLayer, SourceBuildSpec, build_key, dockerfile
++from test_v1_source_build import BUILDER, execute, fake_docker, services_fixture
++
++
++def shared():
++    return SharedBuildLayer(commands=('mkdir .deps && printf fixed > .deps/value',), outputs=('.deps',))
++
++
++@pytest.mark.parametrize('path', ['', '/', '../escape', 'a/../b', '.', 'a/./b', 'a//b',
++    'a\\b', 'a\nb', 'a b', 'a"b'])
++def test_shared_exports_reject_unsafe_paths(path):
++    with pytest.raises(ContractError):
++        SharedBuildLayer(commands=('true',), outputs=(path,))
++
++
++@pytest.mark.parametrize('paths', [('.deps', '.deps'), ('.deps', '.deps/subdir')])
++def test_shared_exports_reject_duplicate_or_overlapping_paths(paths):
++    with pytest.raises(ContractError):
++        SharedBuildLayer(commands=('true',), outputs=paths)
++
++
++@pytest.mark.parametrize('commands', [(), ('',), ('   ',), ('true\0false',)])
++def test_shared_commands_are_nonempty(commands):
++    with pytest.raises(ContractError):
++        SharedBuildLayer(commands=commands, outputs=('.deps',))
++
++
++def test_default_dockerfile_is_unchanged_and_shared_stage_precedes_source():
++    spec = SourceBuildSpec(commands=('true',))
++    assert dockerfile(spec, IMAGE) == (
++        f'FROM {IMAGE} AS candidate_build\nWORKDIR /opt/proteus/build\n'
++        'COPY source/ /opt/proteus/build/\n'
++        'RUN ["/bin/sh", "-eu", "-c", "true"]\n'
++        f'FROM {IMAGE}\nCOPY --from=candidate_build /opt/proteus/build/ /opt/proteus/build/\n'
++        'COPY source/ /opt/proteus/source/\nWORKDIR /opt/proteus/build\n')
++    definition = dockerfile(replace(spec, shared_layer=shared()), IMAGE)
++    before_source, _ = definition.split(' AS candidate_build\n', 1)
++    assert 'COPY source' not in before_source
++    assert 'shared_dependencies' in before_source
++    runtime = definition.split(f'FROM {IMAGE}\n', 1)[1]
++    assert runtime.index('COPY --from=shared_dependencies') < runtime.index('COPY --from=candidate_build')
++    assert json.dumps(['/opt/proteus/shared/.deps', '/opt/proteus/build/.deps']) in runtime
++    assert '/tests' not in definition
++
++
++def test_shared_definition_and_candidate_bytes_are_both_content_bound(tmp_path):
++    services, candidate, original = services_fixture(tmp_path)
++    spec = replace(original, shared_layer=shared())
++    key = build_key(candidate.artifact, spec, IMAGE, BUILDER)
++    for layer in (replace(shared(), commands=('printf changed',)), replace(shared(), outputs=('.other',))):
++        assert build_key(candidate.artifact, replace(spec, shared_layer=layer), IMAGE, BUILDER) != key
++    delta = FileDelta(base_hash=candidate.artifact.content_hash,
++        put=(FileWrite.from_bytes('new.py', b'pass\n'),))
++    changed = services.artifacts.apply_delta(candidate.artifact, delta)
++    assert build_key(changed, spec, IMAGE, BUILDER) != key
++    assert SourceBuildSpec.from_json(spec.to_json()) == spec
++
++
++@pytest.mark.parametrize('path', ['.deps', '.deps/poison.py', 'parent'])
++def test_candidate_cannot_shadow_shared_layer_and_never_builds(tmp_path, monkeypatch, path):
++    services, candidate, original = services_fixture(tmp_path)
++    layer = replace(shared(), outputs=('parent/deps',)) if path == 'parent' else shared()
++    spec = replace(original, shared_layer=layer)
++    services.recipe = replace(services.recipe, execution=replace(services.recipe.execution,
++        environment=replace(services.recipe.execution.environment, build_hash=content_hash(spec))))
++    _, commands = fake_docker(monkeypatch)
++    delta = FileDelta(base_hash=candidate.artifact.content_hash,
++        put=(FileWrite.from_bytes(path, b'not a dependency\n'),))
++    changed = services.fork_candidate(candidate, delta=delta, candidate_id='shadow')
++    with pytest.raises(InvalidCandidate, match='overlaps'):
++        execute(services, changed, spec, 'shadow')
++    assert commands == []
++    receipt = services.builds.records[-1]
++    assert receipt.status == 'failed' and receipt.image_id is None
++    assert receipt.usage.model_calls == 0
++
++
++def test_coral_keeps_same_pinned_dependencies_and_runtime_location():
++    spec = build_spec()
++    assert spec.shared_layer.outputs == ('.proteus-deps',)
++    assert spec.commands == ('true',)
++    assert '--require-hashes --only-binary=:all:' in spec.shared_layer.commands[1]
++    assert '--target /opt/proteus/shared/.proteus-deps' in spec.shared_layer.commands[1]
++    assert spec.timeout_seconds == 900 and spec.platform == 'linux/amd64'
++    assert spec.network == 'default'
++
+diff --git a/tests/test_v1_source_build.py b/tests/test_v1_source_build.py
+index 6508f9b..375ff6d 100644
+--- a/tests/test_v1_source_build.py
++++ b/tests/test_v1_source_build.py
+@@ -98,19 +98,37 @@ def test_build_definition_must_match_locked_environment(tmp_path, build_hash):
+         services.registry.resolve(recipe)
+ 
+ 
+-def test_builder_identity_uses_supported_inspect_and_ignores_last_activity(monkeypatch):
++@pytest.mark.parametrize("label", ["BuildKit version", "BuildKit", "Buildkit"])
++def test_builder_identity_uses_supported_inspect_and_ignores_last_activity(monkeypatch, label):
+     def docker(*args):
+         if args[0] == "version":
+             return json.dumps(dict(Version="28", ApiVersion="1.51", Os="linux", Arch="amd64"))
+         if args == ("buildx", "version"):
+             return "buildx v0.29"
+         assert args == ("buildx", "inspect", "default")
+-        return "Name: default\nDriver: docker\nLast Activity: anything\nNodes:\nBuildKit version: v0.25\nPlatforms: linux/amd64, linux/386"
++        return f"Name: default\nDriver: docker\nLast Activity: anything\nNodes:\n{label}: v0.25\nPlatforms: linux/amd64, linux/386"
+     monkeypatch.setattr(builds, "docker", docker)
+     identity = builds.builder_identity()
+     assert identity["buildkit"] == "v0.25" and "anything" not in json.dumps(identity)
+ 
+ 
++@pytest.mark.parametrize("report", [
++    "Driver: docker\nPlatforms: linux/amd64",
++    "Driver: docker\nBuildkit: \nPlatforms: linux/amd64",
++    "Driver: docker-container\nBuildkit: v0.8.2\nPlatforms: linux/amd64",
++    "Driver: docker\nBuildkit: v0.8.2\nBuildKit version: v0.8.2\nPlatforms: linux/amd64",
++])
++def test_builder_spelling_compatibility_still_rejects_incomplete_or_ambiguous_identity(monkeypatch, report):
++    def docker(*args):
++        if args[0] == "version":
++            return json.dumps(dict(Version="20.10.16", ApiVersion="1.41", Os="linux", Arch="arm64"))
++        assert args == ("buildx", "inspect", "default")
++        return report
++    monkeypatch.setattr(builds, "docker", docker)
++    with pytest.raises(ContractError):
++        builds.builder_identity()
++
++
+ def test_cache_reuses_only_inspected_images_and_rebuilds_missing_image(tmp_path, monkeypatch):
+     services, candidate, spec = services_fixture(tmp_path)
+     images, commands = fake_docker(monkeypatch)

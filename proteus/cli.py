@@ -530,6 +530,9 @@ def cmd_visualize(args) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="proteus", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    if sys.version_info >= (3, 10):
+        from proteus.recipes.cli import add_parser as add_recipe_parser
+        add_recipe_parser(sub)
 
     r = sub.add_parser("run", help="run a self-evolution sweep")
     r.add_argument("--harness", default="minimal")

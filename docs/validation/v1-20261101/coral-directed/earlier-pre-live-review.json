@@ -1,0 +1,79 @@
+{
+  "review_date": "2026-11-01 America/Los_Angeles",
+  "review_type": "Read-only, provisional pre-live technical review; no script, test, worker, controller or provider execution",
+  "source_root": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/source",
+  "base_commit": "6b41e7bff265795c42345c312c6d282c890bd18a",
+  "working_tree": "Uncommitted script/test/plan under active implementation; clean frozen final commit and dryrun not yet supplied",
+  "snapshot": [
+    {
+      "path": "tools/validation/coral_directed.py",
+      "sha256": "ce0f320bca3eeae570b4f947b049640c4dfa5c3de47d6c03b0f197e80db73257",
+      "bytes": 52058
+    },
+    {
+      "path": "tests/test_v1_coral_directed_qualification.py",
+      "sha256": "ebdff4b3c38de7b829ea0c0860a7a121c8818587274a44af0f12367565b53750",
+      "bytes": 8092
+    },
+    {
+      "path": "tools/validation/coral_directed_plan.json",
+      "sha256": "fb81a01123a57a6f8a34df85507819fe6f3c3a1a0f6883571e6a48b89d2f1efb",
+      "bytes": 6126
+    }
+  ],
+  "technical_start_decision": "Not yet ready for the one bounded live attempt. Resolve the audit identity finding and review the final frozen-source dryrun first. This is a technical prerequisite within existing authorization, not a request for new human permission.",
+  "findings": [
+    {
+      "id": "CORAL-QUALIFICATION-MODE-PLAN-BINDING",
+      "priority": "P2",
+      "status": "open",
+      "locations": [
+        "tools/validation/coral_directed.py:591",
+        "tools/validation/coral_directed.py:650",
+        "tools/validation/coral_directed.py:750",
+        "tools/validation/coral_directed.py:902"
+      ],
+      "description": "Read-only auditor trusts exclusive-start-claim.mode and recomputes plan_sha256 without checking it against the retained start claim or linking all plan parameters to the actual model requests. A clean fixture can be reclassified as three real paid dispatches by changing the mode flag; changing only plan.model has no rejection path.",
+      "basis": "Static control/data-flow analysis of script SHA256 ce0f320bca3eeae570b4f947b049640c4dfa5c3de47d6c03b0f197e80db73257. No repro was executed because this phase is read-only.",
+      "requested_changes": [
+        "Bind enum mode, plan identity and actual request model/protocol to immutable run/manifest and broker transport evidence.",
+        "Check exclusive start claim plan hash; retain and audit live approval/consumption identity for live evidence.",
+        "Add clean-fixture mode-flip, plan.model drift and missing/changed plan-hash negative cases."
+      ],
+      "impact": "Potential false acceptance or relabeling of offline protocol evidence as live; no physical-call-cap bypass identified."
+    }
+  ],
+  "accepted_by_code_inspection": [
+    "Exactly three named slots; SQLite BEGIN IMMEDIATE reserves before forwarding; unknown or changed slot is not forwarded again.",
+    "The provider forwarding path has no application retry and rejects redirects.",
+    "Provider key remains in parent broker; controller/command worker environments are scrubbed.",
+    "Structured factor candidate is validated and evaluated by a trusted model-free subject; no model-generated code runs.",
+    "Production CORAL worker, knowledge, gateway, intervention and ledger paths are exercised by the proposed protocol.",
+    "New controller-process observations bind parent-observed exit codes and distinct PIDs; first-forward and publication witnesses bind B waiting PID/input.",
+    "Historical optimization results, fresh-context fallback, model quality and native model sessions are explicitly separated from this directed qualification."
+  ],
+  "additional_audit_improvement": "Bridge raw HTTP response bytes to normalized answer via json.loads(raw)==answer and compare SQLite token fields to original nonnegative usage. Record requested and returned model identities without assuming an alias implies an exact internal version.",
+  "official_API_verification": {
+    "url": "https://api-docs.deepseek.com/api/create-chat-completion/",
+    "checked": "Official current docs list deepseek-flash and thinking.type=disabled. No API inference or credential request was made."
+  },
+  "final_review_inputs_needed": [
+    "Exact clean source commit and plan hash/output location",
+    "Final dryrun and request-level audit evidence",
+    "Negative-case results for the identity finding",
+    "No paid execution before technical acceptance"
+  ],
+  "actions": [
+    "Read files and source-only diffs",
+    "Saved independent text snapshots and this JSON outside author checkout",
+    "Sent one actionable P2 and bounded acceptance feedback to Proteus secretary"
+  ],
+  "not_done": [
+    "No edits to implementation",
+    "No script/test/worker/controller run",
+    "No credential read",
+    "No provider call",
+    "No workflow dispatch",
+    "No AWS or Docker action"
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "review_date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "base_commit": "e6f773644c62c4add6e95807a2688235c4d59b42",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "decision": "Code prerequisite accepted for a complete release-smoke requalification at the original declared bounds. No new blocker found.",
+  "scope": "Review of exact frozen three-file workflow/diagnostic/test change; not a passing real DSH result, workflow dispatch, source algorithm change, main merge or publication approval.",
+  "findings": [],
+  "candidate_paths": {
+    "dsh": "/workspace/candidate/src/apps/cli/src/bin.ts",
+    "pi": "/workspace/candidate/src/packages/coding-agent/src/cli.ts",
+    "actual_mounts": "proteus/adapters/dsh.py:423-425 and pi.py:265-267 mount active /workspace read-only and harness as writable /workspace/candidate. Dockerfiles WORKDIR=/workspace; source tar extraction populates harness/src.",
+    "upstream_readback": {
+      "pi": {
+        "requested_repository": "badlogic/pi-mono",
+        "resolved_url": "https://github.com/earendil-works/pi/blob/v0.84.2/packages/coding-agent/src/cli.ts",
+        "tag": "v0.84.2",
+        "path": "packages/coding-agent/src/cli.ts",
+        "git_blob": "caa44722929092f243a4acdee5ee0c1313077881",
+        "bytes": 711,
+        "shebang": "#!/usr/bin/env node",
+        "marker_present": false,
+        "source_sha256": "184e297bf71200d7947b0d28ba62f4c09b1f3071ea8c85c2255d1ab8617bca08",
+        "method": "GitHub REST read-only fallback after connector path did not resolve"
+      },
+      "dsh": {
+        "repository": "deepseek-ai/deepseek-harness",
+        "tag": "dsh-v0.1.0-rc.7",
+        "path": "apps/cli/src/bin.ts",
+        "git_blob": "9aa44f8b2286004aae3d408cb2a2eafa4d75b3da",
+        "source_url": "https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.1.0-rc.7/apps/cli/src/bin.ts",
+        "shebang": "#!/usr/bin/env node",
+        "marker_present": false,
+        "method": "GitHub connector read-only exact-tag file"
+      }
+    },
+    "goal_semantics": "Per-backend absolute candidate path, same one-comment idempotent edit, preserve operational handoff, no execution/reload of candidate inside a phase. Original relative-path failure attribution remains a hypothesis because run 41390453875 did not retain raw DSH trace."
+  },
+  "unchanged_gate": {
+    "required_edit_parameters": "--arm neutral --seeds 1 --episodes 2 --max-turns 32 --min-turns-per-phase 8 --announce-budget",
+    "strict_checker": "scripts/smoke_check.py is byte-identical: source diff before final episode, immutable preceding-checkpoint startup receipts, actual viability, planted bad-candidate rejection and restore remain required. No pre-seeding of PROTEUS-NOTE or skip/continue-on-error added.",
+    "other_workflows": "Triggers, non-container jobs, existing container run/check commands, limits, source versions and strategy unchanged; new collector/upload steps have always() and do not mask earlier failure."
+  },
+  "diagnostic_contract": {
+    "capture": "Allowlisted manifest/seed/progress records, checkpoint/entry-source projection, final adapter inputs/outcomes, handoffs and native session events. No provider/worker/runner method is invoked; subprocess use is local read-only Git commands.",
+    "integrity": "Original source hashes and derived-export hashes are distinct. Missing outcomes remain unknown; malformed lines are recorded by line number/hash; refused/unavailable/size-omitted records are explicit. Bounded capture does not claim full raw-stream completeness.",
+    "privacy": "Known environment credential values, credential-like fields, nested JSON tool arguments, authorization/secret text and private reasoning are removed. Auth/settings/env files, gateway DBs, snapshot repositories, build trees and opaque usage-source bytes are excluded. Symlink escapes and output-inside-sweep rejected.",
+    "limits": {
+      "input_file_bytes": 2097152,
+      "decoded_dsh_bytes": 4194304,
+      "captured_files": 256,
+      "derived_payload_bytes": 8388608,
+      "index_note": "diagnostics.json is a separate metadata index; 8 MiB is the derivative data budget, not a byte-for-byte raw archive or a claim that total artifact size is exactly capped at 8 MiB.",
+      "retention_days": 14
+    },
+    "failure_behavior": "always collector/upload; bake/sweep/self-edit outcomes and workflow source/run/attempt retained. Missing or failed/partial sweep does not fabricate successful completion or zero cost. If capture itself fails, the workflow does not silently replace that with a passing gate."
+  },
+  "validation": {
+    "independent_regression": "51 passed in 32.35s using reviewer Python 3.12 and exact Git-object copy; full stdout/stderr hashes in independent-regression.json",
+    "independent_lint": "ruff check of both added Python files passed",
+    "independent_workflow_contract": "Ruby YAML/Psych parse and structural comparison verified all unchanged portions; no optional PyYAML package was installed",
+    "independent_decoder": "Both installed Python 3.12 zstandard tests and separate Python 3.14 compression.zstd check retain concatenated frames, redact sentinel and enforce decoded cap",
+    "independent_missing_cli": "Real collector CLI with two missing roots preserved failure/skipped context and four missing records; empty stdout/stderr; no sentinel in artifact",
+    "author_evidence": "Frozen source hashes and original 51-pass stdout/stderr independently rehashed; author workflow and 3.14 records reviewed"
+  },
+  "execution_boundary": {
+    "new_model_calls": 0,
+    "workflow_dispatches": 0,
+    "Docker_or_native_harness_runs": 0,
+    "historical_experiment_mutations": 0,
+    "reviewer_mutations": "Only reviewer-owned frozen source, test fixtures, logs and reports under /tmp/proteus-dsh-smoke-review-12e02ff"
+  },
+  "remaining": "Root/implementation may use this code acceptance as prerequisite for the already authorized full smoke at the same bounds. A complete successful workflow on its exact source remains required; do not pool passed cells from failed runs. Inspect actual checkpoint and activation evidence and diagnostics omissions before claiming the original DSH issue fixed. CORAL remains closed with no further calls.",
+  "supporting_evidence": {
+    "commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+    "source_file_hashes": {
+      "scripts/release_smoke_diagnostics.py": "aa5bd12e049fd41bbeb71987271258a64445e968c7e49bcb6b9f394113a49faf",
+      "tests/test_release_smoke_diagnostics.py": "ea1ada8225e995ed77c25f2d8b08631a7264b7fbaa4730f567a5bc1d23b1aab9",
+      ".github/workflows/release-smoke.yml": "4ad2cc5e83b6bc7fb5511488eb4cd9abd52cdbd30c55ad42e33eb4f27960af89"
+    },
+    "author_test_logs_rehashed": true,
+    "copied_from_git_object": true,
+    "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+    "independent_regression": {
+      "argv": [
+        "/tmp/proteus-v1-review-4f7209c/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_release_smoke_diagnostics.py",
+        "tests/test_release_smoke.py",
+        "tests/test_canary_diagnostics.py",
+        "-p",
+        "no:cacheprovider"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 33.22730145789683,
+      "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+      "logs": {
+        "stdout": {
+          "path": "/private/tmp/proteus-dsh-smoke-review-12e02ff/independent-regression.stdout",
+          "sha256": "3fa8f1d3610bfc94e8454f0ad4206afae58e7a1a668ce807c27488e212fc72d2"
+        },
+        "stderr": {
+          "path": "/private/tmp/proteus-dsh-smoke-review-12e02ff/independent-regression.stderr",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "provider_calls": 0,
+      "workflow_dispatches": 0
+    },
+    "independent_workflow": {
+      "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+      "base_commit": "e6f773644c62c4add6e95807a2688235c4d59b42",
+      "yaml_parser": "Ruby YAML/Psych (reviewer Python had no optional yaml module)",
+      "checks": {
+        "same_top_level_except_env_and_jobs": true,
+        "env_only_removed_ambiguous_goal": true,
+        "same_noncontainer_jobs": true,
+        "same_container_limits": true,
+        "same_existing_steps_except_ids_and_goal": true,
+        "two_new_always_steps": true,
+        "checker_unchanged": true,
+        "runtime_tree_unchanged": true
+      },
+      "source_workflow_sha256": "4ad2cc5e83b6bc7fb5511488eb4cd9abd52cdbd30c55ad42e33eb4f27960af89",
+      "smoke_checker_sha256": "004695c87e65b43766e11a7ffea7ffe7122a5a50e0ca9e1a688beac709de985a"
+    },
+    "independent_decoder314": {
+      "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+      "python": "3.14.4",
+      "backend": "compression.zstd",
+      "two_concatenated_frames_preserved": true,
+      "credential_sentinel_redacted": true,
+      "decoded_byte_limit_enforced": true,
+      "provider_calls": 0
+    },
+    "independent_missing_cli": {
+      "source_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+      "cli_exit_code": 0,
+      "missing_records": 4,
+      "workflow_failure_and_skipped_context_preserved": true,
+      "credential_sentinel_absent": true,
+      "stdout_empty": true,
+      "stderr_empty": true,
+      "provider_calls": 0,
+      "workflow_dispatches": 0,
+      "artifact": "/tmp/proteus-dsh-smoke-review-12e02ff/missing-cli-output/diagnostics.json"
+    }
+  }
+}

@@ -37,6 +37,7 @@ from typing import Optional, Sequence
 
 from proteus.core.adapter import ActionEvent, EpisodeResult, EpisodeSpec, Surface
 from proteus.core.disposition import Disposition
+from proteus.core.native_inputs import native_input
 
 #: Aki phase names -> Proteus phase names.
 _PHASE = {"observe": "observe", "propose": "propose",
@@ -74,7 +75,6 @@ class AkiHarness:
     def __init__(self, src: str | None = None, docker: bool = True) -> None:
         self.src = Path(src or os.environ.get("AKI_HARNESS_SRC", "")).expanduser()
         self.docker = docker
-        self._pending_root: Optional[Path] = None
         self._run_configs: dict[Path, object] = {}
 
     # ---------------------------------------------------------------- contract: metadata
@@ -120,7 +120,6 @@ class AkiHarness:
 
     def seed(self, harness_root: Path, rng_seed: int = 0) -> None:
         # Aki's init_run seeds and installs in one step; remember state until then.
-        self._pending_root = harness_root
         self._rng_seed = rng_seed
 
     def install_disposition(self, harness_root: Path, disposition: Disposition) -> None:
@@ -141,7 +140,6 @@ class AkiHarness:
         if not harness_root.exists():
             supervisor.init_run(config)
         self._run_configs[run_root] = config
-        self._pending_root = None
 
     def run_episode(self, spec: EpisodeSpec) -> EpisodeResult:
         _, supervisor, _, _ = self._api()
@@ -149,7 +147,9 @@ class AkiHarness:
         config = self._run_configs.get(run_root)
         if config is None:
             raise RuntimeError("run_episode before install_disposition for this root")
-        asyncio.run(supervisor.run_episode(config, spec.episode))
+        with native_input(spec, backend=self.name, phase=None, scope='opaque_supervisor',
+                          payload={'episode': spec.episode, 'internal_prompts': 'unavailable'}):
+            asyncio.run(supervisor.run_episode(config, spec.episode))
         # Read the outcome back from the trace — the only channel Proteus trusts.
         status, counters = self._episode_outcome(run_root, spec.episode)
         return EpisodeResult(

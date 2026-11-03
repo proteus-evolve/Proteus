@@ -1,0 +1,128 @@
+{
+  "curator": {
+    "budget": {
+      "max_concurrency": 1,
+      "max_cost_usd": null,
+      "max_evaluations": null,
+      "max_model_calls": null,
+      "max_wall_seconds": null,
+      "schema_version": 1
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "max_tokens": 4096,
+      "temperature": 0,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "runtime": {
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-ace-formula-offline-v2/v1",
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-ace-formula-offline-v2.json",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "timeout_seconds": 600
+      },
+      "plugin": {
+        "name": "proteus.chat",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "session": "fresh",
+    "tools": []
+  },
+  "curator_frequency": 1,
+  "eval_steps": 100,
+  "generator": {
+    "budget": {
+      "max_concurrency": 1,
+      "max_cost_usd": null,
+      "max_evaluations": null,
+      "max_model_calls": null,
+      "max_wall_seconds": null,
+      "schema_version": 1
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "max_tokens": 4096,
+      "temperature": 0,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "runtime": {
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-ace-formula-offline-v2/v1",
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-ace-formula-offline-v2.json",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "timeout_seconds": 600
+      },
+      "plugin": {
+        "name": "proteus.chat",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "session": "fresh",
+    "tools": []
+  },
+  "json_mode": false,
+  "max_num_rounds": 3,
+  "modes": [
+    "offline"
+  ],
+  "no_ground_truth": false,
+  "num_epochs": 1,
+  "online_eval_frequency": 15,
+  "reflector": {
+    "budget": {
+      "max_concurrency": 1,
+      "max_cost_usd": null,
+      "max_evaluations": null,
+      "max_model_calls": null,
+      "max_wall_seconds": null,
+      "schema_version": 1
+    },
+    "model": "deepseek-flash",
+    "model_settings": {
+      "max_tokens": 4096,
+      "temperature": 0,
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "prompt_hash": null,
+    "runtime": {
+      "options": {
+        "base_url": "http://127.0.0.1:62125/linux-ace-formula-offline-v2/v1",
+        "dispatch_guard_path": "/home/ubuntu/proteus-full-linux-20261020/guards/linux-ace-formula-offline-v2.json",
+        "key_env": "PROTEUS_RELAY_TOKEN",
+        "timeout_seconds": 600
+      },
+      "plugin": {
+        "name": "proteus.chat",
+        "schema_version": 1,
+        "version": "1"
+      },
+      "requires": [],
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "session": "fresh",
+    "tools": []
+  },
+  "schema_version": 1,
+  "seeds": [
+    0
+  ],
+  "token_budget": 80000
+}

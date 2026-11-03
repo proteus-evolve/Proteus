@@ -1,0 +1,18 @@
+\begin{table}[H]
+\caption{Declared integration roles in Proteus. \yes{} = supported declaration, subject to its documented protocol; \no{} = not supplied by this common-role integration. This table is capability coverage, not empirical acceptance. Source candidates require validation and a compatible subject representation.}
+\label{tab:contracts}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}Yccccc@{}}
+\toprule
+Integration & \shortstack{Ordinary\\actor} & \shortstack{Candidate\\subject} & \shortstack{Coding\\workspace} & \shortstack{Common\\Native} & \shortstack{Legacy\\Native} \\
+\midrule
+Minimal mock & \yes & \no & \no & \no & \yes \\
+LLM HTTP & \yes & \yes & \no & \yes & \yes \\
+Pi & \yes & \yes & \yes & \yes & \yes \\
+DSH & \yes & \yes & \yes & \yes & \yes \\
+Codex & \yes & \yes & \yes & \yes & \yes \\
+Aki (legacy only) & \no & \no & \no & \no & \yes \\
+\bottomrule
+\end{tabularx}
+\end{table}

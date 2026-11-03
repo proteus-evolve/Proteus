@@ -1,0 +1,83 @@
+{
+  "source_directory": "/tmp/proteus-v1-final-20261101/smoke-41398194611",
+  "files": {
+    "pi-original.zip": {
+      "sha256": "def4d918454097c6d5f94f620f220d3f8180e3e68e380b15ac04e223c978c4ca",
+      "bytes": 225412
+    },
+    "pi-job.log": {
+      "sha256": "782bbd5eb8f5ce170f9d5847250e0b5edc74cd4a8b1e8736dca7b02d1f9b7a49",
+      "bytes": 46077
+    },
+    "artifacts-0706.json": {
+      "sha256": "c279a172200d158507f5c5188f3711184f84385c9e87347f8ab272ef8ecfefe1",
+      "bytes": 1498
+    },
+    "dsh-original.zip": {
+      "sha256": "6553dc986244d73bc0971da510918227b3328c0f073a685153664ebd74b0e28a",
+      "bytes": 695631
+    },
+    "readback_partial.py": {
+      "sha256": "4bd9fedaaadf88f26aa5240841dc708a788a160a15c8a007f8460c2b8748c597",
+      "bytes": 9559
+    },
+    "minimal-job.log": {
+      "sha256": "f68effc3c1356347f6ee9ca223971e6b3c085f7cf072396f79fc6085f951a655",
+      "bytes": 22480
+    },
+    "llm-job.log": {
+      "sha256": "74142a78d09db6d5d92b94b5fb2d377e511942e2db3e7cb3e9ca92dfffd0f4d7",
+      "bytes": 20605
+    },
+    "completed-artifacts.json": {
+      "sha256": "c279a172200d158507f5c5188f3711184f84385c9e87347f8ab272ef8ecfefe1",
+      "bytes": 1498
+    },
+    "pi-dsh-partial-readback.json": {
+      "sha256": "99a571420b19229ee2dfa649fe5917beb5c5e350b83fff7d22ff88fdc1cd6730",
+      "bytes": 33056
+    },
+    "dsh-job.log": {
+      "sha256": "fd2f88a852220183c44bf53bb5ec5d82006366a9be8effec48415a0c66eef624",
+      "bytes": 446745
+    },
+    "codex-job.log": {
+      "sha256": "66fb2be01fa3fa3c0504c318e2e8b7c7d3463727d0ffeccc7ccb3e1045e121cc",
+      "bytes": 310395
+    },
+    "completed-jobs.json": {
+      "sha256": "45b9d5f032c7c948d5141864890f436b2bf1d3acdc8c65f70e1e78947337b2a8",
+      "bytes": 16567
+    },
+    "full-smoke-readback.json": {
+      "sha256": "ce983590d5e46eb8b2e9b251b0672cff3d3bd84abbc4b3360d32ebb2e81617cc",
+      "bytes": 4382
+    },
+    "readback_partial_initial.py": {
+      "sha256": "c800248e3ad8b8ccb6e89889a2ed7320a52eefbe29129f18b0475b59e3f926f2",
+      "bytes": 9559
+    },
+    "offline-job.log": {
+      "sha256": "db2e7c913a265e8f0edb53a8ca3c4dd2a4991f628dea4f94fa6e241b7b669393",
+      "bytes": 28956
+    },
+    "jobs-0706.json": {
+      "sha256": "0fc13a72df2fae397c5b95878d511f7b82242fb7f5f2bd217cd56cad92cbe0be",
+      "bytes": 16199
+    },
+    "run-0706.json": {
+      "sha256": "bb5de7245af0e203aa833a0304a6bff8ffa6b01d33395c52f80fa1ce2c95f741",
+      "bytes": 12528
+    },
+    "readback-initial-failure.txt": {
+      "sha256": "40e8c9ad1064f65d8ecf22e1c31ea47c5b5e549858a6acc8c1b20bbb42408289",
+      "bytes": 219
+    },
+    "completed-run.json": {
+      "sha256": "8c3999238c43ad9bd39bc4f7189fe70b0d9afa1655efd2a057770c44ff239915",
+      "bytes": 12531
+    }
+  },
+  "before_after_identical": true,
+  "scope": "All original top-level logs, ZIPs and metadata were only read. ZIP contents were examined in memory; no original extraction directory or original report was written."
+}

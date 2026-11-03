@@ -1,0 +1,46 @@
+{
+  "review_date": "2026-11-01 America/Los_Angeles",
+  "source_commit": "0c749a750d9090ce68f760d84fa9aba77523bbf6",
+  "scope": "Frozen source-only review of qualification script/tests/guide/workflow; later CI wrapper commits are separate.",
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "source_review_conclusion": "No new source-level blocker found. Original mode/plan P2 implementation addresses identified paths; actual readback closure is reported separately.",
+  "original_finding": {
+    "id": "CORAL-QUALIFICATION-MODE-PLAN-BINDING",
+    "status": "closed_after_independent_original_and_export_audit_and_six_negative_probes"
+  },
+  "workflow_boundaries": [
+    "workflow_dispatch only at this commit; default fixture",
+    "expected SHA matches checkout HEAD and workflow GITHUB_SHA",
+    "only conditional live execution step receives DeepSeek key",
+    "rerun attempt greater than 1 rejected; at most three durable named slots per execution",
+    "unknown attempts are retained and not resent",
+    "export strips permit/gateway credential rows, records refusals, and declares copy non-resumable"
+  ],
+  "files": [
+    {
+      "path": "tools/validation/coral_directed.py",
+      "sha256": "1fe2eb30c7474de86d8d739a08522f29f7c3fdb26cacd68850df5f3711ae1d73"
+    },
+    {
+      "path": "tools/validation/coral_directed_plan.json",
+      "sha256": "bc81735e83abb1cf44a1631f75a8488a6c34a7153f2b8cdd186f469364666526"
+    },
+    {
+      "path": "tests/test_v1_coral_directed_qualification.py",
+      "sha256": "895ab933072ed7994ac5c78909db851d06f6af2201fb6318825120e1e7cd2934"
+    },
+    {
+      "path": ".github/workflows/coral-directed-qualification.yml",
+      "sha256": "78150ac87c79db62caeb86d276499dfbe8e99fd99125afc665b4ca70614b2d47"
+    }
+  ],
+  "snapshot_note": "Source snapshots and this report are read directly from immutable Git objects. A prior report-write attempt stopped because the author was updating the workflow; this file now exists.",
+  "source_review_executions": {
+    "tests": 0,
+    "provider_calls": 0,
+    "workflow_dispatches": 0
+  },
+  "not_a_live_start_approval": true,
+  "dynamic_readback": "/tmp/proteus-coral-prelive-review-20261101/p2-readback-0c749a7.json",
+  "original_test_evidence": "16 recorded stdout/stderr hashes verified; author original pytest output: 22 passed in 14.20s. Reviewer did not rerun qualification/tests."
+}

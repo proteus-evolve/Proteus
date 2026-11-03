@@ -1,0 +1,117 @@
+{
+  "observed_at": "2026-11-02T09:39:06.252763+00:00",
+  "source": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+  "review_head": "c1401fcf2038c5cbca9893d9cf7589bf72ec547d",
+  "runtime_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "run_id": 41398194611,
+  "run_attempt": 1,
+  "event": "workflow_dispatch",
+  "conclusion": "success",
+  "completed_at": "2026-11-02T09:32:53Z",
+  "jobs": [
+    {
+      "id": 125124037226,
+      "name": "offline",
+      "head": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:09:53Z",
+      "completed_at": "2026-11-02T06:42:27Z"
+    },
+    {
+      "id": 125134436734,
+      "name": "codex",
+      "head": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:29Z",
+      "completed_at": "2026-11-02T09:32:52Z"
+    },
+    {
+      "id": 125134436754,
+      "name": "minimal",
+      "head": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:29Z",
+      "completed_at": "2026-11-02T06:42:44Z"
+    },
+    {
+      "id": 125134436808,
+      "name": "container (pi)",
+      "head": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:30Z",
+      "completed_at": "2026-11-02T06:47:09Z"
+    },
+    {
+      "id": 125134436828,
+      "name": "llm",
+      "head": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:29Z",
+      "completed_at": "2026-11-02T06:43:38Z"
+    },
+    {
+      "id": 125134436868,
+      "name": "container (dsh)",
+      "head": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+      "conclusion": "success",
+      "started_at": "2026-11-02T06:42:30Z",
+      "completed_at": "2026-11-02T07:03:14Z"
+    }
+  ],
+  "log_sha256": {
+    "pi-job.log": "782bbd5eb8f5ce170f9d5847250e0b5edc74cd4a8b1e8736dca7b02d1f9b7a49",
+    "minimal-job.log": "f68effc3c1356347f6ee9ca223971e6b3c085f7cf072396f79fc6085f951a655",
+    "llm-job.log": "74142a78d09db6d5d92b94b5fb2d377e511942e2db3e7cb3e9ca92dfffd0f4d7",
+    "dsh-job.log": "fd2f88a852220183c44bf53bb5ec5d82006366a9be8effec48415a0c66eef624",
+    "codex-job.log": "66fb2be01fa3fa3c0504c318e2e8b7c7d3463727d0ffeccc7ccb3e1045e121cc",
+    "offline-job.log": "db2e7c913a265e8f0edb53a8ca3c4dd2a4991f628dea4f94fa6e241b7b669393"
+  },
+  "required_job_logs": 6,
+  "offline": "1842 passed, 91 skipped in1939.14s",
+  "pi_dsh_readback": "pi-dsh-partial-readback.json",
+  "pi_dsh_original_zip_sha256": {
+    "pi": "def4d918454097c6d5f94f620f220d3f8180e3e68e380b15ac04e223c978c4ca",
+    "dsh": "6553dc986244d73bc0971da510918227b3328c0f073a685153664ebd74b0e28a"
+  },
+  "codex": {
+    "strict_checks_success": [
+      "the agent edited its own source before the last episode",
+      "the final episode loaded the validated binary pair for the edited checkpoint",
+      "planted error refused by the boot gate",
+      "restore clears the gate"
+    ],
+    "episodes": 2,
+    "turns": [
+      18,
+      27
+    ],
+    "build_seconds": 6930,
+    "release_compile_seconds": 5384,
+    "test_compile_seconds": 1088,
+    "two_episode_seconds": 2867,
+    "strict_check_seconds": 357,
+    "raw_trace_exported": false,
+    "limitation": "Codex has completed source-bound GHA logs and strict live checker result, but this workflow exports no Codex raw episode trace, binary publication or per-phase build timing. No independent reconstruction of the full Codex source/binary state is claimed. Costs and complete provider-call totals are unknown."
+  },
+  "same_smoke_inputs_to_head": [
+    "proteus",
+    "pyproject.toml",
+    ".github/workflows/release-smoke.yml",
+    "scripts/smoke_check.py",
+    "scripts/release_smoke_diagnostics.py",
+    "environments"
+  ],
+  "same_native_source_inputs_from_9807_to_head": [
+    "proteus",
+    "pyproject.toml",
+    ".github/workflows/native-source-integration.yml",
+    "environments",
+    "tests/check_native_source_docker.py",
+    "tests/check_native_source_repair.py"
+  ],
+  "main_pr_checks": "not yet created; must run on main PR before merge",
+  "future_tag_gates": "not satisfied by this preparation run",
+  "new_provider_calls_by_readback": 0,
+  "old_failed_run": "41390453875 stays failed; its Codex success is diagnostic only and not pooled",
+  "independent_review": "pending"
+}

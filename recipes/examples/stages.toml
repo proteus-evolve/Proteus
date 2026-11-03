@@ -1,0 +1,29 @@
+# Offline example: replace the method, stage or actor through the registry/config.
+name = "stage-extension-demo"
+[reference]
+profile = "native"
+[method.plugin]
+name = "proteus.sequence"
+version = "1"
+[method.options.initial.question]
+kind = "proteus.text@1"
+value = {text = "Inspect this scoped candidate."}
+[[method.options.steps]]
+stage = "propose"
+inputs = {prompt = "question"}
+outputs = {response = "proposal"}
+[method.options.outputs]
+proposal = "proposal"
+[[stages]]
+id = "propose"
+role = "optimizer"
+read_scopes = ["proteus.text@1"]
+write_scopes = ["proteus.actor_result@1"]
+[stages.operator.plugin]
+name = "proteus.prompt"
+version = "1"
+[actors.optimizer.runtime.plugin]
+name = "proteus.echo"
+version = "1"
+[budget]
+max_model_calls = 0

@@ -1,0 +1,75 @@
+{
+  "zip_original_files_byte_unchanged": 1168,
+  "added_audit_coordination_files": [
+    "fixture/.proteus-locks/0c5df1618b4bb3751fe40d028efcd7cf45b3138b43f71c5829e24b5fc025b3ed.lock",
+    "live/.proteus-locks/f84feaa6c0bab0647175d8917059a79f66d4efdd0a60533cd91bdffdfc2dd35e.lock"
+  ],
+  "indexes": {
+    "fixture": {
+      "records_verified": 397,
+      "failed_exports": 0,
+      "gateway_credential_rows": 0,
+      "broker_permit_present": false
+    },
+    "live": {
+      "records_verified": 765,
+      "failed_exports": 0,
+      "gateway_credential_rows": 0,
+      "broker_permit_present": false
+    }
+  },
+  "physical_requests": 3,
+  "physical_rows_identical_before_after_resume": true,
+  "provider_input_tokens": 1141,
+  "provider_output_tokens": 113,
+  "worker_usage_matches_provider_rows": [
+    {
+      "slot": "a:0",
+      "model_calls": 1,
+      "input_tokens": 185,
+      "output_tokens": 33,
+      "cost_usd": null
+    },
+    {
+      "slot": "a:1",
+      "model_calls": 1,
+      "input_tokens": 458,
+      "output_tokens": 36,
+      "cost_usd": null
+    },
+    {
+      "slot": "b:0",
+      "model_calls": 1,
+      "input_tokens": 498,
+      "output_tokens": 44,
+      "cost_usd": null
+    }
+  ],
+  "ledger_entries": 15,
+  "settlement_events": 15,
+  "duplicate_settlements": 0,
+  "subject_trials_before": 3,
+  "subject_trials_after": 4,
+  "new_subject_trials_after_resume": 1,
+  "new_trial_scope": "Declared final hidden confirmation, not a repeated completed evaluation",
+  "all_original_identities_and_settlements_preserved": true,
+  "active_slots_after": 0,
+  "native_budget": {
+    "charged": {
+      "model_calls": 3.0,
+      "evaluations": 4.0,
+      "cost_usd": null,
+      "wall_seconds": 16.110490528999996
+    },
+    "unknown": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 3,
+      "wall_seconds": 0
+    },
+    "active_slots": 0,
+    "entries": 15
+  },
+  "unknown_money_not_converted_to_zero": true,
+  "reviewer_provider_calls": 0
+}

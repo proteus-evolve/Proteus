@@ -1,0 +1,17 @@
+[
+  {
+    "mode": "first",
+    "pid": 4960,
+    "returncode": 0
+  },
+  {
+    "mode": "repair",
+    "pid": 5410,
+    "returncode": 0
+  },
+  {
+    "mode": "complete",
+    "pid": 6351,
+    "returncode": 0
+  }
+]

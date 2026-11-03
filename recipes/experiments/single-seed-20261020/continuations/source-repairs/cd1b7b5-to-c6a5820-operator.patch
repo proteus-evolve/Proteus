@@ -1,0 +1,448 @@
+diff --git a/proteus_continuation/cli.py b/proteus_continuation/cli.py
+index 277f166..bcfea2e 100644
+--- a/proteus_continuation/cli.py
++++ b/proteus_continuation/cli.py
+@@ -124,9 +124,18 @@ def prepare(args):
+             'stop before joining a partial workflow map once preview frontiers reached'],
+         'workflow_prefix_materialization':'closed valid child sessions plus exact open-snapshot protocol/dataset-ref and proven valid prediction/grade/update prefix ONLY; exclude later failed outputs',
+         'journal_scope_ownership':'inherit only declared old scope; missing known origin is fatal; genuinely absent old child scope uses native fresh/own journal initialization',
++        'root_open_session_materialization':'exact open root snapshot prefix; never copy later invalid predictions, grades, batches or receipts',
++        'delayed_grading_reuse':'only exact completed zero-model valid graders from admitted tainted-cohort valid rollout IDs may replay across the cut; exact settlement is a read-only no-op, no parent write/new grade/model/quota reset',
++        'verified_parent_reader':{'component_revision':'f0b4aa4be7bf7f5c2a0e457d0c171c77c6595537',
++            'scope':'closed original parent only; own/live successor DAGs stay native',
++            'max_cached_raw_encoded_bytes':256*1024*1024,'max_cached_nodes':32768,
++            'raw_payload_cap_is_not_total_Python_RSS_cap':True,
++            'checks':'per-node raw SHA, detached unpack, store/WAL invalidation, strict plain-JSON byte-identical whole-envelope SHA; unchanged native schema/artifact/evidence/actor/body validation',
++            'not_a_global_Contract_hash_shortcut':True},
+         'dynamic_interrupted_attempt':'preserve original timing-start reference and all completed measurements; only interrupted in-flight duration remains UNKNOWN per original TimingService' if manifest.recipe.method.options.get('dynamic_batch') else None}
+     context=Context(plan,out,registry,oracle=None,allow_paid=False)
+     refs=context.prepare_immutable_inputs()
++    plan['open_root_session_prefix_bounds']=context.open_root_session_bounds
+     once(out/'readonly-prefix-refs.json',refs)
+     plan['readonly_prefix_refs_sha256']=sha((out/'readonly-prefix-refs.json').read_bytes())
+     plan['protected_parent_files']={name:sha((parent/name).read_bytes()) for name in
+@@ -200,6 +209,7 @@ def preview(args):
+         'expected_frontier_count':len(plan['failed_actor_frontier']),
+         'initialized':initialized,'preserved':preserved,
+         'tainted_cohort_successors':[{'id':i,'state':context.ledger._own(i)['state']} for i in context.ledger.tainted],
++        'verified_closed_parent_reader':context.prefix_decoder.statistics(),
+         'provider_calls_enabled':False,'preview_scratch_must_NEVER_be_launched':True}
+     receipt['actual_scientific_state_preview_passed']=(set(context.frontiers)=={r['actor_id'] for r in plan['failed_actor_frontier']}
+         and len(actual)==plan['independent_expected_closed_actor_count'] and preserved['root_journal_pending'])
+diff --git a/proteus_continuation/exact_json_snapshot_reader.py b/proteus_continuation/exact_json_snapshot_reader.py
+new file mode 100644
+index 0000000..b6f93a4
+--- /dev/null
++++ b/proteus_continuation/exact_json_snapshot_reader.py
+@@ -0,0 +1,64 @@
++"""Exact native recovery reader, with a STRICT PURE-JSON digest fast path.
++
++This is not a global content_hash/Contract shortcut. Only JSON containers just
++read from recovery envelopes/DAGs enter this path. Keys, exact scalar/container
++types, finite numbers and circular structures are validated before using the
++same native canonical JSON bytes. Whole-envelope SHA256 remains mandatory.
++"""
++import hashlib
++import json
++import math
++
++from proteus.artifacts.store import _read
++from proteus.core import snapshot_store
++from proteus.core.serialization import ContractError, read_json
++from proteus.core.contracts import require
++
++
++def canonical_plain_json_bytes(value):
++    active = set()
++
++    def validate(item):
++        kind = type(item)
++        if kind in (str, bool, int, type(None)):
++            return
++        if kind is float:
++            if not math.isfinite(item):
++                raise ContractError('not a finite JSON value')
++            return
++        if kind not in (dict, list):
++            raise ContractError('plain recovery JSON only; no typed Contract shortcut')
++        identity = id(item)
++        if identity in active:
++            raise ContractError('circular plain recovery JSON')
++        active.add(identity)
++        try:
++            if kind is dict:
++                for key, child in item.items():
++                    if type(key) is not str:
++                        raise ContractError('JSON object keys must be strings')
++                    validate(child)
++            else:
++                for child in item:
++                    validate(child)
++        finally:
++            active.remove(identity)
++    validate(value)
++    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'),
++                      allow_nan=False).encode('utf-8')
++
++
++def plain_json_digest(value):
++    return 'sha256:' + hashlib.sha256(canonical_plain_json_bytes(value)).hexdigest()
++
++
++def load(path):
++    envelope = read_json(_read(path).decode())
++    if set(envelope) == {'hash', 'value', 'storage'}:
++        require(envelope['storage'] == snapshot_store.FORMAT, 'unknown recovery snapshot storage format')
++        require(isinstance(envelope['value'], dict) and 'snapshot' in envelope['value'], 'missing stored snapshot')
++        envelope['value']['snapshot'] = snapshot_store.decode(snapshot_store.directory(path), envelope['value']['snapshot'])
++        del envelope['storage']
++    require(set(envelope) == {'hash', 'value'} and plain_json_digest(envelope['value']) == envelope['hash'],
++            'recovery record integrity mismatch')
++    return envelope['value']
+diff --git a/proteus_continuation/execution.py b/proteus_continuation/execution.py
+index 091e699..c014574 100644
+--- a/proteus_continuation/execution.py
++++ b/proteus_continuation/execution.py
+@@ -140,6 +140,7 @@ def execute(args):
+                         'initial_operator_revision':plan['executor_operator_source']['revision'],
+                         'executor_upgrade_authorization_sha256':binding['upgrade']['sha256'] if binding['upgrade'] else None,
+                         'status':status,'diagnostic':diagnostic,'controller_timing':timing.reference,
++                        'verified_closed_parent_reader':context.prefix_decoder.statistics(),
+                         'requests':[r.to_dict() for r in services.requests],
+                         'results':[r.to_dict() for r in services.results],
+                         'actor_calls':services.actor_calls,'native_prompts':services.native_prompts,
+@@ -162,6 +163,7 @@ def execute(args):
+         assert protected_after==plan['protected_parent_files'],'original parent mutated'
+         receipt={'schema':'proteus.continuation.invocation.v1',**identity,'PID':os.getpid(),
+             'status':status,'diagnostic':diagnostic,'journal_pending':pending_at_exit,
++            'verified_closed_parent_reader':context.prefix_decoder.statistics(),
+             'method_result':str(invocation.with_suffix('.method-result.json')) if result is not None and status!='deferred' else None,
+             'combined_budget':context.ledger.balance(),'old_parent_untouched':True,
+             'protected_parent_sha256_after':protected_after,
+diff --git a/proteus_continuation/ledger.py b/proteus_continuation/ledger.py
+index b1088a6..86c028f 100644
+--- a/proteus_continuation/ledger.py
++++ b/proteus_continuation/ledger.py
+@@ -90,7 +90,7 @@ class PrefixLedger:
+         self.retired=set(retired_failed_ids);self._lock=threading.RLock();self.reentries={}
+         require(all(i in self.parent.index() and self.parent.index()[i]['state']=='failed' for i in self.retired),
+             'only explicitly qualified failed parent entries may get successor attempts')
+-        self.tainted={}
++        self.tainted={};self.tainted_valid_trials=set()
+         for proof in tainted_cohorts:
+             entry=self.parent.index().get(proof['entry_id'])
+             require(entry is not None and entry['state']=='completed'
+@@ -119,7 +119,20 @@ class PrefixLedger:
+                 'first invalid leaf is not the admitted failure frontier')
+             require([r['rollout_id'] for r in invalid]==proof['original_invalid_rollout_ids']
+                 and len(rows)-len(invalid)==proof['original_valid_leaf_count'],'tainted leaf proof differs')
++            self.tainted_valid_trials.update((operation,r['rollout_id']) for r in rows if r['status'] in ('succeeded','task_failed'))
+             self.tainted[proof['entry_id']]=proof;self.retired.add(proof['entry_id'])
++    def reusable_delayed_grader(self,row):
++        """A valid, already computed non-model leaf inside EXACT tainted cohort.
++
++        A new evaluation.finish journal op may reach this cached grade with
++        recovering=False. That is not permission to call a grader/model again.
++        """
++        metadata=row['identity']['metadata'];settlement=row['settlement']
++        if row['state']!='completed' or metadata.get('kind')!='grader':return False
++        if (metadata.get('operation_id'),metadata.get('trial_id')) not in self.tainted_valid_trials:return False
++        grade=(settlement.get('result') or {}).get('grade') or {}
++        return (row['identity']['reservation']['model_calls']==0 and grade.get('status') in ('succeeded','task_failed')
++            and (grade.get('usage') or {}).get('model_calls')==0)
+     def begin_tainted_cohort_successors(self,run_budget):
+         """Conservatively retain BOTH original and successor task-slot charges.
+ 
+@@ -158,7 +171,7 @@ class PrefixLedger:
+             own=self._own(entry_id)
+             if prior and own is None and entry_id not in self.retired:
+                 identity={'scopes':sorted(scopes),'reservation':reservation,'slots':slots,'metadata':metadata,'request':request}
+-                require(reuse and canonical_json(prior['identity'])==canonical_json(identity),
++                require((reuse or self.reusable_delayed_grader(prior)) and canonical_json(prior['identity'])==canonical_json(identity),
+                     'inherited operation differs or was submitted without explicit replay')
+                 require(prior['state']=='completed','inherited failure/uncertain dispatch is not reusable')
+                 return prior
+@@ -249,6 +262,15 @@ class PrefixLedger:
+         hook=getattr(self,'defer_uncertain_settlement',None)
+         if hook is not None:hook(args[0],kwargs)
+         with self._mutation():
++            if self._own(args[0]) is None:
++                prior=self.parent.index().get(args[0])
++                require(prior is not None and self.reusable_delayed_grader(prior),
++                    'cannot settle a read-only parent entry')
++                require(kwargs['status']==prior['state']
++                    and canonical_json(kwargs['actual'])==canonical_json(prior['settlement']['actual'])
++                    and canonical_json(kwargs.get('result'))==canonical_json(prior['settlement']['result']),
++                    'read-only delayed-grade no-op settlement differs')
++                return prior # NO database write, event, quota change, or grader execution.
+             require(self._own(args[0]) is not None,'cannot settle a read-only parent entry')
+             return self.delta.settle(*args,**kwargs)
+     def balance(self,scope='run'):
+diff --git a/proteus_continuation/runtime.py b/proteus_continuation/runtime.py
+index a6cee0d..0cb3651 100644
+--- a/proteus_continuation/runtime.py
++++ b/proteus_continuation/runtime.py
+@@ -17,6 +17,8 @@ from proteus.core.recovery import RecoveryRequired
+ from proteus.core.serialization import canonical_json,content_hash,json_value
+ from proteus_continuation.journal import PrefixJournal,detect_cut,original_load
+ from proteus_continuation.ledger import PrefixLedger
++from proteus_continuation.exact_json_snapshot_reader import load as load_parent_json
++from proteus_continuation.verified_prefix_decoder import VerifiedPrefixDecoder
+ 
+ ACTIVE=[]
+ def sha(raw):return hashlib.sha256(raw).hexdigest()
+@@ -43,6 +45,12 @@ class Context:
+             allowed_codecs=(recipe.subject.initial_artifact.codec,) if recipe.subject else ())
+         self.ledger.defer_uncertain_settlement=self.defer_uncertain_settlement
+         self.reused_actors=set();self.loaded_sealed_actors={}
++        self.open_root_session_bounds=[]
++        from proteus.core import snapshot_store
++        # Only the closed immutable original parent is eligible. Own/live
++        # successor DAGs retain the unchanged native decoder and checksum path.
++        self.prefix_decoder=VerifiedPrefixDecoder(snapshot_store,(self.parent,),
++            max_raw_bytes=256*1024*1024)
+     def journal_parent(self,root):
+         relative=Path(root).resolve().relative_to(self.root)
+         key=relative.as_posix()
+@@ -56,7 +64,8 @@ class Context:
+         ref=self.read_refs.get(str(path))
+         if ref:
+             parent=Path(ref['parent']);require(sha(parent.read_bytes())==ref['sha256'],'read-only prefix bytes changed')
+-            value=original_load(parent)
++            value=load_parent_json(parent)
++        elif path.is_relative_to(self.parent):value=load_parent_json(path)
+         else:value=original_load(path)
+         if isinstance(value,dict) and isinstance(value.get('snapshot'),dict):
+             old=self.ledger.parent.index()
+@@ -82,6 +91,24 @@ class Context:
+             if directory.exists():
+                 for path in sorted(directory.rglob('*')):
+                     if path.is_file():self.link(path)
++        cut=self.plan['root_prefix_cut'];journal=self.parent/'private/recovery'
++        prefix=journal/'operations'/f'{cut:08d}.result.json' if cut else journal/'origin.json'
++        root_snapshot=original_load(prefix)['snapshot']
++        for session in root_snapshot['sessions']:
++            if session['closed']:continue
++            names=['protocol.json','private/dataset-ref.json']
++            for i in range(len(session['observations'])):
++                require(session['observations'][i]['rollout']['status'] in ('succeeded','task_failed'),
++                    'open root prefix includes invalid observation')
++                names.append(f'predictions/{i:06d}.json')
++                if str(i) in session['grades']:names.append(f'private/grades/{i:06d}.json')
++            names.extend(f'updates/{i:06d}.json' for i in range(len(session['updates'])))
++            evaluation=self.parent/'evaluations'/content_hash(session['operation_id']).split(':')[1]
++            for name in names:self.link(evaluation/name)
++            self.open_root_session_bounds.append({'operation_id':session['operation_id'],
++                'valid_observations':len(session['observations']),'grade_indices':sorted(session['grades']),
++                'source_prefix_record_sha256':sha(prefix.read_bytes()),'exact_files':names,
++                'later_invalid_outputs_excluded':True})
+         current=self.plan.get('workflow_map_parent')
+         if current:
+             directory=Path(current)
+@@ -275,7 +302,8 @@ def operational_overlay(context):
+         for name,old,new in (('Journal',original_journal,PrefixJournal),('_load',original_load,load)):
+             if getattr(module,name,None) is old:
+                 replacements.append((module,name,old));setattr(module,name,new)
+-    try:yield
++    try:
++        with context.prefix_decoder.installed():yield
+     finally:
+         for module,name,old in reversed(replacements):setattr(module,name,old)
+         RunServices.__init__,RunServices._actor=original_init,original_actor
+diff --git a/proteus_continuation/verified_prefix_decoder.py b/proteus_continuation/verified_prefix_decoder.py
+new file mode 100644
+index 0000000..bbc063b
+--- /dev/null
++++ b/proteus_continuation/verified_prefix_decoder.py
+@@ -0,0 +1,191 @@
++"""Isolated, bounded cache of verified ENCODED nodes in immutable parent DAGs.
++
++Not an executor and not installed into any running experiment. Native recovery
++still performs its complete envelope digest, typed restore, artifact/evidence,
++actor identity and request/body checks. Every node read, including cache hits,
++rechecks SHA256(raw)==address; unpack always builds fresh mutable containers.
++Only explicitly allowed CLOSED parent paths are eligible. Store replacement,
++metadata/WAL changes invalidate cached nodes, and mutation during decoding fails
++closed. Own/live successor stores use the original decoder, never this cache.
++"""
++from collections import OrderedDict
++from contextlib import contextmanager
++from dataclasses import dataclass
++import hashlib
++import json
++import math
++from pathlib import Path
++import re
++import threading
++import zlib
++
++
++@dataclass(frozen=True)
++class _Encoded:
++    raw: bytes
++    value: object  # private, read-only encoded tree; NEVER returned to callers
++
++
++class VerifiedPrefixDecoder:
++    def __init__(self, native, allowed_parents, *, max_nodes=32768, max_raw_bytes=32 * 1024 * 1024):
++        assert max_nodes > 0 and max_raw_bytes > 0
++        self.native = native
++        self.original_decode = native.decode
++        self.allowed = tuple(Path(p).absolute() for p in allowed_parents)
++        self.max_nodes, self.max_raw_bytes = max_nodes, max_raw_bytes
++        self._encoded = OrderedDict()
++        self._store_identity = {}
++        self._raw_bytes = 0
++        self._lock = threading.RLock()
++        self.counts = {'hits': 0, 'misses': 0, 'raw_sha_checks': 0, 'invalidated_nodes': 0,
++                       'source_sql_reads': 0, 'fallback_decodes': 0,
++                       'miss_raw_encoded_bytes': 0}
++
++    def _fail(self, message):
++        from proteus.core.serialization import ContractError
++        raise ContractError(message)
++
++    @staticmethod
++    def _stat(path):
++        if not path.exists():
++            return None
++        info = path.stat()
++        return (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
++
++    def _fingerprint(self, root):
++        path = root / 'snapshot-nodes.sqlite3'
++        if path.is_symlink() or (root.exists() and root.is_symlink()):
++            self._fail('snapshot store must not be a symlink')
++        if not path.is_file():
++            self._fail('snapshot node store is missing')
++        return (str(path), self._stat(path), self._stat(path.with_name(path.name + '-wal')),
++                self._stat(path.with_name(path.name + '-shm')))
++
++    def _invalidate_if_changed(self, identity):
++        path = identity[0]
++        with self._lock:
++            old = self._store_identity.get(path)
++            if old is not None and old != identity:
++                for key in list(self._encoded):
++                    if key[0][0] == path:
++                        entry = self._encoded.pop(key)
++                        self._raw_bytes -= len(entry.raw)
++                        self.counts['invalidated_nodes'] += 1
++            self._store_identity[path] = identity
++
++    def _node(self, db, identity, digest):
++        key = (identity, digest)
++        with self._lock:
++            entry = self._encoded.get(key)
++            if entry is not None:
++                self._encoded.move_to_end(key)
++                self.counts['hits'] += 1
++        if entry is None:
++            with self._lock:
++                self.counts['source_sql_reads'] += 1
++                self.counts['misses'] += 1
++            row = db.execute('SELECT data FROM nodes WHERE hash=?', (digest,)).fetchone()
++            if row is None:
++                self._fail('snapshot node is missing')
++            try:
++                raw = zlib.decompress(row[0])
++                if hashlib.sha256(raw).hexdigest() != digest:
++                    self._fail('snapshot node integrity mismatch')
++                entry = _Encoded(raw, json.loads(raw))
++            except (zlib.error, ValueError) as exc:
++                from proteus.core.serialization import ContractError
++                raise ContractError('invalid compressed snapshot node') from exc
++            with self._lock:
++                self.counts['miss_raw_encoded_bytes'] += len(entry.raw)
++                # Concurrent readers may have inserted the same immutable node.
++                existing = self._encoded.get(key)
++                if existing is not None:
++                    entry = existing
++                elif len(entry.raw) <= self.max_raw_bytes:
++                    self._encoded[key] = entry
++                    self._raw_bytes += len(entry.raw)
++                    while len(self._encoded) > self.max_nodes or self._raw_bytes > self.max_raw_bytes:
++                        _, evicted = self._encoded.popitem(last=False)
++                        self._raw_bytes -= len(evicted.raw)
++        # Keep the native per-reference digest check even for cached nodes.
++        if hashlib.sha256(entry.raw).hexdigest() != digest:
++            self._fail('cached snapshot node integrity mismatch')
++        with self._lock:
++            self.counts['raw_sha_checks'] += 1
++        return entry.value
++
++    def __call__(self, root, encoded):
++        root = Path(root).absolute()
++        if not any(root.is_relative_to(parent) for parent in self.allowed):
++            with self._lock:
++                self.counts['fallback_decodes'] += 1
++            return self.original_decode(root, encoded)
++        identity = self._fingerprint(root)
++        self._invalidate_if_changed(identity)
++        active = set()
++        local = {}  # Native decoder also resolves each digest once per call.
++        # Original RO connection contract; no Ledger or writable DB is opened.
++        with self.native._connect(root, readonly=True) as db:
++            def unpack(value, depth=0):
++                if depth > 256:
++                    self._fail('snapshot node nesting limit exceeded')
++                if not isinstance(value, list):
++                    if type(value) not in (str, int, float, bool, type(None)):
++                        self._fail('invalid inline snapshot node')
++                    if type(value) is float and not math.isfinite(value):
++                        self._fail('nonfinite snapshot value')
++                    return value
++                if len(value) != 2 or value[0] not in ('@', 'd', 'l', 'a', 's'):
++                    self._fail('invalid snapshot node encoding')
++                kind, payload = value
++                if kind == '@':
++                    if type(payload) is not str or not re.fullmatch(r'[0-9a-f]{64}', payload) or payload in active:
++                        self._fail('invalid or cyclic snapshot reference')
++                    if payload not in local:
++                        local[payload] = self._node(db, identity, payload)
++                    node = local[payload]
++                    active.add(payload)
++                    try:
++                        return unpack(node, depth + 1)
++                    finally:
++                        active.remove(payload)
++                if kind == 's':
++                    if type(payload) is not str:
++                        self._fail('invalid snapshot string')
++                    return payload
++                if kind == 'd':
++                    if not isinstance(payload, list):
++                        self._fail('invalid snapshot dictionary')
++                    result = {}
++                    for pair in payload:
++                        if not isinstance(pair, list) or len(pair) != 2 or type(pair[0]) is not str or pair[0] in result:
++                            self._fail('invalid snapshot dictionary entry')
++                        result[pair[0]] = unpack(pair[1], depth + 1)
++                    return result
++                if not isinstance(payload, list):
++                    self._fail('invalid snapshot sequence')
++                items = [unpack(item, depth + 1) for item in payload]
++                if kind == 'l':
++                    return items
++                if not all(isinstance(item, list) for item in items):
++                    self._fail('invalid snapshot page')
++                return [item for page in items for item in page]
++            result = unpack(encoded)
++        if self._fingerprint(root) != identity:
++            self._invalidate_if_changed(self._fingerprint(root))
++            self._fail('immutable prefix snapshot store changed during decode')
++        return result
++
++    @contextmanager
++    def installed(self):
++        assert self.native.decode is self.original_decode, 'another decoder override is active'
++        self.native.decode = self
++        try:
++            yield self
++        finally:
++            self.native.decode = self.original_decode
++
++    def statistics(self):
++        with self._lock:
++            return {**self.counts, 'cached_nodes': len(self._encoded), 'cached_raw_bytes': self._raw_bytes,
++                    'max_nodes': self.max_nodes, 'max_raw_bytes': self.max_raw_bytes}

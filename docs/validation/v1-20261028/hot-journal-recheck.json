@@ -1,0 +1,983 @@
+{
+  "collected_at_utc": "2026-10-29T07:37:57.209131+00:00",
+  "runtime_file_sha256": "591c30fe564f0c6e2d277d2a8f867f5996ced56e3129802c783e5991fd11eaaf",
+  "current_collection": 1780,
+  "github_failure": {
+    "run": 40831787772,
+    "head": "6273a8208a65f0e191c1b204e20eacbb7a7e22d8",
+    "failed": 1,
+    "passed": 1686,
+    "skipped": 91,
+    "cause": "SnapshotStore.load mode=ro cannot roll back hot SQLite journal after controller hard exit",
+    "downstream_live_jobs": "all skipped; no provider calls started"
+  },
+  "deterministic_before_repair": {
+    "counts": {
+      "passed": 3,
+      "skipped": 0,
+      "failed": 1,
+      "error": 0
+    },
+    "cases": [
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_shared_snapshots_restore_old_and_new_states_and_detect_corruption",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_missing_snapshot_objects_cannot_be_replaced_by_partial_state",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_load_recovers_hot_journal_without_exposing_uncommitted_objects",
+        "status": "failed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_loading_missing_database_does_not_create_an_empty_replacement",
+        "status": "passed"
+      }
+    ],
+    "xml_sha256": "5a1f21d972bbf23faa234ae3a26d8b9da25a9a95b889faebf44239fc237212f0"
+  },
+  "deterministic_after_repair": {
+    "counts": {
+      "passed": 4,
+      "skipped": 0,
+      "failed": 0,
+      "error": 0
+    },
+    "cases": [
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_shared_snapshots_restore_old_and_new_states_and_detect_corruption",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_missing_snapshot_objects_cannot_be_replaced_by_partial_state",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_load_recovers_hot_journal_without_exposing_uncommitted_objects",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_loading_missing_database_does_not_create_an_empty_replacement",
+        "status": "passed"
+      }
+    ],
+    "xml_sha256": "23b63012bdf39f2cb235c00a4fde69539e0fe2bd07474730abf617dac4642c2b"
+  },
+  "affected_suite": {
+    "counts": {
+      "passed": 151,
+      "skipped": 5,
+      "failed": 0,
+      "error": 0
+    },
+    "cases": [
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_shared_snapshots_restore_old_and_new_states_and_detect_corruption",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_missing_snapshot_objects_cannot_be_replaced_by_partial_state",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_load_recovers_hot_journal_without_exposing_uncommitted_objects",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_snapshot_store",
+        "name": "test_loading_missing_database_does_not_create_an_empty_replacement",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_knowledge_access_is_explicit_and_identity_cannot_be_overridden[none]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_knowledge_access_is_explicit_and_identity_cannot_be_overridden[read]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_knowledge_access_is_explicit_and_identity_cannot_be_overridden[read_write]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_two_workers_cas_conflicts_reads_deletions_and_historical_receipts",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_missing_knowledge_database_cannot_reset_shared_history",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_sources_cannot_import_private_values_or_another_runs_knowledge",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_worker_operation_names_cannot_occupy_formal_attempt_namespace",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_actual_workers_exchange_note_then_publish_skill_with_formal_attempt_source",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_controller_exit_after_worker_knowledge_commit_preserves_exchange[write]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_worker_knowledge",
+        "name": "test_controller_exit_after_worker_knowledge_commit_preserves_exchange[capture]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_complete_recipe_records_only_released_evidence_and_retains_old_snapshots",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_configuration_cannot_disclose_hidden_evaluations_or_grant_unknown_roles",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_stage_reads_require_declared_space_supplied_snapshot_and_included_revision",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_hard_exit_preserves_recorded_reads_and_later_shared_publications[capture.receipt]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_hard_exit_preserves_recorded_reads_and_later_shared_publications[knowledge.capture]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_hard_exit_preserves_recorded_reads_and_later_shared_publications[publish.receipt]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_hard_exit_preserves_recorded_reads_and_later_shared_publications[knowledge.attempt]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_hard_exit_preserves_recorded_reads_and_later_shared_publications[conflict.receipt]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_resume_rejects_missing_recorded_shared_snapshot",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_knowledge_service",
+        "name": "test_snapshot_identity_is_part_of_the_configuration_and_dependency_lock",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_uncertain_actor_never_settles_or_retries[RecoveryRequired]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_uncertain_actor_never_settles_or_retries[KeyboardInterrupt]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_uncertain_actor_never_settles_or_retries[SystemExit]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_subject_can_reconcile_without_new_dispatch[1]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_subject_can_reconcile_without_new_dispatch[2]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_checkpoint_publication_is_recoverable[False-prepared]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_checkpoint_publication_is_recoverable[False-published]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_checkpoint_publication_is_recoverable[False-history]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_checkpoint_publication_is_recoverable[True-prepared]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_checkpoint_publication_is_recoverable[True-published]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_checkpoint_publication_is_recoverable[True-history]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_uncertainty_does_not_publish_terminal_receipt[RecoveryRequired]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_uncertainty_does_not_publish_terminal_receipt[KeyboardInterrupt]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_native_uncertainty_does_not_publish_terminal_receipt[SystemExit]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_docker_cleanup_is_bounded_and_blocks_until_reconciled[failure0]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_docker_cleanup_is_bounded_and_blocks_until_reconciled[failure1]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_uncertain_map_actor_stops_new_work_and_resume[stage_map]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_uncertain_map_actor_stops_new_work_and_resume[workflow_map]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_build_interruption_retains_started_reservation",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_docker_polled_cleanup_never_drains_pipes_without_timeout",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_live_harbor_sandbox_timeout_removes_actual_container[False]",
+        "status": "skipped"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_live_harbor_sandbox_timeout_removes_actual_container[True]",
+        "status": "skipped"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_live_harbor_sandbox_keyboard_interrupt_removes_actual_container",
+        "status": "skipped"
+      },
+      {
+        "class": "tests.test_v1_release_recovery",
+        "name": "test_cleanup_marker_storage_failure_still_reports_uncertainty",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[candidate.registered]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[candidate]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[evaluation.open]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[subject.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[prediction.published]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[evaluation.step]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[grader.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[grade.published]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[evaluation.finish]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_hard_exit_reuses_committed_work_and_preserves_cohort_budget[method.result]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_stage_recovery_reuses_actor_result[actor.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_stage_recovery_reuses_actor_result[stage]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_stage_recovery_reuses_actor_result[method.result]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_uncertain_external_work_is_not_reissued[evaluation-subject.uncertain]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_uncertain_external_work_is_not_reissued[stage-actor.uncertain]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_online_checkpoint_restores_state_rng_archive_and_feedback_privacy[False]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_online_checkpoint_restores_state_rng_archive_and_feedback_privacy[True]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_corrupt_journal_and_changed_configuration_fail_before_replay",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_checkpoint_state_version_is_validated_before_restoring",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_changed_recipe_cannot_replenish_budget_on_resume",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_cli_recovery_reports_uncertainty_without_private_inputs",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_live_harbor_recovery_preserves_build_and_verifier_without_new_trial[subject.settled]",
+        "status": "skipped"
+      },
+      {
+        "class": "tests.test_v1_recovery",
+        "name": "test_live_harbor_recovery_preserves_build_and_verifier_without_new_trial[worker.running]",
+        "status": "skipped"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_worker_retries_a_truncated_response_after_controller_exit[fixture]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_worker_retries_a_truncated_response_after_controller_exit[fixture_post]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_worker_retries_a_truncated_response_after_controller_exit[knowledge]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_worker_retries_a_truncated_response_after_controller_exit[knowledge_post]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_worker_retries_a_truncated_response_after_controller_exit[client]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attempts[store.admit]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attempts[store.claim]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attempts[gateway.claim]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attempts[evaluation.finish]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attempts[store.finish]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_controller_hard_exit_keeps_workers_tickets_evaluations_and_shared_attempts[gateway.finish]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_distinct_concurrent_submissions_cannot_overbook_queue_or_admission_budget[1-4-queue is full]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_distinct_concurrent_submissions_cannot_overbook_queue_or_admission_budget[2-2-admission budget exhausted]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_pending_gateway_requests_prevent_terminal_method_result[False]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_pending_gateway_requests_prevent_terminal_method_result[True]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_gateway_recovery",
+        "name": "test_failed_evaluation_hides_private_diagnostics_and_keeps_admission_charge",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_ports_options_and_implementation_are_locked",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_rejects_undeclared_execution_capabilities[workflow.parallel]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_rejects_undeclared_execution_capabilities[workflow.replay]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_cannot_inherit_parallel_safety_from_its_own_declaration[stage-stage.parallel]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_cannot_inherit_parallel_safety_from_its_own_declaration[stage-stage.replay]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_cannot_inherit_parallel_safety_from_its_own_declaration[actor-actor.parallel]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_cannot_name_an_undeclared_service[stages]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_cannot_name_an_undeclared_service[evaluations]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_multistep_programs_join_without_call_identity_collisions",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[plan.json]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[request.json]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[actor.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[stage]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[method.result]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[result.json]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[join.json]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_hard_exit_reuses_each_committed_call[workflow.map]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_uncertain_program_stops_other_branches_before_dispatch",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_fail_fast_resume_drains_previously_submitted_program",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflows_share_generator_and_reflector_budgets",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_failure_drains_started_programs[collect]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_failure_drains_started_programs[fail_fast]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_programs_keep_candidate_updates_and_formal_scores_local[1]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_programs_keep_candidate_updates_and_formal_scores_local[2]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_http_multistep_workflows_wait_for_role_capacity_without_overdispatch[1]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_http_multistep_workflows_wait_for_role_capacity_without_overdispatch[2]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[evaluation_cohort.reserved]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[subject.reserved]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[subject.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[prediction]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[grader.reserved]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[grader.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[evaluation.step]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[evaluation.finish]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[actor.reserved]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[actor.settled]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[candidate]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_adaptive_workflow_recovery_preserves_actual_evaluations_and_candidates[result.json]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_rejects_resealed_branch_evidence_before_new_dispatch[actor]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_rejects_resealed_branch_evidence_before_new_dispatch[prediction]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_rejects_resealed_branch_evidence_before_new_dispatch[public_score]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_rejects_resealed_branch_evidence_before_new_dispatch[inherited_candidate]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflow_reconciles_old_subject_before_allowing_new_work",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_workflows",
+        "name": "test_workflows_after_owner_evaluation_and_previous_join_restore_sessions",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_atomic_multiscope_admission_leaves_no_partial_reservation",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_refund_and_concurrency_release_are_atomic_but_spend_is_not_reset",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_unknown_usage_retains_bound_and_unknown_cost_is_not_zero",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_unknown_unbounded_reservation_stays_unknown",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_decimal_money_caps_and_unknown_reservation_rejection",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_overrun_records_real_charge_and_violation_before_next_admission",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_reopen_cannot_change_experiment_identity[run_id-another]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_reopen_cannot_change_experiment_identity[config_hash-sha256:9abf9994927acc503ec87e4433239aee75bb937357616bf8cca0290a1f3aa60a]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_reopen_cannot_change_experiment_identity[lock_hash-None]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_schema_version_and_unrecognized_database_are_not_reset",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_identity_idempotence_never_grants_permission_to_repeat_dispatch",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_predispatch_cancellation_releases_reservation",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_separate_processes_cannot_oversubscribe_shared_limits[calls]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_separate_processes_cannot_oversubscribe_shared_limits[slots]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_process_crash_rolls_back_uncommitted_cap_change",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_retry_reservations_survive_reopen_and_keep_attempt_identity",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_reopened_services_do_not_refill_budget_or_replay_an_actor",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_invalid_runtime_results_and_system_exit_do_not_erase_spend[overrun]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_invalid_runtime_results_and_system_exit_do_not_erase_spend[wrong_runtime]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_invalid_runtime_results_and_system_exit_do_not_erase_spend[exit]",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_real_actor_crash_leaves_durable_request_and_uncertain_dispatch",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_evaluation_cohort_reservation_survives_service_recreation",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_native_path_does_not_claim_zero_cost_ledger_coverage",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_failed_workspace_creation_cancels_only_undispatched_call",
+        "status": "passed"
+      },
+      {
+        "class": "tests.test_v1_ledger",
+        "name": "test_aborted_evaluation_retains_its_entire_admitted_cohort",
+        "status": "passed"
+      }
+    ],
+    "xml_sha256": "312149fc10e72ab191fd1dfea41dd58a112de632ef0efa7cd051ad9135ff7203"
+  },
+  "installed_wheel_sdist": [
+    {
+      "distribution": "wheel",
+      "check": "check_plugin_templates.py",
+      "exit_code": 0,
+      "seconds": 9.279981957748532
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_native_inputs_package.py",
+      "exit_code": 0,
+      "seconds": 0.7135861674323678
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_native_budget_package.py",
+      "exit_code": 0,
+      "seconds": 0.9354467084631324
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_harness_accounting_package.py",
+      "exit_code": 0,
+      "seconds": 0.9033425841480494
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_result_export.py",
+      "exit_code": 0,
+      "seconds": 1.297811208292842
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_study_comparison.py",
+      "exit_code": 0,
+      "seconds": 2.622483666986227
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_parallel_package.py",
+      "exit_code": 0,
+      "seconds": 0.30941195879131556
+    },
+    {
+      "distribution": "wheel",
+      "check": "check_workflow_package.py",
+      "exit_code": 0,
+      "seconds": 2.409806958399713
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_plugin_templates.py",
+      "exit_code": 0,
+      "seconds": 9.817893291823566
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_native_inputs_package.py",
+      "exit_code": 0,
+      "seconds": 0.7082422915846109
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_native_budget_package.py",
+      "exit_code": 0,
+      "seconds": 0.9409087924286723
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_harness_accounting_package.py",
+      "exit_code": 0,
+      "seconds": 0.9047891665250063
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_result_export.py",
+      "exit_code": 0,
+      "seconds": 1.3464303752407432
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_study_comparison.py",
+      "exit_code": 0,
+      "seconds": 2.878189291805029
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_parallel_package.py",
+      "exit_code": 0,
+      "seconds": 0.3334582494571805
+    },
+    {
+      "distribution": "sdist",
+      "check": "check_workflow_package.py",
+      "exit_code": 0,
+      "seconds": 2.597353375516832
+    }
+  ],
+  "distribution_source_proof": {
+    "wheel_python_sources_match_checkout": 255,
+    "wheel_sha256": "2c58a1ba68665d94ae6f26b66542806deacbabb6baf16eb77fcb67ed52bf889e",
+    "runtime_change": "SQLite snapshot connection recovery/closing only"
+  },
+  "build_and_twine": "passed",
+  "ruff_and_whitespace": "passed",
+  "no_pytest_offline": "145 passed, process exit 0",
+  "capacity_recheck": "hot-journal-scale.json; 80 examples, 40 split tasks, 5000 ledger entries; no provider calls; zero added resume dispatches",
+  "installed_check_initial_setup_failure": {
+    "passed": 8,
+    "failed": 8,
+    "cause": "Local test staging omitted native.toml, stages.toml and check_recipe_catalog.py; corrected by copying the same fixture sources as CI",
+    "raw_log": "hot-journal-installed-missing-fixtures.log",
+    "totals": "hot-journal-installed-missing-fixtures.json",
+    "changed_runtime_to_fix_this_setup_failure": false
+  },
+  "evidence_scope": "Earlier full local 1778-case sweep and earlier 500-example/1000-task scale remain bound to their original runtime. This repair has new affected-suite, package and smaller capacity evidence; complete current-head GitHub gates are still required. No historical experimental payload or cost altered."
+}

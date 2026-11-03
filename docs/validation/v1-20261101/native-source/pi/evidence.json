@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "backend": "pi",
+  "source_revision": "914cf1472e715297caa30db4b9535d534a9eb718",
+  "image_id": "sha256:d81b5fc87f0817fba17eaf5d4f096c0da1e873e8a3810fc5db985b5bbfb91d06",
+  "image_architecture": "amd64",
+  "proteus_head": "9807a4133ee06ef48dea54fe8c4b5fba482bd74e",
+  "requests": [
+    {
+      "ordinal": 0,
+      "body_hash": "sha256:8d925190c82ed96a5e4a3cd868255176240a9b662353649a07763f41f563829c",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user"
+      ]
+    },
+    {
+      "ordinal": 1,
+      "body_hash": "sha256:b0b33881d782e371f2ab1653f49337ea39fa02bd720ad16dc47f8863d3b6ce87",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ],
+      "read_witness_sha256": "4949218de757741f2174599ad06408d4f369e2da90bbe7f4b32313bd792d7393"
+    },
+    {
+      "ordinal": 2,
+      "body_hash": "sha256:d3d533d2b64e5b501c34135a88b977fb0d1aef5a34396ae65f723d55af2a4eb5",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ]
+    },
+    {
+      "ordinal": 3,
+      "body_hash": "sha256:8d925190c82ed96a5e4a3cd868255176240a9b662353649a07763f41f563829c",
+      "tools": [
+        "bash",
+        "edit",
+        "read",
+        "write"
+      ],
+      "roles": [
+        "system",
+        "user"
+      ]
+    }
+  ],
+  "activation": [
+    {
+      "backend": "pi",
+      "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+      "cli_sha256": "840d1e8e689ed9e4937bcb00b9a810e02a8567d9afb10a47097f11ca93ea1521",
+      "mode": "pristine",
+      "source_sha256": "d513f27941f2c2aa3753e2225a0733cb301229b776ac4e433d2f81830269905c",
+      "version": 1
+    },
+    {
+      "backend": "pi",
+      "boot_sha256": "50ad26fe1e020a9bd1f2284445766c4e637e7895807994c707ca09c41a224da4",
+      "cli_sha256": "49bd8221f3126a1b20c47c8f64b646e77e3b5796f2db484590e570f370bb25a2",
+      "mode": "cache",
+      "source_sha256": "9e567838ae60aa893dcb835f09ca4e1908fb2abe5aaa92ff15233ac5c681c16a",
+      "version": 1
+    }
+  ],
+  "initial_entry_sha256": "184e297bf71200d7947b0d28ba62f4c09b1f3071ea8c85c2255d1ab8617bca08",
+  "modified_entry_sha256": "ae9107d59f3bc8c59580ca10f1aab3dceaf6027c88629555e84839c7a2652990",
+  "broken_source_rejection": "self-edited source does not boot (exit 97): rror location /opt/src/packages/coding-agent\nnpm error command failed\nnpm error command sh -c tsgo -p tsconfig.build.json && shx chmod +x dist/cli.js dist/rpc-entry.js && npm run copy-assets\nnpm notice\nnpm notice New major version of npm available! 11.19.1 -> 12.2.1\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1\nnpm notice To update run: npm install -g npm@12.2.1\nnpm notice\n",
+  "unchanged_completed_resume": true,
+  "scope": "actual pinned source build, Docker, native tool read/write, episode validation and next-episode activation; deterministic provider, no model-quality claim",
+  "evidence_hash": "sha256:13b45680fac9a40bf9f0fd77707c6cc5510d70ecad22d941a7d6cb2e27cde215"
+}

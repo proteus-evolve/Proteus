@@ -1,0 +1,9 @@
+{
+  "historical_prepare_commands_DO_NOT_RUN": [
+    "<original-python> prepare_naive_fresh_H0_replacement_v7.py"
+  ],
+  "historical_run_commands_DO_NOT_RUN": [
+    "<original-python> launch_naive_fresh_H0_v7_once.py --launch-once"
+  ],
+  "supersedes_failed_profile": "linux-combee-formula-offline-naive_parallel-v5-ledger-io"
+}

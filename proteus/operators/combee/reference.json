@@ -1,0 +1,25 @@
+{
+  "revision": "f1cfdee2856e9dc4b5b4dc5cc2e391d0aa20d819",
+  "files": {
+    "base.py": {
+      "source": "src/gepa/proposer/reflective_mutation/base.py",
+      "sha256": "c5dfee840318e25074043f5ffeaa11bedf65d0f506025e87f00c93067b09ffd2",
+      "relocations": {}
+    },
+    "instruction.py": {
+      "source": "src/gepa/strategies/instruction_proposal.py",
+      "sha256": "fbd07ae2953e2e28207f738f437431ddea26ffce4450d5f33f0da2663e625575",
+      "relocations": {
+        "from gepa.proposer.reflective_mutation.base import (": "from .base import ("
+      }
+    },
+    "combee.py": {
+      "source": "src/gepa/proposer/reflective_mutation/combee.py",
+      "sha256": "3dc7d7aca19880e523af53b07009440a94585fcd07320a7007a0c67fdf2dbedf",
+      "relocations": {
+        "from gepa.proposer.reflective_mutation.base import LanguageModel": "from .base import LanguageModel",
+        "from gepa.strategies.instruction_proposal import InstructionProposalSignature, parse_proposal": "from .instruction import InstructionProposalSignature, parse_proposal"
+      }
+    }
+  }
+}

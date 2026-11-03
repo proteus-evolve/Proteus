@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_release_smoke_diagnostics.py",
+    "tests/test_release_smoke.py",
+    "tests/test_canary_diagnostics.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 15.645139932632446,
+  "provider_calls": 0,
+  "workflow_dispatches": 0,
+  "source_file_hashes": {
+    "scripts/release_smoke_diagnostics.py": "aa5bd12e049fd41bbeb71987271258a64445e968c7e49bcb6b9f394113a49faf",
+    "tests/test_release_smoke_diagnostics.py": "ea1ada8225e995ed77c25f2d8b08631a7264b7fbaa4730f567a5bc1d23b1aab9",
+    ".github/workflows/release-smoke.yml": "4ad2cc5e83b6bc7fb5511488eb4cd9abd52cdbd30c55ad42e33eb4f27960af89"
+  },
+  "stdout": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/offline-regression-final-v1.stdout",
+    "sha256": "fad24223c99c99e507cb08ad17f63fcb109318d5518cd5d654c2a950e32ee24f"
+  },
+  "stderr": {
+    "path": "/Users/myyyth/Documents/Proteus-v1-experiments/dsh-smoke-diagnostics-20261101/offline-regression-final-v1.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

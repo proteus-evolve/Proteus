@@ -1,0 +1,30 @@
+{
+  "base": "e6f773644c62c4add6e95807a2688235c4d59b42",
+  "checks": {
+    "workflow_triggers_unchanged": true,
+    "2episodes_max32_min8_turns_unchanged": true,
+    "global_env_unchanged_except_removing_ambiguous_goal": true,
+    "container_timeout_unchanged_120": true,
+    "container_strategy_unchanged": true,
+    "all_noncontainer_jobs_unchanged": true,
+    "original_run_and_strict_self_edit_check_commands_preserved": true,
+    "retain_and_upload_always": true,
+    "only_bounded_output_uploaded": true,
+    "checker_byte_identical_to_base": true
+  },
+  "provider_calls": 0,
+  "workflow_dispatches": 0,
+  "smoke_checker_sha256": "004695c87e65b43766e11a7ffea7ffe7122a5a50e0ca9e1a688beac709de985a",
+  "pinned_entry_path_readbacks": {
+    "dsh": {
+      "ref": "dsh-v0.1.0-rc.7",
+      "path": "apps/cli/src/bin.ts",
+      "git_blob": "9aa44f8b2286004aae3d408cb2a2eafa4d75b3da"
+    },
+    "pi": {
+      "ref": "v0.84.2",
+      "path": "packages/coding-agent/src/cli.ts",
+      "git_blob": "caa44722929092f243a4acdee5ee0c1313077881"
+    }
+  }
+}

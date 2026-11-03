@@ -1,0 +1,286 @@
+{
+  "date": "2026-11-02",
+  "kind": "read-only source audit; no competitor execution or performance comparison",
+  "projects": [
+    {
+      "id": "penguin",
+      "repository": "https://github.com/Prism-Shadow/penguin-harness",
+      "commit": "7406d13e2f4b3ba0fe495feed32c172f3484be3b",
+      "files": [
+        {
+          "upstream_path": "README.md",
+          "sha256": "f870c1e73beff2b2db07b5741fc84ecc29934eccc0b493c0a137092b3f01bcf2",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/README.md"
+        },
+        {
+          "upstream_path": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/LICENSE"
+        },
+        {
+          "upstream_path": "packages/core/package.json",
+          "sha256": "6f0cd5ad08e797062c2e1a79644f571142259816f5732e6c44c214c1e1cd525f",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/packages/core/package.json"
+        },
+        {
+          "upstream_path": "packages/docs/content/architecture.en.md",
+          "sha256": "ba7a62d7e6c4db6a85b0968656498ea907a0b475022cf3752fee5448096702f3",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/packages/docs/content/architecture.en.md"
+        },
+        {
+          "upstream_path": "packages/docs/content/self-improvement.en.md",
+          "sha256": "2f3eab84a736989c28d9966cb65b2a0bfa4ec20bfccda1fec217098546134917",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/packages/docs/content/self-improvement.en.md"
+        },
+        {
+          "upstream_path": "packages/core/src/trace/resume.ts",
+          "sha256": "99a2474ae8261f80b4f4c3a49b8335a78961a92955535e72688231e151c9faf9",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/packages/core/src/trace/resume.ts"
+        },
+        {
+          "upstream_path": "packages/web/src/features/benchmark/rsi-methods.ts",
+          "sha256": "261a9700ebab8dc05875c21e2f94c07fbc0e421d57171480d724c82cf8035bb5",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/packages/web/src/features/benchmark/rsi-methods.ts"
+        },
+        {
+          "upstream_path": "plugins/default-rsi-toolkit/skills/agent-optimization/SKILL.md",
+          "sha256": "cc4f22fc34d115ff9335c733bef1575895257952d15065d628697e1b7da0ef03",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/plugins/default-rsi-toolkit/skills/agent-optimization/SKILL.md"
+        },
+        {
+          "upstream_path": "plugins/ace-rsi-toolkit/skills/ace-rsi-toolkit/SKILL.md",
+          "sha256": "781cad29607c7920a0c0c28017b943109e56fa818bd5c0fd7a5323f591649f82",
+          "url": "https://github.com/Prism-Shadow/penguin-harness/blob/7406d13e2f4b3ba0fe495feed32c172f3484be3b/plugins/ace-rsi-toolkit/skills/ace-rsi-toolkit/SKILL.md"
+        }
+      ],
+      "shipped_rsi_toolkit_directories": [
+        "ace-rsi-toolkit",
+        "ape-rsi-toolkit",
+        "awm-rsi-toolkit",
+        "default-rsi-toolkit",
+        "openskill-rsi-toolkit",
+        "opro-rsi-toolkit",
+        "skilladam-rsi-toolkit",
+        "skillopt-rsi-toolkit",
+        "trace-rsi-toolkit"
+      ]
+    },
+    {
+      "id": "proteus",
+      "repository": "https://github.com/proteus-evolve/Proteus",
+      "commit": "b828a85a1fcfebedc738ba02bee19d0314b0ea04",
+      "files": [
+        {
+          "upstream_path": "LICENSE",
+          "sha256": "e42db6399980cc49a0b0babd12968b00fba782bb62a2f99253f1b52ff4d19d31",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/LICENSE"
+        },
+        {
+          "upstream_path": "proteus/recipes/config.py",
+          "sha256": "8a5d1583e1cc9ea5e5438655228e35b4ebe00f35f099053f53f89335dcb6a1ea",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/recipes/config.py"
+        },
+        {
+          "upstream_path": "proteus/core/workflows.py",
+          "sha256": "288a2aa348902850e1e31a658ea57517dc641aaebba92016a0573ff89d408d2a",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/core/workflows.py"
+        },
+        {
+          "upstream_path": "proteus/core/ledger.py",
+          "sha256": "34b85b2631e800936c4e33bacfd99b78d23d0bef5ef3c55237fb2b72d7dcd729",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/core/ledger.py"
+        },
+        {
+          "upstream_path": "proteus/evaluation/service.py",
+          "sha256": "57a4e0033e37eb75aac4df36ec1876a7f1c3039563245788509a2b913439e4e9",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/evaluation/service.py"
+        },
+        {
+          "upstream_path": "proteus/execution/code_service.py",
+          "sha256": "96c84e9459e1434f834fb1c78b819515dbab8210b3d93f21206a7a2b01e31a69",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/execution/code_service.py"
+        },
+        {
+          "upstream_path": "proteus/adapters/codex.py",
+          "sha256": "360c9ab26dabf61203e5949019a6fba8d47f09b5bb02af9a5927a5f6485111c6",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/adapters/codex.py"
+        },
+        {
+          "upstream_path": "proteus/adapters/pi.py",
+          "sha256": "dbfe1b55061b63014718da93950075406a24b850b8bc41e92fae9d5208789897",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/adapters/pi.py"
+        },
+        {
+          "upstream_path": "proteus/recipes/builtins.py",
+          "sha256": "8352975769508b0eec02669e685ae3358c6a863d35961d3172b9322367a53d0f",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/recipes/builtins.py"
+        },
+        {
+          "upstream_path": "docs/V1_HARNESS_ROLES.md",
+          "sha256": "03e843a4384d68d28e1181f2576e0abc78a8caa1bcca3d29fc7cf078d56f8d27",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/docs/V1_HARNESS_ROLES.md"
+        },
+        {
+          "upstream_path": "proteus/core/episode_protocol.py",
+          "sha256": "c70c4606665232990b59a13a071765d5c4b534ad2de09c2b9f7a170209187b61",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/core/episode_protocol.py"
+        },
+        {
+          "upstream_path": "proteus/core/episode.py",
+          "sha256": "f4621aa536fda2f905c2a1e4f7fe43a0db1657c584ded30e36283aac48dc70e5",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/core/episode.py"
+        },
+        {
+          "upstream_path": "proteus/methods/native_evolution.py",
+          "sha256": "8560a7954942dd1262ed3f57ce76202f53a66838384b8923f78fd9d3a3a2f541",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/methods/native_evolution.py"
+        },
+        {
+          "upstream_path": "proteus/execution/harness_evolution.py",
+          "sha256": "205d4a593e2c0758cd49a588dccb3659240f07409a21efc79bad8d427093e288",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/execution/harness_evolution.py"
+        },
+        {
+          "upstream_path": "proteus/core/native_activation.py",
+          "sha256": "60b92ce928216e6e48e57f7c2d76761e85731e9db8541013bd3edd5a85187048",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/proteus/core/native_activation.py"
+        },
+        {
+          "upstream_path": "recipes/native/shared-evaluation/README.md",
+          "sha256": "33d0055d392e862cc318b32013f33642cb1408dc9ce6edf612a47cb39ec8960f",
+          "url": "https://github.com/proteus-evolve/Proteus/blob/b828a85a1fcfebedc738ba02bee19d0314b0ea04/recipes/native/shared-evaluation/README.md"
+        }
+      ]
+    }
+  ],
+  "figure_skill": {
+    "url": "https://github.com/ChenLiu-1996/figures4papers/blob/b709de17da7e8f9a72e51a5de5bced924a01eeab/scientific-figure-making/SKILL.md",
+    "commit": "b709de17da7e8f9a72e51a5de5bced924a01eeab",
+    "references": [
+      "references/design-theory.md",
+      "references/api.md"
+    ],
+    "application": "Original matplotlib schematics; sans-serif fonts, blue/green/neutral palette, 300 dpi PNG and editable PDF/SVG. No upstream Python executed."
+  },
+  "column_order": [
+    "proteus",
+    "penguin"
+  ],
+  "table_rows": [
+    {
+      "feature": "Multiple improvement methods",
+      "statuses": [
+        "yes",
+        "yes"
+      ],
+      "definition": "Method registries and shipped toolkits; not equal implementation fidelity."
+    },
+    {
+      "feature": "Versioned candidate resources",
+      "statuses": [
+        "yes",
+        "yes"
+      ],
+      "definition": "Proteus artifacts and Penguin versioned State archives; identity formats differ."
+    },
+    {
+      "feature": "Independent proposer / task models",
+      "statuses": [
+        "yes",
+        "yes"
+      ],
+      "definition": "ActorSpec; optimizer Session versus frozen target runtime."
+    },
+    {
+      "feature": "Private evaluation / held-out protocol",
+      "statuses": [
+        "yes",
+        "yes"
+      ],
+      "definition": "Declared evidence protocol only; no sandbox or equal enforcement claim."
+    },
+    {
+      "feature": "Harbor / Docker execution path",
+      "statuses": [
+        "yes",
+        "yes"
+      ],
+      "definition": "Declared integration paths, not newly executed in this source audit."
+    },
+    {
+      "feature": "Typed reusable stage / workflow service",
+      "statuses": [
+        "yes",
+        "unestablished"
+      ],
+      "definition": "Precise common typed stage service, not algorithm-local stages or Skill workflows."
+    },
+    {
+      "feature": "Separate visibility / selection-eligibility fields",
+      "statuses": [
+        "yes",
+        "unestablished"
+      ],
+      "definition": "Independent common configuration fields; competitors have train/dev/test or private rubric rules."
+    },
+    {
+      "feature": "Durable dispatch reservation / reconciliation",
+      "statuses": [
+        "yes",
+        "unestablished"
+      ],
+      "definition": "Managed experiment operation identity and unsettled reservation. Session recovery and logs alone do not establish it."
+    },
+    {
+      "feature": "GEPA",
+      "statuses": [
+        "yes",
+        "no_builtin"
+      ],
+      "definition": "Named built-in adapted method, not upstream parity."
+    },
+    {
+      "feature": "ACE",
+      "statuses": [
+        "yes",
+        "yes"
+      ],
+      "definition": "Named built-in adapted method, not upstream parity."
+    },
+    {
+      "feature": "Meta-Harness",
+      "statuses": [
+        "yes",
+        "no_builtin"
+      ],
+      "definition": "Named built-in adapted method, not upstream parity."
+    },
+    {
+      "feature": "Combee",
+      "statuses": [
+        "yes",
+        "no_builtin"
+      ],
+      "definition": "Named built-in adapted method, not inexpressibility."
+    },
+    {
+      "feature": "CORAL",
+      "statuses": [
+        "yes",
+        "no_builtin"
+      ],
+      "definition": "Named built-in adapted method, not inexpressibility."
+    }
+  ],
+  "limitations": [
+    "No competitor run or failure injection.",
+    "Question marks are not negative findings.",
+    "Selected five method rows are not an overall breadth ranking."
+  ],
+  "native_claims": {
+    "goal_evidence_separation": "Prompt protocol, including explicit no-goal behavior; not evidence of beneficial self-evaluation.",
+    "transition": "Common Native: last-valid active state, exact failed working state retained, no outer score gate.",
+    "scope": "Common Native requires observed evaluation pools and exactly one managed episode stage; legacy policies remain separate.",
+    "evidence": "Shared-evaluation mechanism fixture and bounded Pi/DSH pilots; no comparative quality proof."
+  }
+}

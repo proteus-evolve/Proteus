@@ -1,0 +1,104 @@
+{
+  "schema": "proteus.continuation.branch.v1",
+  "mode": "append-only lineage, NOT native same-runtime resume",
+  "parent_label": "linux-ace-formula-offline-v2",
+  "parent_run": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-offline-v2/runs/seed-0-offline",
+  "parent_manifest_sha256": "5e7f21cfd56d98b5b05b64e27b01badaacf2516839c4ca00478d834fb10a61d0",
+  "parent_scientific_config_hash": "sha256:848083bc248d2018d080d75d5c96338190124735941e8d2a715ce94320058da2",
+  "parent_scientific_lock_hash": "sha256:d2a188818ae4252941709855b3a6771c15bd39c7ec0a1c34622f6127a8a31d0a",
+  "parent_scientific_source_bindings": [
+    {
+      "schema_version": 1,
+      "name": "proteus",
+      "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/api",
+      "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5",
+      "dirty_patch_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "linux-launcher",
+      "repository": "local-content-addressed:run_api_formal_v2.py",
+      "revision": "9026ff907771584e8a2352390557bc56dcbf1ca3b239a470e02649382d63bb46",
+      "dirty_patch_hash": null
+    }
+  ],
+  "executor_operator_source": {
+    "repository": "local-unpublished:/home/ubuntu/proteus-full-linux-20261020/continuation-operators/22b8d20a3c96efc43fc46efd26a56e0f7aa81d09",
+    "revision": "22b8d20a3c96efc43fc46efd26a56e0f7aa81d09"
+  },
+  "scientific_library": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/sources/api",
+    "revision": "d0a9dc848e8978f14fac2e70e57a22998fdf07f5"
+  },
+  "root_prefix_cut": 4681,
+  "workflow_map_parent": null,
+  "failed_actor_frontier": [
+    {
+      "actor_id": "actor-f9f31982fe39cb60f396c5957baf24273222169cea5886e31b3f3d67e1e731ac",
+      "stable_id": "825b4cda85d06475de06d954dafc79cc285eb6e31226f8e703791f7e019eaa30",
+      "metadata": {
+        "attempt_id": "attempt-1",
+        "kind": "actor",
+        "operation_id": "op-001892",
+        "ordinal": 1,
+        "role": "generator",
+        "stage": "subject",
+        "trial_id": "op-001892:rollout-1",
+        "worker_id": null
+      },
+      "wire_body_sha256_before_possible_proposer_workspace_adaptation": "7ec8a7c685d049685cb3eb6730ddadb27febafdec8c72a11b4f1244f94943681",
+      "recorded_error": "URLError: <urlopen error [Errno 111] Connection refused>",
+      "body_sha256": "7ec8a7c685d049685cb3eb6730ddadb27febafdec8c72a11b4f1244f94943681"
+    }
+  ],
+  "retired_failed_entry_ids": [
+    "subject-0fcbf4c368f201e2a2e6b9ce5b1a934bdf42d0dafaff4c612aeb123ee925c475",
+    "actor-f9f31982fe39cb60f396c5957baf24273222169cea5886e31b3f3d67e1e731ac",
+    "grader-0fcbf4c368f201e2a2e6b9ce5b1a934bdf42d0dafaff4c612aeb123ee925c475"
+  ],
+  "tainted_cohorts": [
+    {
+      "entry_id": "evaluation-4785a4e763ae9ee6ff60bbac5f34882845732509afbea47ba0df2912a93717c7",
+      "parent_settlement_hash": "sha256:16e5e4cef5fb19d664577937b7c1c7c435694fe3d0a715e1d438691eeddf2b69",
+      "parent_receipt_hash": "sha256:c6b6ff788bf8ee4a9a0fcef9b4021d12865b5f15ef3335610cb483085dec4d19",
+      "causal_failed_actor_ids": [
+        "actor-f9f31982fe39cb60f396c5957baf24273222169cea5886e31b3f3d67e1e731ac"
+      ],
+      "original_invalid_rollout_ids": [
+        "op-001892:rollout-1"
+      ],
+      "original_valid_leaf_count": 0,
+      "successor_budget_policy": "retain original plus full successor aggregate task-slot charge; do not call reused leaves new learning"
+    }
+  ],
+  "independent_expected_closed_actor_count": 2426,
+  "independent_expectations": {
+    "path": "/home/ubuntu/proteus-full-linux-20261020/continuation-root-acceptance-expectations-20261021.json",
+    "sha256": "3a360cf247975f631906665fb3f4f6bbf6a8d97a7c9690ca57c5c6cede231ee9"
+  },
+  "physical_branch_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/ace-continuation-22b8d20-v1",
+  "provider_calls_during_prepare": 0,
+  "no_parent_financial_or_scientific_ledger_copy": true,
+  "independently_released_for_science": false,
+  "parent_unique_claim_root": "/home/ubuntu/proteus-full-linux-20261020/continuations/parent-claims",
+  "operational_overrides": [
+    "RunServices constructor/configuration",
+    "actor pre-dispatch disposition gate",
+    "PrefixJournal read-through/cut and appended records",
+    "read-only parent plus combined-budget delta ledger",
+    "exact tainted framework cohort successors with retained original charge",
+    "owned started managed-subject shell reentry without clearing its reservation",
+    "uncertain actor/subject settlements deferred pending original receipt reconciliation",
+    "exact sealed generic-chat response adoption into an owned started actor",
+    "append authenticated no-dispatch reentry proof; same started actor row/reservation/slot/stable ID retained",
+    "reconcile owned pending actors before workflow preflight; admitted unknowns remain held"
+  ],
+  "dynamic_interrupted_attempt": null,
+  "readonly_prefix_refs_sha256": "6660e8dcf1254102ede08e37152c87f3a2323ffcdee0eeaf71f809cbdefc89fb",
+  "protected_parent_files": {
+    "manifest.json": "5e7f21cfd56d98b5b05b64e27b01badaacf2516839c4ca00478d834fb10a61d0",
+    "private/ledger.sqlite3": "453e202803c2b59c9744b69c166a732213fbd0f35df34fdeaec3b5c2f987b5de",
+    "result.json": "35cbd79aa7416546dc842bbfc0028d46f4bc85ccb3690e9c012f525629201a85"
+  },
+  "scientific_manifest_is_inherited_not_current_executor_identity": true
+}

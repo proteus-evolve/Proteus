@@ -1,0 +1,403 @@
+# Native adapter input evidence
+
+Core episode prompts and final adapter submissions are different records. The
+existing `native_prompts` array records core rendering, including the default
+protocol, goal and authorized feedback. Adapters now persist their final inputs
+immediately before invoking the policy, HTTP transport or harness process.
+
+| Adapter | Recorded boundary | Scope |
+| --- | --- | --- |
+| minimal | Exact lazy-policy prompt, including the live budget header | `policy_prompt`; no model request is implied |
+| llm | Complete chat body: model, system/user messages, current harness state, temperature and output limit | `chat_request` |
+| Pi / DSH / Codex | Exact argv passed to the harness sandbox, including the final phase prompt and live budget header | `harness_cli` |
+| Aki | Supervisor invocation and episode number | `opaque_supervisor`; internal prompts and actual model remain unavailable |
+
+The CLI boundary does not expose every provider request made inside a coding
+harness. Its system prompts, tool schemas, file instructions and later context
+construction remain owned by that pinned harness and its native logs. Aki builds
+phase prompts internally and still does not consume Proteus's phase overrides.
+Custom adapters must add their own boundary instrumentation; an empty record list
+is not proof of zero model calls or complete prompt coverage.
+
+## Durable records and failure meaning
+
+For a native run at `RUN`, input records are stored at
+`RUN.parent/.proteus-records/RUN.name/native-inputs/`, outside the native subject
+workspace and candidate snapshots. Each attempt has a fresh random ID and two
+separate JSON files:
+
+- `ID.input.json`: version, adapter, episode/phase, scope, requested model where
+  known, protocol version, preparation timestamp, exact input value and hashes.
+- `ID.outcome.json`: the input hash, completion timestamp, transport outcome and
+  versioned usage evidence for records written with format version 2.
+
+Files are atomically published and fsynced before dispatch. Inputs are never
+replaced by a retry. Ordinary exceptions write a `raised` outcome containing the
+exception type. `RecoveryRequired`, keyboard/system interruption and hard exits
+leave an input without a terminal outcome. The reader
+reports that completion as `unknown`, including the ambiguity between a crash
+just before dispatch and a crash after remote work. It never resumes or reissues
+work based on these records. Existing native recovery rules remain authoritative.
+A `returned` outcome means the boundary returned; a nonzero process return code
+is still failure. Boundary counts are not model-call or token accounting.
+
+Inputs and outcomes carry checked content hashes. Hashes detect changed evidence
+but are not signatures against a party able to rewrite all controller records.
+Input/outcome metadata excludes environment mappings, authentication headers and
+exception text. Recorded model input itself can contain task data, so these files
+remain controller records rather than automatically shared public reports. The
+separate CLI raw usage sources retain model/tool text, summaries or provider
+errors; exports never copy those bytes.
+
+## Recipe runs
+
+`execution-NNNN.json` now includes `native_inputs`, the cumulative validated input
+records under that recipe's native workspace. Its existing `native_prompts` stays
+specific to the latest invocation. Resuming an already completed recipe adds no
+new inputs and preserves the old files. An interrupted attempt remains visible
+alongside any later retry, even if the process exited before it could write the
+recipe execution file.
+
+Use `proteus.core.native_inputs.read_native_inputs(native_root)` for checked
+inspection. The helper and raw storage layout are implementation interfaces,
+not additions to `proteus.api.v1`. Generic result exports keep a native usage
+view; bounded native recipe calls also appear in ledger accounting as described below.
+
+## Reported native usage
+
+New input/outcome pairs use format version 2. Version 1 pairs remain readable with
+unknown usage; they are not rewritten on resume. Each version 2 outcome binds a
+whitelisted usage projection to its input hash, including on ordinary failure.
+Missing outcomes retain unknown usage. Export verifies receipts against the
+latest cumulative snapshot and checks that earlier snapshots have not lost their
+recorded attempts. A completed resume adds neither calls nor zero-filled entries.
+
+| Boundary | Reported model/token usage | Monetary cost |
+| --- | --- | --- |
+| Built-in minimal mock policy | Zero; only the exact bundled local policy qualifies | Zero inference cost |
+| OpenAI-compatible chat | One received response; provider `prompt_tokens` / `completion_tokens` when valid | Unknown |
+| Codex native `exec --json --ephemeral` | Completed fresh-thread token receipt; model-call count remains unknown | Unknown |
+| Pi native fresh v3 sessions | Positive reported token totals, including caches, tools and summaries; ambiguous zeros remain unknown | Unknown |
+| DSH native fresh format-0 sessions | Latest per-step tokens and summary receipts, excluding fork seeds; auxiliary/retry gaps remain unknown | Unknown |
+| Custom minimal policy, Aki | Unknown; no inference from turns, tools or process exits | Unknown |
+
+Chat token counts must be nonnegative integers; missing, negative, Boolean,
+fractional or string values become unknown. Cache and reasoning subcounts are
+already included in the provider's totals and are not added again. A response
+with invalid assistant content can still report valid usage; transport errors
+without such evidence remain unknown. Arbitrary provider metadata and cost
+extensions are excluded. Episode counter aggregation also preserves explicit
+unknowns across episodes and resume, but durable receipts additionally retain
+attempts that never reached an episode checkpoint.
+
+For Codex, the adapter captures the phase JSONL stream (or transport stdout when
+the container did not tee it) before publishing its outcome. `ID.usage-source`
+retains those exact bytes privately, so a retry overwriting the ordinary phase
+log cannot erase earlier accounting evidence. The outcome binds its hash, size,
+confirmed thread ID, parse status and normalized counts. Readback hashes and
+re-parses this source with the same strict stream parser used by persistent
+Codex workers. Missing, modified or symlinked source files fail validation.
+
+The native adapter always requests a new ephemeral thread, so the completed
+thread's cumulative token totals have a zero baseline. Resume-shaped commands
+and duplicate thread IDs across distinct fresh attempts are rejected. Cached
+input tokens are already included and are not added again. Nonzero exits,
+timeouts, malformed/truncated streams and missing terminal events keep token
+totals unknown, even if a partial log contains a completed receipt. Model-call
+counts and monetary cost remain unknown. This reports the harness's recorded
+tokens, not independently audited billing or usage of unreported internal agents.
+
+For Pi, the adapter freezes newly created v3 session logs into a private
+`ID.usage-source` bundle before publishing its outcome. Readback validates the
+bundle hash and re-parses every captured file. Changes to pre-existing sessions,
+inherited histories, duplicate identities, unsupported entries, truncated logs,
+unfinished assistant turns and failed transports cannot produce complete totals.
+Fresh attempts cannot reuse a session ID. A retry cannot replace an earlier
+attempt's captured source.
+
+The projection follows the [Pi v0.84.2 usage fold](https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/usage-totals.ts):
+assistant messages, tool results with usage, compaction and branch summaries.
+Input is `input + cacheRead + cacheWrite`; output is `output`. Reasoning and
+one-hour cache-write subsets are not added again. Missing summary usage remains
+unknown, even though upstream's display skips it. Pi providers can initialize
+usage to zero and retain it when a response omits usage, so a zero aggregate in
+either dimension is also unknown. Each dimension is validated independently.
+These are recorded-session totals; unreported extension/subagent work can remain
+outside their coverage. Summary entries may combine several requests, and the
+runtime's estimated prices are not billed amounts, so model-call counts and
+monetary costs remain unknown.
+
+For DSH, `ID.usage-source` retains newly created compressed session files with
+their relative paths. Every zstd frame must be complete; live-budget polling's
+tolerance for truncated tails does not apply to accounting. The decoder expands
+the pinned text/reasoning/tool-call storage rows and checks contiguous event
+sequences. Python 3.10–3.13 requires the existing optional `dsh` extra
+(`zstandard>=0.21`); Python 3.14 can use its standard-library decoder.
+
+The [pinned DSH token projection](https://github.com/deepseek-ai/deepseek-harness/blob/99f6f02fecdb7dff40c3fbc9470f5907c29f74ca/packages/llm/token-meter/src/usage-projection.ts)
+replaces a step's streaming sample with its final sample. Proteus follows that
+rule, adds uncached input plus cache read/write tokens, and includes separate
+compaction-summary receipts. Reasoning is already part of output. Unlike Pi's
+SDK defaults, explicit valid DSH zero counts are accepted. `header.seedLength`
+excludes a new child file's inherited fork history; later process-lifecycle
+markers do not discard work already recorded during the same phase. Each new
+session is counted once, including captured child sessions.
+
+DSH's main-loop projection alone does not cover all calls. Failed retries,
+title/search requests without usage and missing/failed summary receipts keep
+totals unknown. The normalized fields retain known token subtotals and unknown
+sample counts for inspection. Unsupported logs, changed old files, incomplete
+turns and failed transports cannot assert complete totals. Child or extension
+work that does not persist into the captured directory remains outside coverage.
+Calls and cost stay unknown; these receipts do not introduce finite-cost gating.
+
+`proteus recipe export` exposes `native_accounting` and `native-usage.csv` with
+counts, source and completion status, without copying prompts or provider output.
+Unknown components keep `reported` totals `null`; `known_subtotal` is explicitly
+incomplete. An empty record list means unavailable coverage. Receipt source hashes
+under `.proteus-records/` appear only with `--include-private`.
+
+`wall_seconds` measures elapsed time around each instrumented boundary, including
+failed boundaries. It is not end-to-end runtime or provider inference time. These
+totals cover recorded boundaries only: unreported custom evaluators, custom adapters
+and internal harness work can remain outside their coverage. Finite native cost
+caps remain rejected. Call caps have the deliberately narrow support below.
+
+### Finite native recipe model-call budgets
+
+`proteus.native` recipes using the bundled `proteus.native.llm` or
+`proteus.native.minimal` actor may set `budget.max_model_calls` on the recipe,
+the actor, or both. Each limit applies cumulatively across all phases, episodes,
+failures and resumes. The stricter remaining allowance wins. For example:
+
+```toml
+[budget]
+max_model_calls = 8
+[actors.agent.budget]
+max_model_calls = 6
+```
+
+The HTTP adapter has one request per dispatched phase and no internal retry loop.
+Before publishing the input or calling HTTP, the native method reserves one call
+in the existing SQLite ledger under `run` and `role:agent` (or the configured
+actor role). Pure minimal policy and bundled `units`, `tool-calls`, `step` and
+`contains` evaluators reserve zero calls. Evaluator receipt recording still
+includes H0 and failed evaluations. A depleted cap rejects dispatch before an
+input receipt is created. Episode/tool turn limits remain separate controls.
+
+The outcome is fsynced before settlement. A known response settles its reported
+usage; an HTTP failure with no usage keeps `actual.model_calls = null` and the
+one-call reservation remains charged. Native episode rollback or rejection does
+not refund calls. A fresh attempt needs fresh allowance. On recovery:
+
+- A reservation with no start or input is cancelled with zero usage.
+- A started entry with a durable outcome is settled from that exact receipt.
+- A started entry without an outcome retains its allowance and blocks automatic
+  retry, including a crash before the input could be published. No provider
+  reconciliation or response replay is inferred.
+
+`native_accounting.budget_enforced = true` and
+`budget_dimensions = ["model_calls"]` are reported only after checking the
+ledger limits, memberships, input identities, reserved bounds and settlements.
+`ledger_bindings` links the usage rows to `accounting.entries`. These are two
+views of the same attempts: **do not add their totals together**. Exports require
+settled work; unresolved dispatches must first be reconciled through a supported
+backend protocol. This profile currently stops and retains evidence instead.
+
+Pi, DSH, Codex, Aki, custom adapters and benchmark evaluators do not have a
+supported native call bound. Their finite call limits are rejected before the
+run is published. Token, monetary-cost, elapsed-time and evaluation caps remain
+unsupported for native recipes. Unbounded recipes remain unbounded, but an unknown
+input outcome now also blocks their automatic recipe resume. The legacy `proteus
+run` entry point retains its separate adapter/explicit phase-recovery rules. These controls do not constitute
+independent provider billing verification or complete I09 acceptance.
+
+### Native evaluator receipts
+
+The native episode engine records each due evaluator before dispatch, including
+initial H0 evaluations and legacy goals. Skipped evaluations create no receipt;
+completed episodes and saved initial evaluations are reused on resume. A killed
+process leaves an unknown attempt, and a retry receives a separate identity.
+Score records retain their existing format. Usage receipts contain evaluator
+identity, visibility, episode and a trace hash; they contain no trace text,
+returned score/detail or exception message. They are private run evidence.
+
+The four bundled pure evaluator closures (`surface_units`, `tool_calls`,
+`file_contains`, `structural_step`) report zero inference. A custom function's
+name or `kind="measurement"` label does not establish that it is model-free.
+Custom evaluators can report their usage through the supplied context:
+
+```python
+from proteus.core.contracts import Usage
+from proteus.core.goal import EvalResult
+
+def judge(trace, ctx):
+    response = call_judge(trace)  # your evaluator's client
+    ctx.report_usage(Usage(model_calls=1, input_tokens=response.input_tokens,
+                           output_tokens=response.output_tokens))
+    return EvalResult("judge", response.score)
+```
+
+Report every attempted call, including retries; use `None` for missing dimensions.
+Reports are **exclusive of usage already recorded by native adapter receipts**.
+If all work uses such adapters, explicitly report zero additional inference.
+No report means unknown, never zero. Reports are evaluator-supplied evidence,
+not independently observed provider billing. If the evaluator raises or returns
+an invalid result, reported fields remain inspectable but normalized totals stay
+unknown because additional work may be unreported. Late callbacks are rejected.
+Proteus measures boundary elapsed time; caller-supplied wall time is ignored.
+Nested boundary times may overlap and must not be interpreted as run duration.
+
+`GoalConfig.evaluate` without a `GoalContext.native_root` retains its standalone
+no-write behavior; usage reporting requires an active instrumented evaluation.
+This interface does not reserve budget or enforce finite call/cost caps.
+
+Generic harness/workspace actors consume these receipts through their existing
+managed actor entry. Their token fields and receipt binding appear in
+`accounting`, not additionally in `native_accounting`; the latter remains the
+native recipe's separate accounting channel. See [result export](V1_RESULT_EXPORT.md)
+for private evidence, recovery and coverage semantics.
+
+## Native staged-activation capability boundaries
+
+The native episode controller checks the adapter's `staged_activation` declaration;
+an absent declaration means `False`. When enabled, the controller supplies a frozen
+`EpisodeSpec.active_root` separately from the writable candidate and validates the
+candidate at the episode boundary. Editable surfaces, CLI input records and token
+receipts alone do not enable this protocol.
+
+| Adapter | Core staged-activation declaration | Execution evidence and scope |
+| --- | --- | --- |
+| minimal / llm | Not declared | Policy/HTTP input and usage records; no frozen executable-source activation guarantee |
+| Pi / DSH | `True` | Model-free boundary build/boot validation; successful staged calls require the source/CLI/wrapper startup receipt described below; failed or timed-out calls can lack it |
+| Codex | `True` | Rust boundary validation publishes a source-bound binary pair; phases mount the selected publication read-only and save `traces/epNNN-runtime.json`. The smoke check binds that publication and source hash to the preceding checkpoint |
+| Aki | Not declared | The external supervisor controls its internal execution; Proteus records its invocation and does not claim the staged active/candidate guarantee |
+| Custom adapter | Explicit opt-in required | Must implement the frozen-active/writable-candidate contract and its validation behavior; a declaration is not independent evidence that the backend obeys it |
+
+The [adapter contract](../proteus/core/adapter.py),
+[episode controller](../proteus/core/episode.py),
+[Codex adapter checks](../tests/test_codex_adapter.py) and
+[source-adapter checks](../tests/test_selfcode.py) define these boundaries.
+The accepted [Pi/DSH source integration gate](https://github.com/proteus-evolve/Proteus/pull/100)
+builds and executes those two actual pinned source images with a deterministic
+provider. It does not cover Codex's Rust source image or Aki's supervisor, and
+does not replace the final release's live-backend/model checks. Codex uses its
+separate publication-based smoke assertion; it does not emit the Pi/DSH startup
+receipt format.
+
+## Pi/DSH source activation
+
+Staged Pi/DSH dispatches prefix the CLI arguments with the controller's hash of
+the frozen `src/` tree. The source-image wrapper compares that hash before
+running the CLI. Missing source or missing `packages/` (Pi) / `apps/` (DSH)
+fails instead of using the baked CLI. Rebuild both source images when updating
+Proteus: older wrappers cannot supply the required startup receipt.
+
+Immediately before `exec`, the wrapper emits a bounded first-line receipt:
+source hash, CLI entrypoint byte hash, wrapper byte hash, backend, format version
+and `pristine`/`build`/`cache` mode. The adapter validates it against the prepared
+dispatch and saves it in the immutable native outcome. Successful staged calls
+without this evidence are rejected. Nonzero exits retain a valid startup receipt
+when available, including processes stopped by a turn cap; build failures can
+have none. Timeouts or incomplete transport do not gain an activation claim.
+
+The source identity includes file boundaries, paths, executable bits and symlink
+targets, excluding `node_modules`. This is startup evidence from the trusted
+wrapper/image, not independent attestation of all compiled dependencies, a proof
+that every source edit changes behavior, or provider-message evidence. The CLI
+hash identifies the entrypoint only. Existing non-staged direct transports remain
+readable but cannot satisfy this staged activation gate.
+
+`smoke_check.py --require-self-edit` compares every final-episode harness receipt
+to the **preceding** checkpoint and requires its source to differ from episode 0.
+Evaluator receipts are checked by the journal reader but are separate from
+harness phases. Missing, mismatched or unknown startup evidence fails the gate;
+post-run builds and cache files alone cannot pass. Episode success and budgets
+remain separate smoke assertions.
+
+## Validation and remaining acceptance
+
+Offline tests compare records with an actual local HTTP server's request body,
+including state changed by an earlier phase. Sandbox fixtures check exact Pi,
+DSH and Codex argv, transport failures, and DSH's resumed live-budget header.
+Subprocess hard-exit tests prove input survival, unknown completion and separate
+retry identity. Installed wheel and sdist checks execute the native recipe and
+resume without new evidence, and read back a captured Codex protocol fixture.
+`tests/check_codex_cli.py` additionally exercises the real selected CLI against a
+local Responses stub: persistent-worker continuation plus two fresh native phases.
+It verifies actual token receipts and excludes previous-phase model history.
+`tests/check_native_pi_package.py` exercises the installed Pi adapter with a
+deterministic transport that writes fresh v3 logs. The optional
+`tests/check_pi_usage_reference.py --source /path/to/usage-totals.ts` runs the
+hash-verified pinned upstream fold using a Node version with TypeScript stripping;
+four positive-token profiles agree, while ambiguous zero defaults deliberately
+remain unknown. Neither Pi check runs a real Pi CLI or proves live provider usage.
+`tests/check_native_dsh_package.py` checks the actual installed DSH adapter with
+a deterministic compressed-session transport. `tests/check_dsh_usage_reference.py`
+compares three storage shapes and three main-loop usage profiles with the
+hash-verified pinned upstream pure functions. Its Node harness supplies only
+schema/brand imports and rejects execution of the unrelated surface projection;
+it does not run the DSH CLI or validate provider billing. Auxiliary coverage,
+fork exclusion, failed transports and private export/resume are tested separately.
+These checks use no paid inference and do not validate container isolation.
+
+`tests/test_native_activation.py` executes both actual wrapper scripts with
+temporary filesystem paths and tiny local Node CLIs. It covers pristine/build/cache
+startup, Python/Node source-hash agreement, pre-CLI rejection and adapter receipts.
+The installed package check covers persistence and tampering rejection. These are
+bootstrap/control tests, not builds of the actual upstream Pi/DSH source images.
+
+`Native source integration` adds an independent, credential-free Docker gate for
+the actual source images. Its Pi/DSH upstream commits are fixed in the workflow
+and `tests/check_native_source_docker.py`. The workflow builds the production
+Dockerfiles and wrappers, records the image identity, and runs the normal native
+episode transaction with the production `DockerSandbox`. A loopback SSE provider
+requests actual `read` and `write` tools; the tool writes an observable marker into
+the candidate's real CLI entrypoint. The second episode must execute that modified
+entrypoint, with a different source/CLI hash and the marker in its process output.
+The gate additionally requires a completed resume without new provider requests
+and rejection of an invalid TypeScript candidate by the actual build toolchain.
+
+The same source jobs also run `tests/check_native_source_repair.py`. Its first
+controller writes invalid TypeScript through the real native tool and exits after
+the boundary compiler rejects it. A second controller reconstructs the adapter
+from saved state, reads and repairs that exact rejected candidate while executing
+the last valid source snapshot, then runs the repaired source in the next episode.
+A third controller resumes the completed run without another provider request or
+native phase record. Saved evidence under `repair/` includes all three process
+results, the rejected Git snapshot, the repair notice, and raw Docker calls.
+`check_native_source_repair.verify(root / "repair", expected_head=...)` checks
+these against the accepted checkpoint history and startup receipts. This extends
+the earlier separate broken-source probe to the complete repair transaction;
+it uses the same deterministic provider and makes no model-quality claim.
+
+The workflow also runs on release tags. Publishing requires both source jobs to
+succeed in one complete workflow run for the exact tag and commit, alongside CI,
+Harbor and live release smoke. PR runs, manual runs and separate partial attempts
+cannot supply this release evidence.
+
+The raw Docker commands/results, native input/outcome files, snapshot repository,
+provider request hashes, image metadata and build logs are uploaded for inspection.
+The saved-evidence reader `verify(root, expected_head=...)` independently matches
+each startup receipt against its **preceding** source checkpoint and the raw
+process output. It does not run Docker, a provider or method plugins.
+
+Run the gate with an image built from the declared source revision and labelled
+`org.opencontainers.image.revision` accordingly:
+
+```bash
+python tests/check_native_source_docker.py \
+  --backend pi --image proteus-native-source:pi --out /tmp/native-pi-check
+python tests/check_native_source_repair.py \
+  --backend pi --image proteus-native-source:pi --out /tmp/native-pi-check/repair
+```
+
+The host must support Linux Docker host networking. The output directory may
+contain build logs but must not contain a previous run. This is a fixed-response
+engineering check, not a model's ability to invent useful edits or an algorithm
+benchmark. Creating the workflow does not count as passing it: both current-head
+Docker jobs and their raw evidence must pass before this acceptance is recorded.
+
+Actual live backend release-smoke gates remain required. Internal provider-message
+coverage for opaque harnesses, unreported auxiliary work and complete native
+aggregate cost coverage remain separate work.

@@ -1,0 +1,376 @@
+{
+  "observed_utc": "2026-10-21T04:02:24.272995+00:00",
+  "files": {
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-aime-full-seed-0-v2/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-aime-full-seed-0-v2/tasks.json",
+      "bytes": 575670,
+      "file_sha256": "ff949d5a139568d48a01a5f917cbb42b45ae916fb8381cd275bc7fa449936bbc",
+      "canonical_dataset_hash": "sha256:b083036dea44fdc3b025ac9b29f1198ff2529f1065cc8982f2c880542825a8cf",
+      "dataset_version": "gepa-aime-8b0ce6c-data-1",
+      "split_counts": {
+        "train": 45,
+        "validation": 45,
+        "test": 30
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:b9c90cfa06e7f3896321ef270452f0d80ddea13e4010d45cd30442d66283f15b",
+        "validation": "sha256:0c698ab97e3413e62bc3b9e68752a8522362d5d6da179061df9fbf6156e1ea3f",
+        "test": "sha256:847c312a780e307c7b033945f6ffb55129d1473c4454296e9e5d6cf9984ff9a5"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-offline-v2/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-offline-v2/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-online-v3/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-ace-formula-online-v3/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-ace-v2/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-ace-v2/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-ace-v2/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-ace-v2/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-naive_parallel-v5-ledger-io/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-naive_parallel-v5-ledger-io/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-naive_parallel-v5-ledger-io/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-naive_parallel-v5-ledger-io/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_fixed-v5-ledger-io/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_fixed-v5-ledger-io/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-combee_fixed-v6-ledger-io/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-combee_fixed-v6-ledger-io/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_dynamic-v6-ledger-io/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-offline-combee_dynamic-v6-ledger-io/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-combee_dynamic-v6-ledger-io/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-combee-formula-online-combee_dynamic-v6-ledger-io/tasks.json",
+      "bytes": 534635,
+      "file_sha256": "1977d40fc8859f7e445ab34ff9c533261f1c8e868151c7bdb60c626f5d10fe33",
+      "canonical_dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "split_counts": {
+        "train": 500,
+        "validation": 300,
+        "test": 200
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:8e3fdfeaa4657c17d3dcab4474509ca0bb72c9e4a49c637d19c4fd56c33b2c1d",
+        "validation": "sha256:07bd4f73e1b48ba1a1853fca19a498a1962f1ed883772c99b43055a55fbbcc2d",
+        "test": "sha256:5d7dd731592572a023776d010d39bf57dd88e5cac8bc530acf68ebc214a5a504"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/LawBench-42.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/LawBench-42.json",
+      "bytes": 1182307,
+      "file_sha256": "e8d7a1ef4a5a103cc33e0c8d1259ce3782f01e4a78915b43a476f895447aba82",
+      "canonical_dataset_hash": "sha256:8423c368f75ea01268fc69afac8443b97afd1c50202e70c7555db857ffe53ae8",
+      "dataset_version": "8123ccabe2b19fa1123090b2e5f1bacc20963ce8",
+      "split_counts": {
+        "train": 200,
+        "val": 50,
+        "test": 100
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:b1d0482014294ed67fa6b461b938e13f89bdb30b9afa87fe5541308fa23a17e4",
+        "val": "sha256:9f738d9aa38b6d8c8fef96d0add36392a7be4c5e459cb7fa9ec4af23f303d955",
+        "test": "sha256:bbd625bd35d0209a64f19659b62032823802f058146fb10e5c8af3d16fec0971"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/Symptom2Disease-42.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/Symptom2Disease-42.json",
+      "bytes": 575517,
+      "file_sha256": "cac957bddf056a1ee54eeb884b8bbfd959b8698de08e2131221d940869f7aa6f",
+      "canonical_dataset_hash": "sha256:68585c7c609c2650ded0d790ccb3d3a525ad456911006b8ff51bac9bd351d49c",
+      "dataset_version": "8123ccabe2b19fa1123090b2e5f1bacc20963ce8",
+      "split_counts": {
+        "train": 200,
+        "val": 50,
+        "test": 212
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:874fe69a6fc4226f1d4b3a1991ae156ba6f3e61a40fbb72a684212da9818957b",
+        "val": "sha256:8cd5ae4d0160091c0012b36bff53beb973968e6e0d64bfe05aab537a79386d11",
+        "test": "sha256:07af8c0a1a0da1011c0fbffc64bb40ad2cdcfd862b066a4baf9c2956c943c612"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/USPTO-42.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-mce-full-three-domains-seed42-v1/USPTO-42.json",
+      "bytes": 331723,
+      "file_sha256": "51a59c427bebfca458ffe26588a33cb48e7d729864d48bd99f310c7bde29ad66",
+      "canonical_dataset_hash": "sha256:3ef04c43b7b8e1cb36ea656217decfb209d719860e64a6005d16571fd3c8461c",
+      "dataset_version": "8123ccabe2b19fa1123090b2e5f1bacc20963ce8",
+      "split_counts": {
+        "train": 50,
+        "val": 30,
+        "test": 100
+      },
+      "ordered_task_ids_hashes": {
+        "train": "sha256:151f00ff864be1505bcaef5e80ebead36e94eca8860aa943ae29fdb88156dcbc",
+        "val": "sha256:659e53168ceaff0edbe5b8c007cea5b7e07a2cb4ca1394fca3c29e5f70b356ea",
+        "test": "sha256:e1ce20bf36f4c329ec43891d1ff6a6d2443cacd3783c7378a935775c98a909d6"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-1-workers-v5-1/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-1-workers-v5-1/tasks.json",
+      "bytes": 741,
+      "file_sha256": "3ac0190b4623e6bcc7ee51ca357e87898bba68efeba1689dd3225e38463f2878",
+      "canonical_dataset_hash": "sha256:9d4eab70e343d9d8a4d7a329d78c604a6cc66a3ce37dee4266ba2304ab58f5ca",
+      "dataset_version": "coral-circle-packing-0123dfb",
+      "split_counts": {
+        "optimization": 1,
+        "test": 1
+      },
+      "ordered_task_ids_hashes": {
+        "optimization": "sha256:dd80bc15d236c4a9ee692dde5e7223947765257c05280b90671f00f5788bac8b",
+        "test": "sha256:bc83a7468355ad8f5cb678596e702524fa1c04fa4a96347d82d1a39b0bd09743"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    },
+    "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v5-1/tasks.json": {
+      "path": "/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-2-workers-v5-1/tasks.json",
+      "bytes": 741,
+      "file_sha256": "ad13b02975dbd85af6451a387176a48403bd58fc7e337444d36142cc56536d97",
+      "canonical_dataset_hash": "sha256:57f8b81e95f86f4ab827a77dfff8ff6b915d127595cd1a56c491e95b6b74c7ee",
+      "dataset_version": "coral-circle-packing-0123dfb",
+      "split_counts": {
+        "optimization": 1,
+        "test": 1
+      },
+      "ordered_task_ids_hashes": {
+        "optimization": "sha256:dd80bc15d236c4a9ee692dde5e7223947765257c05280b90671f00f5788bac8b",
+        "test": "sha256:bc83a7468355ad8f5cb678596e702524fa1c04fa4a96347d82d1a39b0bd09743"
+      },
+      "contents_included": false,
+      "private_references_exported": false
+    }
+  },
+  "public_sources": {
+    "aime": {
+      "dataset_hash": "sha256:b083036dea44fdc3b025ac9b29f1198ff2529f1065cc8982f2c880542825a8cf",
+      "dataset_version": "gepa-aime-8b0ce6c-data-1",
+      "notice": "Dataset licenses apply separately from the Proteus software license. MathArena/aime_2025 is CC-BY-NC-SA-4.0; retain source attribution and license.",
+      "sources": [
+        {
+          "card": "https://huggingface.co/datasets/AI-MO/aimo-validation-aime/tree/13f9e12f613e720c2a2b2f345dd04b998a29494d",
+          "file": "train-val.parquet",
+          "license": "Apache-2.0",
+          "repository": "AI-MO/aimo-validation-aime",
+          "revision": "13f9e12f613e720c2a2b2f345dd04b998a29494d",
+          "rows": 90,
+          "sha256": "025484a99fea498e7d0c3b0ee42afcbec0176405c19c5dbf557b9f6ca6445675",
+          "url": "https://huggingface.co/datasets/AI-MO/aimo-validation-aime/resolve/13f9e12f613e720c2a2b2f345dd04b998a29494d/data/train-00000-of-00001.parquet"
+        },
+        {
+          "card": "https://huggingface.co/datasets/MathArena/aime_2025/tree/c94da77eb22bbd6439e62a323bec18493a421302",
+          "file": "test.parquet",
+          "license": "CC-BY-NC-SA-4.0",
+          "repository": "MathArena/aime_2025",
+          "revision": "c94da77eb22bbd6439e62a323bec18493a421302",
+          "rows": 30,
+          "sha256": "9f9066ff48ad2e31f9bf1b1ac6d5e80693195f987985f2859f89dd25ffa51c2d",
+          "url": "https://huggingface.co/datasets/MathArena/aime_2025/resolve/c94da77eb22bbd6439e62a323bec18493a421302/data/train-00000-of-00001.parquet"
+        }
+      ],
+      "provenance_file_sha256": "f6efca0f236f8c1fefc8cb001c85491af33f9494df6bee649151dc362581dad4",
+      "split_algorithm": "random.Random(0).shuffle; first 45 train, last 45 validation; test unchanged"
+    },
+    "formula": {
+      "dataset_hash": "sha256:9b1663fe5cf0c1cadf62ad1b093f11cbb1517b6973337584e18dc8de28278582",
+      "dataset_version": "ace-formula-82709de-data-1",
+      "license_notice": "The upstream repository includes Apache-2.0 LICENSE.txt. These dataset files have no separate license declaration at the pinned revision; retain upstream provenance. Dataset bytes are downloaded, not redistributed in Proteus.",
+      "processor_sha256": "ba20c128d6deefb63d8246d5e300bc07a26e9bb1e0170734fb9b193eb41a4621",
+      "repository": "https://github.com/ace-agent/ace",
+      "revision": "82709de050e1db6e6ef2f07bcb0393560b94992a",
+      "sources": [
+        {
+          "file": "formula_train_subset_500.jsonl",
+          "rows": 500,
+          "sha256": "aea676feb2354462ba22d3c2c73a18b780e1193b05597beaeb0250ae9021b482",
+          "split": "train",
+          "url": "https://raw.githubusercontent.com/ace-agent/ace/82709de050e1db6e6ef2f07bcb0393560b94992a/eval/finance/data/formula_train_subset_500.jsonl"
+        },
+        {
+          "file": "formula_val_subset_300.jsonl",
+          "rows": 300,
+          "sha256": "09948f7f24af5f2331f69a047ef086649873756cbf8626d19d23029346e98933",
+          "split": "validation",
+          "url": "https://raw.githubusercontent.com/ace-agent/ace/82709de050e1db6e6ef2f07bcb0393560b94992a/eval/finance/data/formula_val_subset_300.jsonl"
+        },
+        {
+          "file": "formula_test.jsonl",
+          "rows": 200,
+          "sha256": "079919e9631e50ba0489d2be1221ecf59952a9230ff91c5325c27b37ed99e342",
+          "split": "test",
+          "url": "https://raw.githubusercontent.com/ace-agent/ace/82709de050e1db6e6ef2f07bcb0393560b94992a/eval/finance/data/formula_test.jsonl"
+        }
+      ],
+      "provenance_file_sha256": "80cfb06790a936324c1b2e32643755331f5d00b9a3a9aa5537e795de8b49de33",
+      "split_algorithm": "upstream 500/300/200 files in original line order; no shuffle/subsampling"
+    }
+  },
+  "dataset_or_reference_bytes_included": false,
+  "MCE_upstream_pin_location": "source-entrypoints/mce/proteus/methods/meta_harness/records.py and data.py",
+  "regeneration_commands": [
+    "\"$PYTHON\" -m proteus.benchmarks.aime_data --out \"$NEW_DATA_ROOT/aime\" --cache \"$NEW_CACHE_ROOT/aime\"",
+    "\"$PYTHON\" -m proteus.benchmarks.ace_formula_data --out \"$NEW_DATA_ROOT/formula\" --cache \"$NEW_CACHE_ROOT/formula\""
+  ],
+  "warning": "Download data privately from pinned upstream sources; preserve original licenses, ordering and hashes. MCE uses pinned reference checkout plus dataset(..., seed=42). CORAL tasks contain host paths; rebuilding on another root changes dataset/config identity."
+}

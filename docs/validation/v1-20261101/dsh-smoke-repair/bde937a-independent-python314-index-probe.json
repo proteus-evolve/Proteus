@@ -1,0 +1,13 @@
+{
+  "source_commit": "bde937ad8f10555ada2202da6584e308fe3fca95",
+  "source_script_sha256": "1fa040e604456b4bdce2d15299a38ebfc8e5136ef0bf62234a07d6a6018560ac",
+  "python": "3.14.4",
+  "decoder": "compression.zstd",
+  "same_34_byte_input": true,
+  "invalid_count": 131072,
+  "samples": 64,
+  "omitted": 131008,
+  "index_bytes": 10783,
+  "provider_calls": 0,
+  "workflow_dispatches": 0
+}

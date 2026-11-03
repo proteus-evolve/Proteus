@@ -1,0 +1,2009 @@
+{
+  "schema_version": 1,
+  "assembled_utc": "2026-10-30T06:05:31.324651+00:00",
+  "scope": "ACE, ComBEE-ACE, Meta-Harness and CORAL through DSH/Codex: synthetic minimum-cycle acceptance",
+  "not_claimed": [
+    "paper reproduction",
+    "benchmark improvement",
+    "harness/model ranking",
+    "same-SHA release gate",
+    "Codex Native or GEPA",
+    "ComBEE-GEPA",
+    "persistent provider-session continuation",
+    "multi-worker CORAL"
+  ],
+  "api_cost_usd": null,
+  "cost_note": "Includes failed/cancelled attempts; billing unknown is not zero.",
+  "cells": {
+    "dsh/ace": {
+      "status": "accepted",
+      "backend": "dsh",
+      "source_head": "68980e4884c6de762cb664407b622f30c7d54a9d",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "image_id": "sha256:1e1c65c88f6233dbd5ea4d9ac98bfb8e722e9e47219027372c943cf2389a5f94",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T03:04:47.929143+00:00",
+      "finished_utc": "2026-10-30T03:07:56.162544+00:00",
+      "candidate_count": 2,
+      "rollout_count": 6,
+      "independently_regraded_rows": 6,
+      "native_dispatch_count": 6,
+      "pristine_source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+      "verified_component_count": 4,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "index.json",
+          "sha256": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+          "bytes": 106
+        },
+        {
+          "candidate_id": "initial",
+          "path": "playbook.txt",
+          "sha256": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+          "bytes": 184
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "index.json",
+          "sha256": "sha256:7e903b1a29a48d34a0ca93cecd361ee5d7c0170a595f48a33042700baa8746b8",
+          "bytes": 1476
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "playbook.txt",
+          "sha256": "sha256:9107d9d027c9ee4c458dc46de4b43acb460cb057da2686b1046c57620ed97397",
+          "bytes": 1211
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "303b353e45b4ef959e0f7ec2083dd7fbfade7adca18c1cc29e788f333a865faa",
+      "batches": [
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000002:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000008:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "validation-0",
+              "rollout_id": "op-000009:rollout-1",
+              "prediction": "BETA",
+              "reference": "BETA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000010:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000005:rollout-1",
+              "prediction": "ALPHA",
+              "reference": "ALPHA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000003:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "updated_playbook_prompt_witnesses": 3,
+        "selected_candidate_id": "candidate-000002",
+        "last_candidate_id": "candidate-000002",
+        "best_observed_validation_accuracy": 1.0,
+        "full_json_responses": 6
+      },
+      "run_id": 40994189131,
+      "artifact_id": 12952051426,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40994189131"
+    },
+    "dsh/coral": {
+      "status": "accepted",
+      "backend": "dsh",
+      "source_head": "68980e4884c6de762cb664407b622f30c7d54a9d",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "image_id": "sha256:1e1c65c88f6233dbd5ea4d9ac98bfb8e722e9e47219027372c943cf2389a5f94",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T03:12:31.801267+00:00",
+      "finished_utc": "2026-10-30T03:14:12.009865+00:00",
+      "candidate_count": 3,
+      "rollout_count": 7,
+      "independently_regraded_rows": 7,
+      "native_dispatch_count": 2,
+      "pristine_source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+      "verified_component_count": 3,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "main.py",
+          "sha256": "sha256:0229417c3a67a7cd000a662b0ae5c03bb8f10669b214ddb269edf8e41a78a6dd",
+          "bytes": 117
+        },
+        {
+          "candidate_id": "gateway-c23c6ec08ca9151864c236ab17b6369df53ae4655f00cbafe6790ff39c09646e",
+          "path": "main.py",
+          "sha256": "sha256:332c4627c46fbdfcbe4adc27bc360b7aa6a10aac9f2c5e56c27ecf06f8c1689f",
+          "bytes": 631
+        },
+        {
+          "candidate_id": "gateway-f8b1859584216da9e59da55031443a38e7c5ad356dac3770b6f990b7cf8a55a3",
+          "path": "main.py",
+          "sha256": "sha256:bf4314124e857b6c75237ca8408d65b600509ff7e1783879c148227d00b20438",
+          "bytes": 1277
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "42f12645280c2e4dedfa536c729a04015471712637b33c96789b4977ef3f4430",
+      "batches": [
+        {
+          "candidate_id": "gateway-f8b1859584216da9e59da55031443a38e7c5ad356dac3770b6f990b7cf8a55a3",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "seven",
+              "rollout_id": "coral:final-test:gateway-f8b1859584216da9e59da55031443a38e7c5ad356dac3770b6f990b7cf8a55a3:rollout-1",
+              "prediction": 14,
+              "reference": 14,
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "gateway-f8b1859584216da9e59da55031443a38e7c5ad356dac3770b6f990b7cf8a55a3",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "gateway:f8b1859584216da9e59da55031443a38e7c5ad356dac3770b6f990b7cf8a55a3:evaluation:rollout-1",
+              "prediction": 4,
+              "reference": 4,
+              "score": 1.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "gateway:f8b1859584216da9e59da55031443a38e7c5ad356dac3770b6f990b7cf8a55a3:evaluation:rollout-2",
+              "prediction": 6,
+              "reference": 6,
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "gateway-c23c6ec08ca9151864c236ab17b6369df53ae4655f00cbafe6790ff39c09646e",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "gateway:c23c6ec08ca9151864c236ab17b6369df53ae4655f00cbafe6790ff39c09646e:evaluation:rollout-1",
+              "prediction": 2,
+              "reference": 4,
+              "score": 0.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "gateway:c23c6ec08ca9151864c236ab17b6369df53ae4655f00cbafe6790ff39c09646e:evaluation:rollout-2",
+              "prediction": 3,
+              "reference": 6,
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "coral:baseline:rollout-1",
+              "prediction": 2,
+              "reference": 4,
+              "score": 0.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "coral:baseline:rollout-2",
+              "prediction": 3,
+              "reference": 6,
+              "score": 0.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "workers": 1,
+        "fresh_coding_turns": 2,
+        "formal_submissions": 2,
+        "provider_native_continuation_verified": false,
+        "multiple_worker_cooperation_verified": false
+      },
+      "run_id": 40994189131,
+      "artifact_id": 12952051426,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40994189131"
+    },
+    "dsh/combee-ace": {
+      "status": "accepted",
+      "backend": "dsh",
+      "source_head": "ea02530509e2b0f409e464f119ae0222e9b471be",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "image_id": "sha256:ecbb51ed7999b31ab692a652be9ecdca444d8ffe912af20419ad06a6ea36db3b",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T03:47:08.496723+00:00",
+      "finished_utc": "2026-10-30T03:49:01.428380+00:00",
+      "candidate_count": 2,
+      "rollout_count": 9,
+      "independently_regraded_rows": 9,
+      "native_dispatch_count": 9,
+      "pristine_source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+      "verified_component_count": 4,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "index.json",
+          "sha256": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+          "bytes": 106
+        },
+        {
+          "candidate_id": "initial",
+          "path": "playbook.txt",
+          "sha256": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+          "bytes": 184
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "index.json",
+          "sha256": "sha256:0f4d930f2fc54133749afde64f4489db9480501e3885606ebef06857c8372e3f",
+          "bytes": 1292
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "playbook.txt",
+          "sha256": "sha256:08a79c9efe3be3541101d977954bda1ae86b64503cdd3df85bd799390ab1c5b7",
+          "bytes": 1110
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "0b66632d5a7c7d9270115e9b0d2d7a4a1454c0fa0bb114c4cf89c474971f4600",
+      "batches": [
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000002:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000017:rollout-1",
+              "prediction": "OMEGA",
+              "reference": "OMEGA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-1",
+              "rollout_id": "workflow-b193e9ade7ca430e53f6001b9069344ffae6a4a293299faf00ebd64b6673c909:op-000006:rollout-1",
+              "prediction": "DELTA",
+              "reference": "DELTA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "validation-0",
+              "rollout_id": "op-000016:rollout-1",
+              "prediction": "BETA",
+              "reference": "BETA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "workflow-6241dbc852bd4f4d1f72555663e7219aa2eed2e14c3bd2a444115934d6050f9a:op-000004:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-1",
+              "rollout_id": "workflow-b193e9ade7ca430e53f6001b9069344ffae6a4a293299faf00ebd64b6673c909:op-000004:rollout-1",
+              "prediction": "delta",
+              "reference": "DELTA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "workflow-6241dbc852bd4f4d1f72555663e7219aa2eed2e14c3bd2a444115934d6050f9a:op-000006:rollout-1",
+              "prediction": "ALPHA",
+              "reference": "ALPHA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000015:rollout-1",
+              "prediction": "ALPHA",
+              "reference": "ALPHA",
+              "score": 1.0
+            },
+            {
+              "task_id": "train-1",
+              "rollout_id": "op-000015:rollout-2",
+              "prediction": "DELTA",
+              "reference": "DELTA",
+              "score": 1.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "updated_playbook_prompt_witnesses": 4,
+        "selected_candidate_id": "candidate-000002",
+        "last_candidate_id": "candidate-000002",
+        "best_observed_validation_accuracy": 1.0,
+        "full_json_responses": 9,
+        "learning_batches": 1,
+        "batch_samples": 2,
+        "map_proposals": 2,
+        "reducer_calls": 1,
+        "max_overlapping_native_dispatch_intervals": 2
+      },
+      "run_id": 40998453988,
+      "artifact_id": 12953012593,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40998453988"
+    },
+    "dsh/meta": {
+      "status": "accepted",
+      "backend": "dsh",
+      "source_head": "ea02530509e2b0f409e464f119ae0222e9b471be",
+      "source_revision": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+      "image_id": "sha256:ecbb51ed7999b31ab692a652be9ecdca444d8ffe912af20419ad06a6ea36db3b",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "deepseek-v4-flash",
+      "started_utc": "2026-10-30T03:49:01.835084+00:00",
+      "finished_utc": "2026-10-30T03:56:24.600584+00:00",
+      "candidate_count": 5,
+      "rollout_count": 12,
+      "independently_regraded_rows": 12,
+      "native_dispatch_count": 1,
+      "pristine_source_sha256": "6bc2e380183b0d6f54ae2f5ab2eaa7a7e3fe31d32c68d51faf34df01940a80cf",
+      "verified_component_count": 34,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "selected.json",
+          "sha256": "sha256:c08662b4a42255c260a5d6857130bbbd2fa923002298e04e1b0d00b69cbe2846",
+          "bytes": 22
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "selected.json",
+          "sha256": "sha256:2ce854c97452a7f372d55c073b148b0bb60f4e3141437b0d087c09d28d91c262",
+          "bytes": 24
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "selected.json",
+          "sha256": "sha256:ca7f51695c1c582d31f20c57e830fec5d668128a0036b34c751d3e293b3a950a",
+          "bytes": 40
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/contrastive_boundary_memory.py",
+          "sha256": "sha256:7545f1ddadc47e1ea4c8b2e9b4aa0ecbf5d75e502283214c0e621e3ca1b60564",
+          "bytes": 13750
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/prototype_differential_memory.py",
+          "sha256": "sha256:9996d36aee962b8b51851867451ff880ac27484c351864b0ae55853c30f21981",
+          "bytes": 11565
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "path": "text_classification/agents/rulebook_induction_memory.py",
+          "sha256": "sha256:31a601eaeb114223123d525c428706728b4b64f9c14626f387905de93964cbff",
+          "bytes": 18559
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "selected.json",
+          "sha256": "sha256:ef647558d97a3d072d02318cca51db01073709667bbd642d5fc1b0a89d4490d3",
+          "bytes": 38
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/contrastive_boundary_memory.py",
+          "sha256": "sha256:7545f1ddadc47e1ea4c8b2e9b4aa0ecbf5d75e502283214c0e621e3ca1b60564",
+          "bytes": 13750
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/prototype_differential_memory.py",
+          "sha256": "sha256:9996d36aee962b8b51851867451ff880ac27484c351864b0ae55853c30f21981",
+          "bytes": 11565
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "path": "text_classification/agents/rulebook_induction_memory.py",
+          "sha256": "sha256:31a601eaeb114223123d525c428706728b4b64f9c14626f387905de93964cbff",
+          "bytes": 18559
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "selected.json",
+          "sha256": "sha256:3d116fb0d74b650461fe48b555dbe2f4fc541f2e47568465996312547a7f316c",
+          "bytes": 42
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/contrastive_boundary_memory.py",
+          "sha256": "sha256:7545f1ddadc47e1ea4c8b2e9b4aa0ecbf5d75e502283214c0e621e3ca1b60564",
+          "bytes": 13750
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/prototype_differential_memory.py",
+          "sha256": "sha256:9996d36aee962b8b51851867451ff880ac27484c351864b0ae55853c30f21981",
+          "bytes": 11565
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "path": "text_classification/agents/rulebook_induction_memory.py",
+          "sha256": "sha256:31a601eaeb114223123d525c428706728b4b64f9c14626f387905de93964cbff",
+          "bytes": 18559
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "823a23d9896bb71cdca841b27c355f98574a47a9e900e975e680c96e89430e7d",
+      "batches": [
+        {
+          "candidate_id": "prototype_differential_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000026:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000027:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000028:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000009:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000016:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "prototype_differential_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000025:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000010:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000020:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000006:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000005:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "contrastive_boundary_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000015:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "rulebook_induction_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000021:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "iterations": 1,
+        "generated_successful_learning_calls": {
+          "contrastive_boundary_memory": 1,
+          "rulebook_induction_memory": 1,
+          "prototype_differential_memory": 1
+        },
+        "generated_systems": [
+          "contrastive_boundary_memory",
+          "rulebook_induction_memory",
+          "prototype_differential_memory"
+        ],
+        "generated_system_rollout_counts": {
+          "contrastive_boundary_memory": 2,
+          "rulebook_induction_memory": 2,
+          "prototype_differential_memory": 2
+        },
+        "diagnostics": [],
+        "selected_systems": [
+          "fewshot_all",
+          "no_memory"
+        ],
+        "generated_system_private_test_rows": 0
+      },
+      "run_id": 40998453988,
+      "artifact_id": 12953012593,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40998453988"
+    },
+    "codex/ace": {
+      "status": "accepted",
+      "backend": "codex",
+      "source_head": "44380dad769e87c435d714b990f03e59e58dbd9c",
+      "source_revision": "a7b86b6201d35200280e3d24ca5ebccd8122d6ca",
+      "image_id": "sha256:fda749d5b66ac2fc7d51957c30673b713a7c9b97ce588a300933fa5efe566d43",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "gpt-5.4-mini",
+      "started_utc": "2026-10-30T05:17:14.425361+00:00",
+      "finished_utc": "2026-10-30T05:20:59.971921+00:00",
+      "candidate_count": 2,
+      "rollout_count": 6,
+      "independently_regraded_rows": 6,
+      "native_dispatch_count": 6,
+      "pristine_source_sha256": "19e60813756ac7b9e940e61bf5b47b0b6ba83fb47e04302a35490161bf8607e4",
+      "verified_component_count": 4,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "index.json",
+          "sha256": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+          "bytes": 106
+        },
+        {
+          "candidate_id": "initial",
+          "path": "playbook.txt",
+          "sha256": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+          "bytes": 184
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "index.json",
+          "sha256": "sha256:d51e0789ca6c39011da86ade152af0506ca9dc6be7a67c407faa8e293851e28e",
+          "bytes": 1034
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "playbook.txt",
+          "sha256": "sha256:924b4f6ac31d15e47eee92ef668cd0b823121459adcee394c7bd75780d95792d",
+          "bytes": 852
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "4ef3481d8c55dfcedda50b02707474cd1007a30ec095acf8907021a2224a8534",
+      "batches": [
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000002:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000008:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "validation-0",
+              "rollout_id": "op-000009:rollout-1",
+              "prediction": "beta",
+              "reference": "BETA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000010:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000005:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000003:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "updated_playbook_prompt_witnesses": 2,
+        "selected_candidate_id": "initial",
+        "last_candidate_id": "candidate-000002",
+        "best_observed_validation_accuracy": 0.0,
+        "full_json_responses": 6,
+        "native_stream_states": {
+          "completed": 6
+        },
+        "native_completed_tool_items": {
+          "command_execution": 6
+        },
+        "native_error_events": 0
+      },
+      "run_id": 40993578545,
+      "artifact_id": 12956393661,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40993578545"
+    },
+    "codex/combee-ace": {
+      "status": "accepted",
+      "backend": "codex",
+      "source_head": "44380dad769e87c435d714b990f03e59e58dbd9c",
+      "source_revision": "a7b86b6201d35200280e3d24ca5ebccd8122d6ca",
+      "image_id": "sha256:fda749d5b66ac2fc7d51957c30673b713a7c9b97ce588a300933fa5efe566d43",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "gpt-5.4-mini",
+      "started_utc": "2026-10-30T05:21:07.886562+00:00",
+      "finished_utc": "2026-10-30T05:25:59.279958+00:00",
+      "candidate_count": 2,
+      "rollout_count": 9,
+      "independently_regraded_rows": 9,
+      "native_dispatch_count": 9,
+      "pristine_source_sha256": "19e60813756ac7b9e940e61bf5b47b0b6ba83fb47e04302a35490161bf8607e4",
+      "verified_component_count": 4,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "index.json",
+          "sha256": "sha256:4ee230a2315c5719294555f72c94bb3f46075834dde980266e2a3e8693354212",
+          "bytes": 106
+        },
+        {
+          "candidate_id": "initial",
+          "path": "playbook.txt",
+          "sha256": "sha256:d0e7d0049bd539630f51db8d08fdff170ea2882267c960fbe843bede303e2249",
+          "bytes": 184
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "index.json",
+          "sha256": "sha256:331296b286b81c5bce1ef987537b34c35bdb0f99b9fc5f5432ad523a7e067bd4",
+          "bytes": 1492
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "path": "playbook.txt",
+          "sha256": "sha256:19dbf091a18c776d5cbeff9e873c9531d1736c1f05da31e459325a9f87322c49",
+          "bytes": 1243
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "43631bd7e7eaf5d02fdad498b0cdd538af5d622c30af1e33b3cfdebb37c3d517",
+      "batches": [
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000002:rollout-1",
+              "prediction": "omega",
+              "reference": "OMEGA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000017:rollout-1",
+              "prediction": "OMEGA",
+              "reference": "OMEGA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-1",
+              "rollout_id": "workflow-b193e9ade7ca430e53f6001b9069344ffae6a4a293299faf00ebd64b6673c909:op-000006:rollout-1",
+              "prediction": "delta",
+              "reference": "DELTA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "validation-0",
+              "rollout_id": "op-000016:rollout-1",
+              "prediction": "BETA",
+              "reference": "BETA",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "workflow-6241dbc852bd4f4d1f72555663e7219aa2eed2e14c3bd2a444115934d6050f9a:op-000004:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-1",
+              "rollout_id": "workflow-b193e9ade7ca430e53f6001b9069344ffae6a4a293299faf00ebd64b6673c909:op-000004:rollout-1",
+              "prediction": "delta",
+              "reference": "DELTA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "workflow-6241dbc852bd4f4d1f72555663e7219aa2eed2e14c3bd2a444115934d6050f9a:op-000006:rollout-1",
+              "prediction": "alpha",
+              "reference": "ALPHA",
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "candidate-000002",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "train-0",
+              "rollout_id": "op-000015:rollout-1",
+              "prediction": "ALPHA",
+              "reference": "ALPHA",
+              "score": 1.0
+            },
+            {
+              "task_id": "train-1",
+              "rollout_id": "op-000015:rollout-2",
+              "prediction": "DELTA",
+              "reference": "DELTA",
+              "score": 1.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "updated_playbook_prompt_witnesses": 4,
+        "selected_candidate_id": "candidate-000002",
+        "last_candidate_id": "candidate-000002",
+        "best_observed_validation_accuracy": 1.0,
+        "full_json_responses": 9,
+        "learning_batches": 1,
+        "batch_samples": 2,
+        "map_proposals": 2,
+        "reducer_calls": 1,
+        "max_overlapping_native_dispatch_intervals": 2,
+        "native_stream_states": {
+          "completed": 9
+        },
+        "native_completed_tool_items": {
+          "command_execution": 9
+        },
+        "native_error_events": 0
+      },
+      "run_id": 40993578545,
+      "artifact_id": 12956393661,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40993578545"
+    },
+    "codex/coral": {
+      "status": "accepted",
+      "backend": "codex",
+      "source_head": "44380dad769e87c435d714b990f03e59e58dbd9c",
+      "source_revision": "a7b86b6201d35200280e3d24ca5ebccd8122d6ca",
+      "image_id": "sha256:fda749d5b66ac2fc7d51957c30673b713a7c9b97ce588a300933fa5efe566d43",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "gpt-5.4-mini",
+      "started_utc": "2026-10-30T05:26:55.761355+00:00",
+      "finished_utc": "2026-10-30T05:28:22.286736+00:00",
+      "candidate_count": 3,
+      "rollout_count": 7,
+      "independently_regraded_rows": 7,
+      "native_dispatch_count": 2,
+      "pristine_source_sha256": "19e60813756ac7b9e940e61bf5b47b0b6ba83fb47e04302a35490161bf8607e4",
+      "verified_component_count": 3,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "main.py",
+          "sha256": "sha256:0229417c3a67a7cd000a662b0ae5c03bb8f10669b214ddb269edf8e41a78a6dd",
+          "bytes": 117
+        },
+        {
+          "candidate_id": "gateway-90025c80dd639234b3ae117a5ab1ff4b0d37c871f5c09fdb0a4a5b1bc2875567",
+          "path": "main.py",
+          "sha256": "sha256:a16667fa6ad2ab6af52b4f0fdab90c439c0bf963af519d73909f7c954b9b2e43",
+          "bytes": 194
+        },
+        {
+          "candidate_id": "gateway-19cad2c1641589ecbf93014f3820ea4bd8e1a5b81f99ee47feab458c2d1c29db",
+          "path": "main.py",
+          "sha256": "sha256:f52e8b5437cc72b5bbcb1cc36596dbab3e75f07763257276191341c4e8c64cdf",
+          "bytes": 194
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "9d2d5f46cbe6373863c8ed68d349016c02ec49d6dd52d8a995d5ab7a47c8c3a0",
+      "batches": [
+        {
+          "candidate_id": "gateway-19cad2c1641589ecbf93014f3820ea4bd8e1a5b81f99ee47feab458c2d1c29db",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "gateway:19cad2c1641589ecbf93014f3820ea4bd8e1a5b81f99ee47feab458c2d1c29db:evaluation:rollout-1",
+              "prediction": 4,
+              "reference": 4,
+              "score": 1.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "gateway:19cad2c1641589ecbf93014f3820ea4bd8e1a5b81f99ee47feab458c2d1c29db:evaluation:rollout-2",
+              "prediction": 6,
+              "reference": 6,
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "gateway-90025c80dd639234b3ae117a5ab1ff4b0d37c871f5c09fdb0a4a5b1bc2875567",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "gateway:90025c80dd639234b3ae117a5ab1ff4b0d37c871f5c09fdb0a4a5b1bc2875567:evaluation:rollout-1",
+              "prediction": 2,
+              "reference": 4,
+              "score": 0.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "gateway:90025c80dd639234b3ae117a5ab1ff4b0d37c871f5c09fdb0a4a5b1bc2875567:evaluation:rollout-2",
+              "prediction": 3,
+              "reference": 6,
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "two",
+              "rollout_id": "coral:baseline:rollout-1",
+              "prediction": 2,
+              "reference": 4,
+              "score": 0.0
+            },
+            {
+              "task_id": "three",
+              "rollout_id": "coral:baseline:rollout-2",
+              "prediction": 3,
+              "reference": 6,
+              "score": 0.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "gateway-19cad2c1641589ecbf93014f3820ea4bd8e1a5b81f99ee47feab458c2d1c29db",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "seven",
+              "rollout_id": "coral:final-test:gateway-19cad2c1641589ecbf93014f3820ea4bd8e1a5b81f99ee47feab458c2d1c29db:rollout-1",
+              "prediction": 14,
+              "reference": 14,
+              "score": 1.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "workers": 1,
+        "fresh_coding_turns": 2,
+        "formal_submissions": 2,
+        "provider_native_continuation_verified": false,
+        "multiple_worker_cooperation_verified": false,
+        "native_stream_states": {
+          "completed": 2
+        },
+        "native_completed_tool_items": {
+          "command_execution": 13,
+          "file_change": 2
+        },
+        "native_error_events": 0
+      },
+      "run_id": 40993578545,
+      "artifact_id": 12956393661,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/40993578545"
+    },
+    "codex/meta": {
+      "status": "accepted",
+      "backend": "codex",
+      "source_head": "678ddaef698d6cbabb14f04e9d64790b2e826de5",
+      "source_revision": "a7b86b6201d35200280e3d24ca5ebccd8122d6ca",
+      "image_id": "sha256:a51db0996d3350d54abca4668c347c0f03117fd5aba9c7492b1ed988175a5af7",
+      "requested_managed_model": "deepseek-v4-flash",
+      "harness_model": "gpt-5.4-mini",
+      "started_utc": "2026-10-30T06:00:47.099323+00:00",
+      "finished_utc": "2026-10-30T06:03:42.741346+00:00",
+      "candidate_count": 5,
+      "rollout_count": 12,
+      "independently_regraded_rows": 12,
+      "native_dispatch_count": 1,
+      "pristine_source_sha256": "19e60813756ac7b9e940e61bf5b47b0b6ba83fb47e04302a35490161bf8607e4",
+      "verified_component_count": 52,
+      "verified_components": [
+        {
+          "candidate_id": "initial",
+          "path": "selected.json",
+          "sha256": "sha256:c08662b4a42255c260a5d6857130bbbd2fa923002298e04e1b0d00b69cbe2846",
+          "bytes": 22
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "initial",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "selected.json",
+          "sha256": "sha256:2ce854c97452a7f372d55c073b148b0bb60f4e3141437b0d087c09d28d91c262",
+          "bytes": 24
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "selected.json",
+          "sha256": "sha256:7de004ddc70948bcd527d29f15809a761ddf9c095ac72f2f71d9ee294b7f3c03",
+          "bytes": 39
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "bytes": 1
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/__pycache__/__init__.cpython-311.pyc",
+          "sha256": "sha256:ab700df3912670158970b6d0a65b3875fc52dd8167d0b33579767e1bbb21f21f",
+          "bytes": 150
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/__pycache__/_shared.cpython-311.pyc",
+          "sha256": "sha256:998c96302551530add4c8b45866df8ec43beabc8acd25cf095dd73f7c050470c",
+          "bytes": 5321
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/__pycache__/confusion_graph_memory.cpython-311.pyc",
+          "sha256": "sha256:51cc3897e8f011dbd1cc07e4b451b8e46a5d6e88019a739ea32b71cd7a51b27b",
+          "bytes": 12984
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/__pycache__/contrastive_support_memory.cpython-311.pyc",
+          "sha256": "sha256:98318a66c8304d248d94905d2c8b60454c35fbe34b14984d3a582e0dfb2144ad",
+          "bytes": 12366
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/__pycache__/lesson_ledger_memory.cpython-311.pyc",
+          "sha256": "sha256:fccdab96b10b94897f2e3052420aeadb1682542f00efe80ea14969919e336545",
+          "bytes": 13609
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/_shared.py",
+          "sha256": "sha256:32e9b9c6b623b8d35be1646f1ed5f452338095fb2d9bb2bd393aecf8c3e20a0e",
+          "bytes": 2308
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/confusion_graph_memory.py",
+          "sha256": "sha256:45d9d6bc792a1e74451b3aa976df2f84e518b7f2e6ac0361f43b09b3c65e40e3",
+          "bytes": 7340
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/contrastive_support_memory.py",
+          "sha256": "sha256:1d8d406d44909801b444c9df833f8898b0c6886dd3189ee65fbebc2a84bf065c",
+          "bytes": 7296
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/lesson_ledger_memory.py",
+          "sha256": "sha256:ec245ad28ca75c1b507f4cc529e530f30d70a9c6a1b68d7f402eb0daa1d36e7e",
+          "bytes": 7622
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "selected.json",
+          "sha256": "sha256:260f47608e1cbced0b394f1aa6b65bf0744aee7a33b0f826eb5ca934a983441e",
+          "bytes": 33
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "bytes": 1
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/__pycache__/__init__.cpython-311.pyc",
+          "sha256": "sha256:ab700df3912670158970b6d0a65b3875fc52dd8167d0b33579767e1bbb21f21f",
+          "bytes": 150
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/__pycache__/_shared.cpython-311.pyc",
+          "sha256": "sha256:998c96302551530add4c8b45866df8ec43beabc8acd25cf095dd73f7c050470c",
+          "bytes": 5321
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/__pycache__/confusion_graph_memory.cpython-311.pyc",
+          "sha256": "sha256:51cc3897e8f011dbd1cc07e4b451b8e46a5d6e88019a739ea32b71cd7a51b27b",
+          "bytes": 12984
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/__pycache__/contrastive_support_memory.cpython-311.pyc",
+          "sha256": "sha256:98318a66c8304d248d94905d2c8b60454c35fbe34b14984d3a582e0dfb2144ad",
+          "bytes": 12366
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/__pycache__/lesson_ledger_memory.cpython-311.pyc",
+          "sha256": "sha256:fccdab96b10b94897f2e3052420aeadb1682542f00efe80ea14969919e336545",
+          "bytes": 13609
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/_shared.py",
+          "sha256": "sha256:32e9b9c6b623b8d35be1646f1ed5f452338095fb2d9bb2bd393aecf8c3e20a0e",
+          "bytes": 2308
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/confusion_graph_memory.py",
+          "sha256": "sha256:45d9d6bc792a1e74451b3aa976df2f84e518b7f2e6ac0361f43b09b3c65e40e3",
+          "bytes": 7340
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/contrastive_support_memory.py",
+          "sha256": "sha256:1d8d406d44909801b444c9df833f8898b0c6886dd3189ee65fbebc2a84bf065c",
+          "bytes": 7296
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/lesson_ledger_memory.py",
+          "sha256": "sha256:ec245ad28ca75c1b507f4cc529e530f30d70a9c6a1b68d7f402eb0daa1d36e7e",
+          "bytes": 7622
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "selected.json",
+          "sha256": "sha256:ba51004e697e00f3bff70c34e36c70959cba2301d96b272fa3d2a4195a04e22b",
+          "bytes": 35
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/__init__.py",
+          "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "bytes": 1
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/__pycache__/__init__.cpython-311.pyc",
+          "sha256": "sha256:ab700df3912670158970b6d0a65b3875fc52dd8167d0b33579767e1bbb21f21f",
+          "bytes": 150
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/__pycache__/_shared.cpython-311.pyc",
+          "sha256": "sha256:998c96302551530add4c8b45866df8ec43beabc8acd25cf095dd73f7c050470c",
+          "bytes": 5321
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/__pycache__/confusion_graph_memory.cpython-311.pyc",
+          "sha256": "sha256:51cc3897e8f011dbd1cc07e4b451b8e46a5d6e88019a739ea32b71cd7a51b27b",
+          "bytes": 12984
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/__pycache__/contrastive_support_memory.cpython-311.pyc",
+          "sha256": "sha256:98318a66c8304d248d94905d2c8b60454c35fbe34b14984d3a582e0dfb2144ad",
+          "bytes": 12366
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/__pycache__/lesson_ledger_memory.cpython-311.pyc",
+          "sha256": "sha256:fccdab96b10b94897f2e3052420aeadb1682542f00efe80ea14969919e336545",
+          "bytes": 13609
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/_shared.py",
+          "sha256": "sha256:32e9b9c6b623b8d35be1646f1ed5f452338095fb2d9bb2bd393aecf8c3e20a0e",
+          "bytes": 2308
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/confusion_graph_memory.py",
+          "sha256": "sha256:45d9d6bc792a1e74451b3aa976df2f84e518b7f2e6ac0361f43b09b3c65e40e3",
+          "bytes": 7340
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/contrastive_support_memory.py",
+          "sha256": "sha256:1d8d406d44909801b444c9df833f8898b0c6886dd3189ee65fbebc2a84bf065c",
+          "bytes": 7296
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/fewshot_all.py",
+          "sha256": "sha256:3369cf4571f8719b0748b9740688f8b050d96d68c10048432bb54249e6051cb3",
+          "bytes": 334
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/fewshot_memory.py",
+          "sha256": "sha256:daa346dbae5a83ffd58c6507eca99cb9e718f1e406be80d95b2fa72d90576240",
+          "bytes": 4272
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/lesson_ledger_memory.py",
+          "sha256": "sha256:ec245ad28ca75c1b507f4cc529e530f30d70a9c6a1b68d7f402eb0daa1d36e7e",
+          "bytes": 7622
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "path": "text_classification/agents/no_memory.py",
+          "sha256": "sha256:720c8b09691541102549749e17decc85ce779fcf190915c07a511e5958e8e562",
+          "bytes": 1123
+        }
+      ],
+      "completed_resume_new_dispatches": 0,
+      "execution_file_sha256": "058666f04daaca7eea95ff5020ba81396d9a2c89286ee42851e9b4b2eec6869c",
+      "batches": [
+        {
+          "candidate_id": "confusion_graph_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000026:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000027:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "hidden",
+          "rows": [
+            {
+              "task_id": "test-0",
+              "rollout_id": "op-000028:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000009:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000016:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "confusion_graph_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000025:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "fewshot_all",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000010:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000020:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000006:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "initial",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000005:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "contrastive_support_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000015:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "candidate_id": "lesson_ledger_memory",
+          "visibility": "observed",
+          "rows": [
+            {
+              "task_id": "val-0",
+              "rollout_id": "op-000021:rollout-1",
+              "prediction": "pilot-label",
+              "reference": "pilot-label",
+              "score": 1.0
+            }
+          ]
+        }
+      ],
+      "details": {
+        "iterations": 1,
+        "generated_successful_learning_calls": {
+          "contrastive_support_memory": 1,
+          "lesson_ledger_memory": 1,
+          "confusion_graph_memory": 1
+        },
+        "generated_systems": [
+          "contrastive_support_memory",
+          "lesson_ledger_memory",
+          "confusion_graph_memory"
+        ],
+        "generated_system_rollout_counts": {
+          "contrastive_support_memory": 2,
+          "lesson_ledger_memory": 2,
+          "confusion_graph_memory": 2
+        },
+        "diagnostics": [],
+        "selected_systems": [
+          "fewshot_all",
+          "no_memory"
+        ],
+        "generated_system_private_test_rows": 0,
+        "native_stream_states": {
+          "completed": 1
+        },
+        "native_completed_tool_items": {
+          "command_execution": 32,
+          "file_change": 3
+        },
+        "native_error_events": 0
+      },
+      "run_id": 41011231821,
+      "artifact_id": 12958251219,
+      "run_url": "https://github.com/proteus-evolve/Proteus/actions/runs/41011231821"
+    }
+  },
+  "audit_sources": [
+    {
+      "run_id": 40994189131,
+      "artifact_id": 12952051426,
+      "audit_sha256": "cb903195fb9c17ed4a8b5d92c385104df50c42af9fb02dfd74b6c55e37bf8ef2",
+      "audited_utc": "2026-10-30T03:53:03.120001+00:00"
+    },
+    {
+      "run_id": 40998453988,
+      "artifact_id": 12953012593,
+      "audit_sha256": "895594d0b7b18fb86a3b839151807546fe520b7c9e4207bc5f091f03080a255f",
+      "audited_utc": "2026-10-30T06:03:20.132669+00:00"
+    },
+    {
+      "run_id": 40993578545,
+      "artifact_id": 12956393661,
+      "audit_sha256": "b7c9526703a7c03beb7452ad01165bbaf19b2f8b485b112b4f889b4193c4506d",
+      "audited_utc": "2026-10-30T05:43:00.976845+00:00"
+    },
+    {
+      "run_id": 41011231821,
+      "artifact_id": 12958251219,
+      "audit_sha256": "06bc0fa37db8ccedaf8aed9f39866399d05d1cf5b26c070e0c71053f6051fb45",
+      "audited_utc": "2026-10-30T06:05:06.123424+00:00"
+    }
+  ],
+  "failed_attempts": [
+    {
+      "backend": "dsh",
+      "run_id": 40992089467,
+      "source_head": "fd5e561",
+      "status": "cancelled",
+      "note": "Symlink-dereferencing activation bug; cancellation then force cancellation. ACE completed but checker rejected JSON; subsequent Combee step began under old always() guard before cancellation settled. No complete artifact uploaded. Partial cost unknown.",
+      "finished_utc": "2026-10-30T02:48:15Z",
+      "raw_artifact_available": false,
+      "ace_error": "JSONDecodeError during strict generator response verification",
+      "combee_exit_code": 143,
+      "meta": "skipped",
+      "coral": "skipped",
+      "timestamp_source": "GitHub job completed_at",
+      "local_log_file": "proteus-dsh-expansion-cancelled.log"
+    },
+    {
+      "backend": "codex",
+      "run_id": 40992536635,
+      "source_head": "bb812a6",
+      "status": "cancelled",
+      "artifact_id": 12949519959,
+      "note": "Cancelled during image compilation; no live method step reached.",
+      "finished_utc": "2026-10-30T02:43:31Z",
+      "timestamp_source": "GitHub job completed_at",
+      "local_log_file": "proteus-codex-expansion-cancelled.log"
+    },
+    {
+      "backend": "dsh",
+      "run_id": 40993899029,
+      "source_head": "44380da",
+      "status": "cancelled",
+      "artifact_id": 12949834880,
+      "live_inference_started": false,
+      "note": "Stopped at image build to include real-native-shape DSH final-message fix.",
+      "finished_utc": "2026-10-30T02:51:37Z",
+      "timestamp_source": "GitHub job completed_at"
+    },
+    {
+      "run_id": 40994189131,
+      "source_head": "68980e4884c6de762cb664407b622f30c7d54a9d",
+      "status": "completed_failure",
+      "artifact_id": 12952051426,
+      "accepted_cells": [
+        "ace",
+        "coral"
+      ],
+      "rejected_cells": [
+        "combee-ace",
+        "meta"
+      ],
+      "local_audit_file": "dsh-68980-audit.json"
+    },
+    {
+      "backend": "codex",
+      "run_id": 41009956547,
+      "source_head": "9798c52afb581eba3fbd29a37655e7fbbf3b47e8",
+      "artifact_id": 12957173731,
+      "status": "completed_failure",
+      "accepted_cells": [],
+      "rejected_cells": [
+        "meta"
+      ],
+      "reason": "Native delimiter probe passed; real proposer completed and authored three programs, but submitted forwarding wrappers while full implementations stayed in ignored output/text_classification mirror. All three rejected by actual loader before generated evaluation. Six managed baseline rows retained."
+    },
+    {
+      "backend": "codex",
+      "run_id": 40993578545,
+      "source_head": "44380dad769e87c435d714b990f03e59e58dbd9c",
+      "artifact_id": 12956393661,
+      "overall_status": "failure",
+      "accepted_cells": [
+        "ace",
+        "combee-ace",
+        "coral"
+      ],
+      "rejected_cells": [
+        "meta"
+      ],
+      "reason": "Meta proposer exited 2 with CLI usage text before generated-program evaluation; six baseline managed rows retained, native model stream empty. Unknown billing is not zero."
+    }
+  ],
+  "summary": {
+    "accepted_cells": 8,
+    "requested_cells": 8,
+    "independently_regraded_rows": 68,
+    "verified_candidate_components": 108,
+    "native_cli_dispatches": 36,
+    "completed_resume_new_dispatches": 0
+  },
+  "runtime_reuse": {
+    "helper_commit": "678ddaef698d6cbabb14f04e9d64790b2e826de5",
+    "auxiliary_ref": "codex/codex-fixed-runtime-recovery-20261030",
+    "status": "accepted",
+    "local_checks": "48 passed, Ruff/YAML/shell/diff passed",
+    "native_image_reuse_verified": true,
+    "run_id": 41011231821,
+    "artifact_id": 12958251219,
+    "reuse": {
+      "producer_run_id": 40993578545,
+      "producer_head": "44380dad769e87c435d714b990f03e59e58dbd9c",
+      "producer_image_id": "sha256:fda749d5b66ac2fc7d51957c30673b713a7c9b97ce588a300933fa5efe566d43",
+      "upstream_revision": "a7b86b6201d35200280e3d24ca5ebccd8122d6ca",
+      "pristine_source_sha256": "19e60813756ac7b9e940e61bf5b47b0b6ba83fb47e04302a35490161bf8607e4",
+      "accepted_anchor_cells": [
+        "live-ace",
+        "live-combee-ace",
+        "live-coral"
+      ],
+      "retained_publication": "live-meta/run/actors/actor-04d1642cb4b74277fdb95b185b95e42e1f15964dccecfc92c378d4a09d26083b/.codex-builds/19e60813756ac7b9e940e61bf5b47b0b6ba83fb47e04302a35490161bf8607e4",
+      "binary_anchors": {
+        "codex-code-mode-host": {
+          "sha256": "5b291cf5b06ffd72d714c4e6649bc8523eeba6b32edbf9ab313ee914db52d0cf",
+          "size_bytes": 129731424
+        },
+        "codex": {
+          "sha256": "00894c7d40b5174b19723ba0661e040320d289adcc074e1f4a2dfbb0f315de4b",
+          "size_bytes": 1292610856
+        }
+      },
+      "scope": "Fixed-runtime recovery; no Rust build cache or source evolution support"
+    },
+    "native_parser_probe": {
+      "old": {
+        "exit_code": 2,
+        "stdout": "",
+        "stderr": "error: unexpected argument '---\nname: meta-harness\n---\nA literal task' found\n\n  tip: to pass '---\nname: meta-harness\n---\nA literal task' as a value, use '-- ---\nname: meta-harness\n---\nA literal task'\n\nUsage: codex exec [OPTIONS] [PROMPT]\n       codex exec [OPTIONS] <COMMAND> [ARGS]\n\nFor more information, try '--help'.\n"
+      },
+      "fixed": {
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Error parsing -c overrides: Invalid override (missing '='): pilot_missing_equals\n"
+      }
+    }
+  },
+  "source_checks": {
+    "source_head": "678ddaef698d6cbabb14f04e9d64790b2e826de5",
+    "ci": 41011209507,
+    "harbor": 41011209510,
+    "native_source": 41011209534
+  },
+  "status": "accepted"
+}

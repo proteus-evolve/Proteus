@@ -1,0 +1,25 @@
+"""A parent selector: prefer the candidate with the strongest worst task."""
+
+from pathlib import Path
+
+from proteus.api.v1 import EmptyOptions, Plugin, PluginRef, PolicyResult, SelectionView, implementation_hash, require
+from proteus.examples.parent_selection import register as register_example
+
+
+class WorstTaskParent:
+    def select_parent(self, view: SelectionView, rng) -> PolicyResult:
+        require(bool(view.vectors) and not view.objectives, 'this policy needs visible per-task scores')
+        chosen = max(view.vectors, key=lambda row: min(row.scores))
+        return PolicyResult(selected=(chosen.candidate_id,), reasons={row.candidate_id:
+            'highest minimum task score; earliest tie' if row is chosen else 'lower minimum or later tie'
+            for row in view.vectors})
+
+
+def register(registry):
+    # Only the demo's method/evaluator come from Proteus. The parent rule is this
+    # editable external plugin, loaded through the normal registration hook.
+    register_example(registry)
+    registry.register(Plugin(ref=PluginRef(name='{{NAME}}.parent', version='1'), kind='policy',
+        options=EmptyOptions, factory=lambda options: WorstTaskParent(), source='{{NAME}}',
+        implementation_hash=implementation_hash({'{{NAME}}.py': Path(__file__)}),
+        capabilities=('search.parent',)))

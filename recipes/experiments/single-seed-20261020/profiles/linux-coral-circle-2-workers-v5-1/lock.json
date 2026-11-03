@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "python_version": "3.12.13",
+  "platform": "linux",
+  "sources": [
+    {
+      "schema_version": 1,
+      "name": "proteus",
+      "repository": "/home/ubuntu/proteus-full-linux-20261020/sources/coral-output-channels-v5",
+      "revision": "7ca7742d18f267b5a2805dad59979e328d3a8f36",
+      "dirty_patch_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "full-coral-channel-profiles-v5-1",
+      "repository": "local-content-addressed:prepare_coral_output_channels_v5_1.py",
+      "revision": "3ad8c6c44a1f16e25ce0bdff9513da407706e14b5638a7ad55f28dc8e40f5427",
+      "dirty_patch_hash": null
+    }
+  ],
+  "plugins": [
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "coral.heartbeat",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:7802f1bd58bb8874761fa1b6118a0c6cdf0ba1baed40b4f902e96cdc1e60bbd8",
+      "source": "proteus",
+      "capabilities": [
+        "event.pure_transition",
+        "coral.reference_heartbeat"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "coral.packing_evidence",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:52dbfffea01f8eb146344e3f58902254e32708e2c23adbf7db2c58036ac99673",
+      "source": "proteus",
+      "capabilities": [
+        "stage.replay"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "coral.single_island",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:f17871d3c18ac1132373ee82befc591660a1de43577475fbabf93cb033737959",
+      "source": "proteus",
+      "capabilities": [
+        "run.journal",
+        "run.resume",
+        "coral.single_island"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.echo",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:ce1195926a2ec4da0cd9697496dac9e94f375f56689a103729564a25571436d1",
+      "source": "proteus",
+      "capabilities": [
+        "session.fresh",
+        "actor.execute",
+        "calls.bounded",
+        "request.timeout",
+        "actor.parallel"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.file_tree",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:06338772229c683ecaa5666540baca0a9ba32492d53e94551537aed0c6a02588",
+      "source": "proteus",
+      "capabilities": [
+        "artifact.immutable",
+        "artifact.delta",
+        "artifact.materialize"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.harbor",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:70f757e4b7801ef8e41c92e263ee03acea4f940b82ad160161ec709aac412941",
+      "source": "proteus",
+      "capabilities": [
+        "state.independent",
+        "candidate.exact_tree",
+        "environment.source_build",
+        "environment.parallel"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.harbor_reward",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:9fd7f4d02cd71248b4be629b11ee1a47b5696917c422408500a72925962d103e",
+      "source": "proteus",
+      "capabilities": [
+        "evaluation.backend.harbor"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.harbor_subject",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:06658334864b48d93565b455ece9d9881702e231063b2c6b3aa481593ea4a52d",
+      "source": "proteus",
+      "capabilities": [
+        "evaluation.backend.harbor",
+        "subject.reconcile",
+        "subject.parallel"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.json_tasks",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:7446d7797e08687e281148cb5707260ced542e17d37805bccfac7a390888034d",
+      "source": "proteus",
+      "capabilities": []
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.scalar_best",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:88cb65cc83264e9dbaaf3b4175b838f0047a88acdfa3230dfdb5a47db8a48b98",
+      "source": "proteus",
+      "capabilities": [
+        "search.parent",
+        "search.final"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "plugin": {
+        "schema_version": 1,
+        "name": "proteus.worker.command",
+        "version": "1"
+      },
+      "implementation_hash": "sha256:6fe8069987f57de63f1fd3a89685ba7310a398c5845c70c0f3b7a241ec78b6d4",
+      "source": "proteus",
+      "capabilities": [
+        "worker.lifecycle",
+        "worker.reconcile",
+        "worker.session_protocol",
+        "worker.connection_environment"
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "schema_version": 1,
+      "name": "gepa",
+      "version": "0.1.3",
+      "distribution_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "distribution_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "packaging",
+      "version": "26.3",
+      "distribution_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "pluggy",
+      "version": "1.7.0",
+      "distribution_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "pygments",
+      "version": "2.21.0",
+      "distribution_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "pytest",
+      "version": "8.4.2",
+      "distribution_hash": null
+    },
+    {
+      "schema_version": 1,
+      "name": "tomli",
+      "version": "2.3.0",
+      "distribution_hash": null
+    }
+  ]
+}

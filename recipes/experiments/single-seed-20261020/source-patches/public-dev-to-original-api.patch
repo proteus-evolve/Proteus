@@ -1,0 +1,354 @@
+diff --git a/proteus/core/recovery.py b/proteus/core/recovery.py
+index 7837752..a3c5bba 100644
+--- a/proteus/core/recovery.py
++++ b/proteus/core/recovery.py
+@@ -12,7 +12,7 @@ import threading
+ 
+ from proteus.artifacts.store import _read, publish_bytes
+ from proteus.core.contracts import MethodState, PluginState, require
+-from proteus.core.serialization import ContractError, canonical_json, content_hash, read_json
++from proteus.core.serialization import ContractError, canonical_json, content_hash, read_json, json_value
+ 
+ 
+ class RecoveryRequired(RuntimeError):
+@@ -20,11 +20,24 @@ class RecoveryRequired(RuntimeError):
+ 
+ 
+ def _write(path, value):
+-    publish_bytes(path, canonical_json({"hash": content_hash(value), "value": value}).encode())
++    if isinstance(value, dict) and isinstance(value.get("snapshot"), dict):
++        from proteus.core import snapshot_store
++        original_hash = content_hash(value)
++        stored = {**json_value(value), "snapshot": snapshot_store.encode(snapshot_store.directory(path),value["snapshot"])}
++        envelope = {"hash": original_hash,"value":stored,"storage":snapshot_store.FORMAT}
++    else:
++        envelope = {"hash":content_hash(value),"value":value}
++    publish_bytes(path, canonical_json(envelope).encode())
+ 
+ 
+ def _load(path):
+     envelope = read_json(_read(path).decode())
++    if set(envelope) == {"hash","value","storage"}:
++        from proteus.core import snapshot_store
++        require(envelope["storage"] == snapshot_store.FORMAT,"unknown recovery snapshot storage format")
++        require(isinstance(envelope["value"],dict) and "snapshot" in envelope["value"],"missing stored snapshot")
++        envelope["value"]["snapshot"] = snapshot_store.decode(snapshot_store.directory(path),envelope["value"]["snapshot"])
++        del envelope["storage"]
+     require(set(envelope) == {"hash", "value"} and content_hash(envelope["value"]) == envelope["hash"],
+             "recovery record integrity mismatch")
+     return envelope["value"]
+diff --git a/proteus/core/snapshot_store.py b/proteus/core/snapshot_store.py
+new file mode 100644
+index 0000000..4a87362
+--- /dev/null
++++ b/proteus/core/snapshot_store.py
+@@ -0,0 +1,153 @@
++"""Lossless, hash-checked snapshot DAG for experimental large recovery journals.
++
++Only storage changes: snapshots decode to detached ordinary JSON, and the journal
++still verifies the original full-value digest. SQLite commits all referenced
++nodes before a journal envelope is published. Unreferenced crash-time nodes are
++harmless; no garbage collection or historical-run conversion occurs here.
++"""
++from __future__ import annotations
++
++import hashlib
++from contextlib import contextmanager
++import json
++from pathlib import Path
++import re
++import sqlite3
++import zlib
++
++from proteus.core.serialization import ContractError, json_value
++
++FORMAT = "proteus.snapshot_dag.v1"
++PAGE = 64
++INLINE = 768
++_KNOWN = {}
++
++
++def directory(path: Path) -> Path:
++    return path.parent.parent if path.parent.name == "operations" else path.parent
++
++
++def _bytes(value):
++    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
++
++
++@contextmanager
++def _connect(root, *, readonly):
++    root = Path(root).absolute()
++    path = root / "snapshot-nodes.sqlite3"
++    if path.is_symlink() or (root.exists() and root.is_symlink()):
++        raise ContractError("snapshot store must not be a symlink")
++    if readonly:
++        if not path.is_file():
++            raise ContractError("snapshot node store is missing")
++        db = sqlite3.connect(path.as_uri()+"?mode=ro", uri=True, timeout=30)
++    else:
++        root.mkdir(parents=True, exist_ok=True)
++        db = sqlite3.connect(path, timeout=30)
++    try:
++        if not readonly:
++            db.execute("PRAGMA synchronous=FULL")
++            db.execute("CREATE TABLE IF NOT EXISTS nodes (hash TEXT PRIMARY KEY, data BLOB NOT NULL)")
++        with db:
++            yield db
++    finally:
++        # sqlite's own context manager commits/rolls back but never closes.
++        db.close()
++
++
++def encode(root: Path, snapshot):
++    snapshot = json_value(snapshot)
++    path=Path(root).absolute()/"snapshot-nodes.sqlite3"
++    created=set()
++    with _connect(root, readonly=False) as db:
++        info=path.stat()
++        cache_key=(str(path),info.st_dev,info.st_ino)
++        if len(_KNOWN)>16:
++            _KNOWN.clear()
++        known=_KNOWN.setdefault(cache_key,set())
++        db.execute("BEGIN IMMEDIATE")
++        def node(encoded):
++            raw = _bytes(encoded)
++            if len(raw) < INLINE:
++                return encoded
++            digest = hashlib.sha256(raw).hexdigest()
++            if digest not in known and digest not in created:
++                db.execute("INSERT OR IGNORE INTO nodes(hash,data) VALUES(?,?)", (digest, zlib.compress(raw, 3)))
++                created.add(digest)
++            return ["@", digest]
++
++        def pack(value):
++            if isinstance(value, dict):
++                return node(["d", [[key, pack(value[key])] for key in sorted(value)]])
++            if isinstance(value, list):
++                if len(value) > PAGE:
++                    return node(["a", [pack(value[start:start+PAGE]) for start in range(0,len(value),PAGE)]])
++                return node(["l", [pack(item) for item in value]])
++            if isinstance(value, str) and len(value) >= INLINE:
++                return node(["s", value])
++            return value
++        encoded = pack(snapshot)
++    # Never cache nodes from a rolled-back transaction.
++    known.update(created)
++    if len(known)>300000:
++        known.clear()
++    return encoded
++
++
++def decode(root: Path, encoded):
++    active = set()
++    cache = {}
++    with _connect(root, readonly=True) as db:
++        def unpack(value, depth=0):
++            if depth > 256:
++                raise ContractError("snapshot node nesting limit exceeded")
++            if not isinstance(value, list):
++                if type(value) not in (str,int,float,bool,type(None)):
++                    raise ContractError("invalid inline snapshot node")
++                return value
++            if len(value) != 2 or value[0] not in ("@","d","l","a","s"):
++                raise ContractError("invalid snapshot node encoding")
++            kind, payload = value
++            if kind == "@":
++                if type(payload) is not str or not re.fullmatch(r"[0-9a-f]{64}",payload) or payload in active:
++                    raise ContractError("invalid or cyclic snapshot reference")
++                if payload not in cache:
++                    row = db.execute("SELECT data FROM nodes WHERE hash=?",(payload,)).fetchone()
++                    if row is None:
++                        raise ContractError("snapshot node is missing")
++                    try:
++                        raw = zlib.decompress(row[0])
++                        if hashlib.sha256(raw).hexdigest() != payload:
++                            raise ContractError("snapshot node integrity mismatch")
++                        cache[payload] = json.loads(raw)
++                    except (zlib.error,ValueError) as exc:
++                        raise ContractError("invalid compressed snapshot node") from exc
++                active.add(payload)
++                try:
++                    # Cache encoded nodes only: repeated references must decode
++                    # to fresh mutable containers, never alias restored state.
++                    return unpack(cache[payload],depth+1)
++                finally:
++                    active.remove(payload)
++            if kind == "s":
++                if type(payload) is not str:
++                    raise ContractError("invalid snapshot string")
++                return payload
++            if kind == "d":
++                if not isinstance(payload,list):
++                    raise ContractError("invalid snapshot dictionary")
++                result = {}
++                for pair in payload:
++                    if not isinstance(pair,list) or len(pair)!=2 or type(pair[0]) is not str or pair[0] in result:
++                        raise ContractError("invalid snapshot dictionary entry")
++                    result[pair[0]] = unpack(pair[1],depth+1)
++                return result
++            if not isinstance(payload,list):
++                raise ContractError("invalid snapshot sequence")
++            items = [unpack(item,depth+1) for item in payload]
++            if kind == "l":
++                return items
++            if not all(isinstance(item,list) for item in items):
++                raise ContractError("invalid snapshot page")
++            return [item for page in items for item in page]
++        return unpack(encoded)
+diff --git a/proteus/execution/actors.py b/proteus/execution/actors.py
+index 49481b4..9b8563e 100644
+--- a/proteus/execution/actors.py
++++ b/proteus/execution/actors.py
+@@ -23,6 +23,7 @@ class ChatOptions(Contract):
+     base_url: str = field(metadata=TEXT)
+     key_env: str = field(default="PROTEUS_LLM_KEY", metadata={"pattern": r"^[A-Za-z_][A-Za-z0-9_]*$"})
+     timeout_seconds: float = field(default=180, metadata={"exclusiveMinimum": 0})
++    dispatch_guard_path: str | None = field(default=None, metadata=TEXT)
+ 
+     def _validate(self):
+         url = urlsplit(self.base_url)
+@@ -48,6 +49,25 @@ class ChatActor:
+ 
+     def execute(self, spec, request, workspace: Path) -> ActorResult:
+         validate_chat(spec, self.options)
++        waited = 0.0
++        if self.options.dispatch_guard_path is not None:
++            # Experimental scheduling guard: wait before opening any provider
++            # connection, never turn a paused budget into a failed HTTP call.
++            import sqlite3
++            guard_started = time.monotonic()
++            while True:
++                guard = read_json(Path(self.options.dispatch_guard_path).read_text())
++                require(guard.get("version") == 1, "unknown dispatch guard version")
++                legacy = read_json(Path(guard["legacy_handle"]).read_text())
++                if legacy["status"] not in ("running", "preparing"):
++                    break
++                with sqlite3.connect(Path(guard["api_ledger"]).as_uri()+"?mode=ro",uri=True) as db:
++                    consumed = db.execute("SELECT coalesce(sum(coalesce(cost_upper,reserved)),0) FROM calls").fetchone()[0]
++                db.close()
++                if consumed < guard["pause_after_global_peak_usd"]:
++                    break
++                time.sleep(1)
++            waited = time.monotonic() - guard_started
+         require(request.session_id is None and request.handoff is None, "chat actor needs fresh context")
+         key = os.environ.get(self.options.key_env, "")
+         require(bool(key), f"missing chat credential environment variable: {self.options.key_env}")
+@@ -87,7 +107,7 @@ class ChatActor:
+             require(finish_reason is None or (isinstance(finish_reason, str) and bool(finish_reason)),
+                     "chat finish_reason must be a nonempty string")
+             return ActorResult(text=text, runtime=runtime,
+-                usage=replace(usage, wall_seconds=time.monotonic() - started), finish_reason=finish_reason)
++                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason)
+         except Exception as exc:
+             raise ActorFailed(ActorResult(text='', runtime=runtime, status=OperationStatus.FAILED,
+                 usage=replace(usage, wall_seconds=time.monotonic() - started),
+diff --git a/tests/test_snapshot_store.py b/tests/test_snapshot_store.py
+new file mode 100644
+index 0000000..c8bab1e
+--- /dev/null
++++ b/tests/test_snapshot_store.py
+@@ -0,0 +1,71 @@
++import json
++import random
++import sqlite3
++import string
++
++import pytest
++
++from proteus.core.recovery import _write,_load
++from proteus.core.serialization import ContractError,content_hash
++from proteus.core.snapshot_store import encode,decode
++
++
++def test_roundtrip_detached_and_legacy(tmp_path):
++    original={'rows':[{'text':'["@","literal"]'+'中文'*1000}]*90,'flags':[True,None,3,1.25],
++              'reserved':['@','d','l','a','s']}
++    encoded=encode(tmp_path,original)
++    actual=decode(tmp_path,encoded)
++    assert actual==original and content_hash(actual)==content_hash(original)
++    actual['rows'][0]['text']='changed'
++    assert actual['rows'][1]['text']==original['rows'][1]['text']
++    old=tmp_path/'legacy.json'
++    _write(old,{'old':'no snapshot'})
++    assert _load(old)=={'old':'no snapshot'}
++    path=tmp_path/'operations/00000001.result.json'
++    value={'snapshot':original,'output':{'ok':True}}
++    _write(path,value)
++    assert _load(path)==value
++    assert json.loads(path.read_text())['storage']=='proteus.snapshot_dag.v1'
++
++
++def test_repeated_snapshots_share_nodes_and_keep_all_versions(tmp_path):
++    rng=random.Random(4)
++    rows=[]; naive=0
++    for n in range(90):
++        rows.append({'n':n,'text':''.join(rng.choices(string.ascii_letters,k=2000))})
++        value={'snapshot':{'rows':rows.copy(),'cursor':n}}
++        naive+=len(json.dumps(value))
++        path=tmp_path/'operations'/f'{n:08d}.result.json'
++        _write(path,value)
++        assert _load(path)==value
++    size=sum(p.stat().st_size for p in tmp_path.rglob('*') if p.is_file())
++    assert size < naive/5
++    assert len(_load(tmp_path/'operations/00000000.result.json')['snapshot']['rows'])==1
++    assert len(_load(tmp_path/'operations/00000089.result.json')['snapshot']['rows'])==90
++
++
++def test_missing_and_corrupt_nodes_fail_closed(tmp_path):
++    path=tmp_path/'operations/00000001.result.json'
++    value={'snapshot':{'large':'DATA'*2000}}
++    _write(path,value)
++    dbpath=tmp_path/'snapshot-nodes.sqlite3'
++    with sqlite3.connect(dbpath) as db:
++        db.execute('UPDATE nodes SET data=?',(b'invalid',))
++    with pytest.raises(ContractError): _load(path)
++    dbpath.rename(tmp_path/'retained-corrupt-store')
++    with pytest.raises(ContractError,match='missing'): _load(path)
++
++
++def test_orphan_nodes_do_not_publish_a_committed_operation(tmp_path):
++    encode(tmp_path,{'blob':'large'*2000})
++    assert not list(tmp_path.glob('operations/*.result.json'))
++    path=tmp_path/'operations/00000001.result.json'
++    _write(path,{'snapshot':{'blob':'different'*2000}})
++    assert _load(path)['snapshot']['blob']=='different'*2000
++
++
++def test_node_digest_verified(tmp_path):
++    encoded=encode(tmp_path,{'payload':'x'*5000})
++    with sqlite3.connect(tmp_path/'snapshot-nodes.sqlite3') as db:
++        assert all(len(row[0])==64 for row in db.execute('SELECT hash FROM nodes'))
++    assert decode(tmp_path,encoded)=={'payload':'x'*5000}
+diff --git a/tests/test_v1_recovery.py b/tests/test_v1_recovery.py
+index 95cabf1..0aa8e58 100644
+--- a/tests/test_v1_recovery.py
++++ b/tests/test_v1_recovery.py
+@@ -13,7 +13,7 @@ import pytest
+ from proteus.core.contracts import OperationStatus
+ from proteus.core.methods import MethodResult
+ from proteus.core.plugins import EmptyOptions, Plugin
+-from proteus.core.recovery import Journal, recovery_status
++from proteus.core.recovery import Journal, recovery_status, _load
+ from proteus.core.serialization import Contract, ContractError, canonical_json, content_hash
+ from proteus.core.contracts import PluginRef
+ from proteus.evaluation.runners import PythonSubject
+@@ -237,7 +237,8 @@ def test_online_checkpoint_restores_state_rng_archive_and_feedback_privacy(tmp_p
+ def test_corrupt_journal_and_changed_configuration_fail_before_replay(tmp_path):
+     assert invoke(tmp_path, "evaluation.step").returncode == 86
+     path = sorted((tmp_path / "run/private/recovery/operations").glob("*.result.json"))[-1]
+-    data = json.loads(path.read_text())
++    # Tamper the logical record, independent of inline versus DAG storage.
++    data = {"hash": json.loads(path.read_text())["hash"], "value": _load(path)}
+     data["value"]["snapshot"]["run_id"] = "another run"
+     path.chmod(0o644)
+     path.write_text(json.dumps(data))
+@@ -252,7 +253,7 @@ def test_checkpoint_state_version_is_validated_before_restoring(tmp_path):
+     for request in sorted(directory.glob("*.request.json")):
+         if json.loads(request.read_text())["value"]["kind"] == "checkpoint":
+             path = request.with_name(request.name.replace(".request.", ".result."))
+-            envelope = json.loads(path.read_text())
++            envelope = {"value": _load(path)}
+             envelope["value"]["output"]["state"]["payload_version"] = 9
+             envelope["hash"] = content_hash(envelope["value"])
+             path.chmod(0o644)

@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/venv/bin/ruff",
+    "check",
+    "scripts/release_smoke_diagnostics.py",
+    "tests/test_release_smoke_diagnostics.py"
+  ],
+  "exit_code": 0,
+  "stdout": "All checks passed!\n",
+  "stderr": ""
+}

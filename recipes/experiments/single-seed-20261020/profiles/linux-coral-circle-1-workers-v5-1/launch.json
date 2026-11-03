@@ -1,0 +1,17 @@
+{
+  "label": "linux-coral-circle-1-workers-v5-1",
+  "historical_prepare_commands_DO_NOT_RUN": [
+    "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/prepare_coral_output_channels_v5_1.py\""
+  ],
+  "historical_run_commands_DO_NOT_RUN": [
+    "\"$EXPERIMENT_ROOT/venv/bin/python\" \"$EXPERIMENT_ROOT/launch_coral_output_channels_v5_1.py\" --launch-once --label linux-coral-circle-1-workers-v5-1"
+  ],
+  "historical_commands_are_provenance_not_authorization_or_portable_launchers": true,
+  "offline_export_commands_ONLY_AFTER_SETTLEMENT_NOT_EXECUTED": [
+    "\"$PYTHON\" -m proteus recipe export \"/home/ubuntu/proteus-full-linux-20261020/formal/linux-coral-circle-1-workers-v5-1/run\" --out \"$NEW_REPORT_ROOT/linux-coral-circle-1-workers-v5-1/run\""
+  ],
+  "fresh_builder_prepare_syntax_after_new_settings_materialization_NOT_EXECUTED": [],
+  "fresh_builder_run_syntax_PAID_NOT_EXECUTED": [],
+  "special_profile_portability_gap": "Requires explicit new preparation driver reviewed against frozen recipe: exact runtime identity, custom plugin registration and paths must be regenerated; historical monolithic driver is not a portable prepare-only command.",
+  "domain_audit_caution": "The historical Formula report()/run_report() and CORAL geometry report may re-grade or execute verification. They are NOT the common saved-evidence offline export and were not invoked for this bundle."
+}

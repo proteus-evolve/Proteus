@@ -1,0 +1,67 @@
+diff --git a/proteus/execution/actors.py b/proteus/execution/actors.py
+index 9b8563e..7c05664 100644
+--- a/proteus/execution/actors.py
++++ b/proteus/execution/actors.py
+@@ -50,6 +50,8 @@ class ChatActor:
+     def execute(self, spec, request, workspace: Path) -> ActorResult:
+         validate_chat(spec, self.options)
+         waited = 0.0
++        bridge_request_id = None
++        guard = None
+         if self.options.dispatch_guard_path is not None:
+             # Experimental scheduling guard: wait before opening any provider
+             # connection, never turn a paused budget into a failed HTTP call.
+@@ -57,7 +59,30 @@ class ChatActor:
+             guard_started = time.monotonic()
+             while True:
+                 guard = read_json(Path(self.options.dispatch_guard_path).read_text())
+-                require(guard.get("version") == 1, "unknown dispatch guard version")
++                require(guard.get("version") in (1, 2), "unknown dispatch guard version")
++                if guard["version"] == 2:
++                    # New Linux-only infrastructure profile: authenticated admission
++                    # against original Mac authority, outside provider HTTP timeout.
++                    token = os.environ.get(guard["token_env"], "")
++                    require(bool(token), "missing scoped relay credential")
++                    check = urllib.request.Request(guard["admission_url"],
++                        headers={"Authorization": "Bearer " + token})
++                    for admission_attempt in range(5):
++                        try:
++                            with urllib.request.urlopen(check, timeout=10) as response:
++                                admission = read_json(response.read().decode("utf-8"))
++                            break
++                        except OSError as exc:
++                            if (getattr(exc, "code", 503) not in (408, 429, 500, 502, 503, 504)
++                                    or admission_attempt == 4):
++                                raise
++                            time.sleep(min(2 ** admission_attempt, 8))
++                    if admission.get("allowed") is True:
++                        import hashlib
++                        bridge_request_id = hashlib.sha256(str(workspace.resolve()).encode()).hexdigest()
++                        break
++                    time.sleep(1)
++                    continue
+                 legacy = read_json(Path(guard["legacy_handle"]).read_text())
+                 if legacy["status"] not in ("running", "preparing"):
+                     break
+@@ -78,7 +103,8 @@ class ChatActor:
+         payload = {**json_value(spec.model_settings), "model": spec.model, "messages": messages}
+         wire = urllib.request.Request(self.options.base_url.rstrip("/") + "/chat/completions",
+             data=json.dumps(payload, allow_nan=False).encode("utf-8"), method="POST",
+-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
++            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}",
++                **({"X-Proteus-Request-ID": bridge_request_id} if bridge_request_id else {})})
+         started = time.monotonic()
+         # A single request: retries, if requested, belong to the stage/attempt service.
+         timeout = min(self.options.timeout_seconds, request.timeout_seconds or self.options.timeout_seconds)
+@@ -107,7 +133,10 @@ class ChatActor:
+             require(finish_reason is None or (isinstance(finish_reason, str) and bool(finish_reason)),
+                     "chat finish_reason must be a nonempty string")
+             return ActorResult(text=text, runtime=runtime,
+-                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason)
++                usage=replace(usage, wall_seconds=time.monotonic() - started + waited), finish_reason=finish_reason,
++                trace=({"kind":"linux-scoped-relay", "request_id":bridge_request_id,
++                    "provider_response_id":body.get("id"), "guard_wait_seconds":waited},)
++                    if bridge_request_id else ())
+         except Exception as exc:
+             raise ActorFailed(ActorResult(text='', runtime=runtime, status=OperationStatus.FAILED,
+                 usage=replace(usage, wall_seconds=time.monotonic() - started),

@@ -1,0 +1,118 @@
+{
+  "scope": "只读 Codex smoke 性能诊断；不修改当前运行、不新增发布门槛。",
+  "client_date": "2026-11-02",
+  "client_timezone": "America/Los_Angeles",
+  "historical_run": 41390453875,
+  "historical_codex_job": 125109408447,
+  "active_run_left_untouched": 41398194611,
+  "active_source": "1adaa8ffa729771b80ad0a29b407fb014e64a14c",
+  "inspected_root_head": "c1401fcf2038c5cbca9893d9cf7589bf72ec547d",
+  "source_equivalence": {
+    "identical_old_active_root_blobs": {
+      "proteus/adapters/codex.py": "f4040499f8e571e3e42866630addb961e7f9f17d",
+      "environments/codex-src/boot.sh": "6e7f2bb509436363841df01e51cae228323c7d04",
+      "environments/codex-src/Dockerfile": "35b66dc73fad05cde6417845e9a701f4c9f3d6f4",
+      "scripts/smoke_check.py": "59894344b236c18c46ad520b105d12aa32510dac"
+    },
+    "codex_workflow_job_text_identical": true
+  },
+  "proven_elapsed": {
+    "image_build": {
+      "start_UTC": "2026-11-02T05:20:49Z",
+      "end_UTC": "2026-11-02T07:49:49Z",
+      "seconds": 8940,
+      "conclusion": "success"
+    },
+    "image_Cargo_release": {
+      "seconds": 7157,
+      "log_line": 2832
+    },
+    "image_Cargo_test_prewarm": {
+      "seconds": 1380,
+      "log_line": 3884
+    },
+    "two_episode_command": {
+      "start_UTC": "2026-11-02T07:49:49Z",
+      "end_UTC": "2026-11-02T08:49:57Z",
+      "seconds": 3608,
+      "conclusion": "success"
+    },
+    "strict_postrun_verification": {
+      "start_UTC": "2026-11-02T08:49:57Z",
+      "end_UTC": "2026-11-02T08:57:49Z",
+      "seconds": 472,
+      "conclusion": "success"
+    },
+    "tool_events": {
+      "ep1": 21,
+      "ep2": 18,
+      "meaning": "归一化工具事件；不是 provider 请求次数或耗时。"
+    },
+    "observation_gap": "两集的3608秒只有开始/结束日志，没有逐phase或boundary build的耗时分解。"
+  },
+  "code_findings": [
+    {
+      "finding": "默认2集×4phase配置对应最多8次fresh Codex exec --ephemeral进程；每次可有多次模型/工具交互。旧保存日志不足以独立确认实际8次dispatch及各自耗时。",
+      "source": "proteus/adapters/codex.py:519-603"
+    },
+    {
+      "finding": "每episode开始按源码内容hash查 .codex-builds/<hash>。命中时直接复用二进制；缓存key不是每集都会变化的snapshot commit。publication检查仅marker/文件/权限/非空，不读取整个二进制做哈希。",
+      "source": "proteus/adapters/codex.py:218-272,493-514"
+    },
+    {
+      "finding": "每个新candidate hash在边界运行 cargo test --lib --no-run 与 cargo build --release；镜像预热Cargo缓存可用，Cargo决定哪些target重编。不能把请求两个target说成每次均完整重编两者。",
+      "source": "environments/codex-src/boot.sh:42-110; proteus/core/episode.py:719-737"
+    },
+    {
+      "finding": "验证容器为docker run --rm，只挂载只读候选和临时/output；新编译的Cargo target中间产物不跨验证容器保留，持久发布的只是二进制对和source marker。不同hash不能复用上一个候选新增的中间编译产物；相同hash的publication仍可复用。",
+      "source": "proteus/adapters/codex.py:161-180,238-305; proteus/sandbox/docker.py:155"
+    },
+    {
+      "finding": "runtime boot每phase重新扫描冻结源码hash，但不执行Cargo编译；Python也会在publication查找前扫描源码。该I/O/子进程成本存在，耗时未测，不能给它分配那一小时中的分钟数。",
+      "source": "environments/codex-src/boot.sh:14-42,115-159; proteus/adapters/codex.py:182-220"
+    },
+    {
+      "finding": "原始phase JSONL通过tee落盘到.codex-state/sessions；Python capture_output/communicate收集stdout，adapter不向Actions逐phase打印进度，解释了console的一小时静默。原native outcome已有prepared/finished时间和wall_seconds，但没有上传可供分析的Codex artifact。",
+      "source": "environments/codex-src/boot.sh:150-162; proteus/adapters/codex.py:529-605; proteus/core/native_inputs.py:57-86"
+    },
+    {
+      "finding": "build.log与last-test-build.log位于TemporaryDirectory，成功发布只复制二进制和marker，随后临时日志删除；失败只返回截断尾部。这丢失了具体重编target和阶段耗时证据。当前workflow新增diagnostics仅在pi/dsh container job，Codex job仍无always artifact。",
+      "source": "proteus/adapters/codex.py:238-297; .github/workflows/release-smoke.yml:169-238"
+    }
+  ],
+  "cache_bug_assessment": {
+    "current_publication_cache_bug_proven": false,
+    "confirmed_limitation": "无跨候选持久Cargo增量缓存；该隔离设计有明确安全目的，不能直接归为同hash缓存失效。",
+    "historical_fix": "1e9b313已修正test/release使用不同V8环境路径导致fingerprint不匹配的实现问题；它已包含于旧9807a41和当前1adaa8f，不能拿这个已修复问题解释本次60分钟。",
+    "image_cache": "workflow没有显式跨run自定义镜像层缓存。这一次镜像release编译119m17s、test预热23m已由原始日志证明；不属于两集的60m8s。",
+    "compile_parallelism": "CARGO_BUILD_JOBS=1明确配置；没有并发对照，不能量化改并发的收益。"
+  },
+  "unproved_and_not_estimated": [
+    "3608秒中模型推理、网络等待/重试、实际工具命令、源码哈希、候选编译分别占多少。",
+    "两个episode是否只插入了所要求的CLI注释；没有snapshot/trace，不能排除其他源码或长工具命令。",
+    "候选build的target fresh/miss情况、publication实际命中次数、实际phase数。",
+    "旧日志CODEX_MODEL为空，解析出的默认模型/effort、完整provider usage和USD费用均未知。",
+    "472秒严格检查包括boot、checkpoint取证、植入坏源码后的拒绝和恢复；代码是model-free，但没有逐项计时，不能全归给某一编译步骤。"
+  ],
+  "minimal_observation_proposal_only": [
+    "先给Codex增加always的有界安全metadata保留：现有native input/outcome的id/hash、episode、phase、开始/结束、wall_seconds、returncode与usage完整性；不上传auth.json、环境或原始prompt/隐藏reasoning。",
+    "在源码hash、publication hit/miss、boundary validation、publication复制及各phase前后记录单调时钟与source hash；打印简短phase开始/结束状态，不输出密钥、argv或模型正文。",
+    "在临时目录删除前保留小型build阶段摘要：test编译/release编译/version-probe的起止、退出码、日志hash，必要时有界脱敏tail；扩展Codex artifact而非上传整个.codex-state或Cargo目录。",
+    "这些是观测建议，不改变phase、预算、编译范围/隔离或严格检查；不设新的耗时阈值，不阻塞本次发布。"
+  ],
+  "evidence": {
+    "original_log": "/tmp/proteus-v1-final-20261101/first-smoke-41390453875/codex-job.log",
+    "persistent_log": "/Users/myyyth/Documents/Proteus-v1-experiments/final-release-20261101/first-smoke-41390453875/codex-job.log",
+    "log_sha256": "f265ece2064c98e029c415827690b17721d7d6d14f1f7747597ff99aa86769ca",
+    "job_metadata": "/tmp/proteus-v1-final-20261101/first-smoke-41390453875/codex-completed-job.json",
+    "metadata_sha256": "bea998ab9ec293fc1358350d66d2068036206cb99b51809778fe12856504694c"
+  },
+  "actions": {
+    "source_edits": 0,
+    "model_requests": 0,
+    "Docker_commands": 0,
+    "CI_dispatches_or_cancellations": 0
+  },
+  "USD_cost": null,
+  "USD_cost_status": "unknown, not zero"
+}

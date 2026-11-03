@@ -1,0 +1,120 @@
+{
+  "source_commit": "cebc1a9e808a25e8c7ee0144f525138325008253",
+  "run_id": 41394999162,
+  "model_requested": "deepseek-flash",
+  "real_provider_dispatches": 3,
+  "per_call": [
+    {
+      "slot": "a:0",
+      "provider_id": "26f56254-7f99-4adb-a59f-d45492426ba9",
+      "resolved_model": "deepseek-flash",
+      "provider_usage": {
+        "completion_tokens": 33,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 185,
+        "prompt_tokens": 185,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 218
+      },
+      "network_forwarded": true,
+      "transport_status": 200,
+      "cost_fields_if_reported": {},
+      "normalized_response_file_sha256": "5d41470273857c43c23331d33f36a4a9aa9dca432b7519913e6d1c713c11ca84",
+      "normalized_response_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/broker/a-0-response.json",
+      "wire_response_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/broker/a-0-http-response.bin",
+      "wire_response_sha256": "a45b60e0286974904ce890231544f6be66c544b592f7f24b6a2b2f7aed360d87"
+    },
+    {
+      "slot": "a:1",
+      "provider_id": "8eab2b7c-43a9-412f-974f-e7be1bcaf0df",
+      "resolved_model": "deepseek-flash",
+      "provider_usage": {
+        "completion_tokens": 36,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 458,
+        "prompt_tokens": 458,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 494
+      },
+      "network_forwarded": true,
+      "transport_status": 200,
+      "cost_fields_if_reported": {},
+      "normalized_response_file_sha256": "3953555fca1702be5292f1d16330795f20d9e487dc760972090b5de3cbafc5f2",
+      "normalized_response_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/broker/a-1-response.json",
+      "wire_response_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/broker/a-1-http-response.bin",
+      "wire_response_sha256": "261bdc05b81982378c4a1cb6ce7f82e9ac73b82dd624cf1f7e8ead000b074ce1"
+    },
+    {
+      "slot": "b:0",
+      "provider_id": "6b873df9-2d19-4644-b391-11ec2a2b73d4",
+      "resolved_model": "deepseek-flash",
+      "provider_usage": {
+        "completion_tokens": 44,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 498,
+        "prompt_tokens": 498,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 542
+      },
+      "network_forwarded": true,
+      "transport_status": 200,
+      "cost_fields_if_reported": {},
+      "normalized_response_file_sha256": "791c99b51f09f751adb85bd503cdfd0e23a11ac01c043a6c9cb68ad08b459068",
+      "normalized_response_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/broker/b-0-response.json",
+      "wire_response_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/ci-live-artifact-41394999162/live/broker/b-0-http-response.bin",
+      "wire_response_sha256": "0c31073b70c69839b1df8776666b2ddff9217ea32f6cbd0c190f057d4c5493c0"
+    }
+  ],
+  "totals": {
+    "prompt_tokens": 1141,
+    "completion_tokens": 113,
+    "total_tokens": 1254,
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 1141
+  },
+  "all_broker_slots": [
+    {
+      "slot": "a:0",
+      "state": "completed"
+    },
+    {
+      "slot": "a:1",
+      "state": "completed"
+    },
+    {
+      "slot": "b:0",
+      "state": "completed"
+    }
+  ],
+  "failed_attempt_files": [],
+  "model_unknown_rows": 0,
+  "provider_reported_USD_cost": null,
+  "cost_status": "unknown: provider usage has no USD cost; native ledger preserves three unknown cost entries",
+  "native_ledger": {
+    "charged": {
+      "model_calls": 3.0,
+      "evaluations": 4.0,
+      "cost_usd": null,
+      "wall_seconds": 16.110490528999996
+    },
+    "unknown": {
+      "model_calls": 0,
+      "evaluations": 0,
+      "cost_usd": 3,
+      "wall_seconds": 0
+    },
+    "active_slots": 0,
+    "entries": 15
+  },
+  "all_acceptance_checks_file": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/github-live-artifact-live-audit-v1.stdout",
+  "no_new_provider_call_during_audit": true,
+  "supersedes_analysis_index_only": "/Users/myyyth/Documents/Proteus-v1-experiments/coral-release-closure-20261101/CORAL-live-usage-and-acceptance-v1.json",
+  "all_original_artifact_files_unchanged": true,
+  "both_audit_exports_complete_no_private_payload_refusal": true
+}

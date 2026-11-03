@@ -84,6 +84,22 @@ def head(work_tree: Path) -> str:
         return ""
 
 
+def prepare_checkpoint(work_tree: Path, message: str) -> str:
+    """Write a commit object without publishing the episode mapping in HEAD."""
+    if _nested_git_metadata(work_tree):
+        raise RuntimeError("snapshot refused nested git metadata")
+    _git(work_tree, "add", "-A", "-f", "--", ".")
+    tree = _git(work_tree, "write-tree").strip()
+    return _git(work_tree, "commit-tree", tree, "-p", head(work_tree), "-m", message).strip()
+
+
+def publish_checkpoint(work_tree: Path, checkpoint: str, parent: str) -> None:
+    """Idempotently publish a prepared checkpoint, refusing unrelated HEAD edits."""
+    if head(work_tree) == checkpoint:
+        return
+    _git(work_tree, "update-ref", "HEAD", checkpoint, parent)
+
+
 def has_changes(work_tree: Path) -> bool:
     """Whether files/index differ from HEAD, including ignored and untracked files."""
     # Snapshot repos deliberately disable ignore rules for commits, but status still needs

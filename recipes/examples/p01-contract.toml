@@ -1,0 +1,59 @@
+# Configuration inspection fixture for P01; example.* plugins are not executors.
+# Load with proteus.recipes.load_recipe. Method execution arrives in later PRs.
+schema_version = 1
+name = "p01-contract-example"
+seed = 7
+
+[method.plugin]
+name = "example.method"
+version = "1"
+
+[actors.optimizer]
+model = "example-model-version"
+session = "fresh"
+[actors.optimizer.runtime.plugin]
+name = "example.actor"
+version = "1"
+[actors.optimizer.model_settings]
+temperature = 0.0
+
+[subject]
+actor = "optimizer"
+mutable_scopes = ["prompt"]
+[subject.runner.plugin]
+name = "example.subject"
+version = "1"
+[subject.initial_artifact]
+content_hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+[subject.initial_artifact.codec]
+name = "example.text"
+version = "1"
+
+[tasks]
+dataset_version = "fixture-v1"
+split = "train"
+task_ids = ["task-a", "task-b"]
+order = "declared"
+seed = 7
+[tasks.suite.plugin]
+name = "example.tasks"
+version = "1"
+
+[execution]
+state_policy = "independent"
+seed = 7
+[execution.environment]
+provider = "fixture"
+network = "none"
+lifecycle = "trial"
+[execution.environment.backend.plugin]
+name = "example.environment"
+version = "1"
+
+[reference]
+profile = "native"
+
+[budget]
+max_model_calls = 0
+max_evaluations = 0
+max_concurrency = 1

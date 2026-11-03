@@ -1,0 +1,20 @@
+{
+  "source_commit": "bde937ad8f10555ada2202da6584e308fe3fca95",
+  "base_commit": "12e02ffdc6f5c525616f512606695e3181afbe2b",
+  "changed_files": [
+    "scripts/release_smoke_diagnostics.py",
+    "tests/test_release_smoke_diagnostics.py"
+  ],
+  "unchanged": {
+    ".github/workflows/release-smoke.yml": true,
+    "scripts/smoke_check.py": true
+  },
+  "production_tree": "0e73363387123ad067df3cfeff684af7d913fed2",
+  "author_source_and_logs_rehashed": true,
+  "source_file_hashes": {
+    "scripts/release_smoke_diagnostics.py": "1fa040e604456b4bdce2d15299a38ebfc8e5136ef0bf62234a07d6a6018560ac",
+    "tests/test_release_smoke_diagnostics.py": "76f907c25e4192f3714496e3316468e5e1bb470ac33191f50aa353f08e81c984"
+  },
+  "author_test_stdout": ".....................                                                    [100%]\n21 passed in 5.95s\n",
+  "python314_previous_record": "python314-decoder-check-v2.json refers to 12e02ff, not this new metadata patch; it is not counted as bde937a verification."
+}

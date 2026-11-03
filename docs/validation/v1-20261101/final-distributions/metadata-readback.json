@@ -1,0 +1,10 @@
+{
+  "source_commit": "bad3c550fdd09e149658be864399259cd9188ac3",
+  "package_version": "1.0.0",
+  "wheel_metadata_readme_matches_source": true,
+  "sdist_readme_matches_source": true,
+  "package_payload_files_byte_identical_to_original_preparation_wheel": 293,
+  "readme_sha256": "b22976f9a6e75f14fcea6d1d6b567570b3205c2b9a7c49804e13fb362db89323",
+  "old_wheel_sha256": "a6f5956f4ff139bb02546ef26ffb200010359a773a8030059a4180ada7ff4f53",
+  "new_wheel_sha256": "c30fa0b175201db308a95a0a3a493e1032a653ae94880ebc2c8b12272b0de319"
+}

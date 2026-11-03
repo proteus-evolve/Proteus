@@ -1,0 +1,31 @@
+{
+  "profile": "linux-native-pi-upstream-source-activation-v1",
+  "bindings": [
+    {
+      "recipe": "recipe.json",
+      "lock": "lock.json",
+      "config_hash": "sha256:96dd9f7a7db314df9d11c974a4d84d74acea17a87fad9430505114ad412314fb",
+      "lock_hash": "sha256:9ecf68da3f3d5a2a0f7a0c89c92c9e657dc3ec9f2a940c3e2fb2aecd30c86461",
+      "sources": [
+        {
+          "dirty_patch_hash": null,
+          "name": "proteus",
+          "repository": "file:///home/ubuntu/proteus-full-linux-20261020/sources/coral",
+          "revision": "722ac71a36ab355f6512afb3214f05722eb90b9b",
+          "schema_version": 1
+        },
+        {
+          "dirty_patch_hash": null,
+          "name": "native-runtime",
+          "repository": "local-content-addressed:LinuxPiNativeRuntime",
+          "revision": "eb7e96398380eceb01e865f76be144c8a7710dd7a3fcfa6b69dec1dcdd9e6385",
+          "schema_version": 1
+        }
+      ]
+    }
+  ],
+  "original_H0": [],
+  "historical_builder": "proteus/methods/native.py",
+  "accepted_evidence_cut_UTC": "2026-10-23T13:57:55.553727+00:00",
+  "portability": "Frozen historical controls; absolute paths and host-bound runtime configuration are intentional. Use README for new-run preparation; do not reuse original locks after relocation."
+}

@@ -1,0 +1,298 @@
+diff --git a/proteus_continuation/cli.py b/proteus_continuation/cli.py
+index 08092fa..277f166 100644
+--- a/proteus_continuation/cli.py
++++ b/proteus_continuation/cli.py
+@@ -123,6 +123,7 @@ def prepare(args):
+         'preview_only_overrides':['collect every exact sealed snapshot/cache actor record',
+             'stop before joining a partial workflow map once preview frontiers reached'],
+         'workflow_prefix_materialization':'closed valid child sessions plus exact open-snapshot protocol/dataset-ref and proven valid prediction/grade/update prefix ONLY; exclude later failed outputs',
++        'journal_scope_ownership':'inherit only declared old scope; missing known origin is fatal; genuinely absent old child scope uses native fresh/own journal initialization',
+         'dynamic_interrupted_attempt':'preserve original timing-start reference and all completed measurements; only interrupted in-flight duration remains UNKNOWN per original TimingService' if manifest.recipe.method.options.get('dynamic_batch') else None}
+     context=Context(plan,out,registry,oracle=None,allow_paid=False)
+     refs=context.prepare_immutable_inputs()
+@@ -214,9 +215,15 @@ def main():
+     run.add_argument('--disposition-url',required=True);run.add_argument('--contract-sha256',required=True)
+     for name in ('execute-once','same-branch-resume'):
+         execute=sub.add_parser(name);execute.add_argument('--plan',required=True);execute.add_argument('--release',required=True)
++        execute.add_argument('--executor-authorization')
++    inspect=sub.add_parser('inspect-owned-checkpoint');inspect.add_argument('--plan',required=True)
++    inspect.add_argument('--expected-manifest-sha256',required=True);inspect.add_argument('--out',required=True)
+     args=parser.parse_args()
+     if args.mode=='prepare-only':prepare(args)
+     elif args.mode=='preview':preview(args)
++    elif args.mode=='inspect-owned-checkpoint':
++        from proteus_continuation.inspect_owned import inspect
++        inspect(args)
+     else:
+         from proteus_continuation.execution import execute
+         raise SystemExit(execute(args))
+diff --git a/proteus_continuation/execution.py b/proteus_continuation/execution.py
+index 7f0e8cf..091e699 100644
+--- a/proteus_continuation/execution.py
++++ b/proteus_continuation/execution.py
+@@ -9,7 +9,7 @@ from proteus_continuation.cli import ROOT,sha,once,setup
+ CONTRACT='a1455aac4cf592196a7edbb2b043f35f1a12109a65c90a50cad9cab5d45c4885'
+ DISPOSITION='http://127.0.0.1:62126'
+ 
+-def verify_release(plan_path,release_path):
++def verify_release(plan_path,release_path,authorization_path=None):
+     plan_path,release_path=Path(plan_path).resolve(),Path(release_path).resolve()
+     assert plan_path.name=='branch-manifest.json'
+     assert release_path.parent==ROOT/'root-acceptances','independently written root directory only'
+@@ -22,8 +22,10 @@ def verify_release(plan_path,release_path):
+     operator=Path(__file__).resolve().parents[1]
+     pin=subprocess.check_output(['git','-C',str(operator),'rev-parse','HEAD'],text=True).strip()
+     assert not subprocess.check_output(['git','-C',str(operator),'status','--porcelain'],text=True)
+-    assert pin==plan['executor_operator_source']['revision']==release['operator_revision']
+-    assert plan['executor_operator_source']['repository']=='local-unpublished:'+str(operator)
++    assert plan['executor_operator_source']['revision']==release['operator_revision']
++    if authorization_path is None:
++        assert pin==plan['executor_operator_source']['revision']
++        assert plan['executor_operator_source']['repository']=='local-unpublished:'+str(operator)
+     root=Path(plan['physical_branch_root']).resolve()
+     assert root==plan_path.parent and root.is_relative_to(ROOT/'continuations')
+     assert plan['parent_unique_claim_root']==str(ROOT/'continuations/parent-claims')
+@@ -38,10 +40,16 @@ def verify_release(plan_path,release_path):
+     assert manifest.config_hash==plan['parent_scientific_config_hash']
+     assert manifest.lock_hash==plan['parent_scientific_lock_hash']
+     assert sha((parent/'manifest.json').read_bytes())==plan['parent_manifest_sha256']
+-    return plan,manifest,registry,sha(release_path.read_bytes())
++    upgrade=None
++    if authorization_path is not None:
++        from proteus_continuation.upgrade import validate_upgrade
++        upgrade=validate_upgrade(plan,plan_path,release_path,authorization_path,operator,pin)
++    return plan,manifest,registry,sha(release_path.read_bytes()),{'revision':pin,'upgrade':upgrade}
+ 
+ def execute(args):
+-    plan,manifest,registry,release_hash=verify_release(args.plan,args.release)
++    authorization=getattr(args,'executor_authorization',None)
++    assert authorization is None or args.mode=='same-branch-resume','upgrades may only resume the same physical branch'
++    plan,manifest,registry,release_hash,binding=verify_release(args.plan,args.release,authorization)
+     from proteus.core.contracts import OperationStatus,require
+     from proteus.core.methods import RunServices,MethodResult
+     from proteus.core.recovery import RecoveryRequired
+@@ -60,13 +68,20 @@ def execute(args):
+     with ParentLease(plan['parent_unique_claim_root'],plan['parent_manifest_sha256'],plan_digest) as lease:
+         intent=root/'launch-intent.json'
+         identity={'branch_manifest_sha256':plan_digest,'root_release_sha256':release_hash,
+-            'operator_revision':plan['executor_operator_source']['revision']}
++            'operator_revision':binding['revision']}
+         if args.mode=='execute-once':
+             assert not intent.exists(),'one-shot already claimed; explicit same-branch-resume only'
+             once(intent,{**identity,'initial_PID':os.getpid(),'UTC_epoch':time.time()})
+         else:
+             assert intent.is_file(),'cannot resume an unlaunched branch'
+-            old=json.loads(intent.read_text());assert all(old[k]==v for k,v in identity.items())
++            old=json.loads(intent.read_text())
++            assert old['branch_manifest_sha256']==plan_digest and old['root_release_sha256']==release_hash
++            assert old['operator_revision']==plan['executor_operator_source']['revision']
++        if binding['upgrade'] is not None:
++            from proteus_continuation.upgrade import activate_upgrade
++            activate_upgrade(binding['upgrade'],lease=lease,pin=binding['revision'])
++            identity['initial_operator_revision']=plan['executor_operator_source']['revision']
++            identity['executor_upgrade_authorization_sha256']=binding['upgrade']['sha256']
+         count=1
+         while (root/'invocations'/f'{count:04d}.intent.json').exists():count+=1
+         invocation=root/'invocations'/f'{count:04d}'
+@@ -121,6 +136,9 @@ def execute(args):
+                     timing.status=None if status=='deferred' else status
+                     once(root/f'execution-{count:04d}.json',{
+                         'manifest_hash':manifest.manifest_hash,'branch_manifest_sha256':plan_digest,
++                        'executor_operator_revision':binding['revision'],
++                        'initial_operator_revision':plan['executor_operator_source']['revision'],
++                        'executor_upgrade_authorization_sha256':binding['upgrade']['sha256'] if binding['upgrade'] else None,
+                         'status':status,'diagnostic':diagnostic,'controller_timing':timing.reference,
+                         'requests':[r.to_dict() for r in services.requests],
+                         'results':[r.to_dict() for r in services.results],
+diff --git a/proteus_continuation/inspect_owned.py b/proteus_continuation/inspect_owned.py
+new file mode 100644
+index 0000000..9c93935
+--- /dev/null
++++ b/proteus_continuation/inspect_owned.py
+@@ -0,0 +1,82 @@
++"""Read-only owned checkpoint + cached timing replay, NEVER method/actor run.
++
++Does not acquire/change the parent claim or activate an executor upgrade.
++Asserts ledger, manifest, launch intent, owned journal and execution bytes stay
++unchanged. Receipt is published outside the scientific branch.
++"""
++import json,subprocess,time
++from pathlib import Path
++from proteus_continuation.cli import ROOT,sha,once,setup
++
++def inspect(args):
++    path=Path(args.plan).resolve();plan=json.loads(path.read_text());root=Path(plan['physical_branch_root'])
++    assert path==root/'branch-manifest.json' and sha(path.read_bytes())==args.expected_manifest_sha256
++    out=Path(args.out).resolve();assert out.is_relative_to(ROOT) and not out.is_relative_to(root)
++    assert (root/'launch-intent.json').is_file() and not out.exists()
++    operator=Path(__file__).resolve().parents[1]
++    pin=subprocess.check_output(['git','-C',str(operator),'rev-parse','HEAD'],text=True).strip()
++    assert not subprocess.check_output(['git','-C',str(operator),'status','--porcelain'],text=True)
++    _,manifest,registry,_=setup(plan['independent_expectations']['path'],plan['parent_label'])
++    from proteus.core.methods import RunServices
++    from proteus.core.serialization import content_hash
++    from proteus.core.workflows import WorkflowMap
++    from proteus_continuation.journal import PrefixJournal,original_load
++    from proteus_continuation.runtime import Context,operational_overlay
++    from proteus_continuation.upgrade import boundary_files,owned_actors
++    before=boundary_files(root);actors_before=owned_actors(root)
++    parent=Path(plan['parent_run'])
++    parent_before={name:sha((parent/name).read_bytes()) for name in plan['protected_parent_files']}
++    assert parent_before==plan['protected_parent_files']
++    protected=[path,root/'readonly-prefix-refs.json',*sorted((root/'private/recovery/operations').glob('*.json'))]
++    original={str(p):sha(p.read_bytes()) for p in protected}
++    context=Context(plan,root,registry,None,allow_paid=False)
++    context.read_refs=json.loads((root/'readonly-prefix-refs.json').read_text())
++    definition=registry.get(manifest.recipe.method.plugin)
++    def validate(state):
++        if state:definition.state_schema.from_dict(state.state.payload)
++    with operational_overlay(context):
++        services=RunServices(run_id=manifest.run_id,recipe=manifest.recipe,registry=registry,
++            root=root,resume=True,lock_hash=manifest.lock_hash)
++        journal=PrefixJournal(services,manifest_hash=manifest.manifest_hash,validate_state=validate);services._journal=journal
++        state,final=journal.initialize();assert final is None
++        checkpoint=journal.cursor;replayed=[]
++        # Only replay already sealed timing.begin. This does not call its fresh
++        # create() closure; do not invoke method.run(), workflow.run(), or actors.
++        next_path=journal._path(journal.cursor+1,'request')
++        request=original_load(next_path)
++        if request['kind']=='timing.begin':
++            assert journal._path(journal.cursor+1,'result').is_file()
++            ref=services.begin_timing(request['identity']['operation_id'])
++            replayed.append({'kind':'timing.begin','sequence':journal.cursor,'original_ref':ref.to_dict()})
++        pending_path=journal._path(journal.cursor+1,'request');pending=original_load(pending_path)
++        assert pending['kind']=='workflow.map' and journal.pending
++        identity=pending['identity'];new_scopes=[]
++        for job in identity['jobs']:
++            child=WorkflowMap.child_id(identity['operation_id'],job['key'])
++            relative=Path('private/workflows')/content_hash(identity['operation_id']).split(':')[1]/child/'journal'
++            old=Path(plan['parent_run'])/relative
++            declared=[r for r in context.read_refs.values() if Path(r['parent']).is_relative_to(old)]
++            new_scopes.append({'child_id':child,'inherited_scope_path':str(old),
++                'inherited_directory_exists':old.exists(),'inherited_origin_exists':(old/'origin.json').exists(),
++                'declared_inherited_refs':len(declared),'genuinely_new':not old.exists() and not old.is_symlink() and not declared})
++        report={'schema':'proteus.continuation.owned-checkpoint-readonly-inspection.v1','UTC_epoch':time.time(),
++            'inspection_operator_revision':pin,'inspection_operator_repository':'local-unpublished:'+str(operator),
++            'initial_operator_revision':plan['executor_operator_source']['revision'],
++            'branch_manifest_sha256':sha(path.read_bytes()),'physical_branch_root':str(root),
++            'checkpoint_cursor':checkpoint,'sampling_cursor':state.sampling_cursor,
++            'method_cursor':state.state.payload.get('cursor'),'method_state_hash':content_hash(state),
++            'framework_rng_hash':sha(repr(services.rng.getstate()).encode()),
++            'total_sealed_actor_records_in_owned_snapshot':len(services.actor_calls),
++            'owned_actor_boundary':actors_before,'stopped_boundary_hashes':before,
++            'cached_operations_only_replayed':replayed,'pending_sequence':journal.cursor+1,
++            'pending_request_sha256':sha(pending_path.read_bytes()),'journal_pending':journal.pending,
++            'new_workflow_scopes':new_scopes,
++            'provider_dispatch_enabled':False,'method_or_workflow_or_actor_run_invocations':0,
++            'no_runtime_upgrade_activated':True,'no_parent_claim_mutation':True}
++    assert boundary_files(root)==before and owned_actors(root)==actors_before
++    assert {name:sha((parent/name).read_bytes()) for name in parent_before}==parent_before
++    assert {str(p):sha(p.read_bytes()) for p in protected}==original
++    report['all_protected_bytes_unchanged']=True
++    once(out,report)
++    print(json.dumps({'receipt':str(out),'sha256':sha(out.read_bytes()),'checkpoint':checkpoint,
++        'cursor':report['method_cursor'],'owned_closed_actors':actors_before['count'],'model_calls':0}))
+diff --git a/proteus_continuation/journal.py b/proteus_continuation/journal.py
+index 4b1092e..b2cab86 100644
+--- a/proteus_continuation/journal.py
++++ b/proteus_continuation/journal.py
+@@ -25,6 +25,17 @@ class PrefixJournal(OriginalJournal):
+         if context is None:return super().initialize()
+         parent,cut=context.journal_parent(self.root)
+         origin=parent/'origin.json'
++        if not origin.exists():
++            # A new post-recovery workflow has NO old scope to inherit. Use the
++            # unchanged native fresh/own-journal initialization. A missing ROOT
++            # parent is still fatal; only new child scopes take this path.
++            require(self.root!=self.services.root/'private/recovery','root inherited journal origin missing')
++            require(not parent.exists() and not parent.is_symlink(),
++                'declared inherited journal scope exists but its origin is missing')
++            require(not any(Path(ref['parent']).is_relative_to(parent)
++                for ref in getattr(context,'read_refs',{}).values()),
++                'declared inherited journal references exist without origin')
++            return super().initialize()
+         require(origin.is_file(),'inherited journal origin missing')
+         record=original_load(origin)
+         require(record['identity']==self.identity,'inherited journal identity differs')
+diff --git a/proteus_continuation/upgrade.py b/proteus_continuation/upgrade.py
+new file mode 100644
+index 0000000..944583b
+--- /dev/null
++++ b/proteus_continuation/upgrade.py
+@@ -0,0 +1,76 @@
++"""Explicit root-authorized operational executor upgrade; SAME science branch.
++
++Initial manifest, initial launch intent, old source, old invocation and ledger
++are never replaced. A separate authorization pins old->new provenance and the
++exact owned stopped boundary. This is not native same-runtime resume.
++"""
++import json,re,sqlite3
++from pathlib import Path
++from proteus_continuation.cli import ROOT,sha,once
++
++def boundary_files(root):
++    return {name:sha((root/name).read_bytes()) for name in (
++        'private/ledger.sqlite3','execution-0001.json','launch-intent.json',
++        'invocations/0001.receipt.json','private/recovery/operations/00000804.request.json',
++        'private/recovery/operations/00000804.result.json','private/recovery/operations/00000806.request.json')}
++
++def owned_actors(root):
++    db=sqlite3.connect((root/'private/ledger.sqlite3').resolve().as_uri()+'?mode=ro',uri=True,timeout=3)
++    try:
++        db.execute('PRAGMA query_only=ON')
++        rows=db.execute("SELECT id,identity_json,state,settlement_json FROM entries WHERE json_extract(identity_json,'$.metadata.kind')='actor' ORDER BY id").fetchall()
++        active=db.execute("SELECT count(*) FROM entries WHERE state IN ('reserved','started')").fetchone()[0]
++    finally:db.close()
++    values={i:{'identity':json.loads(identity),'state':state,'settlement':json.loads(result) if result else None}
++        for i,identity,state,result in rows}
++    from proteus.core.serialization import content_hash
++    return {'count':len(values),'all_completed':all(r['state']=='completed' for r in values.values()),
++        'records_hash':content_hash(values),'unsettled_rows':active}
++
++def validate_upgrade(plan,plan_path,release_path,authorization_path,operator,pin):
++    root=Path(plan['physical_branch_root']).resolve();path=Path(authorization_path).resolve()
++    assert path.parent==ROOT/'root-acceptances','only independent root authorizes an executor change'
++    document=json.loads(path.read_text());digest=sha(path.read_bytes())
++    assert document['schema']=='proteus.continuation.root-executor-upgrade.v1' and document['accepted'] is True
++    assert document['authorized_entrypoint']=='same-branch-resume'
++    assert document['upgrade_sequence']==1,'only this explicit first operational upgrade is implemented'
++    assert document['physical_branch_root']==str(root)
++    assert document['branch_manifest_sha256']==sha(Path(plan_path).read_bytes())
++    assert document['parent_manifest_sha256']==plan['parent_manifest_sha256']
++    assert document['old_executor_revision']==plan['executor_operator_source']['revision']
++    assert document['new_executor_revision']==pin and pin!=document['old_executor_revision']
++    assert document['new_executor_repository']=='local-unpublished:'+str(operator)
++    assert document['initial_root_release_sha256']==sha(Path(release_path).read_bytes())
++    assert document['original_launch_intent_sha256']==sha((root/'launch-intent.json').read_bytes())
++    assert document['parent_label']==plan['parent_label']=='linux-combee-formula-offline-combee_dynamic-v6-ledger-io'
++    receipt=json.loads((root/'invocations/0001.receipt.json').read_text())
++    assert receipt['operator_revision']==document['old_executor_revision']
++    assert receipt['branch_manifest_sha256']==document['branch_manifest_sha256']
++    assert receipt['status']=='deferred' and receipt['journal_pending'] is True and receipt['method_result'] is None
++    assert receipt['diagnostic']=='workflow did not commit: ContractError: inherited journal origin missing'
++    assert document['protected_stopped_boundary']['invocations/0001.receipt.json']==sha((root/'invocations/0001.receipt.json').read_bytes())
++    activation=root/'operational-upgrades/0001.activation.json'
++    if activation.exists():
++        old=json.loads(activation.read_text())
++        assert old['root_authorization_sha256']==digest and old['new_executor_revision']==pin
++        assert old['protected_stopped_boundary']==document['protected_stopped_boundary']
++    else:
++        assert boundary_files(root)==document['protected_stopped_boundary'],'owned boundary changed before upgrade'
++        actors=owned_actors(root)
++        assert actors==document['owned_actors_at_authorization']
++        assert actors['count']==6 and actors['all_completed'] and actors['unsettled_rows']==0
++    return {'document':document,'path':str(path),'sha256':digest,'activation':str(activation)}
++
++def activate_upgrade(binding,*,lease,pin):
++    lease.require_owned();path=Path(binding['activation']);document=binding['document']
++    if path.exists():
++        assert json.loads(path.read_text())['root_authorization_sha256']==binding['sha256'];return
++    root=Path(document['physical_branch_root'])
++    assert boundary_files(root)==document['protected_stopped_boundary']
++    assert owned_actors(root)==document['owned_actors_at_authorization']
++    once(path,{'schema':'proteus.continuation.executor-upgrade-activation.v1',
++        'root_authorization_path':binding['path'],'root_authorization_sha256':binding['sha256'],
++        'old_executor_revision':document['old_executor_revision'],'new_executor_revision':pin,
++        'protected_stopped_boundary':document['protected_stopped_boundary'],
++        'initial_manifest_and_launch_intent_untouched':True,
++        'same_physical_branch_ledger_claim_and_stable_IDs':True})

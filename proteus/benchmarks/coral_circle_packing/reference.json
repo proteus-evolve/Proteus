@@ -1,0 +1,38 @@
+{
+  "repository": "https://github.com/Human-Agent-Society/CORAL",
+  "revision": "0123dfb939b35228cf2c1fde224cd0561e727408",
+  "files": {
+    "seed.reference.py": {
+      "source": "examples/circle_packing/seed/initial_program.py",
+      "sha256": "sha256:3baecab4898f223f645e2746f405a53b24bf9eeadc5314ca2bde51c3b2907155"
+    },
+    "grader.reference.py": {
+      "source": "examples/circle_packing/grader/src/circle_packing_grader/grader.py",
+      "sha256": "sha256:fe410f41114ffe3bcd6439356f4cab3f5d0e71a28bc79c7ea03658f729f32654"
+    },
+    "task.reference.yaml": {
+      "source": "examples/circle_packing/task.yaml",
+      "sha256": "sha256:f23440525f6fff3314a358bcb5282a31b010da4ee5295cf7797f4d4033d2a516"
+    },
+    "LICENSE-CORAL.txt": {
+      "source": "LICENSE",
+      "sha256": "sha256:322e5f2d0b507c80445050afae5bcc4824150ae2a5eca9cb8c3dc8e0cace44c6"
+    }
+  },
+  "dependencies": [
+    {
+      "package": "numpy",
+      "version": "2.2.6",
+      "filename": "numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "sha256": "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249",
+      "url": "https://files.pythonhosted.org/packages/8c/3d/1e1db36cfd41f895d266b103df00ca5b3cbe965184df824dec5c08c6b803/numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    },
+    {
+      "package": "scipy",
+      "version": "1.15.3",
+      "filename": "scipy-1.15.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "sha256": "271e3713e645149ea5ea3e97b57fdab61ce61333f97cfae392c28ba786f9bb49",
+      "url": "https://files.pythonhosted.org/packages/0b/1f/03f52c282437a168ee2c7c14a1a0d0781a9a4a8962d84ac05c06b4c5b555/scipy-1.15.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    }
+  ]
+}
