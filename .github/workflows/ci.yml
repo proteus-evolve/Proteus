@@ -4,7 +4,18 @@ on:
   push:
     branches: [main, dev/1.0.0]
     tags: ["v*"]
+    # Path filters apply to branch pushes, not release tags.
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**/*.md'
+      - 'docs/assets/**'
+      - 'docs/technical-report/**'
   pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**/*.md'
+      - 'docs/assets/**'
+      - 'docs/technical-report/**'
   workflow_dispatch:
     inputs:
       coral_expected_sha:

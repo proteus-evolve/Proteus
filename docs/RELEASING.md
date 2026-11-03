@@ -117,6 +117,13 @@ version number.
 
 ## Scope of the automated gates
 
+Ordinary branch pushes and pull requests that change only the README, Markdown
+documentation under `docs/`, documentation assets, or the technical report skip
+full CI and Harbor. Changes to code, recipes, skills, build configuration, workflow
+files, or machine-readable validation evidence still trigger their existing checks.
+GitHub does not apply path filters to tag pushes: every `v*` tag still triggers all
+four release gates, even if the tagged commit changes only documentation.
+
 These gates validate implementation, packaging, pinned reference conformance and
 live runtime operation. They do not replace the five method families' real-model
 benchmark results, declared baseline comparisons, CORAL sharing analysis, or the
