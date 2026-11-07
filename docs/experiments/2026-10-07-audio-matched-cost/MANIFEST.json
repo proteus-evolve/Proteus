@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "algorithm": "SHA-256",
+  "scope": "Published bundle only; original native artifact hashes are in data/provenance.json.",
+  "files": {
+    "README.md": "56c735b4cc1beff7f6ec529a0162540c71eeb7c8bde6e69d90a526dd5be9b85f",
+    "data/cost-audit-metadata.json": "8d123b065b62a50334b179b55fe9d6c2e84cba7473018138f436a90235c3b43e",
+    "data/episode-points.csv": "56590c2dfff2fb1859b70716e4dae292e25b4fcd31d2ca7ea5edbdf6a8240a9c",
+    "data/experiment.json": "53d41ef9922b64fecf9b135d2011c2332769aa36736a0496b55fa45392949faa",
+    "data/hidden-audit-metadata.json": "79bda64265e2f77612f219fa7915100597efddec215a3919fbc666bb0497d802",
+    "data/provenance.json": "fef01ab3d804864d369e53030d586c4044db6e2607f62bb3e68e8362028b9d83",
+    "data/summary.csv": "a9aa1be0e51ec3e59beb92e74403bee5f5b3fb53d0f642126282b03d8518c78f",
+    "figures/matched_cost_all_45.pdf": "e8da778b1f5a6a471f12f2ea350ee565dfe668c4b4fcfff78e50c119978ae18d",
+    "figures/matched_cost_all_45.png": "66c43fc49f4281f5b25d52bb8b572705817f10723983a54f3bccb9116b5b2d59",
+    "figures/matched_cost_all_45_tool_calls.pdf": "2b5e2c80b88952de340cbcedb7e10bd288699a0a6b09edfdffb2118e1ae1422d",
+    "figures/matched_cost_all_45_tool_calls.png": "e70565a53274ed5318aba33160be2a8c1f5c2269c6d6814dfce922b2ec942053",
+    "goals/G1-GOAL.md": "ea0237c2c7c8b98c1cb7bce394944a648a77add1599718a31de1047e320fd322",
+    "goals/G2-GOAL.md": "c667850faa0f9529618e115cb536c1b56a2a8fd01735ff8fb49f323239c45f5f",
+    "goals/G3-GOAL.md": "57e939fb8e0e53d7cec549a872ec8b92d73890a92e46ce9555f78c8175e09650",
+    "plot.py": "cb5556f117584855ee19f0f7c2c5f54c4faf34cb1bf6ecb22817ffadba083e10",
+    "requirements-plot.txt": "de950d3b75e4ad1a760c121533e06390c84574f7dd0b53c0eaa742ab6d5c2f38",
+    "verify_record.py": "ce1987f7a350e3989acc97ceb9aeeafa5ba8d51b15dc401268cffcfc95712da1"
+  }
+}
